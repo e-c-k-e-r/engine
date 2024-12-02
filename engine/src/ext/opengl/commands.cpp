@@ -320,23 +320,105 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
 	
+	GLenum vertexType = GL_FLOAT;
+	switch ( drawInfo.attributes.position.descriptor.type ) {
+		case uf::renderer::enums::Type::SHORT: vertexType = GL_SHORT; break;
+		case uf::renderer::enums::Type::USHORT: vertexType = GL_UNSIGNED_SHORT; break;
+
+		case uf::renderer::enums::Type::HALF: vertexType = GL_HALF_FLOAT; break;
+	//	case uf::renderer::enums::Type::BFLOAT: vertexType = GL_HALF_FLOAT; break; // 
+		case uf::renderer::enums::Type::FLOAT: vertexType = GL_FLOAT; break;
+	}
+
+	GLenum normalType = GL_FLOAT;
+	switch ( drawInfo.attributes.normal.descriptor.type ) {
+		case uf::renderer::enums::Type::SHORT: normalType = GL_SHORT; break;
+		case uf::renderer::enums::Type::USHORT: normalType = GL_UNSIGNED_SHORT; break;
+
+		case uf::renderer::enums::Type::HALF: normalType = GL_HALF_FLOAT; break;
+	//	case uf::renderer::enums::Type::BFLOAT: normalType = GL_HALF_FLOAT; break; // 
+		case uf::renderer::enums::Type::FLOAT: normalType = GL_FLOAT; break;
+	}
+
+	GLenum uvType = GL_FLOAT;
+	switch ( drawInfo.attributes.uv.descriptor.type ) {
+		case uf::renderer::enums::Type::SHORT: uvType = GL_SHORT; break;
+		case uf::renderer::enums::Type::USHORT: uvType = GL_UNSIGNED_SHORT; break;
+
+		case uf::renderer::enums::Type::HALF: uvType = GL_HALF_FLOAT; break;
+	//	case uf::renderer::enums::Type::BFLOAT: uvType = GL_HALF_FLOAT; break; // 
+		case uf::renderer::enums::Type::FLOAT: uvType = GL_FLOAT; break;
+	}
+
+	GLenum stType = GL_FLOAT;
+	switch ( drawInfo.attributes.st.descriptor.type ) {
+		case uf::renderer::enums::Type::SHORT: stType = GL_SHORT; break;
+		case uf::renderer::enums::Type::USHORT: stType = GL_UNSIGNED_SHORT; break;
+
+		case uf::renderer::enums::Type::HALF: stType = GL_HALF_FLOAT; break;
+	//	case uf::renderer::enums::Type::BFLOAT: stType = GL_HALF_FLOAT; break; // 
+		case uf::renderer::enums::Type::FLOAT: stType = GL_FLOAT; break;
+	}
+
 	GLenum indicesType = GL_UNSIGNED_INT;
 	switch ( drawInfo.attributes.index.stride ) {
 		case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
 		case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
 		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 	}
+	
+	// defined in case attributes need to be filled / converted on the fly
+	uint8_t* normalPtr = drawInfo.attributes.normal.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.normal.pointer) + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
+	uint8_t* colorPtr = drawInfo.attributes.color.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.color.pointer) + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
+	uint8_t* uvPtr = drawInfo.attributes.uv.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
+	uint8_t* stPtr = drawInfo.attributes.st.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
+	uint8_t* vertexPtr = drawInfo.attributes.position.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
 
-	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (static_cast<uint8_t*>(drawInfo.attributes.normal.pointer) + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));
+	auto vertexStride = drawInfo.attributes.position.stride;
+	uf::stl::vector<float> vertexBufferRemap;
 
+#if !UF_ENV_DREAMCAST
+	if ( vertexType != GL_FLOAT ) {
+		vertexBufferRemap = uf::stl::vector<float>( drawInfo.descriptor.inputs.vertex.count * 3 );
+		for ( size_t i = 0; i < drawInfo.descriptor.inputs.vertex.count * 3; ++i ) {
+			switch ( drawInfo.attributes.position.descriptor.type ) {
+				case uf::renderer::enums::Type::SHORT:
+				case uf::renderer::enums::Type::USHORT:
+					vertexBufferRemap[i] = uf::quant::dequantize( ((uint16_t*) vertexPtr)[i] );
+				break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF:
+					vertexBufferRemap[i] = ((float16*) vertexPtr)[i];
+				break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT:
+					vertexBufferRemap[i] = ((bfloat16*) vertexPtr)[i];
+				break;
+			#endif
+				default:
+					vertexBufferRemap[i] = vertexPtr[i];
+				break;
+			}
+		}
+
+		vertexPtr = (uint8_t*) vertexBufferRemap.data();
+		vertexType = GL_FLOAT;
+		vertexStride = 0;
+	}
+#endif
+
+	if ( drawInfo.attributes.normal.pointer ) {
+		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
+	}
 
 	if ( drawInfo.attributes.color.pointer ) {
-		GLenum format = GL_UNSIGNED_BYTE;
+		GLenum colorType = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
-			case sizeof(uint8_t): format = GL_UNSIGNED_BYTE; break;
-			case sizeof(float): format = GL_FLOAT; break;
+			case sizeof(uint8_t): colorType = GL_UNSIGNED_BYTE; break;
+			case sizeof(float): colorType = GL_FLOAT; break;
 		}
-		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, format, drawInfo.attributes.color.stride, (static_cast<uint8_t*>(drawInfo.attributes.color.pointer) + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
+		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
 	} else if ( drawInfo.color.enabled ) {
 		colors = uf::stl::vector<pod::Vector4f>( drawInfo.descriptor.inputs.vertex.count, drawInfo.color.value );
 		GL_ERROR_CHECK(glColorPointer(4, GL_FLOAT, sizeof(pod::Vector4f), &(colors[0][0])));
@@ -344,15 +426,15 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	//	GL_ERROR_CHECK(glColor4f( drawInfo.color.value[0], drawInfo.color.value[1], drawInfo.color.value[2], drawInfo.color.value[3] ));
 	}
 
-	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {		
+	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
+		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
 
-	#if 0 && UF_ENV_DREAMCAST
+	#if UF_ENV_DREAMCAST
 		if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
 		} else {
@@ -370,11 +452,13 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
+			GL_ERROR_CHECK(glTexCoordPointer(2, stType, drawInfo.attributes.st.stride, stPtr));
 		}
 	}
 
-	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first)));
+	{
+		GL_ERROR_CHECK(glVertexPointer(3, vertexType, vertexStride, vertexPtr));
+	}
 
 	if ( drawInfo.descriptor.inputs.index.count ) {
 		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));

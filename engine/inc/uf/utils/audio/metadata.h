@@ -5,7 +5,7 @@
 
 #include <uf/ext/oal/source.h>
 #include <uf/ext/oal/buffer.h>
-
+#include <uf/utils/time/time.h>
 namespace uf {
 	namespace audio {
 		struct UF_API Metadata {
@@ -31,6 +31,9 @@ namespace uf {
 
 				uint32_t format = 0;
 				float duration = 0;
+
+				uf::Timer<> timer;
+				float elapsed = 0;
 			} info;
 			struct {
 				bool streamed = true;

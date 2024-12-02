@@ -126,6 +126,7 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 	};
 
 	payload.filename = uri;
+	payload.uri = uri;
 	payload.mime = mime;
 
 	if ( payload.filename.substr(0,5) != "https" && extension == "json" ) {
@@ -187,12 +188,13 @@ uf::stl::string uf::asset::cache( uf::asset::Payload& payload ) {
 	UF_MSG_DEBUG("Preloading {}", filename);
 	DC_STATS();
 #endif
-	return filename;
+	return payload.filename = filename;
 }
 uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	uf::stl::string filename = payload.filename;
 	uf::stl::string extension = uf::string::lowercase(uf::io::extension( payload.filename, -1 ));
 	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( payload.filename ), "/.(?:gz|lz4?)$/", "" ) );
+
 	if ( payload.filename.substr(0,5) == "https" ) {
 		uf::stl::string hash = uf::string::sha256( payload.filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
@@ -230,7 +232,7 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 #endif
 
 	#define UF_ASSET_REGISTER(type)\
-		type& asset = uf::asset::get<type>( payload );
+		type& asset = payload.asComponent && payload.object.pointer ? payload.object.pointer->getComponent<type>() : uf::asset::get<type>( payload );
 
 	//	if ( uf::asset::has( filename ) ) return filename;
 	//	if ( uf::asset::has( payload.filename ) ) return filename;
@@ -276,7 +278,7 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	DC_STATS();
 #endif
 
-	return filename;
+	return payload.filename = filename;
 }
 bool uf::asset::has( const uf::stl::string& url ) {
 	return uf::asset::map.count( url ) > 0;
@@ -297,6 +299,11 @@ void uf::asset::remove( const uf::stl::string& url ) {
 }
 uf::asset::userdata_t& uf::asset::get( const uf::stl::string& url ) {
 	return uf::asset::map[url];
+}
+uf::asset::userdata_t uf::asset::release( const uf::stl::string& url ) {
+	auto userdata = uf::asset::get( url );
+	uf::asset::map.erase( url );
+	return userdata;
 }
 /*
 uf::stl::string uf::asset::getOriginal( const uf::stl::string& uri ) {

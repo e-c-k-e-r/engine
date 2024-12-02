@@ -69,6 +69,10 @@ void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int width, int h
 	FT_Set_Pixel_Sizes( glyph.face, width, height );
 }
 
+void ext::freetype::setRenderMode( ext::freetype::Glyph& glyph, decltype(FT_RENDER_MODE_NORMAL) mode ) {
+	FT_Render_Glyph( glyph.face->glyph, mode );
+}
+
 bool ext::freetype::load( ext::freetype::Glyph& glyph, unsigned long c ) {
 	int error = 0;
 	if ( (error = FT_Load_Char(glyph.face, c, FT_LOAD_RENDER) )) {

@@ -14,6 +14,12 @@
 #include <fstream>
 #include <atomic>
 
+#define VK_REGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
+	VK_VALIDATION_MESSAGE("Registered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
+	uf::stl::string id = cpptrace::generate_trace().to_string();\
+	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::add( handle, id ); \
+}
+
 namespace {
 	struct {
 		uf::stl::vector<VkFence> graphics;
@@ -55,6 +61,7 @@ bool ext::vulkan::settings::experimental::batchQueueSubmissions = true;
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::enableMultiGPU = false;
 bool ext::vulkan::settings::experimental::memoryBudgetBit = true;
+bool ext::vulkan::settings::experimental::registerRenderMode = true;
 
 // not so experimental
 bool ext::vulkan::settings::invariant::waitOnRenderEnd = false;
@@ -103,6 +110,8 @@ uint32_t ext::vulkan::states::frameAccumulate = 0;
 bool ext::vulkan::states::frameAccumulateReset = false;
 uint32_t ext::vulkan::states::frameSkip = 0;
 
+uf::stl::vector<ext::vulkan::Texture> ext::vulkan::gc::textures;
+
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
 ext::vulkan::Buffer ext::vulkan::scratchBuffer;
@@ -111,6 +120,59 @@ uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
 };
 uf::stl::unordered_map<uf::stl::string, ext::vulkan::RenderMode*> ext::vulkan::renderModesMap;
+
+namespace {
+	uf::stl::vector<ext::vulkan::RenderMode*> fetchRenderModes( bool initGraphics = false ) {
+		auto& scene = uf::scene::getCurrentScene(); 
+		auto/*&*/ graph = scene.getGraph();
+
+		uf::stl::vector<uf::renderer::RenderMode*> renderModes = ext::vulkan::renderModes;
+		for ( auto entity : graph ) {
+			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+				if ( std::find( renderModes.begin(), renderModes.end(), &renderMode ) == renderModes.end() )
+					renderModes.emplace_back(&renderMode);
+			}
+			if ( entity->hasComponent<uf::renderer::DeferredRenderMode>() ) {
+				auto& renderMode = entity->getComponent<uf::renderer::DeferredRenderMode>();
+				if ( std::find( renderModes.begin(), renderModes.end(), &renderMode ) == renderModes.end() )
+					renderModes.emplace_back(&renderMode);
+			}
+		}
+
+		// group by category
+		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uf::renderer::RenderMode*>> renderModesMap;
+		for ( auto* renderMode : renderModes ) {
+			renderModesMap[renderMode->getName()].emplace_back( renderMode );
+		}
+
+		// empty
+		renderModes = {};
+
+		// order the end rendermodes in a specific way: Gui -> Deferred -> Swapchain
+		uf::stl::vector<uf::renderer::RenderMode*> end;
+
+		if ( renderModesMap.count("Gui") > 0 ) {
+			end.insert( end.end(), renderModesMap["Gui"].begin(), renderModesMap["Gui"].end() );
+			renderModesMap.erase("Gui");
+		}
+		if ( renderModesMap.count("") > 0 ) {
+			end.insert( end.end(), renderModesMap[""].begin(), renderModesMap[""].end() );
+			renderModesMap.erase("");
+		}
+		if ( renderModesMap.count("Swapchain") > 0 ) {
+			end.insert( end.end(), renderModesMap["Swapchain"].begin(), renderModesMap["Swapchain"].end() );
+			renderModesMap.erase("Swapchain");
+		}
+
+		for ( auto& pair : renderModesMap ) {
+			renderModes.insert( renderModes.end(), pair.second.begin(), pair.second.end() );
+		}
+		renderModes.insert( renderModes.end(), end.begin(), end.end() );
+
+		return renderModes;
+	}
+}
 
 VkResult ext::vulkan::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -148,7 +210,6 @@ uf::stl::string ext::vulkan::retrieveCheckpoint( VkQueue queue ) {
 	vkGetQueueCheckpointDataNV(queue, &size, checkpoints.data());
 
 	uf::stl::vector<uf::stl::string> strings;
-	UF_MSG_DEBUG("{}: {}", size, checkpoints.size());
 
 	for ( auto& checkpoint : checkpoints ) {
 		strings.emplace_back(::fmt::format( "{} | {} | {}:\n{}", ::fmt::ptr(queue), checkpoint.stage, ::fmt::ptr(checkpoint.pCheckpointMarker), uf::checkpoint::traverse( (pod::Checkpoint*) checkpoint.pCheckpointMarker )));
@@ -201,7 +262,8 @@ VkSampleCountFlagBits ext::vulkan::sampleCount( uint8_t count ) {
 }
 bool ext::vulkan::hasRenderMode( const uf::stl::string& name, bool isName ) {
 	if ( isName && ext::vulkan::renderModesMap.count(name) > 0 ) return true;
-	for ( auto& renderMode: ext::vulkan::renderModes ) {
+	auto renderModes = ::fetchRenderModes();
+	for ( auto& renderMode: renderModes ) {
 		if ( isName && renderMode->getName() == name ) return true;
 		else if ( renderMode->getType() == name ) return true;
 	}
@@ -214,28 +276,31 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	
 	VK_VALIDATION_MESSAGE("Adding RenderMode: {} : {}", name, mode->getType());
 	
+/*
 	// reorder
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
+	if ( renderModesMap.count("Gui") > 0 ) {
+		RenderMode& primary = *renderModesMap["Gui"]; // getRenderMode("Gui", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
-	if ( hasRenderMode("", true) ) {
-		RenderMode& primary = getRenderMode("", true);
+	if ( renderModesMap.count("") > 0 ) {
+		RenderMode& primary = *renderModesMap[""]; // getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
-	{
-		RenderMode& primary = getRenderMode("Swapchain", true);
+	if ( renderModesMap.count("Swapchain") > 0 ) {
+		RenderMode& primary = *renderModesMap["Swapchain"]; // getRenderMode("Swapchain", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
+*/
 
 	ext::vulkan::states::rebuild = true;
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const uf::stl::string& name, bool isName ) {
 	if ( isName && renderModesMap.count(name) > 0 ) return *renderModesMap[name];
+	auto renderModes = ::fetchRenderModes();
 	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
@@ -260,6 +325,7 @@ uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf:
 }
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
 	uf::stl::vector<RenderMode*> targets;
+	auto renderModes = ::fetchRenderModes();
 #if 1
 	// this way keeps the render mode ordered as requested
 	for ( auto& name : names ) {
@@ -303,10 +369,17 @@ void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, std
 	ext::vulkan::currentRenderMode.get(id) = renderMode;
 }
 
-void ext::vulkan::initialize() {
+namespace {
+	bool skip = false;
+}
+
+void ext::vulkan::initialize( bool soft ) {
+	soft = false;
 //	ext::vulkan::mutex.lock();
-	device.initialize();
-	swapchain.initialize( device );
+	if ( !soft ) {
+		device.initialize();
+		swapchain.initialize( device );
+	}
 
 	if ( uf::renderer::settings::invariant::deviceAddressing ) {
 		ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
@@ -377,12 +450,19 @@ void ext::vulkan::initialize() {
 		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 		
-		for ( auto& fence : ::auxFences.graphics ) VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
-		for ( auto& fence : ::auxFences.compute ) VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+		for ( auto& fence : ::auxFences.graphics ) {
+			VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+			VK_REGISTER_HANDLE( fence );
+		}
+		for ( auto& fence : ::auxFences.compute ) {
+			VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+			VK_REGISTER_HANDLE( fence );
+		}
 	}
 	
-	uf::graph::initialize();
+	// uf::graph::initialize();
 
+	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->initialize(device);
@@ -410,19 +490,13 @@ void ext::vulkan::tick() {
 //	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
 		ext::vulkan::states::rebuild = true;
+		::skip = true;
 	}
-	auto& scene = uf::scene::getCurrentScene(); 
-	auto/*&*/ graph = scene.getGraph();
-	for ( auto entity : graph ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) continue;
-		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
-		graphic.initializePipeline();
-		ext::vulkan::states::rebuild = true;
-	}
-
+	
+	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
+		if ( renderMode->executed && !renderMode->execute ) continue;
 		if ( !renderMode->device ) {
 			renderMode->initialize(ext::vulkan::device);
 			ext::vulkan::states::rebuild = true;
@@ -430,8 +504,19 @@ void ext::vulkan::tick() {
 		renderMode->tick();
 	}
 
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto/*&*/ graph = scene.getGraph();
+	for ( auto entity : graph ) {
+		if ( entity->hasComponent<uf::Graphic>() ) {
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
+			graphic.initializePipeline();
+			ext::vulkan::states::rebuild = true;
+		}
+	}
+
 	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
-	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+	for ( auto& renderMode : renderModes ) { if ( !renderMode || (renderMode->executed && !renderMode->execute) ) continue;
 		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
@@ -442,6 +527,13 @@ void ext::vulkan::tick() {
 	} 
 
 	uf::thread::execute( tasks );
+
+/*
+	for ( auto& texture : ext::vulkan::gc::textures ) {
+		texture.destroy( false );
+	}
+	ext::vulkan::gc::textures.clear();
+*/
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
@@ -449,10 +541,16 @@ void ext::vulkan::tick() {
 //	ext::vulkan::flushCommandBuffers();
 //	ext::vulkan::mutex.unlock();
 }
-void ext::vulkan::render() {	
+void ext::vulkan::render() {
 //	ext::vulkan::mutex.lock();
 	ext::vulkan::flushCommandBuffers();
 
+	if ( ::skip ) {
+		::skip = false;
+		return;
+	}
+
+	// return;
 /*
 	if ( ext::vulkan::states::frameSkip ) {
 		--ext::vulkan::states::frameSkip;
@@ -465,6 +563,7 @@ void ext::vulkan::render() {
 	auto transient = std::move(device.transient);
 	ext::vulkan::mutex.unlock();
 
+	auto renderModes = ::fetchRenderModes();
 	if ( settings::experimental::batchQueueSubmissions ) {
 		uf::stl::vector<VkFence> fences = { ::auxFences.compute[states::currentBuffer], ::auxFences.graphics[states::currentBuffer] };
 		uf::stl::vector<RenderMode*> auxRenderModes; auxRenderModes.reserve( renderModes.size() );
@@ -492,7 +591,6 @@ void ext::vulkan::render() {
 
 //			tasks.queue([&]{
 				ext::vulkan::setCurrentRenderMode(renderMode);
-				uf::graph::render();
 				uf::scene::render();
 				ext::vulkan::setCurrentRenderMode(NULL);
 //			});
@@ -511,7 +609,6 @@ void ext::vulkan::render() {
 		// stuff we can't batch
 		for ( auto renderMode : specialRenderModes ) {
 			ext::vulkan::setCurrentRenderMode(renderMode);
-			uf::graph::render();
 			uf::scene::render();
 		#if UF_USE_FFX_FSR
 			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
@@ -532,7 +629,10 @@ void ext::vulkan::render() {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
 
 		#if UF_USE_FFX_FSR
-			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr ) ext::fsr::render();
+			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
+				ext::fsr::tick();
+				ext::fsr::render();
+			}
 		#endif
 
 			ext::vulkan::setCurrentRenderMode(renderMode);
@@ -540,6 +640,7 @@ void ext::vulkan::render() {
 			uf::scene::render();
 			renderMode->render();
 			ext::vulkan::setCurrentRenderMode(NULL);
+	
 		}
 	}
 
@@ -552,10 +653,14 @@ void ext::vulkan::render() {
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
 	
-	for ( auto& as : transient.ass ) uf::renderer::vkDestroyAccelerationStructureKHR(device, as.handle, nullptr);
+	for ( auto& as : transient.ass ) {
+		uf::renderer::vkDestroyAccelerationStructureKHR(device, as.handle, nullptr);
+		VK_UNREGISTER_HANDLE( as.handle );
+	}
 	transient.ass.clear();
 }
-void ext::vulkan::destroy() {
+void ext::vulkan::destroy( bool soft ) {
+	soft = false;
 	ext::vulkan::flushCommandBuffers();
 
 //	ext::vulkan::mutex.lock();
@@ -567,6 +672,7 @@ void ext::vulkan::destroy() {
 	}
 #endif
 
+	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->device ) continue;
 		renderMode->destroy();
@@ -574,19 +680,134 @@ void ext::vulkan::destroy() {
 		renderMode = NULL;
 	}
 
+	ext::vulkan::renderModes.clear();
+	renderModesMap.clear();
+
 	Texture2D::empty.destroy();
 	Texture3D::empty.destroy();
 	TextureCube::empty.destroy();
 	for ( auto& s : ext::vulkan::Sampler::samplers ) s.destroy();
 
-	for ( auto& fence : ::auxFences.graphics ) vkDestroyFence( device, fence, nullptr);
-	for ( auto& fence : ::auxFences.compute ) vkDestroyFence( device, fence, nullptr);
+	for ( auto& fence : ::auxFences.graphics ) {
+		vkDestroyFence( device, fence, nullptr);
+		VK_UNREGISTER_HANDLE( fence );
+	}
+	for ( auto& fence : ::auxFences.compute ) {
+		vkDestroyFence( device, fence, nullptr);
+		VK_UNREGISTER_HANDLE( fence );
+	}
+
+	// uf::graph::destroy();
 
 	ext::vulkan::scratchBuffer.destroy();
 
+	if ( soft ) return;
+
 	swapchain.destroy();
 	device.destroy();
+
+	ext::vulkan::allocator = {};
+	ext::vulkan::swapchain = {};
+	ext::vulkan::device = {};
 //	ext::vulkan::mutex.unlock();
+
+	// check for any leaked resources
+	if ( false ) {
+		UF_MSG_DEBUG("Leaked resources:");
+
+		for ( auto& resource : ext::vulkan::Resource<VkBuffer_T*>::handles ) {
+			auto name = TYPE_NAME(VkBuffer_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VmaAllocator_T*>::handles ) {
+			auto name = TYPE_NAME(VmaAllocator_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkInstance_T*>::handles ) {
+			auto name = TYPE_NAME(VkInstance_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkSurfaceKHR_T*>::handles ) {
+			auto name = TYPE_NAME(VkSurfaceKHR_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkDevice_T*>::handles ) {
+			auto name = TYPE_NAME(VkDevice_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkPipelineCache_T*>::handles ) {
+			auto name = TYPE_NAME(VkPipelineCache_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkCommandBuffer_T*>::handles ) {
+			auto name = TYPE_NAME(VkCommandBuffer_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkCommandPool_T*>::handles ) {
+			auto name = TYPE_NAME(VkCommandPool_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkFence_T*>::handles ) {
+			auto name = TYPE_NAME(VkFence_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkAccelerationStructureKHR_T*>::handles ) {
+			auto name = TYPE_NAME(VkAccelerationStructureKHR_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkQueryPool_T*>::handles ) {
+			auto name = TYPE_NAME(VkQueryPool_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkDescriptorSetLayout_T*>::handles ) {
+			auto name = TYPE_NAME(VkDescriptorSetLayout_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkPipeline_T*>::handles ) {
+			auto name = TYPE_NAME(VkPipeline_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkPipelineLayout_T*>::handles ) {
+			auto name = TYPE_NAME(VkPipelineLayout_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkDescriptorPool_T*>::handles ) {
+			auto name = TYPE_NAME(VkDescriptorPool_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkSemaphore_T*>::handles ) {
+			auto name = TYPE_NAME(VkSemaphore_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkImage_T*>::handles ) {
+			auto name = TYPE_NAME(VkImage_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkFramebuffer_T*>::handles ) {
+			auto name = TYPE_NAME(VkFramebuffer_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkRenderPass_T*>::handles ) {
+			auto name = TYPE_NAME(VkRenderPass_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkImageView_T*>::handles ) {
+			auto name = TYPE_NAME(VkImageView_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkShaderModule_T*>::handles ) {
+			auto name = TYPE_NAME(VkShaderModule_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkSwapchainKHR_T*>::handles ) {
+			auto name = TYPE_NAME(VkSwapchainKHR_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+		for ( auto& resource : ext::vulkan::Resource<VkSampler_T*>::handles ) {
+			auto name = TYPE_NAME(VkSampler_T*);
+			UF_MSG_DEBUG("Orphaned resource: {}: {} (owned by: {})", name, (void*) resource.handle, resource.id );
+		}
+	}
 }
 void ext::vulkan::synchronize( uint8_t flag ) {
 	if ( flag & 0b01 ) {

@@ -57,7 +57,8 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 			renderMode->execute = false;
 			renderMode->metadata.limiter.execute = false;
 		//	renderMode->blitter.process = false;
-			uf::renderer::addRenderMode( renderMode, "Compute:RT" );
+			renderMode->metadata.name = "Compute:RT";
+			if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( renderMode, "Compute:RT" );
 		}
 	#if UF_USE_EXTERNAL_IMAGE
 		{
@@ -85,6 +86,8 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 	if ( !metadata.settings.ready ) {
 		TIMER(metadata.settings.readyTimer, !metadata.settings.ready ) {
 			metadata.settings.ready = true;
@@ -92,7 +95,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	static uf::stl::vector<pod::Instance> previousInstances;
-	uf::stl::vector<pod::Instance> instances = uf::graph::storage.instances.flatten();
+	uf::stl::vector<pod::Instance> instances = storage.instances.flatten();
 	if ( instances.empty() ) return;
 
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
@@ -101,7 +104,6 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	uf::stl::vector<uf::Graphic*> graphics; graphics.reserve( previousGraphics.size() );
 	uf::stl::vector<uf::renderer::AccelerationStructure> blases; blases.reserve( previousBlases.size() );
 
-	auto& scene = uf::scene::getCurrentScene();
 	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -194,11 +196,11 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
 				size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
-				shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-				shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
-				shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
-				shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
-				shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+				shader.buffers.emplace_back( storage.buffers.instance.alias() );
+				shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
+				shader.buffers.emplace_back( storage.buffers.material.alias() );
+				shader.buffers.emplace_back( storage.buffers.texture.alias() );
+				shader.buffers.emplace_back( storage.buffers.light.alias() );
 
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures2D },

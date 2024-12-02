@@ -100,6 +100,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	VmaAllocationCreateInfo allocationCreateInfo = {};
 	allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
+	VK_REGISTER_HANDLE( temporary );
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
 	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS, true); // waits on flush
@@ -194,6 +195,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	image.loadFromBuffer( data, {renderTarget.width, renderTarget.height}, 8, 4, false );
 	vmaUnmapMemory( allocator, allocation );
 	vmaDestroyImage(allocator, temporary, allocation);
+	VK_UNREGISTER_HANDLE( temporary );
 	return image;
 }
 
@@ -398,6 +400,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 		fences.resize( swapchain.buffers );
 		for ( auto& fence : fences ) {
 			VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+			VK_REGISTER_HANDLE( fence );
 		}
 		// Set sync objects
 		{
@@ -407,6 +410,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 			semaphoreCreateInfo.pNext = nullptr;
 			// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
 			VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
+			VK_REGISTER_HANDLE( renderCompleteSemaphore );
 		}
 	}
 
@@ -453,13 +457,17 @@ void ext::vulkan::RenderMode::destroy() {
 	}
 	if ( renderCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, renderCompleteSemaphore, nullptr);
+		VK_UNREGISTER_HANDLE( renderCompleteSemaphore );
 		renderCompleteSemaphore = VK_NULL_HANDLE;
 	}
 
 	for ( auto& fence : fences ) {
 		vkDestroyFence( *device, fence, nullptr);
+		VK_UNREGISTER_HANDLE( fence );
 	}
 	fences.clear();
+	blitter.destroy();
+	ext::vulkan::Buffers::destroy();
 }
 void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 	if ( !device ) return;

@@ -77,8 +77,8 @@ void main() {
 #else
 	const mat4 skinned = mat4(1.0);
 #endif
-//	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
-	const mat4 model = instance.model * skinned;
+	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
+//	const mat4 model = instance.model * skinned;
 
 
 #if BAKING

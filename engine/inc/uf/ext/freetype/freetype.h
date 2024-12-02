@@ -35,6 +35,7 @@ namespace ext {
 		
 		UF_API void setPixelSizes( ext::freetype::Glyph&, int ); 
 		UF_API void setPixelSizes( ext::freetype::Glyph&, int, int ); 
+		UF_API void setRenderMode( ext::freetype::Glyph&, decltype(FT_RENDER_MODE_NORMAL) = FT_RENDER_MODE_NORMAL );
 		
 		UF_API bool load( ext::freetype::Glyph&, unsigned long );
 		UF_API bool load( ext::freetype::Glyph&, const uf::String& );

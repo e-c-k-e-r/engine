@@ -4,8 +4,10 @@
 		"/gui.json"
 	],
 	"behaviors": [
-		"SceneBehavior",
-		"ExtSceneBehavior"
+		"SceneBehavior"
+		,"ExtSceneBehavior"
+		,"BgmEmitterBehavior"
+	//	,"RegionBehavior"
 	],
 	"system": {
 		"hot reload": {
@@ -31,7 +33,8 @@
 			}
 		},
 		"menus": {
-			"pause": "/gui/pause/menu.json"
+			"pause": "/gui/pause/main.json",
+			"dialogue": "/gui/dialogue/main.json"
 		},
 		"light": {
 			"enabled": true,
@@ -39,8 +42,9 @@
 			"ambient": [ 0.0, 0.0, 0.0 ],
 		//	"ambient": [ 0.1, 0.1, 0.2 ],
 
-			"exposure": 0.125,
-			"gamma": 2.2,
+			"exposure": 1.0,
+		//	"gamma": 2.2,
+			"gamma": 1.0,
 
 			"bloom": {
 				"threshold": 1.0,

@@ -1,11 +1,11 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "StartMenu",
+			"start": "SourceEngine",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": true,
+				"useLightmaps": false,
 				"max": 1,
 				"shadows": {
 					"enabled": false,
@@ -75,13 +75,13 @@
 				"timescale": 0.01666666666,
 				"interpolate": false,
 				"gravity": {
-					"mode": "per-object", // "universal",
+					"mode": "universal",
 					"constant": 6.67408e-11
 				},
 				"debug draw": {
 					"enabled": false,
 					"line width": 8,
-				//	"layer": "Gui",
+					"layer": "",
 					"rate": 0.0125
 				}
 			},

@@ -92,6 +92,7 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 	}
 
 	vmaCreateBufferWithAlignment( allocator, &bufferCreateInfo, &allocCreateInfo, alignment, &buffer, &allocation, &allocationInfo );
+	VK_REGISTER_HANDLE( buffer );
 }
 
 size_t ext::vulkan::Buffer::getAddress() {
@@ -128,6 +129,7 @@ void ext::vulkan::Buffer::destroy(bool defer) {
 		ext::vulkan::mutex.unlock();
 	} else if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
+		VK_UNREGISTER_HANDLE( buffer );
 	}
 
 	this->buffer = {};
@@ -230,8 +232,8 @@ ext::vulkan::Buffers::~Buffers() {
 	buffers.clear();
 }
 */
-void ext::vulkan::Buffers::destroy() {
-	for ( auto& buffer : buffers ) if ( buffer.device ) buffer.destroy(true);
+void ext::vulkan::Buffers::destroy(bool defer) {
+	for ( auto& buffer : buffers ) if ( buffer.device ) buffer.destroy(defer);
 	buffers.clear();
 }
 

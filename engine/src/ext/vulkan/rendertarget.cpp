@@ -29,7 +29,10 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	if ( attachment ) {
-		for ( auto& view : attachment->views ) vkDestroyImageView(*device, view, nullptr);
+		for ( auto& view : attachment->views ) {
+			vkDestroyImageView(*device, view, nullptr);
+			VK_UNREGISTER_HANDLE( view );
+		}
 		attachment->views.clear();
 		if ( attachment->image ) {
 			vmaDestroyImage( allocator, attachment->image, attachment->allocation );
@@ -92,6 +95,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		allocInfo.usage = VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
 	}
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment->image, &attachment->allocation, &attachment->allocationInfo));
+	VK_REGISTER_HANDLE( attachment->image );
 	attachment->mem = attachment->allocationInfo.deviceMemory;
 
 	VkImageAspectFlags aspectMask = 0;
@@ -116,6 +120,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageView.subresourceRange.layerCount = this->views;
 	imageView.image = attachment->image;
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
+	VK_REGISTER_HANDLE( attachment->view );
 
 	size_t viewIndex = 0;
 	for ( size_t layer = 0; layer < this->views; ++layer ) {
@@ -125,7 +130,9 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		for ( size_t mip = 0; mip < attachment->descriptor.mips; ++mip ) {
 			imageView.subresourceRange.baseMipLevel = mip;
 			imageView.subresourceRange.baseArrayLayer = layer;
-			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[viewIndex++]));
+			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[viewIndex]));
+			VK_REGISTER_HANDLE( attachment->views[viewIndex] );
+			++viewIndex;
 		}
 	}
 	{
@@ -319,10 +326,14 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		renderPassInfo.pDependencies = &dependencies[0];
 
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
+		VK_REGISTER_HANDLE( renderPass );
 	}
 	{	
 		// destroy previous framebuffers
-		for ( auto& framebuffer : framebuffers ) vkDestroyFramebuffer( device, framebuffer, nullptr );
+		for ( auto& framebuffer : framebuffers ) {
+			vkDestroyFramebuffer( device, framebuffer, nullptr );
+			VK_UNREGISTER_HANDLE( framebuffer );
+		}
 
 		RenderMode& base = ext::vulkan::getRenderMode( "Swapchain", false );
 		framebuffers.resize(ext::vulkan::swapchain.buffers);
@@ -359,6 +370,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			frameBufferCreateInfo.layers = 1;
 			// Create the framebuffer
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[i]));
+			VK_REGISTER_HANDLE( framebuffers[i] );
 		}
 	}
 
@@ -402,20 +414,29 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 void ext::vulkan::RenderTarget::destroy() {
 	if ( !device ) return;
 	vkDestroyRenderPass( *device, renderPass, nullptr );
-	for ( auto& framebuffer : framebuffers ) vkDestroyFramebuffer( *device, framebuffer, nullptr );
+	VK_UNREGISTER_HANDLE( renderPass );
+	for ( auto& framebuffer : framebuffers ) {
+		vkDestroyFramebuffer( *device, framebuffer, nullptr );
+		VK_UNREGISTER_HANDLE( framebuffer );
+	}
 	
 	for ( auto& attachment : attachments ) {
 		if ( attachment.descriptor.aliased ) continue;
 		if ( attachment.view ) {
 			if ( attachment.view != attachment.views.front() ) {
 				vkDestroyImageView(*device, attachment.view, nullptr);
+				VK_UNREGISTER_HANDLE( attachment.view );
 				attachment.view = VK_NULL_HANDLE;
 			}
 		}
-		for ( size_t i = 0; i < this->views; ++i ) vkDestroyImageView(*device, attachment.views[i], nullptr);
+		for ( size_t i = 0; i < this->views; ++i ) {
+			vkDestroyImageView(*device, attachment.views[i], nullptr);
+			VK_UNREGISTER_HANDLE( attachment.views[i] );
+		}
 		attachment.views.clear();
 	//	vkDestroyImage( *device, attachment.image, nullptr );
 		vmaDestroyImage( allocator, attachment.image, attachment.allocation );
+		VK_UNREGISTER_HANDLE( attachment.image );
 		attachment.image = VK_NULL_HANDLE;
 	//	vkFreeMemory( *device, attachment.mem, nullptr );
 		attachment.mem = VK_NULL_HANDLE;

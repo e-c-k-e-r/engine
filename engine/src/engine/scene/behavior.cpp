@@ -2,6 +2,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/math/physics.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Scene)
 UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, multithread = false)
@@ -21,6 +22,11 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 		}
 		payload.pointer->queueDeletion();
 	});
+
+	uf::physics::initialize( self );
+	uf::graph::initialize( self );
+
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 }
 void uf::SceneBehavior::tick( uf::Object& self ) {}
 void uf::SceneBehavior::render( uf::Object& self ) {}

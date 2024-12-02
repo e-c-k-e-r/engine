@@ -75,7 +75,7 @@
 
 // easy and accessible in one place
 #ifndef BARYCENTRIC
-	#define BARYCENTRIC 1
+	#define BARYCENTRIC 0
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE

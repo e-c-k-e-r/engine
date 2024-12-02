@@ -16,6 +16,10 @@ UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multithread = false) // segfaults @  engine/src/ext/lua/lua.cpp:298 `auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );`
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
+#if UF_ENTITY_OBJECT_UNIFIED
+	if ( !this->isValid() ) this->setUid();
+#endif
+
 	auto& scene = uf::scene::getCurrentScene();
 //	auto& assetLoader = scene.getComponent<uf::asset>();
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
@@ -84,6 +88,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			} break;
 		}
 	*/
+		payload.object = this->resolvable<>();
 		if ( payload.monoThreaded ) {
 			if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
 		} else {
@@ -180,7 +185,7 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	}
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
-		uf::graph::destroy( graph );
+	//	uf::graph::destroy( graph );
 	//	this->deleteComponent<pod::Graph>();
 	}
 	if ( this->hasComponent<uf::Atlas>() ) {
@@ -190,16 +195,43 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	}
 	if ( this->hasComponent<pod::PhysicsState>() ) {
 	//	auto& collider = this->getComponent<pod::PhysicsState>();
-	//	uf::physics::impl::detach( collider );
-		uf::physics::impl::destroy( *this );
+	//	uf::physics::detach( collider );
+		uf::physics::terminate( *this );
 	}
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		uf::renderer::removeRenderMode( &renderMode, false );
-		renderMode.destroy();
-	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
+		if ( uf::renderer::settings::experimental::registerRenderMode ) {
+			uf::renderer::removeRenderMode( &renderMode, false );
+		} else {
+			renderMode.destroy();
+		//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
+		}
 	}
+	if ( this->hasComponent<uf::renderer::DeferredRenderMode>() ) {
+		auto& renderMode = this->getComponent<uf::renderer::DeferredRenderMode>();
+		if ( uf::renderer::settings::experimental::registerRenderMode ) {
+			uf::renderer::removeRenderMode( &renderMode, false );
+		} else {
+			renderMode.destroy();
+		//	this->deleteComponent<uf::renderer::DeferredRenderMode>();
+		}
+	}
+/*
+	if ( this->hasComponent<pod::Graph::Storage>() ) {
+		uf::graph::destroy( this->getComponent<pod::Graph::Storage>() );
+	}
+	if ( this->hasComponent<uf::physics::impl::WorldState>() ) {
+		uf::physics::impl::destroy( self );
+	}
+*/
+
+#if UF_ENTITY_OBJECT_UNIFIED
+	for ( uf::Entity* kv : this->getChildren() ) kv->destroy();
+	if ( this->hasParent() ) this->getParent().removeChild(*this);
+	this->unsetUid();
+#endif
+
 #endif
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {

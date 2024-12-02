@@ -1,14 +1,12 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-	//	{ "filename": "./models/ss2_medsci1_small.glb" }
-		{ "filename": "./models/ss2_medsci1_small/graph.json" }
+	//	{ "filename": "./models/ss2_medsci1.glb" }
+		{ "filename": "./models/ss2_medsci1/graph.json" }
 	],
 	"metadata": {
 		"graph": {
-			"assets": [
-				"./audio/music/medsci1.ogg"	
-			],
+			"bgm": "./audio/music/medsci1.ogg",
 			"tags": {
 				"/^prop_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
 				"/^func_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } }

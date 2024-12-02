@@ -1,0 +1,12 @@
+{
+	"name": "Chunk",
+	"assets": [
+		"/missing.png"
+	],
+	"behaviors": [
+		"RegionChunkBehavior"
+	],
+	"metadata": {
+		
+	}
+}

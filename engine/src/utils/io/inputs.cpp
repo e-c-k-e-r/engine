@@ -145,6 +145,8 @@ uf::inputs::analog_t uf::inputs::controller::states::R_TRIGGER = false;
 
 uf::inputs::state_t uf::inputs::controller::states::START = false;
 
+uf::stl::unordered_map<uf::stl::string, uf::inputs::key_t> uf::inputs::binds;
+
 uf::inputs::state_t uf::inputs::key( const uf::stl::string& key ) {
 	if ( key == uf::inputs::kbm::enums::LShift ) return uf::inputs::kbm::states::LShift;
 	else if ( key == uf::inputs::kbm::enums::RShift ) return uf::inputs::kbm::states::RShift;
@@ -286,4 +288,169 @@ uf::inputs::analog2_t uf::inputs::analog2( const uf::stl::string& key ) {
 	else if ( key == uf::inputs::controller::enums::R_JOYSTICK ) return uf::inputs::controller::states::R_JOYSTICK;
 
 	return {};
+}
+
+void uf::inputs::controller::print() {
+	// L/R for index controllers
+	UF_MSG_DEBUG("R_DPAD_UP: {}", uf::inputs::controller::states::R_DPAD_UP);
+	UF_MSG_DEBUG("R_DPAD_DOWN: {}", uf::inputs::controller::states::R_DPAD_DOWN);
+	UF_MSG_DEBUG("R_DPAD_LEFT: {}", uf::inputs::controller::states::R_DPAD_LEFT);
+	UF_MSG_DEBUG("R_DPAD_RIGHT: {}", uf::inputs::controller::states::R_DPAD_RIGHT);
+	UF_MSG_DEBUG("R_A: {}", uf::inputs::controller::states::R_A);
+	UF_MSG_DEBUG("R_B: {}", uf::inputs::controller::states::R_B);
+	UF_MSG_DEBUG("R_X: {}", uf::inputs::controller::states::R_X);
+	UF_MSG_DEBUG("R_Y: {}", uf::inputs::controller::states::R_Y);
+
+	UF_MSG_DEBUG("L_DPAD_UP: {}", uf::inputs::controller::states::L_DPAD_UP);
+	UF_MSG_DEBUG("L_DPAD_DOWN: {}", uf::inputs::controller::states::L_DPAD_DOWN);
+	UF_MSG_DEBUG("L_DPAD_LEFT: {}", uf::inputs::controller::states::L_DPAD_LEFT);
+	UF_MSG_DEBUG("L_DPAD_RIGHT: {}", uf::inputs::controller::states::L_DPAD_RIGHT);
+	UF_MSG_DEBUG("L_A: {}", uf::inputs::controller::states::L_A);
+	UF_MSG_DEBUG("L_B: {}", uf::inputs::controller::states::L_B);
+	UF_MSG_DEBUG("L_X: {}", uf::inputs::controller::states::L_X);
+	UF_MSG_DEBUG("L_Y: {}", uf::inputs::controller::states::L_Y);
+	
+// analog inputs
+	UF_MSG_DEBUG("L_TRIGGER: {}", uf::inputs::controller::states::L_TRIGGER);
+	UF_MSG_DEBUG("R_TRIGGER: {}", uf::inputs::controller::states::R_TRIGGER);
+	
+	UF_MSG_DEBUG("L_JOYSTICK: {}", uf::vector::toString(uf::inputs::controller::states::L_JOYSTICK));
+	UF_MSG_DEBUG("R_JOYSTICK: {}", uf::vector::toString(uf::inputs::controller::states::R_JOYSTICK));
+
+	UF_MSG_DEBUG("START: {}", uf::inputs::controller::states::START);
+}
+
+uf::inputs::key_t uf::inputs::nameToEnum( uf::stl::string key ) {
+	key = uf::string::lowercase( key );
+	if ( key == "lshift" ) return uf::inputs::kbm::enums::LShift;
+	else if ( key == "rshift" ) return uf::inputs::kbm::enums::RShift;
+	else if ( key == "lcontrol" ) return uf::inputs::kbm::enums::LControl;
+	else if ( key == "rcontrol" ) return uf::inputs::kbm::enums::RControl;
+	else if ( key == "lalt" ) return uf::inputs::kbm::enums::LAlt;
+	else if ( key == "ralt" ) return uf::inputs::kbm::enums::RAlt;
+	else if ( key == "lsystem" ) return uf::inputs::kbm::enums::LSystem;
+	else if ( key == "rsystem" ) return uf::inputs::kbm::enums::RSystem;
+	else if ( key == "menu" ) return uf::inputs::kbm::enums::Menu;
+	else if ( key == "semicolon" ) return uf::inputs::kbm::enums::SemiColon;
+	else if ( key == "slash" ) return uf::inputs::kbm::enums::Slash;
+	else if ( key == "equal" ) return uf::inputs::kbm::enums::Equal;
+	else if ( key == "dash" ) return uf::inputs::kbm::enums::Dash;
+	else if ( key == "lbracket" ) return uf::inputs::kbm::enums::LBracket;
+	else if ( key == "rbracket" ) return uf::inputs::kbm::enums::RBracket;
+	else if ( key == "comma" ) return uf::inputs::kbm::enums::Comma;
+	else if ( key == "period" ) return uf::inputs::kbm::enums::Period;
+	else if ( key == "quote" ) return uf::inputs::kbm::enums::Quote;
+	else if ( key == "backslash" ) return uf::inputs::kbm::enums::BackSlash;
+	else if ( key == "tilde" ) return uf::inputs::kbm::enums::Tilde;
+	else if ( key == "escape" ) return uf::inputs::kbm::enums::Escape;
+	else if ( key == "space" ) return uf::inputs::kbm::enums::Space;
+	else if ( key == "enter" ) return uf::inputs::kbm::enums::Enter;
+	else if ( key == "backspace" ) return uf::inputs::kbm::enums::BackSpace;
+	else if ( key == "tab" ) return uf::inputs::kbm::enums::Tab;
+	else if ( key == "pageup" ) return uf::inputs::kbm::enums::PageUp;
+	else if ( key == "pagedown" ) return uf::inputs::kbm::enums::PageDown;
+	else if ( key == "end" ) return uf::inputs::kbm::enums::End;
+	else if ( key == "home" ) return uf::inputs::kbm::enums::Home;
+	else if ( key == "insert" ) return uf::inputs::kbm::enums::Insert;
+	else if ( key == "delete" ) return uf::inputs::kbm::enums::Delete;
+	else if ( key == "add" ) return uf::inputs::kbm::enums::Add;
+	else if ( key == "subtract" ) return uf::inputs::kbm::enums::Subtract;
+	else if ( key == "multiply" ) return uf::inputs::kbm::enums::Multiply;
+	else if ( key == "divide" ) return uf::inputs::kbm::enums::Divide;
+	else if ( key == "pause" ) return uf::inputs::kbm::enums::Pause;
+	else if ( key == "f1" ) return uf::inputs::kbm::enums::F1;
+	else if ( key == "f2" ) return uf::inputs::kbm::enums::F2;
+	else if ( key == "f3" ) return uf::inputs::kbm::enums::F3;
+	else if ( key == "f4" ) return uf::inputs::kbm::enums::F4;
+	else if ( key == "f5" ) return uf::inputs::kbm::enums::F5;
+	else if ( key == "f6" ) return uf::inputs::kbm::enums::F6;
+	else if ( key == "f7" ) return uf::inputs::kbm::enums::F7;
+	else if ( key == "f8" ) return uf::inputs::kbm::enums::F8;
+	else if ( key == "f9" ) return uf::inputs::kbm::enums::F9;
+	else if ( key == "f10" ) return uf::inputs::kbm::enums::F10;
+	else if ( key == "f11" ) return uf::inputs::kbm::enums::F11;
+	else if ( key == "f12" ) return uf::inputs::kbm::enums::F12;
+	else if ( key == "f13" ) return uf::inputs::kbm::enums::F13;
+	else if ( key == "f14" ) return uf::inputs::kbm::enums::F14;
+	else if ( key == "f15" ) return uf::inputs::kbm::enums::F15;
+	else if ( key == "left" ) return uf::inputs::kbm::enums::Left;
+	else if ( key == "right" ) return uf::inputs::kbm::enums::Right;
+	else if ( key == "up" ) return uf::inputs::kbm::enums::Up;
+	else if ( key == "down" ) return uf::inputs::kbm::enums::Down;
+	else if ( key == "numpad0" ) return uf::inputs::kbm::enums::Numpad0;
+	else if ( key == "numpad1" ) return uf::inputs::kbm::enums::Numpad1;
+	else if ( key == "numpad2" ) return uf::inputs::kbm::enums::Numpad2;
+	else if ( key == "numpad3" ) return uf::inputs::kbm::enums::Numpad3;
+	else if ( key == "numpad4" ) return uf::inputs::kbm::enums::Numpad4;
+	else if ( key == "numpad5" ) return uf::inputs::kbm::enums::Numpad5;
+	else if ( key == "numpad6" ) return uf::inputs::kbm::enums::Numpad6;
+	else if ( key == "numpad7" ) return uf::inputs::kbm::enums::Numpad7;
+	else if ( key == "numpad8" ) return uf::inputs::kbm::enums::Numpad8;
+	else if ( key == "numpad9" ) return uf::inputs::kbm::enums::Numpad9;
+	else if ( key == "q" ) return uf::inputs::kbm::enums::Q;
+	else if ( key == "w" ) return uf::inputs::kbm::enums::W;
+	else if ( key == "e" ) return uf::inputs::kbm::enums::E;
+	else if ( key == "r" ) return uf::inputs::kbm::enums::R;
+	else if ( key == "t" ) return uf::inputs::kbm::enums::T;
+	else if ( key == "y" ) return uf::inputs::kbm::enums::Y;
+	else if ( key == "u" ) return uf::inputs::kbm::enums::U;
+	else if ( key == "i" ) return uf::inputs::kbm::enums::I;
+	else if ( key == "o" ) return uf::inputs::kbm::enums::O;
+	else if ( key == "p" ) return uf::inputs::kbm::enums::P;
+	else if ( key == "a" ) return uf::inputs::kbm::enums::A;
+	else if ( key == "s" ) return uf::inputs::kbm::enums::S;
+	else if ( key == "d" ) return uf::inputs::kbm::enums::D;
+	else if ( key == "f" ) return uf::inputs::kbm::enums::F;
+	else if ( key == "g" ) return uf::inputs::kbm::enums::G;
+	else if ( key == "h" ) return uf::inputs::kbm::enums::H;
+	else if ( key == "j" ) return uf::inputs::kbm::enums::J;
+	else if ( key == "k" ) return uf::inputs::kbm::enums::K;
+	else if ( key == "l" ) return uf::inputs::kbm::enums::L;
+	else if ( key == "z" ) return uf::inputs::kbm::enums::Z;
+	else if ( key == "x" ) return uf::inputs::kbm::enums::X;
+	else if ( key == "c" ) return uf::inputs::kbm::enums::C;
+	else if ( key == "v" ) return uf::inputs::kbm::enums::V;
+	else if ( key == "b" ) return uf::inputs::kbm::enums::B;
+	else if ( key == "n" ) return uf::inputs::kbm::enums::N;
+	else if ( key == "m" ) return uf::inputs::kbm::enums::M;
+	else if ( key == "num1" ) return uf::inputs::kbm::enums::Num1;
+	else if ( key == "num2" ) return uf::inputs::kbm::enums::Num2;
+	else if ( key == "num3" ) return uf::inputs::kbm::enums::Num3;
+	else if ( key == "num4" ) return uf::inputs::kbm::enums::Num4;
+	else if ( key == "num5" ) return uf::inputs::kbm::enums::Num5;
+	else if ( key == "num6" ) return uf::inputs::kbm::enums::Num6;
+	else if ( key == "num7" ) return uf::inputs::kbm::enums::Num7;
+	else if ( key == "num8" ) return uf::inputs::kbm::enums::Num8;
+	else if ( key == "num9" ) return uf::inputs::kbm::enums::Num9;
+	else if ( key == "num0" ) return uf::inputs::kbm::enums::Num0;
+	else if ( key == "mouse1" ) return uf::inputs::kbm::enums::Mouse1;
+	else if ( key == "mouse2" ) return uf::inputs::kbm::enums::Mouse2;
+	else if ( key == "mouse3" ) return uf::inputs::kbm::enums::Mouse3;
+
+	else if ( key == "r_dpad_up" ) return uf::inputs::controller::enums::R_DPAD_UP;
+	else if ( key == "r_dpad_down" ) return uf::inputs::controller::enums::R_DPAD_DOWN;
+	else if ( key == "r_dpad_left" ) return uf::inputs::controller::enums::R_DPAD_LEFT;
+	else if ( key == "r_dpad_right" ) return uf::inputs::controller::enums::R_DPAD_RIGHT;
+	else if ( key == "r_a" ) return uf::inputs::controller::enums::R_A;
+	else if ( key == "l_dpad_up" ) return uf::inputs::controller::enums::L_DPAD_UP;
+	else if ( key == "l_dpad_down" ) return uf::inputs::controller::enums::L_DPAD_DOWN;
+	else if ( key == "l_dpad_left" ) return uf::inputs::controller::enums::L_DPAD_LEFT;
+	else if ( key == "l_dpad_right" ) return uf::inputs::controller::enums::L_DPAD_RIGHT;
+	else if ( key == "l_a" ) return uf::inputs::controller::enums::L_A;
+	else if ( key == "dpad_up" ) return uf::inputs::controller::enums::DPAD_UP;
+	else if ( key == "dpad_down" ) return uf::inputs::controller::enums::DPAD_DOWN;
+	else if ( key == "dpad_left" ) return uf::inputs::controller::enums::DPAD_LEFT;
+	else if ( key == "dpad_right" ) return uf::inputs::controller::enums::DPAD_RIGHT;
+	else if ( key == "a" ) return uf::inputs::controller::enums::A;
+	else if ( key == "b" ) return uf::inputs::controller::enums::B;
+	else if ( key == "x" ) return uf::inputs::controller::enums::X;
+	else if ( key == "y" ) return uf::inputs::controller::enums::Y;
+	else if ( key == "start" ) return uf::inputs::controller::enums::START;
+	else if ( key == "mousewheel" ) return uf::inputs::kbm::enums::MouseWheel;
+	else if ( key == "l_trigger" ) return uf::inputs::controller::enums::L_TRIGGER;
+	else if ( key == "r_trigger" ) return uf::inputs::controller::enums::R_TRIGGER;
+	else if ( key == "mouse" ) return uf::inputs::kbm::enums::Mouse;
+	else if ( key == "l_joystick" ) return uf::inputs::controller::enums::L_JOYSTICK;
+
+	return 0;
 }

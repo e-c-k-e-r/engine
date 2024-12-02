@@ -15,22 +15,27 @@ struct Matrices {
 layout (binding = 0) uniform UBO {
 	Matrices matrices;
 	Gui gui;
-#if GLYPH
-	Glyph glyph;
-#endif
 } ubo;
+
+#if GLYPH
+layout (binding = 1) uniform UBO_Glyph {
+	Glyph glyph;
+} uboGlyph;
+#endif
 
 layout (location = 0) out vec2 outUv;
 layout (location = 1) out flat Gui outGui;
 #if GLYPH
-	layout (location = 7) out flat Glyph outGlyph;
+	layout (location = 7) out flat uint outVertexID;
+	layout (location = 8) out flat Glyph outGlyph;
 #endif
 
 void main() {
 	outUv = inUv;
 	outGui = ubo.gui;
 #if GLYPH
-	outGlyph = ubo.glyph;
+	outVertexID = gl_VertexIndex;
+	outGlyph = uboGlyph.glyph;
 #endif
 	
 	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, ubo.gui.depth, 1.0);

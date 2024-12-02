@@ -20,7 +20,7 @@
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::CraetureBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::CraetureBehavior, ticks = false, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::CraetureBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 namespace {
 	void load( uf::Object& self, const uf::Image& image ) {
@@ -49,6 +49,7 @@ namespace {
 	}
 }
 void ext::CraetureBehavior::initialize( uf::Object& self ) {
+/*
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::asset::isExpected( payload, uf::asset::Type::IMAGE ) ) return;
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
@@ -56,13 +57,24 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 
 		::load( self, image );
 	});
+*/
 
 	auto& metadata = this->getComponent<ext::CraetureBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
-void ext::CraetureBehavior::tick( uf::Object& self ) {}
+void ext::CraetureBehavior::tick( uf::Object& self ) {
+	auto& metadata = this->getComponent<ext::CraetureBehavior::Metadata>();
+
+	if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		pod::payloads::QueueAnimationPayload payload;
+		payload.name = metadata.animation;
+		this->queueHook("animation:Set.%UID%", payload);
+		metadata.animation = "";
+	}
+}
 void ext::CraetureBehavior::render( uf::Object& self ){}
 void ext::CraetureBehavior::destroy( uf::Object& self ){}
 void ext::CraetureBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}

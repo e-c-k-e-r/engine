@@ -1,4 +1,6 @@
 #include <uf/engine/entity/entity.h>
+#include <uf/engine/object/object.h>
+
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/instantiator/instantiator.h>
 #include <uf/utils/io/iostream.h>
@@ -8,7 +10,13 @@ std::size_t uf::Entity::uids = 0;
 uf::MemoryPool uf::Entity::memoryPool;
 bool uf::Entity::deleteChildrenOnDestroy = false;
 bool uf::Entity::deleteComponentsOnDestroy = false;
+/*
+UF_OBJECT_REGISTER_BEGIN(uf::Entity)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
+UF_OBJECT_REGISTER_END()
 uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Entity)
+*/
 uf::Entity::~Entity(){
 	this->destroy();
 }
@@ -127,10 +135,12 @@ void uf::Entity::process( std::function<void(uf::Entity*, int)> fn, int depth ) 
 	}
 }
 uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
+/*
 	for ( auto& allocation : uf::Entity::memoryPool.allocations() ) {
 		uf::Entity* entity = (uf::Entity*) (allocation.pointer);
 		if ( entity->getUid() == uid ) return entity;
 	}
+*/
 	{
 		auto& scene = uf::scene::getCurrentScene();
 		auto/*&*/ graph = scene.getGraph();
@@ -141,11 +151,13 @@ uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 	return NULL;
 }
 uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
+/*
 	for ( auto& allocation : uf::Entity::memoryPool.allocations() ) {
 		uf::Entity* entity = (uf::Entity*) (allocation.pointer);
 		if ( !entity->isValid() ) continue;
 		if ( entity->getName() == name ) return entity;
 	}
+*/
 	{
 		auto& scene = uf::scene::getCurrentScene();
 		auto/*&*/ graph = scene.getGraph();
@@ -154,4 +166,9 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 		}
 	}
 	return NULL;
+}
+
+#include <uf/utils/string/ext.h>
+uf::stl::string uf::string::toString( const uf::Entity& entity ) {
+	return ::fmt::format("{} ({}): {}", entity.getName(), entity.getUid(), (void*) &entity);
 }

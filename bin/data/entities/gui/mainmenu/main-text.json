@@ -8,19 +8,15 @@
 			"axis": [ 0, 0, 1 ],
 			"angle": 0
 		},
-		"scale": [ 1, 1, 1 ]
+		"scale": [ 2, 2, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
 	},
 	"metadata": {
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"debug": {
-			"moveable": false
-		},
-		"text settings": {
-			"scale": 2,
-			"font": "Coolvetica.ttf",
-			"string": "Grimgram"
-		}
+		"font": "Coolvetica.ttf",
+		"string": "Menu"
 	}
 }

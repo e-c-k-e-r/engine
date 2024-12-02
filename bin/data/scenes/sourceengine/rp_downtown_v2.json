@@ -1,14 +1,12 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [
-	//	{ "filename": "./models/rp_downtown_v2.glb" }
-		{ "filename": "./models/rp_downtown_v2/graph.json" }
+		{ "filename": "./models/rp_downtown_v2.glb" }
+	//	{ "filename": "./models/rp_downtown_v2/graph.json" }
 	],
 	"metadata": {
 		"graph": {
-			"assets": [
-				"./audio/soundscape/ambience.ogg"	
-			],
+			"bgm": "./audio/soundscape/ambience.ogg",
 			"renderer": { "separate": true },
 			"tags": {
 				// exact matches

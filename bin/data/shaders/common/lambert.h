@@ -13,9 +13,8 @@ void lambert() {
 		// skip if surface is already baked, and this isn't a dynamic light
 		if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
 	#endif
-		if ( lights[i].power <= LIGHT_POWER_CUTOFF ) continue;
-		if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
-
+		// incoming light to surface (non-const to normalize it later)
+	//	vec3 Li = lights[i].position - surface.position.world;
 		vec3 Li = vec3(VIEW_MATRIX * vec4(lights[i].position, 1)) - surface.position.eye;
 		// magnitude of incoming light vector (for inverse-square attenuation)
 		const float Lmagnitude = dot(Li, Li);
@@ -29,9 +28,9 @@ void lambert() {
 		// skip if attenuation factor is too low
 	//	if ( Lattenuation <= LIGHT_POWER_CUTOFF ) continue;
 		// ray cast if our surface is occluded from the light
-		const float Lshadow = 1; // ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
+		const float Lshadow = ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
 		// skip if our shadow factor is too low
-		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue;
+//		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue; // in case of any divergence
 		// light radiance
 		const vec3 Lr = lights[i].color.rgb * lights[i].power * Lattenuation * Lshadow;
 		// skip if our radiance is too low

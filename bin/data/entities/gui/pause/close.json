@@ -8,24 +8,18 @@
 			"axis": [ 0, 0, 1 ],
 			"angle": 0
 		},
-		"scale": [ 0.156407, 0.0788377, 1 ]
+		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
 		"clickable": true,
-		"hoverable": true,
-		
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
 		"events": {
 			"click": {
 				"name": "menu:Close.%P-UID%",
 				"payload": {}
 			}
 		},
-		"text settings": {			
-			"string": "Close",
-			"string1": "クローズ"
-		}
+
+		"string": "Close",
+		"string1": "クローズ"
 	}
 }

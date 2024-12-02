@@ -28,7 +28,7 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 	auto& container = this->m_container[name];
 	uf::stl::vector<pod::Hook::userdata_t> results;
 	results.reserve( container.size() );
-	
+	bool found = false;
 	for ( auto& hook : container ) {
 		if ( payload.size() != hook.type.size /*&& hook.type.size > 0*/ ) continue;
 
@@ -36,7 +36,10 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 		pod::Hook::userdata_t hookResult = hook.callback(unconst_payload);
 		auto& returnResult = results.emplace_back();
 		returnResult.move( hookResult );
+		found = true;
 	}
+
+//	if ( !found ) UF_MSG_DEBUG("Hook not found: {}", name);
 
 	return results;
 }

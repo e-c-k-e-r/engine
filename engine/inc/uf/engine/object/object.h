@@ -3,12 +3,14 @@
 #include "behavior.h"
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/instantiator/instantiator.h>
+#include <uf/engine/asset/asset.h>
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/time/time.h>
 
 #include <typeindex>
 #include <functional>
 
+#if !UF_ENTITY_OBJECT_UNIFIED
 namespace uf {
 	class UF_API Object : public uf::Entity {
 	public:
@@ -60,6 +62,7 @@ namespace uf {
 		void queueHook( const uf::stl::string&, const T&, float = 0 );
 
 		uf::stl::string resolveURI( const uf::stl::string& filename, const uf::stl::string& root = "" );
+		uf::asset::Payload resolveToPayload( const uf::stl::string& filename, const uf::stl::string& mime = "" );
 
 		void queueDeletion();
 	};
@@ -70,6 +73,7 @@ namespace uf {
 		uf::stl::string UF_API toString( const uf::Object& object );
 	}
 }
+#endif
 
 #include "object.inl"
 #include "behavior.h"

@@ -16,5 +16,17 @@ namespace uf {
 		#endif
 		>
 		using vector = std::vector<T, Allocator>;
+
+		template<typename T>
+		T& random( uf::stl::vector<T>& v ) {
+			return v[rand() % v.size()];		
+		}
+
+		template<typename T>
+		T random_it( T begin, T end ) {
+			uf::stl::vector<T> its;
+			for ( auto it = begin; it != end; ++it ) its.emplace_back( it );
+			return random( its );
+		}
 	}
 }

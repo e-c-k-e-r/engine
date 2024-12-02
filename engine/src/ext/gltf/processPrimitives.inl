@@ -4,11 +4,21 @@ struct {
 		size_t corrected{};
 		size_t total{};
 	} windingOrder;
+	struct {
+		bool should = true;
+	} tangents;
 } sanitizer;
 
 if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) || graph.metadata["renderer"]["invert"].as<bool>(true) ) {
 	sanitizer.windingOrder.should = true;
 }
+#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
+if ( graph.metadata["sanitizer"]["tangents"].as<bool>(true) ) {
+	sanitizer.tangents.should = true;
+}
+#else
+sanitizer.tangents.should = false;
+#endif
 
 uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
 
@@ -52,6 +62,14 @@ for ( auto& p : m.primitives ) {
 		
 		if ( attribute.name == "POSITION" ) {
 			meshlet.vertices.resize(accessor.count);
+			if ( !graph.metadata["renderer"]["invert"].as<bool>(true) ){
+				meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+				meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
+			} else {
+				meshlet.primitive.instance.bounds.min = pod::Vector3f{  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+				meshlet.primitive.instance.bounds.max = pod::Vector3f{ -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+			}
+		/*
 			meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
 			meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
@@ -59,6 +77,7 @@ for ( auto& p : m.primitives ) {
 				meshlet.primitive.instance.bounds.min.x = -meshlet.primitive.instance.bounds.min.x;
 				meshlet.primitive.instance.bounds.max.x = -meshlet.primitive.instance.bounds.max.x;
 			}
+		*/
 		}
 
 		switch ( accessor.componentType ) {
@@ -111,6 +130,8 @@ for ( auto& p : m.primitives ) {
 			} else if ( !attributes[name].floats.empty() ) { \
 				for ( size_t j = 0; j < attributes[name].components; ++j )\
 					vertex.member[j] = attributes[name].floats[i * attributes[name].components + j] * floatScale;\
+			} else {\
+				vertex.member = {};\
 			}
 	#endif
 
@@ -135,6 +156,9 @@ for ( auto& p : m.primitives ) {
 		#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 			vertex.tangent.x = -vertex.tangent.x;
 		#endif
+
+			meshlet.primitive.instance.bounds.min = uf::vector::min( meshlet.primitive.instance.bounds.min, vertex.position );
+			meshlet.primitive.instance.bounds.max = uf::vector::max( meshlet.primitive.instance.bounds.max, vertex.position );
 		}
 
 		vertex.id.x = primitiveID;
@@ -232,6 +256,91 @@ for ( auto& p : m.primitives ) {
 			}
 		}
 	}
+#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
+	/* calculate tangents */ if ( sanitizer.tangents.should ) {
+		if ( !meshlet.indices.empty() ) {
+			for ( size_t i = 0; i < meshlet.indices.size() / 3; ++i ) {
+				size_t indices[3] = {
+					meshlet.indices[i * 3 + 0],
+					meshlet.indices[i * 3 + 1],
+					meshlet.indices[i * 3 + 2],
+				};
+				pod::Vector3f triPosition[3] = {
+					meshlet.vertices[indices[0]].position,
+					meshlet.vertices[indices[1]].position,
+					meshlet.vertices[indices[2]].position,
+				};
+				pod::Vector2f triUV[3] = {
+					meshlet.vertices[indices[0]].uv,
+					meshlet.vertices[indices[1]].uv,
+					meshlet.vertices[indices[2]].uv,
+				};
+
+				pod::Vector3f deltaTriPosition[2] = {
+					triPosition[1]  - triPosition[0],
+					triPosition[2]  - triPosition[0],
+				};
+				pod::Vector2f deltaTriUV[2] = {
+					triUV[1]  - triUV[0],
+					triUV[2]  - triUV[0],
+				};
+
+				float r = 1.0f / (deltaTriUV[0].x * deltaTriUV[1].y - deltaTriUV[0].y * deltaTriUV[1].x);
+        		auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
+        		auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
+
+        		for ( auto i = 0; i < 3; ++i ) {
+        			auto& normal = meshlet.vertices[indices[0]].normal;
+        			auto& tangent = meshlet.vertices[indices[0]].tangent;
+					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
+			
+					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
+						tangent = tangent * -1.0f;
+        		}
+			}
+		} else {
+			for ( size_t i = 0; i < meshlet.vertices.size() / 3; ++i ) {
+				size_t indices[3] = {
+					i * 3 + 0,
+					i * 3 + 1,
+					i * 3 + 2,
+				};
+				pod::Vector3f triPosition[3] = {
+					meshlet.vertices[indices[0]].position,
+					meshlet.vertices[indices[1]].position,
+					meshlet.vertices[indices[2]].position,
+				};
+				pod::Vector2f triUV[3] = {
+					meshlet.vertices[indices[0]].uv,
+					meshlet.vertices[indices[1]].uv,
+					meshlet.vertices[indices[2]].uv,
+				};
+
+				pod::Vector3f deltaTriPosition[2] = {
+					triPosition[1]  - triPosition[0],
+					triPosition[2]  - triPosition[0],
+				};
+				pod::Vector2f deltaTriUV[2] = {
+					triUV[1]  - triUV[0],
+					triUV[2]  - triUV[0],
+				};
+
+				float r = 1.0f / (deltaTriUV[0].x * deltaTriUV[1].y - deltaTriUV[0].y * deltaTriUV[1].x);
+        		auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
+        		auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
+
+        		for ( auto i = 0; i < 3; ++i ) {
+        			auto& normal = meshlet.vertices[indices[0]].normal;
+        			auto& tangent = meshlet.vertices[indices[0]].tangent;
+					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
+			
+					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
+						tangent = tangent * -1.0f;
+        		}
+			}
+		}
+	}
+#endif
 }
 
 if ( sanitizer.windingOrder.should && !graph.metadata["renderer"]["invert"].as<bool>(true) ) {
@@ -243,7 +352,7 @@ if ( sanitizer.windingOrder.should && !graph.metadata["renderer"]["invert"].as<b
 
 
 if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.grid.divisions.z > 1 ) {
-	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps );
+	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps, meshgrid.clip, meshgrid.cleanup );
 	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: {}: {} -> {} | Partitions: {} -> {}", m.name, meshlets.size(), partitioned.size(), 
 		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z), meshgrid.grid.nodes.size()
 	 );

@@ -128,36 +128,24 @@ namespace ext {
 				static const type_t LINEAR = GL_LINEAR;
 			}
 			namespace Type {
-				typedef GLenum type_t;
-			#if UF_USE_OPENGL_FIXED_FUNCTION
-				static const type_t BYTE = GL_BYTE;
-				static const type_t UBYTE = GL_UNSIGNED_BYTE;
+				typedef size_t type_t;
+				static const type_t BYTE = 1;
+				static const type_t UBYTE = 2;
 
-				static const type_t SHORT = GL_SHORT;
-				static const type_t USHORT = GL_UNSIGNED_SHORT;
+				static const type_t SHORT = 3;
+				static const type_t USHORT = 4;
 				
-				static const type_t INT = GL_INT;
-				static const type_t UINT = GL_UNSIGNED_INT;
+				static const type_t INT = 5;
+				static const type_t UINT = 6;
 
-				static const type_t HALF = GL_FLOAT;
-				static const type_t FLOAT = GL_FLOAT;
-				static const type_t DOUBLE = GL_DOUBLE;
-				static const type_t FIXED = 0;
-			#else
-				static const type_t BYTE = GL_BYTE;
-				static const type_t UBYTE = GL_UNSIGNED_BYTE;
-
-				static const type_t SHORT = GL_SHORT;
-				static const type_t USHORT = GL_UNSIGNED_SHORT;
+				static const type_t HALF = 7;
+				static const type_t FLOAT = 8;
+				static const type_t DOUBLE = 9;
+				static const type_t FIXED = 10;
 				
-				static const type_t INT = GL_INT;
-				static const type_t UINT = GL_UNSIGNED_INT;
-
-				static const type_t HALF = GL_HALF_FLOAT;
-				static const type_t FLOAT = GL_FLOAT;
-				static const type_t DOUBLE = GL_DOUBLE;
-				static const type_t FIXED = GL_FIXED;
-			#endif
+				static const type_t FLOAT16 = 7;
+				static const type_t BFLOAT16 = 11;
+				static const type_t BFLOAT = 11;
 			}
 			namespace Buffer {
 				typedef GLenum type_t;
@@ -202,6 +190,12 @@ namespace ext {
 			if ( TYPE(T) == TYPE(int32_t) ) return ext::opengl::enums::Type::INT;
 			if ( TYPE(T) == TYPE(uint32_t) ) return ext::opengl::enums::Type::UINT;
 			if ( TYPE(T) == TYPE(float) ) return ext::opengl::enums::Type::FLOAT;
+		#if UF_USE_FLOAT16
+			if ( TYPE(T) == TYPE(float16) ) return ext::opengl::enums::Type::HALF;
+		#endif
+		#if UF_USE_BFLOAT16
+			if ( TYPE(T) == TYPE(bfloat16) ) return ext::opengl::enums::Type::BFLOAT16;
+		#endif
 			if ( TYPE(T) == TYPE(double) ) return ext::opengl::enums::Type::DOUBLE;
 			return 0;
 		}

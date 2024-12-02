@@ -11,24 +11,14 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"clickable": true,
-		"hoverable": true,
-		
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"debug": {
-			"moveable": false
-		},
+		"clickable": true,		
 		"events": {
 			"click": {
 				"name": "game:Scene.Load",
 				"payload": { "scene": "SourceEngine" }
 			}
 		},
-		"text settings": {
-			"string": "Start",
-			"string1": "スタート"
-		}
+
+		"string": "Start"
 	}
 }

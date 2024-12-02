@@ -81,6 +81,7 @@ namespace {
 				size_t mode;
 				bool announce;
 				float every;
+				bool enabled;
 			} gc;
 
 			struct {
@@ -99,13 +100,17 @@ namespace {
 	bool requestDedicatedRenderThread = false;
 	bool requestDeferredCommandBufferSubmit = false;
 
-	uf::Serializer sceneTransition;
+	struct {
+		int phase = -1;
+		uf::Serializer payload;
+	} sceneTransition;
 }
 
 void EXT_API ext::load() {
 	ext::config.readFromFile(uf::io::root+"/config.json");
 }
 void EXT_API ext::load( ext::json::Value& json ) {
+	::config.engine.gc.enabled = json["engine"]["debug"]["garbage collection"]["enabled"].as(::config.engine.gc.enabled);
 	::config.engine.gc.every = json["engine"]["debug"]["garbage collection"]["every"].as(::config.engine.gc.every);
 	::config.engine.gc.mode = json["engine"]["debug"]["garbage collection"]["mode"].as(::config.engine.gc.mode);
 	::config.engine.gc.announce = json["engine"]["debug"]["garbage collection"]["announce"].as(::config.engine.gc.announce);
@@ -124,6 +129,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	uf::matrix::reverseInfiniteProjection = json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
 
 	uf::graph::initialBufferElements = json["engine"]["graph"]["initial buffer elements"].as(uf::graph::initialBufferElements);
+	uf::graph::globalStorage = json["engine"]["graph"]["global storage"].as(uf::graph::globalStorage);
 
 	uf::Entity::deleteChildrenOnDestroy = json["engine"]["debug"]["entity"]["delete children on destroy"].as( uf::Entity::deleteChildrenOnDestroy );
 	uf::Entity::deleteComponentsOnDestroy = json["engine"]["debug"]["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
@@ -210,6 +216,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	ext::reactphysics::timescale = configEngineReactJson["timescale"].as( ext::reactphysics::timescale );
 	ext::reactphysics::interpolate = configEngineReactJson["interpolate"].as( ext::reactphysics::interpolate );
 	ext::reactphysics::shared = configEngineReactJson["shared"].as( ext::reactphysics::shared );
+	ext::reactphysics::globalStorage = configEngineReactJson["global storage"].as( ext::reactphysics::globalStorage );
 	
 	if ( configEngineReactJson["gravity"]["mode"].is<uf::stl::string>() ) {
 		const auto mode = uf::string::lowercase( configEngineReactJson["gravity"]["mode"].as<uf::stl::string>() );
@@ -481,6 +488,7 @@ void EXT_API ext::initialize() {
 
 		uf::renderer::settings::invariant::deviceAddressing = uf::renderer::settings::requested::featureChain["physicalDeviceVulkan12"].as<bool>(false) || uf::renderer::settings::requested::featureChain["bufferDeviceAddress"].as<bool>(false);
 		uf::renderer::settings::experimental::memoryBudgetBit = configRenderExperimentalJson["memory budget"].as( uf::renderer::settings::experimental::memoryBudgetBit );
+		uf::renderer::settings::experimental::registerRenderMode = configRenderExperimentalJson["register render modes"].as( uf::renderer::settings::experimental::registerRenderMode );
 	#endif
 
 		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
@@ -541,7 +549,7 @@ void EXT_API ext::initialize() {
 #endif
 
 	/* Physics */ {
-		uf::physics::initialize();
+	//	uf::physics::initialize();
 	}
 
 #if UF_USE_OPENVR
@@ -564,61 +572,63 @@ void EXT_API ext::initialize() {
 #endif
 
 	/* Initialize Vulkan */ {
-		// setup render mode
-		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
-			auto* renderMode = new uf::renderer::DeferredRenderMode;
-			
-			if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
-				renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
+		if ( false ) {
+			// setup render mode
+			if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
+				auto* renderMode = new uf::renderer::DeferredRenderMode;
+				
+				if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
+					renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
 
-			renderMode->blitter.descriptor.renderMode = "Swapchain";
-			renderMode->blitter.descriptor.subpass = 0;
-		#if UF_USE_FFX_FSR
-			if ( uf::renderer::settings::pipelines::fsr ) {
-				auto mode = uf::string::lowercase( ext::fsr::preset );
-				if ( mode == "native" ) renderMode->scale = 1;
-				else if ( mode == "quality" ) renderMode->scale = 1.0f / (1.5f);
-				else if ( mode == "balanced" ) renderMode->scale = 1.0f / (1.7f);
-				else if ( mode == "performance" ) renderMode->scale = 1.0f / (2.0f);
-				else if ( mode == "ultra" ) renderMode->scale = 1.0f / (3.0f);
-				else {
-					renderMode->scale = 1;
-					UF_MSG_WARNING("Invalid FFX FSR preset enum string specified: {}", mode);
+				renderMode->blitter.descriptor.renderMode = "Swapchain";
+				renderMode->blitter.descriptor.subpass = 0;
+			#if UF_USE_FFX_FSR
+				if ( uf::renderer::settings::pipelines::fsr ) {
+					auto mode = uf::string::lowercase( ext::fsr::preset );
+					if ( mode == "native" ) renderMode->scale = 1;
+					else if ( mode == "quality" ) renderMode->scale = 1.0f / (1.5f);
+					else if ( mode == "balanced" ) renderMode->scale = 1.0f / (1.7f);
+					else if ( mode == "performance" ) renderMode->scale = 1.0f / (2.0f);
+					else if ( mode == "ultra" ) renderMode->scale = 1.0f / (3.0f);
+					else {
+						renderMode->scale = 1;
+						UF_MSG_WARNING("Invalid FFX FSR preset enum string specified: {}", mode);
+					}
+					UF_MSG_DEBUG("Using FFX FSR Preset: {} ({:.3f}% render scale)", mode, (100.0f / renderMode->scale));
+				} else
+			#endif
+				renderMode->scale = ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
+				UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode->scale);
+
+				if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
+					renderMode->metadata.eyes = 2;
 				}
-				UF_MSG_DEBUG("Using FFX FSR Preset: {} ({:.3f}% render scale)", mode, (100.0f / renderMode->scale));
-			} else
-		#endif
-			renderMode->scale = ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
-			UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode->scale);
+			#if UF_USE_VULKAN
+				if ( uf::renderer::settings::pipelines::deferred ) {
+					renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);
+				}
+				if ( uf::renderer::settings::pipelines::culling ) {
+					renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
+				}
+				if ( uf::renderer::settings::pipelines::rt ) {
+					renderMode->metadata.pipelines.emplace_back("skinning");
+				}
+			#endif
+				
+				uf::renderer::addRenderMode( renderMode, "" );
+			}
 
-			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
-				renderMode->metadata.eyes = 2;
+			if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
+				auto* renderMode = new uf::renderer::RenderTargetRenderMode;
+				if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
+					renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
+				
+				uf::stl::string name = "Gui";
+				renderMode->blitter.descriptor.renderMode = "Swapchain";
+				renderMode->blitter.descriptor.subpass = 0;
+				renderMode->metadata.type = "single";
+				uf::renderer::addRenderMode( renderMode, name );
 			}
-		#if UF_USE_VULKAN
-			if ( uf::renderer::settings::pipelines::deferred ) {
-				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);
-			}
-			if ( uf::renderer::settings::pipelines::culling ) {
-				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
-			}
-			if ( uf::renderer::settings::pipelines::rt ) {
-				renderMode->metadata.pipelines.emplace_back("skinning");
-			}
-		#endif
-			
-			uf::renderer::addRenderMode( renderMode, "" );
-		}
-
-		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
-			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
-			if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
-				renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
-			
-			uf::stl::string name = "Gui";
-			renderMode->blitter.descriptor.renderMode = "Swapchain";
-			renderMode->blitter.descriptor.subpass = 0;
-			renderMode->metadata.type = "single";
-			uf::renderer::addRenderMode( renderMode, name );
 		}
 
 #if UF_USE_VULKAN
@@ -739,7 +749,7 @@ void EXT_API ext::initialize() {
 
 		/*
 			// do GC
-			{
+			if ( ::config.engine.gc.enabled ) {
 				size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 				if ( collected > 0 ) {
 					if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
@@ -750,7 +760,8 @@ void EXT_API ext::initialize() {
 		});
 	#endif
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
-			::sceneTransition = json;
+			::sceneTransition.payload = json;
+			::sceneTransition.phase = 0;
 		});
 		uf::hooks.addHook( "system:Quit", [&](ext::json::Value& json){
 			if ( json["message"].is<uf::stl::string>() ) {
@@ -767,8 +778,17 @@ void EXT_API ext::initialize() {
 		payload["immediate"] = true;
 		uf::hooks.call("game:Scene.Load", payload);
 	*/
-		auto& scene = uf::scene::loadScene( ::json["engine"]["scenes"]["start"] );
-		auto& metadata = scene.getComponent<uf::Serializer>();
+	/*
+		ext::json::Value payload;
+		payload["scene"] = ::json["engine"]["scenes"]["start"];
+		uf::hooks.call("game:Scene.Load", payload);
+	*/
+		ext::json::Value payload;
+		payload["scene"] = ::json["engine"]["scenes"]["start"];
+		::sceneTransition.payload = payload;
+		::sceneTransition.phase = 0;
+
+	//	auto& scene = uf::scene::loadScene( ::json["engine"]["scenes"]["start"] );
 	}
 	
 /*
@@ -779,56 +799,49 @@ void EXT_API ext::initialize() {
 	
 	ext::ready = true;
 	UF_MSG_INFO("EXT took {} seconds to initialize", times.sys.elapsed().asDouble());
-
 }
 
 void EXT_API ext::tick() {
 #if 1
-	if ( !ext::json::isNull( ::sceneTransition ) ) {
-		auto target = ::sceneTransition["scene"].as<uf::stl::string>();
+	if ( ::sceneTransition.phase >= 0 ) {
+		auto target = ::sceneTransition.payload["scene"].as<uf::stl::string>();
+		auto& phase = ::sceneTransition.phase;
 
-		UF_MSG_DEBUG("STARTING SCENE TRANSITION: {}", target);
+		++phase;
 
-		if ( ::requestDedicatedRenderThread ) {
-			::requestDedicatedRenderThread = true;
-			uf::renderer::settings::experimental::dedicatedThread = false;
-		}
-	#if UF_USE_VULKAN
-		if ( ::requestDeferredCommandBufferSubmit ) {
-			::requestDeferredCommandBufferSubmit = true;
-			uf::renderer::settings::defaultCommandBufferImmediate = true;
-		}
-	#endif
-
-		uf::renderer::synchronize();
 	#if UF_USE_VULKAN
 		uf::renderer::flushCommandBuffers();
 	#endif
-		uf::scene::unloadScene();
+		uf::renderer::synchronize();
 
-	/*
-		// do GC
-		{
-			size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
-			if ( collected > 0 ) {
-				if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
-				uf::renderer::states::rebuild = true;
-			}
+		UF_MSG_DEBUG("STARTING SCENE TRANSITION: {}: {}", phase, target);
+
+		if ( uf::renderer::settings::experimental::dedicatedThread ) {
+			::requestDedicatedRenderThread = true;
+			uf::renderer::settings::experimental::dedicatedThread = !uf::renderer::settings::experimental::dedicatedThread;
 		}
-	*/
+	#if UF_USE_VULKAN
+		if ( !uf::renderer::settings::defaultCommandBufferImmediate ) {
+			::requestDeferredCommandBufferSubmit = true;
+			uf::renderer::settings::defaultCommandBufferImmediate = !uf::renderer::settings::defaultCommandBufferImmediate;
+		}
+	#endif
 
-		auto& scene = uf::scene::loadScene( target );
-		auto& metadata = scene.getComponent<uf::Serializer>();
-	//	metadata["system"]["config"] = ::json;
+		uf::scene::unloadScene();
+		uf::scene::loadScene( target );
 
-		::sceneTransition = ext::json::null();
-		UF_MSG_DEBUG("FINISHED SCENE TRANSITION: {}", target);
-
-		uf::physics::terminate();
-		uf::graph::destroy();
+		::sceneTransition.phase = -1;
+		UF_MSG_DEBUG("FINISHED SCENE TRANSITION: {}: {}", phase, target);
+	
+	#if UF_USE_VULKAN
+		uf::renderer::flushCommandBuffers();
+	#endif
+		uf::renderer::synchronize();
 		
-		uf::physics::initialize();
-		uf::graph::initialize();
+	//	uf::scene::tick();
+	//	uf::renderer::tick();
+
+		return;
 	}
 #endif
 
@@ -883,13 +896,13 @@ void EXT_API ext::tick() {
 	}
 #endif
 	/* Update physics timer */ {
-		uf::physics::tick();
+	//	uf::physics::tick();
 	}
 	/* Update entities */ {
 		uf::scene::tick();
 	}
 	/* Update graph */ {
-		uf::graph::tick();
+	//	uf::graph::tick();
 	}
 
 	/* Tick Main Thread Queue */ {
@@ -925,7 +938,11 @@ void EXT_API ext::tick() {
 			::times.frames = 0;
 		}
 	}
-	{	
+	
+	auto& controller = uf::scene::getCurrentScene().getController();
+	
+//	if ( controller.getName() == "Player" ) {	
+	if ( ::config.engine.gc.enabled ) {
 		TIMER( ::config.engine.gc.every ) {
 			size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 			if ( collected > 0 ) {
@@ -977,13 +994,14 @@ void EXT_API ext::tick() {
 	*/
 	}
 
-	if ( ::requestDedicatedRenderThread && uf::scene::getCurrentScene().getController().getName() == "Player" ) {
+
+	if ( ::requestDedicatedRenderThread && controller.getName() == "Player" ) {
 		::requestDedicatedRenderThread = false;
 		uf::renderer::settings::experimental::dedicatedThread = true;
 		UF_MSG_DEBUG("Dedicated render requested");
 	}
 #if UF_USE_VULKAN
-	if ( ::requestDeferredCommandBufferSubmit && uf::scene::getCurrentScene().getController().getName() == "Player" ) {
+	if ( ::requestDeferredCommandBufferSubmit && controller.getName() == "Player" ) {
 		::requestDeferredCommandBufferSubmit = false;
 		uf::renderer::settings::defaultCommandBufferImmediate = false;
 		UF_MSG_DEBUG("Defer command buffer submit requested");
@@ -993,6 +1011,10 @@ void EXT_API ext::tick() {
 }
 void EXT_API ext::render() {
 	if ( uf::scene::scenes.empty() ) return;
+
+	if ( ::sceneTransition.phase >= 0 ) {
+		return;
+	}
 
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config.engine.ext.ultralight.enabled ) {
@@ -1052,14 +1074,21 @@ void EXT_API ext::terminate() {
 		uf::scene::destroy();
 	}
 	/* Kill physics */ {
-		uf::physics::terminate();
+	//	uf::physics::terminate();
 	}
-	/* Garbage collection */ if ( false ) { // segfaults, for some reason
+	/* Garbage collection */ if ( ::config.engine.gc.enabled ) {
 		size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
-		if ( ::config.engine.gc.announce && collected > 0 ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
+		if ( collected > 0 ) {
+			if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
+		}
 	}
 
 	/* Close vulkan */ {
+	#if UF_USE_VULKAN
+		uf::renderer::flushCommandBuffers();
+	#endif
+		uf::renderer::synchronize();
+
 		uf::renderer::destroy();
 	}
 

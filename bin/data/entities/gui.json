@@ -4,5 +4,17 @@
 	"behaviors": [
 		"GuiManagerBehavior"
 	],
-	"ignore": false
+	"ignore": false,
+	"metadata": {
+		// GUI settings
+		"clickable": false,
+		"hoverable": false,
+		
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 1, 1, 1, 1 ],
+		"mode": 1
+
+		// Glyph settings
+
+	}
 }

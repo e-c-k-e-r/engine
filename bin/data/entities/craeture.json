@@ -1,0 +1,43 @@
+{
+	"type": "Object",
+	"name": "Craeture",
+	"ignore": false,
+	"assets": [
+		"./craetureModel.json",
+		"./scripts/craeture.lua"
+	],
+	"behaviors": [
+		"CraetureBehavior"
+	],
+	"transform": {
+		"position": [ 0, 1.5, 21 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"name": "Craeture",
+
+		"physics": {
+			"gravity": [ 0, -9.81, 0 ],
+			"inertia": [ 0, 0, 0 ],
+
+			"type": "capsule",
+			"radius": 2,
+			"height": 1.0,
+			
+			"mass": 100,
+			"friction": 0.95,
+			"restitution": 0.0,
+			
+			"shared": false
+		}
+	}
+}

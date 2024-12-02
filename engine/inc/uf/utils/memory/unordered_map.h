@@ -4,6 +4,7 @@
 #include "./allocator.h"
 
 #include <unordered_map>
+#include "vector.h"
 
 namespace uf {
 	namespace stl {
@@ -19,5 +20,12 @@ namespace uf {
 		#endif
 		>
 		using unordered_map = std::unordered_map<Key, T, Hash, KeyEqual, Allocator>;
+
+		template<typename Key, typename T>
+		uf::stl::vector<Key> keys( const uf::stl::unordered_map<Key, T>& map ) {
+			uf::stl::vector<Key> keys;
+			for ( auto pair : map ) keys.emplace_back( pair.first );
+			return keys;
+		}
 	}
 }

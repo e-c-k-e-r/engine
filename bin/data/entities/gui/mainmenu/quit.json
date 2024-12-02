@@ -12,14 +12,7 @@
 	},
 	"metadata": {
 		"clickable": true,
-		"hoverable": true,
 		
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"debug": {
-			"moveable": false
-		},
 		"events": {
 			"click": {
 				"name": "system:Quit",
@@ -28,9 +21,7 @@
 				}
 			}
 		},
-		"text settings": {
-			"legacy": false,
-			"string": "Quit"
-		}
+
+		"string": "Quit"
 	}
 }

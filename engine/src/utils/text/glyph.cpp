@@ -74,12 +74,24 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::String& c, 
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
 	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
 
+	if ( this->isSdf() ) {
+		ext::freetype::setRenderMode( glyph, FT_RENDER_MODE_NORMAL );
+		ext::freetype::setRenderMode( glyph, FT_RENDER_MODE_SDF );
+	}
+	
+	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
+	std::size_t len = this->m_size.x * this->m_size.y;
+	this->m_buffer = new uint8_t[len];
+	memcpy(this->m_buffer, bitmap, len);
+
+/*
 	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
 	std::size_t len = this->m_size.x * this->m_size.y;
 	this->m_buffer = new uint8_t[len];
 	memcpy(this->m_buffer, bitmap, len);
 
 	if ( this->isSdf() ) this->generateSdf(this->m_buffer);
+*/
 
 	return this->m_buffer;
 }

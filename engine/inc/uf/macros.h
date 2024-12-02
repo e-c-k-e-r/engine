@@ -4,10 +4,15 @@
 #define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
 
 #define TIMER(x, ...)\
+	static bool first = true;\
 	static uf::Timer<long long> timer(false);\
 	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
 	struct { bool should = true; } timerState = { __VA_ARGS__ };\
 	double time = timer.elapsed();\
+	if ( first ) {\
+		time = x;\
+		first = false;\
+	}\
 	if ( time >= x && timerState.should && (timer.reset(), true) )
 
 #define UF_DEBUG 1
@@ -95,6 +100,7 @@
 
 #define MIN(X, Y) (X) < (Y) ? (X) : (Y)
 #define MAX(X, Y) (X) > (Y) ? (X) : (Y)
+#define CLAMP(X, LO, HI) MAX(LO, MIN(HI, X))
 #define LENGTH_OF(X) *(&X + 1) - X
 #define FOR_ARRAY(X) for ( auto i = 0; i < LENGTH_OF(X); ++i )
 
@@ -107,4 +113,20 @@
 		UF_MSG_DEBUG(spec::dreamcast::malloc_stats());\
 		UF_MSG_DEBUG(spec::dreamcast::pvr_malloc_stats());\
 	}
+#endif
+
+#if __STDCPP_FLOAT16_T__ && !defined(UF_USE_FLOAT16)
+	#define UF_USE_FLOAT16 1
+#endif
+#if __STDCPP_BFLOAT16_T__ && !defined(UF_USE_BFLOAT16)
+	#define UF_USE_BFLOAT16 1
+#endif
+
+#if UF_USE_FLOAT16 || UF_USE_BFLOAT16
+	#include <stdfloat>
+	using float16_t = std::float16_t;
+	using bfloat16_t = std::bfloat16_t;
+
+	using float16 = float16_t;
+	using bfloat16 = bfloat16_t;
 #endif

@@ -77,13 +77,19 @@ void uf::Audio::destroy() {
 void uf::Audio::play() {
 #if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
+	if ( !this->playing() ) {
+		this->m_metadata->info.elapsed += this->m_metadata->info.timer.elapsed().asDouble();
+		this->m_metadata->info.timer.start();
+	}
 	this->m_metadata->al.source.play();
 #endif
+
 }
 void uf::Audio::stop() {
 #if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.stop();
+	this->m_metadata->info.timer.stop();
 #endif
 }
 void uf::Audio::loop( bool x ) {
@@ -106,11 +112,27 @@ bool uf::Audio::loops() const {
 
 float uf::Audio::getTime() const {
 #if UF_USE_OPENAL
+	if ( !this->m_metadata ) return 0;
+	return this->m_metadata->info.elapsed + this->m_metadata->info.timer.elapsed().asDouble();
+/*
 	if ( !this->playing() ) return 0;
 
+	auto& metadata = *this->m_metadata;
+
 	float v;
-	this->m_metadata->al.source.get( AL_SEC_OFFSET, v );
+	metadata.al.source.get( AL_SEC_OFFSET, v );
+
+	if ( metadata.info.duration >= 0 ) {
+		ALint processed = 0;
+		metadata.al.source.get(AL_BUFFERS_PROCESSED, processed);
+		auto currentlyProcessed = (metadata.settings.buffers - processed) * uf::audio::bufferSize;
+		UF_MSG_DEBUG("{} | {} | {}", processed, metadata.settings.buffers, uf::audio::bufferSize);
+		auto consumed = metadata.stream.consumed - currentlyProcessed;
+		v += (float) consumed / metadata.info.size * metadata.info.duration;
+	}
+
 	return v;
+*/
 #else
 	return 0;
 #endif

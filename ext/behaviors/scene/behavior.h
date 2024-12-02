@@ -52,6 +52,7 @@ namespace ext {
 				uint32_t frameAccumulate = 0;
 				uint32_t frameAccumulateLimit = 0;
 				bool frameAccumulateReset = false;
+				bool init3D = true;
 			} shader;
 			struct {
 				pod::Vector3f color = {1,1,1};
@@ -71,6 +72,10 @@ namespace ext {
 					uf::stl::string filename = "%root%/textures/skybox/%d.png";
 				} box;
 			} sky;
+
+			struct {
+				float scale = 1.0f;
+			} framebuffer;
 		);
 
 		void bindBuffers( uf::Object&, const uf::stl::string& = "", const uf::stl::string& = "fragment", const uf::stl::string& = "deferred" );

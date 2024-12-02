@@ -62,7 +62,7 @@ namespace ext {
 		//	~Buffers();
 			//
 			void initialize( Device& device );
-			void destroy();
+			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 			//
 
 			size_t initializeBuffer( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );

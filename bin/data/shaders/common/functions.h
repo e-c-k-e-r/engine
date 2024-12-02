@@ -229,7 +229,8 @@ vec3 decodeBarycentrics( vec2 attributes ) {
 }
 #if DEFERRED_SAMPLING
 void populateSurfaceMaterial() {
-	const Material material = materials[surface.instance.materialID];
+	const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
+#if 1
 	surface.material.albedo = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
@@ -249,14 +250,27 @@ void populateSurfaceMaterial() {
 	} else if ( material.modeAlpha == 2 ) {
 
 	}
+#if 1
 	// Lightmap
 	if ( (/*surface.subID++ > 0 ||*/ bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
-		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st.xy, 0 );
-		/*surface.material.lightmapped = light.a > 0.000000001;
-		if ( surface.material.lightmapped )*/ surface.light += surface.material.albedo * light;
+		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st.xy );
+		surface.material.lightmapped = light.a > 0.000000001;
+		if ( surface.material.lightmapped ) {
+			float exposure = 1.0;
+			float gamma = 2.2;
+			
+			light.rgb = vec3(1.0) - exp(-light.rgb * exposure);
+			light.rgb = pow(light.rgb, vec3(1.0 / gamma));
+			
+			surface.light += surface.material.albedo * light;
+		}
 	} else {
 		surface.material.lightmapped = false;
 	}
+#else
+	surface.material.lightmapped = false;
+#endif
+#if 1
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
 		surface.light += sampleTexture( material.indexEmissive );
@@ -275,11 +289,13 @@ void populateSurfaceMaterial() {
 	if ( validTextureIndex( material.indexNormal ) && surface.tangent.world != vec3(0) ) {
 		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
 	}
+#endif
 	{
 		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
 	}
 	
 	surface.light *= surface.material.albedo;
+#endif
 }
 
 bool isValidAddress( uint64_t address ) {
@@ -307,35 +323,34 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	Vertex points[3];
 
 	if ( isValidAddress(instanceAddresses.vertex) ) {
-		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
-
-		#pragma unroll 3
-		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
+	//	Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+	//	#pragma unroll 3
+	//	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
 	} else {
 		if ( isValidAddress(instanceAddresses.position) ) {
 			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
 		if ( isValidAddress(instanceAddresses.uv) ) {
 			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv/*[_]*/ = buf.v[/*triangle.*/indices[_]];
 		}
 		if ( isValidAddress(instanceAddresses.st) ) {
 			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st/*[_]*/ = buf.v[/*triangle.*/indices[_]];
 		}
 		if ( isValidAddress(instanceAddresses.normal) ) {
 			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
 		if ( isValidAddress(instanceAddresses.tangent) ) {
 			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
 	}
 
@@ -411,7 +426,15 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	if ( !isValidAddress(instanceAddresses.index) ) return;
 	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
 	const uint triangleID = primitiveID + (drawCommand.indexID / 3);
-	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	//uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	
+	uvec3 indices = uvec3(
+		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+0],
+		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+1],
+		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+2]
+	);
+	
+
 	#pragma unroll 3
 	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
 

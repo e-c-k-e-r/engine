@@ -15,11 +15,16 @@ pod::PointeredUserdata uf::Component::addComponent( pod::PointeredUserdata& user
 }
 pod::PointeredUserdata uf::Component::moveComponent( pod::PointeredUserdata& userdata ) {
 	pod::Component::id_t id = userdata.type;
+	std::swap( this->m_container[id].userdata, userdata );
+	return this->m_container[id].userdata;
+/*
+	pod::Component::id_t id = userdata.type;
 	pod::Component& component = this->m_container[id];
 	component.id = id;
 	component.userdata = userdata;
 	userdata.data = NULL;
 	return component.userdata;
+*/
 }
 #else
 pod::Userdata* uf::Component::addComponent( pod::Userdata* userdata ) {
@@ -31,11 +36,16 @@ pod::Userdata* uf::Component::addComponent( pod::Userdata* userdata ) {
 }
 pod::Userdata* uf::Component::moveComponent( pod::Userdata*& userdata ) {
 	pod::Component::id_t id = userdata->type;
+	std::swap( this->m_container[id].userdata, userdata.userdata );
+	return this->m_container[id].userdata;
+/*
+	pod::Component::id_t id = userdata->type;
 	pod::Component& component = this->m_container[id];
 	component.id = id;
 	component.userdata = userdata;
 	userdata = NULL;
 	return component.userdata;
+*/
 }
 #endif
 

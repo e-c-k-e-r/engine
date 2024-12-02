@@ -5,21 +5,18 @@
 	"transform": {
 		"position": [  -0.830591, -0.699509, 0 ],
 		"rotation": {
-			"axis": [ 1, 0, 0 ],
+			"axis": [ 0, 0, 1 ],
 			"angle": 0
 		},
-		"scale": [ 0.258737, 0.115371, 1 ]
+		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"text settings": {
-			"stroke": [ 1, 0.749, 0.368, 1 ],
-			"color": [ 1, 0.749, 0.368, 1 ],
+		"stroke": [ 1, 0.749, 0.368, 1 ],
+		"color": [ 1, 0.749, 0.368, 1 ],
 
-			"string": "Menu",
-			"string1": "コマンド"
-		}
+		"scaling": "none",
+
+		"string": "Menu",
+		"string1": "コマンド"
 	}
 }

@@ -1,12 +1,14 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/scene/behavior.h>
+#include <uf/engine/graph/graph.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/math/physics.h>
 #include <uf/utils/renderer/renderer.h>
 #include <regex>
 
 UF_OBJECT_REGISTER_BEGIN(uf::Scene)
-	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
+//	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::SceneBehavior)
 UF_OBJECT_REGISTER_END()
@@ -222,8 +224,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
 #endif
 	scene->initialize();
+
+//	uf::physics::initialize();
+//	uf::graph::initialize();
 //	uf::renderer::states::renderSkip = false;
-	
 //	uf::renderer::states::frameSkip = 60;
 
 	return *scene;
@@ -240,8 +244,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
 #endif
 	scene->initialize();
+
+//	uf::physics::initialize();
+//	uf::graph::initialize();
 //	uf::renderer::states::renderSkip = false;
-	
 //	uf::renderer::states::frameSkip = 60;
 
 	return *scene;
@@ -252,21 +258,73 @@ void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 //	current->destroy();
 	current->queueDeletion();
+	
+//	uf::physics::terminate();
+//	uf::graph::destroy();
 /*
 	auto graph = current->getGraph(true);
 	for ( auto entity : graph ) entity->destroy();
 */
+	// destroy phyiscs state
+	if ( current->hasComponent<pod::Graph::Storage>() ) {
+		uf::graph::destroy( current->getComponent<pod::Graph::Storage>() );
+	}
+	if ( current->hasComponent<uf::physics::impl::WorldState>() ) {
+		uf::physics::impl::destroy( *current );
+	}
+
+	// mark rendermodes as disabled immediately
 	auto graph = current->getGraph(true);
 	for ( auto entity : graph ) {
-		if ( !entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) continue;
-		auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-
-		uf::renderer::removeRenderMode( &renderMode, false );
+		if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+			auto& blitter = renderMode.getBlitter();
+			renderMode.execute = false;
+			blitter.process = false;
+		/*
+			if ( uf::renderer::settings::experimental::registerRenderMode ) {
+				uf::renderer::removeRenderMode( &renderMode, false );
+			}
+		*/
+		}
+		if ( entity->hasComponent<uf::renderer::DeferredRenderMode>() ) {
+			auto& renderMode = entity->getComponent<uf::renderer::DeferredRenderMode>();
+			auto& blitter = renderMode.getBlitter();
+			renderMode.execute = false;
+			blitter.process = false;
+		/*
+			if ( uf::renderer::settings::experimental::registerRenderMode ) {
+				uf::renderer::removeRenderMode( &renderMode, false );
+			}
+		*/
+		}
 	}
+
+	uf::renderer::states::rebuild = true;
+	uf::renderer::states::resized = true;
+
+	/*
+	if ( rebuilded ) {
+		// rebuild swapchain
+		if ( uf::renderer::hasRenderMode("Swapchain", true) ) {
+			auto& renderMode = uf::renderer::getRenderMode("Swapchain", true);
+			renderMode.execute = false;
+			renderMode.rerecord = true;
+			renderMode.synchronize();
+
+			renderMode.destroy();
+			renderMode.initialize( uf::renderer::device );
+			if ( uf::renderer::settings::invariant::individualPipelines ) renderMode.bindPipelines();
+			renderMode.createCommandBuffers();
+			renderMode.tick();
+		}
+	}
+	*/
 	
 	uf::scene::scenes.pop_back();
 }
 uf::Scene& uf::scene::getCurrentScene() {
+	UF_ASSERT( !uf::scene::scenes.empty() );
 	return *uf::scene::scenes.back();
 }
 void uf::scene::invalidateGraphs() {
@@ -290,6 +348,9 @@ void uf::scene::tick() {
 	if ( uf::scene::printTaskCalls ) UF_MSG_DEBUG("Scene tick start");
 
 	auto& scene = uf::scene::getCurrentScene();
+	
+	uf::physics::tick( scene );
+
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = scene.getComponent<uf::SceneBehavior::Metadata>();
 #endif
@@ -305,6 +366,7 @@ void uf::scene::tick() {
 	for ( auto entity : graph ) entity->tick();
 #endif
 	
+	uf::graph::tick( scene );
 	if ( uf::scene::printTaskCalls ) UF_MSG_DEBUG("Scene tick end");
 }
 void uf::scene::render() {
@@ -312,6 +374,7 @@ void uf::scene::render() {
 	auto& scene = uf::scene::getCurrentScene();
 	auto/*&*/ graph = scene.getGraph(true);
 	for ( auto entity : graph ) entity->render();
+	uf::graph::render( scene );
 }
 void uf::scene::destroy() {
 	while ( !scenes.empty() ) unloadScene();

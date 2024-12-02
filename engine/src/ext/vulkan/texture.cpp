@@ -121,16 +121,18 @@ void ext::vulkan::Sampler::initialize( Device& device ) {
 		}
 
 		VK_CHECK_RESULT(vkCreateSampler(device.logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+		VK_REGISTER_HANDLE( sampler );
 	}
 	{
 		descriptor.info.sampler = sampler;
 	}
 }
-void ext::vulkan::Sampler::destroy() {
+void ext::vulkan::Sampler::destroy( bool defer ) {
 	if ( !device ) return;
 
 	if ( sampler != VK_NULL_HANDLE ) {
 		vkDestroySampler(device->logicalDevice, sampler, nullptr);
+		VK_UNREGISTER_HANDLE( sampler );
 		sampler = VK_NULL_HANDLE;
 	}
 }
@@ -198,8 +200,13 @@ void ext::vulkan::Texture::updateDescriptors() {
 bool ext::vulkan::Texture::generated() const {
 	return view != VK_NULL_HANDLE;
 }
-void ext::vulkan::Texture::destroy() {
+void ext::vulkan::Texture::destroy( bool defer ) {
 	if ( !device || !device->logicalDevice || aliased ) return; // device->logicalDevice should never be null, but it happens, somehow
+
+	if ( defer ) {
+		ext::vulkan::gc::textures.emplace_back( *this );
+		return;
+	}
 
 	if ( view != VK_NULL_HANDLE ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
@@ -208,6 +215,7 @@ void ext::vulkan::Texture::destroy() {
 	if ( image != VK_NULL_HANDLE ) {
 //		vkDestroyImage(device->logicalDevice, image, nullptr);
 		vmaDestroyImage( allocator, image, allocation );
+		VK_UNREGISTER_HANDLE( image );
 		image = VK_NULL_HANDLE;
 	}
 	if ( deviceMemory != VK_NULL_HANDLE ) {
@@ -549,6 +557,7 @@ void ext::vulkan::Texture::fromBuffers(
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo));
+	VK_REGISTER_HANDLE( image );
 	deviceMemory = allocationInfo.deviceMemory;
 
 	// Create sampler
@@ -643,6 +652,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo));
+	VK_REGISTER_HANDLE( image );
 	deviceMemory = allocationInfo.deviceMemory;
 
 	auto commandBuffer = device.fetchCommandBuffer(QueueEnum::GRAPHICS);
@@ -970,6 +980,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 	VmaAllocationCreateInfo allocationCreateInfo = {};
 	allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
+	VK_REGISTER_HANDLE( temporary );
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
 	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS, true); // waits on flush
@@ -1048,6 +1059,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 	image.loadFromBuffer( data, {this->width, this->height}, 8, 4, false );
 	vmaUnmapMemory( allocator, allocation );
 	vmaDestroyImage(allocator, temporary, allocation);
+	VK_UNREGISTER_HANDLE( temporary );
 	return image;
 }
 
@@ -1080,6 +1092,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	VmaAllocationCreateInfo allocationCreateInfo = {};
 	allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
+	VK_REGISTER_HANDLE( temporary );
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
 	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS);
@@ -1163,6 +1176,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	image.loadFromBuffer( data, {this->width, this->height}, 8, 4, false );
 	vmaUnmapMemory( allocator, allocation );
 	vmaDestroyImage(allocator, temporary, allocation);
+	VK_UNREGISTER_HANDLE( temporary );
 	return image;
 }
 

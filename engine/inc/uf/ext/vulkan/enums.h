@@ -123,6 +123,10 @@ namespace ext {
 				static const type_t FLOAT = 8;
 				static const type_t DOUBLE = 9;
 				static const type_t FIXED = 10;
+				
+				static const type_t FLOAT16 = 7;
+				static const type_t BFLOAT16 = 11;
+				static const type_t BFLOAT = 11;
 			}
 			namespace Buffer {
 				typedef decltype(VK_BUFFER_USAGE_TRANSFER_SRC_BIT) type_t;
@@ -156,6 +160,12 @@ namespace ext {
 			if ( TYPE(T) == TYPE(int32_t) ) return ext::vulkan::enums::Type::INT;
 			if ( TYPE(T) == TYPE(uint32_t) ) return ext::vulkan::enums::Type::UINT;
 			if ( TYPE(T) == TYPE(float) ) return ext::vulkan::enums::Type::FLOAT;
+		#if UF_USE_FLOAT16
+			if ( TYPE(T) == TYPE(float16) ) return ext::vulkan::enums::Type::HALF;
+		#endif
+		#if UF_USE_BFLOAT16
+			if ( TYPE(T) == TYPE(bfloat16) ) return ext::vulkan::enums::Type::BFLOAT16;
+		#endif
 			if ( TYPE(T) == TYPE(double) ) return ext::vulkan::enums::Type::DOUBLE;
 			return 0;
 		}

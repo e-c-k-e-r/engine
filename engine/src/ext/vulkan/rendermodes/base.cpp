@@ -267,7 +267,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	images.resize( ext::vulkan::swapchain.buffers );
 	VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device, swapchain.swapChain, &swapchain.buffers, images.data()));
 	// create image views for swapchain images
-	
+
 	renderTarget.attachments.clear();
 	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers );
 
@@ -296,6 +296,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		colorAttachmentView.image = images[i];
 
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
+		VK_REGISTER_HANDLE( renderTarget.attachments[i].view );
 
 		renderTarget.attachments[i].descriptor.format = ext::vulkan::settings::formats::color;
 	//	renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -329,13 +330,14 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment.image, &attachment.allocation, &attachment.allocationInfo));
+		VK_REGISTER_HANDLE( attachment.image );
 		
 
 		attachment.descriptor.format = ext::vulkan::settings::formats::depth;
 	//	attachment.descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 		attachment.descriptor.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachment.descriptor.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		attachment.descriptor.aliased = true;
+	//	attachment.descriptor.aliased = true;
 		attachment.mem = attachment.allocationInfo.deviceMemory;
 	
 		VkImageViewCreateInfo depthStencilView = {};
@@ -351,6 +353,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		depthStencilView.image = attachment.image;
 
 		VK_CHECK_RESULT(vkCreateImageView(device, &depthStencilView, nullptr, &attachment.view));
+		VK_REGISTER_HANDLE(attachment.view);
 	}
 
 #if 1
@@ -406,6 +409,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment.image, &attachment.allocation, &attachment.allocationInfo));
+		VK_REGISTER_HANDLE( attachment.image );
 		attachment.mem = attachment.allocationInfo.deviceMemory;
 
 		VkImageViewCreateInfo imageViewCreateInfo = {};
@@ -421,6 +425,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		imageViewCreateInfo.image = attachment.image;
 
 		VK_CHECK_RESULT(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &attachment.view));
+		VK_REGISTER_HANDLE(attachment.view);
 		metadata.attachments["fsr"] = attachmentIndex++;
 	}
 */
@@ -511,6 +516,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		renderPassInfo.pDependencies = dependencies.data();								// Subpass dependencies used by the render pass
 
 		VK_CHECK_RESULT(vkCreateRenderPass( device, &renderPassInfo, nullptr, &renderTarget.renderPass));
+		VK_REGISTER_HANDLE(renderTarget.renderPass);
 	}
 	// Create framebuffer
 	{	
@@ -533,6 +539,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 			frameBufferCreateInfo.layers = 1;
 			// Create the framebuffer
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &renderTarget.framebuffers[i]));
+			VK_REGISTER_HANDLE(renderTarget.framebuffers[i]);
 		}
 	
 	}
@@ -597,30 +604,35 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 		// Semaphore used to ensures that image presentation is complete before starting to submit again
 		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapchain.presentCompleteSemaphore));
+		VK_REGISTER_HANDLE(swapchain.presentCompleteSemaphore);
 	}
 }
 
 void ext::vulkan::BaseRenderMode::destroy() {
 	if ( renderTarget.renderPass != VK_NULL_HANDLE ) {
 		vkDestroyRenderPass( *device, renderTarget.renderPass, nullptr );
+		VK_UNREGISTER_HANDLE( renderTarget.renderPass );
 		renderTarget.renderPass = VK_NULL_HANDLE;
 	}
 	
 	for ( uint32_t i = 0; i < renderTarget.framebuffers.size(); i++ ) {
 		if ( renderTarget.framebuffers[i] != VK_NULL_HANDLE ) {
 			vkDestroyFramebuffer( *device, renderTarget.framebuffers[i], nullptr );
+			VK_UNREGISTER_HANDLE( renderTarget.framebuffers[i] );
 			renderTarget.framebuffers[i] = VK_NULL_HANDLE;
 		}
 	}
 	for ( auto& attachment : renderTarget.attachments ) {
 		if ( attachment.view != VK_NULL_HANDLE ) {
 			vkDestroyImageView( *device, attachment.view, nullptr);
+			VK_UNREGISTER_HANDLE( attachment.view );
 			attachment.view = VK_NULL_HANDLE;
 		}
 		if ( attachment.descriptor.aliased ) continue;
 		if ( attachment.image != VK_NULL_HANDLE ) {
 		//	vkDestroyImage( *device, attachment.image, nullptr );
 			vmaDestroyImage( allocator, attachment.image, attachment.allocation );
+			VK_UNREGISTER_HANDLE( attachment.image );
 			attachment.image = VK_NULL_HANDLE;
 		}
 		if ( attachment.mem != VK_NULL_HANDLE ) {
@@ -628,11 +640,18 @@ void ext::vulkan::BaseRenderMode::destroy() {
 			attachment.mem = VK_NULL_HANDLE;
 		}
 	}
+
+	for ( auto& image : ::images ) {
+	//	vkDestroyImage( *device, image, nullptr );
+		VK_UNREGISTER_HANDLE( image );
+		image = VK_NULL_HANDLE;
+	}
 	
 	ext::vulkan::RenderMode::destroy();
 
 	if ( swapchain.presentCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, swapchain.presentCompleteSemaphore, nullptr);
+		VK_UNREGISTER_HANDLE( swapchain.presentCompleteSemaphore );
 	}
 }
 

@@ -17,26 +17,9 @@ void pbr() {
 		if ( lights[i].type < 0 ) continue;
 	#else
 		// skip if surface is already baked, and this isn't a dynamic light
-		if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
+	//	if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
+		if ( surface.material.lightmapped ) continue;
 	#endif
-	/*
-		// skip if light power is too low
-		if ( lights[i].power <= LIGHT_POWER_CUTOFF ) continue;
-		if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
-
-		const vec3 Liu = vec3(VIEW_MATRIX * vec4(lights[i].position, 1)) - surface.position.eye;
-		const vec3 Li = normalize(Liu);
-		const float Lshadow = ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
-	//	const float Lattenuation = 1.0 / (PI * pow(length(Liu), 2.0));
-	//	const float Lattenuation = 1.0 / (1 + (PI * pow(length(Liu), 2.0)));
-		const float Lattenuation = 1.0 / (1 + pow(length(Liu), 2.0));
-		if ( lights[i].power * Lattenuation * Lshadow <= LIGHT_POWER_CUTOFF ) continue;
-
-		const float cosLi = max(0.0, dot(surface.normal.eye, Li));
-		const vec3 Lr = lights[i].color.rgb * lights[i].power * Lattenuation * Lshadow;
-		const vec3 Lh = normalize(Li + Lo);
-		const float cosLh = max(0.0, dot(surface.normal.eye, Lh));
-	*/
 		// incoming light to surface (non-const to normalize it later)
 	//	vec3 Li = lights[i].position - surface.position.world;
 		vec3 Li = vec3(VIEW_MATRIX * vec4(lights[i].position, 1)) - surface.position.eye;
@@ -54,7 +37,7 @@ void pbr() {
 		// ray cast if our surface is occluded from the light
 		const float Lshadow = ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
 		// skip if our shadow factor is too low
-		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue;
+//		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue; // in case of any divergence
 		// light radiance
 		const vec3 Lr = lights[i].color.rgb * lights[i].power * Lattenuation * Lshadow;
 		// skip if our radiance is too low

@@ -15,9 +15,10 @@
 #include <uf/utils/io/inputs.h>
 
 #include <sstream>
+#include <stdfloat>
 
 #include "../scene/behavior.h"
-#include "../../gui/manager/behavior.h"
+// #include "../../gui/manager/behavior.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = true)
@@ -32,7 +33,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	
 	auto& camera = this->getComponent<uf::Camera>();
 	auto& cameraTransform = camera.getTransform();
-	
+
 	auto& scene = uf::scene::getCurrentScene();
 	{
 		camera.setStereoscopic(true);
@@ -91,21 +92,23 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 	// Rotate Camera
 #if !UF_INPUT_USE_ENUM_MOUSE
-	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
-		const pod::Vector2ui deadZone{0, 0};
-		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
+	#if !UF_ENV_DREAMCAST
+		this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
+			const pod::Vector2ui deadZone{0, 0};
+			if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
-		pod::Vector2f delta = {
-			(float) metadata.mouse.sensitivity.x * (abs(payload.mouse.delta.x) < deadZone.x ? 0 : payload.mouse.delta.x) / payload.window.size.x,
-			(float) metadata.mouse.sensitivity.y * (abs(payload.mouse.delta.y) < deadZone.y ? 0 : payload.mouse.delta.y) / payload.window.size.y
-		};
-		metadata.camera.queued += delta;
-	});
+			pod::Vector2f delta = {
+				(float) metadata.mouse.sensitivity.x * (abs(payload.mouse.delta.x) < deadZone.x ? 0 : payload.mouse.delta.x) / payload.window.size.x,
+				(float) metadata.mouse.sensitivity.y * (abs(payload.mouse.delta.y) < deadZone.y ? 0 : payload.mouse.delta.y) / payload.window.size.y
+			};
+			metadata.camera.queued += delta;
+		});
+	#endif
 #endif
 	
 #if UF_USE_DISCORD
 	// Discord Integration
-	this->addHook( "discord.Activity.Update.%UID%", [&](ext::json::Value& json){
+	this->addHook( "discord:Activity.Update.%UID%", [&](ext::json::Value& json){
 		uf::stl::string leaderId = metadataJson[""]["party"][0].as<uf::stl::string>();
 		uf::Serializer cardData = masterDataGet("Card", leaderId);
 		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
@@ -115,8 +118,14 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		payload["details"] = "Leader: " + leader;
 		uf::hooks.call( "discord:Activity.Update", payload );
 	});
-	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
+	this->queueHook("discord:Activity.Update.%UID%", ext::json::null(), 1.0);
 #endif
+
+	{
+		ext::json::Value payload;
+		payload["uid"] = this->getUid();
+		this->queueHook("controller:Ready", payload, 0.0f );
+	}
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
@@ -127,14 +136,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& physics = this->getComponent<pod::Physics>();
 	auto& scene = uf::scene::getCurrentScene();
+	auto& collider = this->getComponent<pod::PhysicsState>();
 
-	{
-		static bool first = false;
-		if ( !first ) {
-			first = true;
-			uf::transform::rotate( transform, {0, 1, 0}, 3.1415926f );
-		}
-	}
+	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize(self, metadataJson);
+#endif
 
 	struct {
 		bool forward = false;
@@ -155,6 +164,27 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool vee = false;
 		bool use = false;
 	} keys;
+
+
+	struct {
+		bool deltaCrouch = false;
+		bool walking = false;
+		bool floored = true;
+		bool noclipped = false;
+		uf::stl::string menu = "";
+		uf::stl::string targetAnimation = "";
+
+		pod::Matrix4f previous;
+	} stats;
+
+	struct {
+		float move = 4;
+		float walk = 1;
+		float run = 8;
+		float rotate = 1;
+		float friction = 0.8f;
+		float air = 1.0f;
+	} speed; 
 
 	if ( uf::Window::focused ) {
 		keys = {
@@ -191,38 +221,45 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( uf::inputs::controller::states::L_JOYSTICK ) keys.crouch = true, keys.walk = true;
 			if ( uf::inputs::controller::states::L_A ) keys.paused = true;
 		#else
-			if ( uf::inputs::controller::states::DPAD_UP ) keys.forward = true;
-			if ( uf::inputs::controller::states::DPAD_DOWN ) keys.backwards = true;
-			if ( uf::inputs::controller::states::DPAD_LEFT ) keys.lookLeft = true;
-			if ( uf::inputs::controller::states::DPAD_RIGHT ) keys.lookRight = true;
+			if ( uf::inputs::controller::states::L_DPAD_UP ) keys.forward = true;
+			if ( uf::inputs::controller::states::L_DPAD_DOWN ) keys.backwards = true;
+			if ( uf::inputs::controller::states::L_DPAD_LEFT ) keys.left = true;
+			if ( uf::inputs::controller::states::L_DPAD_RIGHT ) keys.right = true;
 			if ( uf::inputs::controller::states::A ) keys.jump = true;
 			if ( uf::inputs::controller::states::B ) keys.running = true;
 			if ( uf::inputs::controller::states::X ) keys.crouch = true, keys.walk = true;
 		//	if ( uf::inputs::controller::states::Y ) keys.vee = true;
 			if ( uf::inputs::controller::states::Y ) keys.use = true;
-			if ( uf::inputs::controller::states::L_TRIGGER ) keys.left = true;
-			if ( uf::inputs::controller::states::R_TRIGGER ) keys.right = true;
+			if ( uf::inputs::controller::states::L_TRIGGER ) keys.lookLeft = true;
+			if ( uf::inputs::controller::states::R_TRIGGER ) keys.lookRight = true;
 			if ( uf::inputs::controller::states::START ) keys.paused = true;
 		#endif
+			float deadzone = 0.01f;
+			if ( uf::inputs::controller::states::L_JOYSTICK.x < -deadzone ) {
+				keys.left = true;
+				speed.move *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+				speed.run *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+				speed.walk *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+			} else if ( uf::inputs::controller::states::L_JOYSTICK.x > deadzone ) {
+				keys.right = true;
+				speed.move *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+				speed.run *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+				speed.walk *= abs(uf::inputs::controller::states::L_JOYSTICK.x);
+			}
+
+			if ( uf::inputs::controller::states::L_JOYSTICK.y < -deadzone ) {
+				keys.forward = true;
+				speed.move *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+				speed.run *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+				speed.walk *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+			} else if ( uf::inputs::controller::states::L_JOYSTICK.y > deadzone ) {
+				keys.backwards = true;
+				speed.move *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+				speed.run *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+				speed.walk *= abs(uf::inputs::controller::states::L_JOYSTICK.y);
+			}
 		}
 	}
-
-	struct {
-		bool deltaCrouch = false;
-		bool walking = false;
-		bool floored = true;
-		bool noclipped = false;
-		uf::stl::string menu = "";
-		uf::stl::string targetAnimation = "";
-
-		pod::Matrix4f previous;
-	} stats;
-
-	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-#if UF_ENTITY_METADATA_USE_JSON
-	metadata.deserialize(self, metadataJson);
-#endif
 
 #if 1
 	if ( uf::renderer::states::resized && uf::renderer::settings::width > 0 && uf::renderer::settings::height > 0 ) {
@@ -239,7 +276,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.menu = metadata.system.menu;
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
-	auto& collider = this->getComponent<pod::PhysicsState>();
 
 	{
 		float t = -1;
@@ -298,14 +334,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 	if ( collider.stats.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
 
-	struct {
-		float move = 4;
-		float walk = 1;
-		float run = 8;
-		float rotate = 1;
-		float friction = 0.8f;
-		float air = 1.0f;
-	} speed; {
+	{
 		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
 		speed.move = metadata.movement.move;
 		speed.run = metadata.movement.run;
@@ -327,14 +356,27 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		uf::Object* menu = (uf::Object*) scene.globalFindByName("Gui: Menu");
 		if ( !menu ) stats.menu = "";
 		// make assumptions
-		if ( stats.menu == "" && keys.paused ) {
+		if ( !metadata.system.control ) {
+		} else if ( stats.menu == "" && keys.paused ) {
 			stats.menu = "paused";
 			metadata.system.control = false;
+
 			pod::payloads::menuOpen payload;
 			payload.name = "pause";
 			uf::hooks.call("menu:Open", payload);
-		} else if ( !metadata.system.control ) {
-			stats.menu = "menu";
+		/*
+		} else if ( stats.menu == "" && keys.dialogue ) {
+			stats.menu = "dialogue";
+			metadata.system.control = false;
+			pod::payloads::menuOpen payload;
+			payload.name = "dialogue";
+			payload.metadata["dialogue"]["name"] = "Test";
+			payload.metadata["dialogue"]["text"] = "The quick brown fox\njumped over the lazy dog.";
+			payload.metadata["dialogue"]["name color"] = uf::vector::encode( pod::Vector4f{ 0.8, 1.0, 0.8, 1.0 } );
+			payload.metadata["dialogue"]["text color"] = uf::vector::encode( pod::Vector4f{ 0.8, 1.0, 0.8, 1.0 } );
+			uf::hooks.call("menu:Open", payload);
+		//	stats.menu = "menu";
+		*/
 		} else  {
 			metadata.system.control = stats.menu == "";
 		}
@@ -431,7 +473,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 
 	// 
-	#if UF_INPUT_USE_ENUM_MOUSE
+	#if UF_INPUT_USE_ENUM_MOUSE && !UF_ENV_DREAMCAST
 	{
 		const pod::Vector2ui deadZone{0, 0};
 		const auto& mouseDelta = uf::inputs::kbm::states::Mouse;
@@ -457,7 +499,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				metadata.camera.limit.current.x += lookDelta.x;
 				if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
 					if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, lookDelta.x ); else
-						uf::transform::rotate( transform, transform.up, lookDelta.x );
+					uf::transform::rotate( transform, transform.up, lookDelta.x );
 				} else metadata.camera.limit.current.x -= lookDelta.x;
 			}
 			if ( lookDelta.y != 0 ) {
@@ -557,7 +599,21 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 #if !UF_ENV_DREAMCAST
 	// set animation to idle
 	if ( stats.targetAnimation != "" ) {
-		auto* playerModel = this->findByName("Player: Model");
+		auto* playerModel = (uf::Object*) this->findByName("Player: Model");
+		if ( playerModel && playerModel->hasComponent<pod::Graph>() ) {
+			pod::payloads::QueueAnimationPayload payload;
+
+			payload.name = stats.targetAnimation;
+			playerModel->queueHook("animation:Set.%UID%", payload);
+			stats.targetAnimation = "";
+		}
+	/*
+		if ( playerModel && playerModel->hasComponent<pod::Graph>() ) {
+			auto& graph = playerModel->getComponent<pod::Graph>();
+			uf::graph::queueAnimation( graph, stats.targetAnimation );
+		}
+	*/
+	/*
 		if ( playerModel && playerModel->hasComponent<pod::Graph>() ) {
 			auto& graph = playerModel->getComponent<pod::Graph>();
 			bool should = true;
@@ -567,6 +623,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				uf::graph::animate( graph, stats.targetAnimation );
 			}
 		}
+	*/
 	}
 #endif
 #if 0 && UF_USE_LUA && !UF_ENV_DREAMCAST

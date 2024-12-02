@@ -91,12 +91,14 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			1
 		);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
+		VK_REGISTER_HANDLE( descriptorPool );
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = ext::vulkan::initializers::descriptorSetLayoutCreateInfo(
 			descriptorSetLayoutBindings.data(),
 			descriptorSetLayoutBindings.size()
 		);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout( device, &descriptorLayout, nullptr, &descriptorSetLayout ));
+		VK_REGISTER_HANDLE( descriptorSetLayout );
 
 		VkDescriptorSetAllocateInfo allocInfo = ext::vulkan::initializers::descriptorSetAllocateInfo(
 			descriptorPool,
@@ -112,6 +114,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		pPipelineLayoutCreateInfo.pushConstantRangeCount = pushConstantRanges.size();
 		pPipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges.data();
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
+		VK_REGISTER_HANDLE( pipelineLayout );
 	}
 	// raytrace
 	{
@@ -150,6 +153,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			rayTracingPipelineCI.maxPipelineRayRecursionDepth = 1;
 			rayTracingPipelineCI.layout = pipelineLayout;
 			VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &pipeline));
+			VK_REGISTER_HANDLE( pipeline );
 
 			VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
 			rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -212,12 +216,14 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		);
 		computePipelineCreateInfo.stage = shader.descriptor;
 		VK_CHECK_RESULT(vkCreateComputePipelines(device, device.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+		VK_REGISTER_HANDLE( pipeline );
 	
 		return;
 	}
 	// Graphic
 	{
 		RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
+		//UF_MSG_DEBUG("RenderMode: {} // {}: {}", descriptor.renderMode, renderMode.getName(), renderMode.getType());
 		auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -376,6 +382,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		pipelineCreateInfo.subpass = descriptor.subpass;
 
 		VK_CHECK_RESULT(vkCreateGraphicsPipelines( device, device.pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
+		VK_REGISTER_HANDLE( pipeline );
 	}
 	return;
 
@@ -905,18 +912,22 @@ void ext::vulkan::Pipeline::destroy() {
 
 	if ( descriptorPool != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool( *device, descriptorPool, nullptr );
+		VK_UNREGISTER_HANDLE( descriptorPool );
 		descriptorPool = VK_NULL_HANDLE;
 	}
 	if ( pipelineLayout != VK_NULL_HANDLE ) {
 		vkDestroyPipelineLayout( *device, pipelineLayout, nullptr );
+		VK_UNREGISTER_HANDLE( pipelineLayout );
 		pipelineLayout = VK_NULL_HANDLE;
 	}
 	if ( pipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( *device, pipeline, nullptr );
+		VK_UNREGISTER_HANDLE( pipeline );
 		pipeline = VK_NULL_HANDLE;
 	}
 	if ( descriptorSetLayout != VK_NULL_HANDLE ) {
 		vkDestroyDescriptorSetLayout( *device, descriptorSetLayout, nullptr );
+		VK_UNREGISTER_HANDLE( descriptorSetLayout );
 		descriptorSetLayout = VK_NULL_HANDLE;
 	}
 
@@ -1049,8 +1060,9 @@ ext::vulkan::Graphic::~Graphic() {
 }
 void ext::vulkan::Graphic::initialize( const uf::stl::string& renderModeName ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(renderModeName, true);
-
 	this->descriptor.renderMode = renderModeName;
+	//UF_MSG_DEBUG("RenderMode: {} // {}: {}", renderModeName, renderMode.getName(), renderMode.getType());
+
 	auto* device = renderMode.device;
 	if ( !device ) device = &ext::vulkan::device;
 
@@ -1101,7 +1113,7 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		VkBufferUsageFlags baseUsage = uf::renderer::settings::invariant::deviceAddressing ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0;
 	//	VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-		#define PARSE_INPUT(NAME, USAGE){\
+		#define PARSE_INPUT_INITIALIZE(NAME, USAGE){\
 			if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
 				auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
 				if ( !buffer.empty() ) {\
@@ -1120,10 +1132,10 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		// allocate buffers
 		auto previousRequestedAlignment = this->requestedAlignment;
 		this->requestedAlignment = 16;
-		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
-		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX )
-		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX )
-		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
+		PARSE_INPUT_INITIALIZE(vertex, uf::renderer::enums::Buffer::VERTEX | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
+		PARSE_INPUT_INITIALIZE(index, uf::renderer::enums::Buffer::INDEX )
+		PARSE_INPUT_INITIALIZE(instance, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT_INITIALIZE(indirect, uf::renderer::enums::Buffer::INDIRECT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
 		this->requestedAlignment = previousRequestedAlignment;
 	}
 
@@ -1153,24 +1165,17 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	};
 	uf::stl::vector<Queue> queue;
 
-	#define PARSE_INPUT(name, usage){\
-		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
-			auto& buffer = mesh.buffers[mesh.name.interleaved];\
+	#define PARSE_INPUT_UPDATE(NAME, USAGE){\
+		if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
+			auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
 			if ( !buffer.empty() ) {\
-				const uf::stl::string key = #name"[0]";\
-				if ( this->metadata.buffers.count(key) > 0 ) {\
-					descriptor.inputs.name.interleaved = this->metadata.buffers[key];\
-					rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.interleaved );\
-				}\
-			} else mesh.name.interleaved = -1;\
-		} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
-			auto& attribute = descriptor.inputs.name.attributes[i];\
+				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] );\
+			} else mesh.NAME.interleaved = -1;\
+		} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+			auto& attribute = descriptor.inputs.NAME.attributes[i];\
 			auto& buffer = mesh.buffers[attribute.buffer];\
 			if ( !buffer.empty() ) {\
-				const uf::stl::string key = #name"["+std::to_string(i)+"]";\
-				if ( this->metadata.buffers.count(key) == 0 ) continue;\
-				attribute.buffer = this->metadata.buffers[key];\
-				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), attribute.buffer );\
+				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] );\
 			} else attribute.buffer = -1;\
 		}\
 	}
@@ -1178,10 +1183,10 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	bool rebuild = false;
 	auto previousRequestedAlignment = this->requestedAlignment;
 	this->requestedAlignment = 16;
-	PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
-	PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
-	PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
-	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
+	PARSE_INPUT_UPDATE(vertex, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT_UPDATE(index, uf::renderer::enums::Buffer::INDEX)
+	PARSE_INPUT_UPDATE(instance, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT_UPDATE(indirect, uf::renderer::enums::Buffer::INDIRECT)
 	this->requestedAlignment = previousRequestedAlignment;
 
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
@@ -1397,6 +1402,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		queryPoolCreateInfo.queryCount = blasDatas.size();
 
 		VK_CHECK_RESULT(vkCreateQueryPool(device, &queryPoolCreateInfo, nullptr, &queryPool));
+		VK_REGISTER_HANDLE( queryPool );
 		vkResetQueryPool(device, queryPool, 0, blasDatas.size());
 	}
 
@@ -1422,6 +1428,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 				createInfo.offset = blasData.as.buffer.descriptor.offset;
 
 				VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+				VK_REGISTER_HANDLE( blasData.as.handle );
 				
 				VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 				accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
@@ -1512,6 +1519,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			createInfo.offset = blasData.as.buffer.descriptor.offset;
 
 			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+			VK_REGISTER_HANDLE( blasData.as.handle );
 
 			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
@@ -1536,7 +1544,10 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		this->accelerationStructures.bottoms.emplace_back(blasData.as);
 	}
 
-	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
+	if ( queryPool ) {
+		vkDestroyQueryPool(device, queryPool, nullptr);
+		VK_UNREGISTER_HANDLE( queryPool );
+	}
 }
 void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>& graphics, const uf::stl::vector<pod::Instance>& instances ) {
 	auto& device = *this->device;
@@ -1566,6 +1577,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		queryPoolCreateInfo.queryCount = 1;
 
 		VK_CHECK_RESULT(vkCreateQueryPool(device, &queryPoolCreateInfo, nullptr, &queryPool));
+		VK_REGISTER_HANDLE( queryPool );
 		vkResetQueryPool(device, queryPool, 0, 1);
 	}
 
@@ -1658,7 +1670,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			auto& buffer = this->buffers.at( tlasBufferIndex );
 			if ( sizeInfo.accelerationStructureSize > buffer.allocationInfo.size ) {
 				rebuild = true;
-				buffer.destroy(true);
+				buffer.destroy();
 				buffer.initialize( NULL, sizeInfo.accelerationStructureSize, tlasBufferUsageFlags );
 			}
 		}
@@ -1679,6 +1691,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			createInfo.buffer = tlas.buffer.buffer;
 
 			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
+			VK_REGISTER_HANDLE( tlas.handle );
 
 			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
@@ -1744,6 +1757,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		createInfo.offset = tlas.buffer.descriptor.offset;
 
 		VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
+		VK_REGISTER_HANDLE( tlas.handle );
 
 		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
@@ -1763,7 +1777,10 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		oldBuffer.destroy();
 	}
 
-	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
+	if ( queryPool ) {
+		vkDestroyQueryPool(device, queryPool, nullptr);
+		VK_UNREGISTER_HANDLE( queryPool );
+	}
 
 	if ( !update || rebuild ) {
 		auto& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
@@ -1951,17 +1968,22 @@ void ext::vulkan::Graphic::destroy() {
 		for ( auto& as : accelerationStructures.bottoms ) {
 			if ( as.aliased ) continue;
 			uf::renderer::vkDestroyAccelerationStructureKHR(*device, as.handle, nullptr);
+			VK_UNREGISTER_HANDLE( as.handle );
 		}
 		accelerationStructures.bottoms.clear();
 		
 		for ( auto& as : accelerationStructures.tops ) {
 			if ( as.aliased ) continue;
 			uf::renderer::vkDestroyAccelerationStructureKHR(*device, as.handle, nullptr);
+			VK_UNREGISTER_HANDLE( as.handle );
 		}
 		accelerationStructures.tops.clear();
 	}
-	for ( auto& pair : pipelines ) pair.second.destroy();
+	for ( auto& pair : pipelines ) {
+		pair.second.destroy();
+	}
 	pipelines.clear();
+
 	material.destroy();
 	ext::vulkan::Buffers::destroy();
 //	ext::vulkan::states::rebuild = true;

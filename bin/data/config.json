@@ -6,7 +6,7 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 32,
+				"max": 16,
 				"shadows": {
 					"enabled": true,
 					"update": 4,
@@ -33,7 +33,7 @@
 				"limiter": 0.125,
 				"size": 256,
 				"dispatch": 8,
-				"cascades": 3,
+				"cascades": 4,
 				"cascadePower": 1.5,
 				"granularity": 12,
 				"voxelizeScale": 1,
@@ -58,7 +58,8 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 1024
+			"initial buffer elements": 1024,
+			"global storage": false
 		},
 		"ext": {
 			"vulkan": {
@@ -68,9 +69,10 @@
 					"messages": false,
 					"checkpoints": false,
 					"filters": [
-						"0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
-						,"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI)
-						
+						"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI)
+						,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit)
+					
+					//	,"0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)						
 					//	,"0x141cb623" // UNASSIGNED-Threading-MultipleThreads ("false-positive" multithreading)
 
 					/*
@@ -92,12 +94,15 @@
 				//	"size": [ 640, 480 ]
 				},
 			//	"gpu": 7817, // 2060
-				"gpu": 29631, // 6800XT
+			//	"gpu": 29631, // 6800XT
+				"gpu": 10114, // 4070Ti
+			//	"gpu": 5710, // iGPU
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
 					"dedicated thread": false,
-					"memory budget": false
+					"memory budget": false,
+					"register render modes": false
 				},
 				"invariant": {
 					"default stage buffers": true,
@@ -107,11 +112,12 @@
 				},
 				"pipelines": {
 					"deferred": true,
-					"vsync": true,
-					"hdr": true,
+					"gui": true,
+					"vsync": false,
+					"hdr": false,
 					"vxgi": true,
 					"culling": true,
-					"bloom": true,
+					"bloom": false,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
@@ -274,7 +280,7 @@
 				"compression": "gz"
 			},
 			"imgui": {
-				"enabled": true
+				"enabled": false
 			},
 			"fsr": {
 				"enabled": true,
@@ -283,16 +289,17 @@
 				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"reactphysics": {
+				"global storage": false,
 				"timescale": 0.01666666666,
-				"interpolate": false,
+				"interpolate": true,
 				"gravity": {
-					"mode": "universal",
+					"mode": "universal", // default / per-object / universal
 					"constant": 6.67408e-11
 				},
 				"debug draw": {
 					"enabled": false,
 					"line width": 8,
-					"layer": "Gui",
+					"layer": "",
 					"rate": 0.0125
 				}
 			},
@@ -334,7 +341,7 @@
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": "auto"
+			"framerate": 0 // "auto"
 		},
 		"threads": {
 			"workers" : "auto",
@@ -343,17 +350,17 @@
 		"debug": {
 			"framerate": {
 				"print": true,
-				"every": 2
+				"every": 1
 			},
 			"garbage collection": {
 				"enabled": true,
 				"mode": 1,
-				"rate": 4,
+				"rate": 1,
 				"announce": true
 			},
 			"entity": {
 				"delete children on destroy": false,
-				"delete components on destroy": false
+				"delete components on destroy": true
 			},
 			"userdata": {
 				"auto destruct": true,
@@ -373,7 +380,7 @@
 	"window" : {
 		"terminal" :  {
 			"ncurses" : false,
-			"visible" : true
+			"visible" : false
 		},
 		"keyboard" :  {
 			"repeat" : false
@@ -382,7 +389,7 @@
 			"visible" : true,
 			"center" : false,
 			"sensitivity": [ 2, 2 ],
-			"smoothing": [ 4, 4 ]
+			"smoothing": [ 0, 0 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

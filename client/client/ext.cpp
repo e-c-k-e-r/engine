@@ -81,7 +81,10 @@ void client::initialize() {
 		});
 		uf::hooks.addHook( "window:Mouse.Lock", [&](){
 			if ( client::window.hasFocus() ) {
-				client::window.setMousePosition(client::window.getSize()/2);
+				client::window.setMousePosition({
+					client::window.getSize().x * 0.5f,
+					client::window.getSize().y * 0.5f,
+				});
 			}
 		});
 		uf::hooks.addHook( "window:Closed", [&]( pod::payloads::windowEvent& json ){
@@ -141,8 +144,11 @@ void client::tick() {
 		if ( client::config["window"]["mouse"]["center"].as<bool>(false) ) {
 			auto size = client::window.getSize();
 			auto current = client::window.getMousePosition();
-			auto center = client::window.getSize() / 2.0f;
-			client::window.setMousePosition(client::window.getSize() / 2.0f);
+			pod::Vector2i center = {
+				client::window.getSize().x * 0.5f,
+				client::window.getSize().y * 0.5f,
+			};
+			client::window.setMousePosition( center );
 			client::window.setCursorVisible(false);
 
 		#if UF_INPUT_USE_ENUM_MOUSE

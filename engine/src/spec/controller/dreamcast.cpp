@@ -88,14 +88,14 @@ void spec::dreamcast::controller::tick() {
 //	uf::inputs::controller::states::D = ::controller.state->buttons & CONT_D;
 //	uf::inputs::controller::states::Z = ::controller.state->buttons & CONT_Z;
 
-	uf::inputs::controller::states::L_TRIGGER = NORMALIZE(::controller.state->ltrig); 
-	uf::inputs::controller::states::R_TRIGGER = NORMALIZE(::controller.state->rtrig); 
+	uf::inputs::controller::states::L_TRIGGER = NORMALIZE((uint8_t) ::controller.state->ltrig); 
+	uf::inputs::controller::states::R_TRIGGER = NORMALIZE((uint8_t) ::controller.state->rtrig); 
 
-	uf::inputs::controller::states::L_JOYSTICK.x = NORMALIZE(::controller.state->joyx);
-	uf::inputs::controller::states::L_JOYSTICK.y = NORMALIZE(::controller.state->joyy);
+	uf::inputs::controller::states::L_JOYSTICK.x = NORMALIZE((int8_t)(::controller.state->joyx));
+	uf::inputs::controller::states::L_JOYSTICK.y = NORMALIZE((int8_t)(::controller.state->joyy));
 
-	uf::inputs::controller::states::R_JOYSTICK.x = NORMALIZE(::controller.state->joy2x);
-	uf::inputs::controller::states::R_JOYSTICK.y = NORMALIZE(::controller.state->joy2y);
+	uf::inputs::controller::states::R_JOYSTICK.x = NORMALIZE((int8_t)(::controller.state->joy2x));
+	uf::inputs::controller::states::R_JOYSTICK.y = NORMALIZE((int8_t)(::controller.state->joy2y));
 }
 void spec::dreamcast::controller::terminate() {
 }

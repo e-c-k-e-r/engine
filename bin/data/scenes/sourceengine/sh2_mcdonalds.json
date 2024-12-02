@@ -1,17 +1,17 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-	//	{ "filename": "./models/sh2_mcdonalds.glb" }
-		{ "filename": "./models/sh2_mcdonalds/graph.json" }
+		{ "filename": "./models/sh2_mcdonalds.glb" }
+	//	{ "filename": "./models/sh2_mcdonalds/graph.json" }
 	],
 	"metadata": {
 		"graph": {
 			"lights": {
 				"scale": 2
 			},
-			"assets": [
-				"./audio/soundscape/sh2_ambience.ogg"	
-			],
+			"bgm": {
+				"load": "./audio/soundscape/sh2_ambience.ogg"
+			},
 			"tags": {
 				// exact matches
 			/*

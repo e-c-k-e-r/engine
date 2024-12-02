@@ -233,9 +233,11 @@ void ext::fsr::initialize() {
 
 		auto& renderMode = uf::renderer::getRenderMode("", true);
 		auto& blitter = renderMode.getBlitter();
-		auto& shader = blitter.material.getShader("fragment");
-		shader.textures.clear();
-		shader.textures.emplace_back().aliasTexture( fsrTarget );
+		if ( blitter.material.hasShader("fragment") ) {
+			auto& shader = blitter.material.getShader("fragment");
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasTexture( fsrTarget );
+		}
 	}
 }
 void ext::fsr::tick() {
@@ -259,9 +261,11 @@ void ext::fsr::tick() {
 
 		auto& renderMode = uf::renderer::getRenderMode("", true);
 		auto& blitter = renderMode.getBlitter();
-		auto& shader = blitter.material.getShader("fragment");
-		shader.textures.clear();
-		shader.textures.emplace_back().aliasTexture( fsrTarget );
+		if ( blitter.material.hasShader("fragment") ) {
+			auto& shader = blitter.material.getShader("fragment");
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasTexture( fsrTarget );
+		}
 	}
 
 	{

@@ -595,6 +595,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 		this->destroyFence( fence );
 
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
+		VK_UNREGISTER_HANDLE(commandBuffer);
 	} else {
 		ext::vulkan::mutex.lock();
 		auto& transient = this->transient.commandBuffers[queueType][std::this_thread::get_id()];
@@ -648,6 +649,7 @@ void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer& comman
 		this->destroyFence( fence );
 
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType, commandBuffer.threadId ), 1, &commandBuffer.handle);
+		VK_UNREGISTER_HANDLE( commandBuffer.handle );
 	} else {
 		ext::vulkan::mutex.lock();
 		auto& transient = this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId];
@@ -678,6 +680,7 @@ VkFence ext::vulkan::Device::getFence() {
 
 	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	VK_CHECK_RESULT(vkCreateFence( this->logicalDevice, &fenceCreateInfo, nullptr, &fence ) );
+	VK_REGISTER_HANDLE( fence );
 	return fence;
 }
 void ext::vulkan::Device::destroyFence( VkFence fence ) {
@@ -772,6 +775,7 @@ VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueE
 		cmdPoolInfo.flags = createFlags;
 		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &pool ) != VK_SUCCESS )
 			UF_EXCEPTION("Vulkan error: failed to create command pool for graphics!");
+		VK_REGISTER_HANDLE( pool );
 	}
 	return pool;
 }
@@ -905,6 +909,7 @@ void ext::vulkan::Device::initialize() {
 		createInfo.ppEnabledLayerNames = cInstanceLayers.data();
 
 		VK_CHECK_RESULT( vkCreateInstance( &createInfo, nullptr, &this->instance ));
+		VK_REGISTER_HANDLE( this->instance );
 
 		{
 			ext::json::Value payload = ext::json::array();
@@ -1262,6 +1267,7 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) UF_EXCEPTION("Vulkan error: failed to create logical device!"); 
+		VK_REGISTER_HANDLE( this->logicalDevice );
 
 		{
 			ext::json::Value payload = ext::json::array();
@@ -1412,6 +1418,7 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
+		VK_REGISTER_HANDLE( this->pipelineCache );
 	}
 	// setup allocator
 	{
@@ -1454,6 +1461,7 @@ void ext::vulkan::Device::initialize() {
 		UF_MSG_DEBUG("Allocator flags: {}", allocatorInfo.flags);
 		 
 		vmaCreateAllocator(&allocatorInfo, &allocator);
+		VK_REGISTER_HANDLE( allocator );
 	}
 
 	{
@@ -1478,11 +1486,29 @@ void ext::vulkan::Device::initialize() {
 }
 
 void ext::vulkan::Device::destroy() {
+	for ( auto& pair_1 : this->transient.commandBuffers ) {
+		for ( auto& pair : pair_1.second ) {
+			for ( auto& commandBuffer : pair.second.commandBuffers ) {
+				vkFreeCommandBuffers(logicalDevice, getCommandPool( pair_1.first ), 1, &commandBuffer);
+				VK_UNREGISTER_HANDLE( commandBuffer );
+				commandBuffer = VK_NULL_HANDLE;
+			}
+			for ( auto& fence : pair.second.fences ) {
+				vkDestroyFence( this->logicalDevice, fence, nullptr );
+				VK_UNREGISTER_HANDLE( fence );
+				fence = VK_NULL_HANDLE;
+			}
+		}
+	}
+	for ( auto& buffer : this->transient.buffers ) {
+		buffer.destroy(false);
+	}
 	while ( !this->reusable.fences.empty() ) {
 		VkFence fence = this->reusable.fences.top();
 		this->reusable.fences.pop();
 
 		vkDestroyFence( this->logicalDevice, fence, nullptr );
+		VK_UNREGISTER_HANDLE( fence );
 	}
 	if ( this->pipelineCache ) {
 		// write cache on disk
@@ -1497,26 +1523,32 @@ void ext::vulkan::Device::destroy() {
 		}
 
 		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
+		VK_UNREGISTER_HANDLE( this->pipelineCache );
 		this->pipelineCache = nullptr;
 	}
 	for ( auto& pair : this->commandPool.graphics.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		VK_UNREGISTER_HANDLE( pair.second );
 		pair.second = VK_NULL_HANDLE;
 	}
 	for ( auto& pair : this->commandPool.compute.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		VK_UNREGISTER_HANDLE( pair.second );
 		pair.second = VK_NULL_HANDLE;
 	}
 	for ( auto& pair : this->commandPool.transfer.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		VK_UNREGISTER_HANDLE( pair.second );
 		pair.second = VK_NULL_HANDLE;
 	}
 	if ( this->logicalDevice ) {
 		vkDestroyDevice( this->logicalDevice, nullptr );
+		VK_UNREGISTER_HANDLE( this->logicalDevice );
 		this->logicalDevice = nullptr;
 	}
 	if ( this->surface ) {
 		vkDestroySurfaceKHR( this->instance, this->surface, nullptr );
+		VK_UNREGISTER_HANDLE( this->surface );
 		this->surface = nullptr;
 	}
 	if ( this->debugMessenger ) {
@@ -1525,11 +1557,12 @@ void ext::vulkan::Device::destroy() {
 	}
 	if ( this->instance ) {
 		vkDestroyInstance( this->instance, nullptr );
+		VK_UNREGISTER_HANDLE( this->instance );
 		this->instance = nullptr;
 	}
-/*
-	vmaDestroyAllocator( allocator );
-*/
+
+//	vmaDestroyAllocator( allocator );
+	VK_UNREGISTER_HANDLE( allocator );
 }
 
 #endif

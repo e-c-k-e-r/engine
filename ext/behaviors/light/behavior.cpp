@@ -100,7 +100,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.process = false;
 		renderMode.width = size.x;
 		renderMode.height = size.y;
-		uf::renderer::addRenderMode( &renderMode, name );
+		renderMode.metadata.name = name;
+		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, name );
 	}
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
@@ -234,12 +235,14 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 }
 void ext::LightBehavior::render( uf::Object& self ){}
 void ext::LightBehavior::destroy( uf::Object& self ){
+/*
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 
 		uf::renderer::removeRenderMode( &renderMode, false );
 		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}
+*/
 
 	::roundRobin.lights.erase(std::remove(::roundRobin.lights.begin(), ::roundRobin.lights.end(), this), ::roundRobin.lights.end());
 	::roundRobin.current = 0;

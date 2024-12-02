@@ -368,7 +368,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	drawCommandInfoBase.descriptor = descriptor;
 	if ( descriptor.inputs.index.count ) drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
 
-	for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
+	for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
 		if ( attribute.descriptor.name == "position" ) drawCommandInfoBase.attributes.position = attribute;
 		else if ( attribute.descriptor.name == "uv" ) drawCommandInfoBase.attributes.uv = attribute;
 		else if ( attribute.descriptor.name == "st" ) drawCommandInfoBase.attributes.st = attribute;

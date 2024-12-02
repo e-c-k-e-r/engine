@@ -86,7 +86,8 @@ if os.arch() == "Dreamcast" then
 	end )
 else
 	ent:bind( "tick", function(self)
-		if (window.keyPressed("Enter") or inputs.key("START")) and timer:elapsed() >= 1 then
+		--if (window.keyPressed("Enter") or inputs.key("START")) and timer:elapsed() >= 1 then
+		if inputs.key("START") and timer:elapsed() >= 1 then
 			timer:reset()
 			children.start:callHook("gui:Clicked.%UID%", {})
 		end

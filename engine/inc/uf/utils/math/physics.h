@@ -18,6 +18,10 @@ namespace uf {
 		void UF_API initialize();
 		void UF_API tick();
 		void UF_API terminate();
+
+		void UF_API initialize( uf::Object& );
+		void UF_API tick( uf::Object& );
+		void UF_API terminate( uf::Object& );
 		template<typename T> pod::Transform<T>& update( pod::Transform<T>& transform, pod::Physics& physics );
 		template<typename T> pod::Transform<T>& update( pod::Physics& physics, pod::Transform<T>& transform );
 	}

@@ -64,8 +64,17 @@ namespace uf {
 			);
 		}
 
+
 		template<typename T, typename U = uint32_t>
-		uf::stl::vector<uf::Meshlet_T<T,U>> UF_API partition( uf::meshgrid::Grid& grid, const uf::stl::vector<uf::Meshlet_T<T,U>>& meshlets, float eps = std::numeric_limits<float>::epsilon() ) {
+		uf::stl::vector<uf::Meshlet_T<T,U>> UF_API partition(
+			uf::meshgrid::Grid& grid,
+			const uf::stl::vector<uf::Meshlet_T<T,U>>& meshlets,
+			float eps = std::numeric_limits<float>::epsilon(),
+			bool clip = false,
+			bool cleanup = false
+		) {
+			size_t atlasID = 0;
+
 			uf::stl::vector<uf::Meshlet_T<T,U>> partitioned;
 			for ( auto& meshlet : meshlets ) {
 				grid.extents.min = uf::vector::min( grid.extents.min, meshlet.primitive.instance.bounds.min );
@@ -74,23 +83,68 @@ namespace uf {
 
 			uf::meshgrid::calculate( grid, eps );
 
-			for ( auto& meshlet : meshlets ) {
-				uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
-			}
-			
-			uf::meshgrid::cleanup( grid );
+			// it's better to naively clip the mesh multiple times rather than calculate the triangles needed to clip
+			if ( clip ) {
+				for ( auto& pair : grid.nodes ) {
+					++atlasID;
+					for ( auto& meshlet : meshlets ) {
+						auto& node = pair.second;
 
-			size_t atlasID = 0;
+						uf::stl::vector<T> vertices = meshlet.vertices;
+						uf::stl::vector<U> indices = meshlet.indices;
+						
+						uf::shapes::clip<T,U>( vertices, indices, node.extents.min, node.extents.max );
+
+						if ( vertices.empty() || indices.empty() ) continue;
+
+						size_t primitiveID = partitioned.size();
+						auto& slice = partitioned.emplace_back();
+
+						slice.vertices = std::move( vertices );
+						slice.indices = std::move( indices );
+
+						for ( auto& vertex : slice.vertices ) {
+							vertex.id.x = primitiveID;
+							vertex.id.y = meshlet.primitive.instance.meshID;
+						}
+
+						slice.primitive.instance = meshlet.primitive.instance;
+						slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;
+						slice.primitive.instance.primitiveID = primitiveID;
+						slice.primitive.instance.meshID = meshlet.primitive.instance.meshID;
+						slice.primitive.instance.objectID = 0;
+						slice.primitive.instance.auxID = atlasID;
+						slice.primitive.instance.bounds.min = node.extents.min;
+						slice.primitive.instance.bounds.max = node.extents.max;
+
+						slice.primitive.drawCommand.indices = slice.indices.size();
+						slice.primitive.drawCommand.instances = 1;
+						slice.primitive.drawCommand.indexID = 0;
+						slice.primitive.drawCommand.vertexID = 0;
+						slice.primitive.drawCommand.instanceID = 0;
+						slice.primitive.drawCommand.auxID = atlasID; // meshlet.primitive.instance.meshID;
+						slice.primitive.drawCommand.vertices = slice.vertices.size();
+					}
+				}
+
+				return partitioned;
+			}
+
+			for ( auto& meshlet : meshlets ) uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
+			if ( cleanup ) uf::meshgrid::cleanup( grid );
+
 			for ( auto& pair : grid.nodes ) { auto& node = pair.second;
 				++atlasID;
 				for ( auto& pair2 : node.meshlets ) { auto& mlet = pair2.second;
 					if ( mlet.indices.empty() ) continue;
 
 					auto& meshlet = meshlets[mlet.primitive.instance.primitiveID];
+					
 					size_t primitiveID = partitioned.size();
 					auto& slice = partitioned.emplace_back();
 					slice.vertices.reserve( mlet.indices.size() );
 					slice.indices.reserve( mlet.indices.size() );
+
 					for ( auto idx : mlet.indices ) {
 						auto& vertex = slice.vertices.emplace_back( meshlet.vertices[idx] );
 						auto& index = slice.indices.emplace_back( slice.indices.size() );
@@ -98,6 +152,14 @@ namespace uf {
 						vertex.id.x = primitiveID;
 						vertex.id.y = meshlet.primitive.instance.meshID;
 					}
+
+					/*
+					if ( clip ) {
+						node.effectiveExtents.min = node.extents.min;
+						node.effectiveExtents.max = node.extents.max;
+						uf::shapes::clip<T,U>( slice.vertices, slice.indices, node.extents.min, node.extents.max );
+					}
+					*/
 
 					slice.primitive.instance = meshlet.primitive.instance;
 					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;

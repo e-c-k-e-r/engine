@@ -1,4 +1,5 @@
 #include <uf/utils/math/physics.h>
+#include <uf/engine/scene/scene.h>
 #include <iostream>
 
 /*
@@ -10,10 +11,16 @@ float uf::physics::time::clamp = 0;
 */
 
 
-void uf::physics::initialize() {
-	uf::physics::impl::initialize();
+void uf::physics::initialize( ) {
+	return uf::physics::initialize( uf::scene::getCurrentScene() );
 }
-void uf::physics::tick() {
+void uf::physics::initialize( uf::Object& scene ) {
+	uf::physics::impl::initialize( scene );
+}
+void uf::physics::tick( ) {
+	return uf::physics::tick( uf::scene::getCurrentScene() );
+}
+void uf::physics::tick( uf::Object& scene ) {
 	++uf::physics::time::frame;
 	
 	uf::physics::time::previous = uf::physics::time::current;
@@ -23,8 +30,11 @@ void uf::physics::tick() {
 	if ( uf::physics::time::delta > uf::physics::time::clamp ) {
 		uf::physics::time::delta = uf::physics::time::clamp;
 	}
-	uf::physics::impl::tick();
+	uf::physics::impl::tick( scene );
 }
-void uf::physics::terminate() {
-	uf::physics::impl::terminate();
+void uf::physics::terminate( ) {
+	return uf::physics::terminate( uf::scene::getCurrentScene() );
+}
+void uf::physics::terminate( uf::Object& scene ) {
+	uf::physics::impl::terminate( scene );
 }

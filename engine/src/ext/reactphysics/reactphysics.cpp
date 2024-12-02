@@ -6,6 +6,11 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/graph/graph.h>
 
+
+#if UF_ENV_DREAMCAST
+	#define RP3D_OLD 1
+#endif
+
 namespace {
 	rp3d::PhysicsCommon common;
 	rp3d::PhysicsWorld* world;
@@ -109,9 +114,12 @@ namespace {
 
 	// allows showing collision models
 	void debugDraw( uf::Object& object ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+
 		static size_t oldCount = 0;
 		uf::Mesh mesh;
-		rp3d::DebugRenderer& debugRenderer = ::world->getDebugRenderer(); 
+		rp3d::DebugRenderer& debugRenderer = world->getDebugRenderer(); 
 		if ( !mesh.hasVertex<VertexLine>() ) mesh.bind<VertexLine>();
 
 		size_t lineCount = debugRenderer.getNbLines();
@@ -158,6 +166,7 @@ namespace {
 
 		bool create = !object.hasComponent<uf::Graphic>();
 		auto& graphic = object.getComponent<uf::Graphic>();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 		graphic.process = false;
 
 		if ( create ) {
@@ -170,7 +179,7 @@ namespace {
 			graphic.material.attachShader(uf::io::root + "/shaders/base/line/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 			graphic.material.metadata.autoInitializeUniformBuffers = true;
 
-			graphic.material.getShader("vertex").buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+			graphic.material.getShader("vertex").buffers.emplace_back( storage.buffers.camera.alias() );
 
 			graphic.initialize(ext::reactphysics::debugDraw::layer);
 			graphic.initializeMesh( mesh );
@@ -190,6 +199,7 @@ namespace {
 float ext::reactphysics::timescale = 1.0f / 60.0f;
 bool ext::reactphysics::shared = true;
 bool ext::reactphysics::interpolate = true;
+bool ext::reactphysics::globalStorage = true;
 
 ext::reactphysics::gravity::Mode ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::UNIVERSAL;
 float ext::reactphysics::gravity::constant = 6.67408e-11;
@@ -200,6 +210,9 @@ uf::stl::string ext::reactphysics::debugDraw::layer = "";
 float ext::reactphysics::debugDraw::lineWidth = 1.0f;
 
 void ext::reactphysics::initialize() {
+	return ext::reactphysics::initialize( uf::scene::getCurrentScene() );
+}
+void ext::reactphysics::initialize( uf::Object& scene ) {
 	rp3d::PhysicsWorld::WorldSettings settings;
 	if ( ext::reactphysics::gravity::mode == ext::reactphysics::gravity::Mode::DEFAULT ) {
 		settings.gravity = rp3d::Vector3( 0, -9.81, 0 );
@@ -212,12 +225,13 @@ void ext::reactphysics::initialize() {
 //	logger->addFileDestination("./data/logs/rp3d_log_.html", logLevel, rp3d::DefaultLogger::Format::HTML); 
 //	::common.setLogger(::logger);
 
-	::world = ::common.createPhysicsWorld(settings);
-//	::world->setEventListener(&::listener);
+	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	world = ::common.createPhysicsWorld(settings);
+//	world->setEventListener(&::listener);
 
 	if ( ext::reactphysics::debugDraw::enabled ) {
-		::world->setIsDebugRenderingEnabled(true);
-		rp3d::DebugRenderer& debugRenderer = ::world->getDebugRenderer(); 
+		world->setIsDebugRenderingEnabled(true);
+		rp3d::DebugRenderer& debugRenderer = world->getDebugRenderer(); 
 		// Select the contact points and contact normals to be displayed 
 		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::COLLIDER_AABB, true); 
 		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::COLLISION_SHAPE, true); 
@@ -226,41 +240,49 @@ void ext::reactphysics::initialize() {
 	}
 }
 void ext::reactphysics::tick( float delta ) {
-	ext::reactphysics::syncTo();
+	return ext::reactphysics::tick( uf::scene::getCurrentScene(), delta );
+}
+void ext::reactphysics::tick( uf::Object& scene, float delta ) {
+	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	ext::reactphysics::syncTo( world );
 
 	static float accumulator = 0;
 	accumulator += uf::physics::time::delta; 
 	while ( accumulator >= ext::reactphysics::timescale ) { 
-		::world->update(ext::reactphysics::timescale); 
+		world->update(ext::reactphysics::timescale); 
 		accumulator -= ext::reactphysics::timescale; 
 	}
 
 	TIMER( ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled ) {
-		auto& scene = uf::scene::getCurrentScene();
 		::debugDraw( scene );
 	}
 
-	ext::reactphysics::syncFrom( accumulator / ext::reactphysics::timescale );
+	ext::reactphysics::syncFrom( world, accumulator / ext::reactphysics::timescale );
 }
 void ext::reactphysics::terminate() {
-	if ( !::world ) return;
+	return ext::reactphysics::terminate( uf::scene::getCurrentScene() );
+}
+void ext::reactphysics::terminate( uf::Object& scene ) {
+	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	if ( !world ) return;
 
-	size_t count = ::world->getNbRigidBodies();
+	size_t count = world->getNbRigidBodies();
 	for ( size_t i = 0; i < count; ++i ) {
-		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
+		auto* body = world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
 		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
 		state.body = NULL;
 	}
 
-	::common.destroyPhysicsWorld(::world);
-	::world = NULL;
+	::common.destroyPhysicsWorld(world);
+	world = NULL;
 }
 
 // base collider creation
 pod::PhysicsState& ext::reactphysics::create( uf::Object& object ) {
 	auto& state = object.getComponent<pod::PhysicsState>();
 
+	state.world = ext::reactphysics::globalStorage ? ::world : uf::scene::getCurrentScene().getComponent<ext::reactphysics::WorldState>();
 	state.uid = object.getUid();
 	state.object = &object;
 	state.transform.reference = &object.getComponent<pod::Transform<>>();
@@ -278,7 +300,9 @@ void ext::reactphysics::destroy( pod::PhysicsState& state ) {
 }
 
 void ext::reactphysics::attach( pod::PhysicsState& state ) {
-	if ( !state.shape ) return;
+	if ( !state.shape || !state.world ) return;
+	// auto& scene = uf::scene::getCurrentScene();
+	// auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
 	
 	rp3d::Transform colliderTransform = rp3d::Transform::identity();
 	colliderTransform.setPosition( ::convert( state.transform.position ) );
@@ -287,7 +311,7 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 	state.transform.position = {};
 	state.transform.orientation = {};
 
-	state.body = ::world->createRigidBody( ::convert( *state.transform.reference ) );
+	state.body = state.world->createRigidBody( ::convert( *state.transform.reference ) );
 	
 	auto* collider = state.body->addCollider(state.shape, colliderTransform);
 	collider->setCollisionCategoryBits(0xFF);
@@ -315,8 +339,10 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 	state.body->setLocalInertiaTensor( ::convert( state.stats.inertia ) );
 }
 void ext::reactphysics::detach( pod::PhysicsState& state ) {
-	if ( !state.body ) return;
-	::world->destroyRigidBody(state.body);
+	if ( !state.body || !state.world ) return;
+	// auto& scene = uf::scene::getCurrentScene();
+	// auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	state.world->destroyRigidBody(state.body);
 	state.body = NULL;
 }
 
@@ -345,7 +371,31 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 	switch ( mesh.index.size ) {
 		case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
 		case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
-		default: UF_EXCEPTION("unsupported index type"); break;
+		default: UF_EXCEPTION("unsupported index type: {}", mesh.index.size); break;
+	}
+	switch ( vertexAttribute.descriptor.type ) {
+		case uf::renderer::enums::Type::USHORT:
+		case uf::renderer::enums::Type::SHORT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_SHORT_TYPE; break;
+		case uf::renderer::enums::Type::FLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE; break;
+	#if UF_USE_FLOAT16
+		case uf::renderer::enums::Type::HALF: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT16_TYPE; break;
+	#endif
+	#if UF_USE_BFLOAT16
+		case uf::renderer::enums::Type::BFLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_BFLOAT16_TYPE; break;
+	#endif
+		default: UF_EXCEPTION("unsupported vertex type: {}", vertexAttribute.descriptor.type); break;
+	}
+	switch ( normalAttribute.descriptor.type ) {
+		case uf::renderer::enums::Type::USHORT:
+		case uf::renderer::enums::Type::SHORT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_SHORT_TYPE; break;
+		case uf::renderer::enums::Type::FLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE; break;
+	#if UF_USE_FLOAT16
+		case uf::renderer::enums::Type::HALF: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT16_TYPE; break;
+	#endif
+	#if UF_USE_BFLOAT16
+		case uf::renderer::enums::Type::BFLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_BFLOAT16_TYPE; break;
+	#endif
+		default: UF_EXCEPTION("unsupported normal type: {}", normalAttribute.descriptor.type); break;
 	}
 
 	if ( mesh.indirect.count ) {
@@ -444,8 +494,8 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, float radius, 
 }
 
 // synchronize engine transforms to bullet transforms
-void ext::reactphysics::syncTo() {
-	size_t count = ::world->getNbRigidBodies();
+void ext::reactphysics::syncTo( ext::reactphysics::WorldState& world ) {
+	size_t count = world->getNbRigidBodies();
 	
 	struct Body {
 		rp3d::RigidBody* body{};
@@ -460,7 +510,7 @@ void ext::reactphysics::syncTo() {
 	});
 
 	for ( size_t i = 0; i < count; ++i ) {
-		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
+		auto* body = world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
 		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
 
@@ -473,7 +523,7 @@ void ext::reactphysics::syncTo() {
 		float mass = body->getMass();
 		switch ( ext::reactphysics::gravity::mode ) {
 			case ext::reactphysics::gravity::Mode::PER_OBJECT: if ( body->isGravityEnabled() ) {
-			#if UF_ENV_DREAMCAST
+			#if RP3D_OLD
 				body->applyForceToCenterOfMass( ::convert(state.stats.gravity * mass) );
 			#else
 				body->applyLocalForceAtCenterOfMass( ::convert(state.stats.gravity * mass) );
@@ -507,7 +557,7 @@ void ext::reactphysics::syncTo() {
 				const float r2 = uf::vector::distanceSquared( b1.position, b2.position );
 				const float F = T * G * m1 * m2 / r2;
 
-			#if UF_ENV_DREAMCAST
+			#if RP3D_OLD
 				if ( b1.body ) b1.body->applyForceToCenterOfMass(direction *  F);
 				if ( b2.body ) b2.body->applyForceToCenterOfMass(direction * -F);
 			#else
@@ -519,11 +569,11 @@ void ext::reactphysics::syncTo() {
 	}
 }
 // synchronize bullet transforms to engine transforms
-void ext::reactphysics::syncFrom( float interp ) {
-	size_t count = ::world->getNbRigidBodies();
+void ext::reactphysics::syncFrom( ext::reactphysics::WorldState& world, float interp ) {
+	size_t count = world->getNbRigidBodies();
 	for ( size_t i = 0; i < count; ++i ) {
-		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
-		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object ) continue;
+		auto* body = world->getRigidBody(i); if ( !body ) continue;
+		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
 
 		auto& state = object->getComponent<pod::PhysicsState>();
 
@@ -575,7 +625,7 @@ void ext::reactphysics::syncFrom( float interp ) {
 // apply impulse
 void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
 	if ( !state.body ) return;
-#if !UF_ENV_DREAMCAST
+#if !RP3D_OLD
 	state.body->resetForce();
 	state.body->resetTorque();
 #endif
@@ -586,7 +636,7 @@ void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3
 void ext::reactphysics::applyImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
 	if ( !state.body ) return;
 
-#if UF_ENV_DREAMCAST
+#if RP3D_OLD
 	state.body->applyForceToCenterOfMass( ::convert(v) );
 #else
 	state.body->applyLocalForceAtCenterOfMass( ::convert(v) );
@@ -653,13 +703,15 @@ uf::Object* ext::reactphysics::rayCast( pod::PhysicsState& state, const pod::Vec
 }
 
 uf::Object* ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object* source, float& depth ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
 	depth = -1;
 	
-	if ( !::world ) return NULL;
+	if ( !world ) return NULL;
 
 	::RaycastCallback callback;
 	callback.source = source;
-	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
+	world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
 	if ( !callback.isHit ) return NULL;
 	
 	depth = callback.raycastInfo.hitFraction;

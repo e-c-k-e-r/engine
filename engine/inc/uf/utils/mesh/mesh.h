@@ -1,7 +1,9 @@
 #pragma once
 
 #include <uf/utils/math/vector.h>
+#include <uf/utils/math/shapes.h>
 #include <uf/utils/math/matrix.h>
+#include <uf/utils/math/quant.h>
 
 #include <functional>
 #include <uf/utils/memory/unordered_map.h>
@@ -12,6 +14,16 @@
 #elif UF_USE_OPENGL
 #include <uf/ext/opengl/enums.h>
 #define RENDERER opengl
+#endif
+
+#if UF_USE_VULKAN
+	namespace uf {
+		namespace renderer = ext::vulkan;
+	}
+#elif UF_USE_OPENGL
+	namespace uf {
+		namespace renderer = ext::opengl;
+	}
 #endif
 
 namespace ext {
@@ -128,7 +140,8 @@ namespace uf {
 
 			size_t stride = 0;
 			size_t length = 0;
-			void* pointer = NULL;
+		//	void* pointer = NULL;
+			uint8_t* pointer = NULL;
 		};
 		struct Input {
 			uf::stl::vector<Attribute> attributes;
@@ -283,6 +296,71 @@ namespace uf {
 			bindIndex<U>( indices );
 			_bind( interleave );
 		}
+
+		template<typename From, typename To>
+		void convert() {
+			if ( this->isInterleaved() ) {
+				UF_MSG_DEBUG("Downcasting/upcasting requested yet mesh is interleaved, ignoring...");
+				return;
+			}
+			auto fromEnum = uf::renderer::typeToEnum<From>();
+			auto toEnum = uf::renderer::typeToEnum<To>();
+			if ( toEnum == fromEnum ) return;
+
+			for ( auto& attribute : this->vertex.attributes ) {
+				if ( attribute.descriptor.type != fromEnum ) continue;
+
+				float scale = (float) sizeof(To) / (float) sizeof(From);
+
+				size_t elements = this->vertex.count * attribute.descriptor.components;
+				size_t bytes = elements * sizeof(To);
+				
+				auto& srcBuffer = this->buffers[attribute.buffer];
+				uf::stl::vector<uint8_t> dstBuffer( srcBuffer.size() * scale );
+
+				attribute.pointer = (uint8_t*) dstBuffer.data();
+				attribute.length *= scale;
+				attribute.descriptor.type = toEnum;
+				attribute.descriptor.size *= scale;
+
+				if ( toEnum == uf::renderer::enums::Type::FLOAT ) {
+					switch ( attribute.descriptor.components ) {
+						case 1: attribute.descriptor.format = uf::renderer::enums::Format::R32_SFLOAT; break;
+						case 2: attribute.descriptor.format = uf::renderer::enums::Format::R32G32_SFLOAT; break;
+						case 3: attribute.descriptor.format = uf::renderer::enums::Format::R32G32B32_SFLOAT; break;
+						case 4: attribute.descriptor.format = uf::renderer::enums::Format::R32G32B32A32_SFLOAT; break;
+					}
+				} else if ( toEnum == uf::renderer::enums::Type::FLOAT16 ) {
+					switch ( attribute.descriptor.components ) {
+						case 1: attribute.descriptor.format = uf::renderer::enums::Format::R16_SFLOAT; break;
+						case 2: attribute.descriptor.format = uf::renderer::enums::Format::R16G16_SFLOAT; break;
+						case 3: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16_SFLOAT; break;
+						case 4: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; break;
+					}
+				} else if ( toEnum == uf::renderer::enums::Type::USHORT ) {
+					switch ( attribute.descriptor.components ) {
+						case 1: attribute.descriptor.format = uf::renderer::enums::Format::R16_UINT; break;
+						case 2: attribute.descriptor.format = uf::renderer::enums::Format::R16G16_UINT; break;
+						case 3: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16_UINT; break;
+						case 4: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16A16_UINT; break;
+					}
+				}
+				
+
+				From* srcPtr = (From*) (srcBuffer.data());
+				To* dstPtr = (To*) (dstBuffer.data());
+				
+				if ( toEnum == uf::renderer::enums::Type::USHORT ) {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::quantize_f32u16(srcPtr[i]);
+				} else if ( fromEnum == uf::renderer::enums::Type::USHORT ) {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::dequantize_u16f32(srcPtr[i]);
+				} else {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = srcPtr[i];
+				}
+				
+				srcBuffer.swap( dstBuffer );
+			}
+		}
 	};
 }
 
@@ -359,16 +437,6 @@ namespace std {
 	uf::stl::vector<uf::renderer::AttributeDescriptor> TYPE::descriptor = { __VA_ARGS__ };
 
 
-#if UF_USE_VULKAN
-	namespace uf {
-		namespace renderer = ext::vulkan;
-	}
-#elif UF_USE_OPENGL
-	namespace uf {
-		namespace renderer = ext::opengl;
-	}
-#endif
-
 namespace pod {
 	struct /*UF_API*/ Vertex_3F2F3F4F {
 		pod::Vector3f position;
@@ -377,6 +445,14 @@ namespace pod {
 		pod::Vector4f color;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F2F3F4F interpolate( const Vertex_3F2F3F4F& p1, const Vertex_3F2F3F4F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+				uf::vector::lerp( p1.color, p2.color, t ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F2F3F32B {
 		pod::Vector3f position;
@@ -385,6 +461,15 @@ namespace pod {
 		pod::Vector4t<uint8_t> color;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F2F3F32B interpolate( const Vertex_3F2F3F32B& p1, const Vertex_3F2F3F32B& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+				t < 0.5 ? p1.color : p2.color,
+				//uf::vector::lerp( p1.color, p2.color, t ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F3F3F {
 		pod::Vector3f position;
@@ -392,6 +477,13 @@ namespace pod {
 		pod::Vector3f normal;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F3F3F interpolate( const Vertex_3F3F3F& p1, const Vertex_3F3F3F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F2F3F1UI {
 		pod::Vector3f position;
@@ -400,6 +492,14 @@ namespace pod {
 		pod::Vector1ui id;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F2F3F1UI interpolate( const Vertex_3F2F3F1UI& p1, const Vertex_3F2F3F1UI& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+				uf::vector::lerp( p1.id, p2.id, t ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F2F3F {
 		pod::Vector3f position;
@@ -407,23 +507,47 @@ namespace pod {
 		pod::Vector3f normal;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F2F3F interpolate( const Vertex_3F2F3F& p1, const Vertex_3F2F3F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F2F {
 		pod::Vector3f position;
 		pod::Vector2f uv;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F2F interpolate( const Vertex_3F2F& p1, const Vertex_3F2F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_2F2F {
 		pod::Vector2f position;
 		pod::Vector2f uv;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_2F2F interpolate( const Vertex_2F2F& p1, const Vertex_2F2F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+				uf::vector::lerp( p1.uv, p2.uv, t ),
+			};
+		}
 	};
 	struct /*UF_API*/ Vertex_3F {
 		pod::Vector3f position;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static Vertex_3F interpolate( const Vertex_3F& p1, const Vertex_3F& p2, float t ) {
+			return {
+				uf::vector::lerp( p1.position, p2.position, t ),
+			};
+		}
 	};
 }
 

@@ -12,22 +12,25 @@
 
 namespace {
 	size_t process( uf::Object& object, pod::Graph& graph, pod::Node& parent ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 		// grab relevant IDs
 		size_t nodeID = graph.nodes.size();
-		size_t instanceID = uf::graph::storage.instances.keys.size(); // graph.instances.size();
+		size_t instanceID = storage.instances.keys.size(); // graph.instances.size();
 		size_t primitiveID = graph.primitives.size();
 		size_t drawCommandID = graph.drawCommands.size();
 		size_t meshID = graph.meshes.size();
-		size_t objectID = uf::graph::storage.entities.keys.size();
+		size_t objectID = storage.entities.keys.size();
 
-		uf::stl::string keyName = graph.name + "[" + std::to_string(nodeID) + "]";
+		uf::stl::string keyName = graph.name + "[" + std::to_string(objectID) + "]";
 		// create node
 		auto& node = graph.nodes.emplace_back();
 		node.index = nodeID;
 		node.parent = parent.index;
 		node.entity = &object;
 		node.transform.reference = &object.getComponent<pod::Transform<>>();
-		uf::graph::storage.entities[std::to_string(objectID)] = &object;
+		storage.entities[std::to_string(objectID)] = &object;
 		// grab relevant data
 		if ( object.hasComponent<uf::Graphic>() ) {
 			auto& graphic = object.getComponent<uf::Graphic>();
@@ -41,32 +44,37 @@ namespace {
 				size_t texture2DID = graph.texture2Ds.size();
 
 				uf::stl::string subName = keyName + "[" + std::to_string(sub++) + "]";
-				auto& material = uf::graph::storage.materials[graph.materials.emplace_back(subName)];
-				auto& texture = uf::graph::storage.textures[graph.textures.emplace_back(subName)];
-				auto& texture2D = uf::graph::storage.texture2Ds[graph.texture2Ds.emplace_back(subName)];
+				auto& material = storage.materials[graph.materials.emplace_back(subName)];
+				auto& texture = storage.textures[graph.textures.emplace_back(subName)];
+				auto& texture2D = storage.texture2Ds[graph.texture2Ds.emplace_back(subName)];
 
 				material.indexAlbedo = textureID;
+				material.colorBase = {1,1,1,1};
 				texture.index = texture2DID;
 				texture2D.aliasTexture(t);
 			}
-
+			// graphic.material.textures.clear();
 
 			if ( object.hasComponent<uf::Mesh>() ) {
 				node.mesh = meshID;
 				// import
-				auto& instance = uf::graph::storage.instances[graph.instances.emplace_back(keyName)];
-				auto& drawCommands = uf::graph::storage.drawCommands[graph.drawCommands.emplace_back(keyName)];
+				auto& instance = storage.instances[graph.instances.emplace_back(keyName)];
+				auto& drawCommands = storage.drawCommands[graph.drawCommands.emplace_back(keyName)];
 				auto& drawCommand = drawCommands.emplace_back();
-				auto& primitives = uf::graph::storage.primitives[graph.primitives.emplace_back(keyName)];
+				auto& primitives = storage.primitives[graph.primitives.emplace_back(keyName)];
 				auto& primitive = primitives.emplace_back();
-				auto& mesh = (uf::graph::storage.meshes[graph.meshes.emplace_back(keyName)] = object.getComponent<uf::Mesh>());
+				auto& mesh = (storage.meshes[graph.meshes.emplace_back(keyName)] = object.getComponent<uf::Mesh>());
 		
-				pod::Vector3f boundsMin = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-				pod::Vector3f boundsMax = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+				pod::Vector3f boundsMin = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+				pod::Vector3f boundsMax = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
 
-				// do some position min/maxing
-				{
-
+				for ( auto& attribute : mesh.vertex.attributes ) {
+					if ( attribute.descriptor.name != "position" ) continue;
+					for ( size_t i = 0; i < mesh.vertex.count; ++i ) {
+						auto& position = *(const pod::Vector3f*) ( attribute.pointer + attribute.stride * (mesh.vertex.first + i));
+						boundsMin = uf::vector::min( boundsMin, position );
+						boundsMax = uf::vector::max( boundsMax, position );
+					}
 				}
 
 				instance.materialID = materialID;
@@ -104,6 +112,9 @@ namespace {
 }
 
 pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 	auto& graph = object.getComponent<pod::Graph>();
 
 	graph.name = object.getName();
@@ -119,9 +130,9 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 
 	// remap textures->images IDs
 	for ( auto& name : graph.textures ) {
-		auto& texture = uf::graph::storage.textures[name];
-		auto& keys = uf::graph::storage.images.keys;
-		auto& indices = uf::graph::storage.images.indices;
+		auto& texture = storage.textures[name];
+		auto& keys = storage.images.keys;
+		auto& indices = storage.images.indices;
 
 		if ( !(0 <= texture.index && texture.index < graph.images.size()) ) continue;
 
@@ -142,9 +153,9 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 	}
 	// remap materials->texture IDs
 	for ( auto& name : graph.materials ) {
-		auto& material = uf::graph::storage.materials[name];
-		auto& keys = uf::graph::storage.textures.keys;
-		auto& indices = uf::graph::storage.textures.indices;
+		auto& material = storage.materials[name];
+		auto& keys = storage.textures.keys;
+		auto& indices = storage.textures.indices;
 		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
 		for ( auto* pointer : IDs ) {
 			auto& ID = *pointer;
@@ -168,11 +179,11 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 	}
 	// remap instance variables
 	for ( auto& name : graph.instances ) {
-		auto& instance = uf::graph::storage.instances[name];
+		auto& instance = storage.instances[name];
 		
 		if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
-			auto& keys = /*graph.storage*/uf::graph::storage.materials.keys;
-			auto& indices = /*graph.storage*/uf::graph::storage.materials.indices;
+			auto& keys = /*graph.storage*/storage.materials.keys;
+			auto& indices = /*graph.storage*/storage.materials.indices;
 			
 			if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) continue;
 
@@ -192,8 +203,8 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 		#endif
 		}
 		if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
-			auto& keys = /*graph.storage*/uf::graph::storage.textures.keys;
-			auto& indices = /*graph.storage*/uf::graph::storage.textures.indices;
+			auto& keys = /*graph.storage*/storage.textures.keys;
+			auto& indices = /*graph.storage*/storage.textures.indices;
 
 			if ( !(0 <= instance.lightmapID && instance.lightmapID < graph.textures.size()) ) continue;
 
@@ -216,7 +227,7 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 		// i genuinely dont remember what this is used for
 
 		if ( 0 <= instance.imageID && instance.imageID < graph.images.size() ) {
-			auto& keys = /*graph.storage*/uf::graph::storage.images.keys;
+			auto& keys = /*graph.storage*/storage.images.keys;
 			auto it = std::find( keys.begin(), keys.end(), graph.images[instance.imageID] );
 			UF_ASSERT( it != keys.end() );
 			instance.imageID = it - keys.begin();
@@ -226,9 +237,9 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 		if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
 			auto& name = graph.skins[instance.jointID];
 			instance.jointID = 0;
-			for ( auto key : uf::graph::storage.joints.keys ) {
+			for ( auto key : storage.joints.keys ) {
 				if ( key == name ) break;
-				auto& joints = uf::graph::storage.joints[key];
+				auto& joints = storage.joints[key];
 				instance.jointID += joints.size();
 			}
 		}

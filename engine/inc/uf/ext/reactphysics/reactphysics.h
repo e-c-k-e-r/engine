@@ -20,6 +20,8 @@ namespace pod {
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
 		rp3d::RigidBody* body = NULL;	
 		rp3d::CollisionShape* shape = NULL;	
+
+		rp3d::PhysicsWorld* world = NULL;
 	
 		pod::Transform<> transform = {};
 		
@@ -57,12 +59,18 @@ namespace pod {
 namespace ext {
 	namespace reactphysics {
 		void UF_API initialize();
+		void UF_API initialize( uf::Object& );
 		void UF_API tick( float = 0 );
+		void UF_API tick( uf::Object&, float = 0 );
 		void UF_API terminate();
+		void UF_API terminate( uf::Object& );
 
 		extern UF_API float timescale;
 		extern UF_API bool interpolate;
 		extern UF_API bool shared;
+		extern UF_API bool globalStorage;
+
+		typedef rp3d::PhysicsWorld* WorldState;
 
 		namespace gravity {
 			enum Mode {
@@ -99,9 +107,9 @@ namespace ext {
 		pod::PhysicsState& UF_API create( uf::Object&, float, float );
 
 		// synchronize engine transforms to bullet transforms
-		void UF_API syncTo();
+		void UF_API syncTo( ext::reactphysics::WorldState& );
 		// synchronize bullet transforms to engine transforms
-		void UF_API syncFrom( float = 1 );
+		void UF_API syncFrom( ext::reactphysics::WorldState&, float = 1 );
 		// apply impulse
 		void UF_API setImpulse( pod::PhysicsState&, const pod::Vector3f& = {} );
 		void UF_API applyImpulse( pod::PhysicsState&, const pod::Vector3f& );

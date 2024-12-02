@@ -3,6 +3,7 @@
 #include <uf/utils/math/physics.h>
 
 namespace binds {
+	bool hasBody( pod::Physics& self ) { return self.body; }
 	pod::Vector3f& linearVelocity( pod::Physics& self ) { return self.linear.velocity; }
 	pod::Quaternion<>& rotationalVelocity( pod::Physics& self ) { return self.rotational.velocity; }
 
@@ -12,6 +13,10 @@ namespace binds {
 	void enableGravity( pod::PhysicsState& state, bool s ) {
 		if ( !state.body ) return;
 		state.body->enableGravity(s);
+	}
+	
+	void applyRotation( pod::PhysicsState& state, const pod::Quaternion<>& q ) {
+		return uf::physics::impl::applyRotation( state, q );
 	}
 
 	std::tuple<uf::Object*, float> rayCast( pod::Physics& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
@@ -23,6 +28,7 @@ namespace binds {
 }
 
 UF_LUA_REGISTER_USERTYPE(pod::Physics,
+	UF_LUA_REGISTER_USERTYPE_DEFINE( hasBody, UF_LUA_C_FUN(::binds::hasBody) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( linearVelocity, UF_LUA_C_FUN(::binds::linearVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rotationalVelocity, UF_LUA_C_FUN(::binds::rotationalVelocity) ),
 	
@@ -34,7 +40,7 @@ UF_LUA_REGISTER_USERTYPE(pod::Physics,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyMovement, UF_LUA_C_FUN(uf::physics::impl::applyMovement) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(uf::physics::impl::applyVelocity) ),
-//	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(uf::physics::impl::applyRotation) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::applyRotation) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) ),
 	

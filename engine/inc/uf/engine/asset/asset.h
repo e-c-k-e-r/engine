@@ -2,37 +2,16 @@
 
 #include <uf/utils/http/http.h>
 #include <uf/engine/entity/entity.h>
+#include <uf/utils/resolvable/resolvable.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/memory/unordered_map.h>
 #include <functional>
 
+#include "payload.h"
+
 namespace uf {
 	namespace asset {
-		enum Type {
-			UNKNOWN,
-			IMAGE,
-			AUDIO,
-			LUA,
-			JSON,
-			GRAPH,
-		};
-
-		struct UF_API Payload {
-			uf::asset::Type type = {};
-			uf::stl::string filename = "";
-			uf::stl::string mime = "";
-			uf::stl::string hash = "";
-
-			bool initialize = true;
-			bool monoThreaded = false;
-			bool asComponent = false;
-
-			uf::Serializer metadata;
-
-			pod::Resolvable<uf::Entity> object;
-		};
-
 		struct UF_API Job {
 			typedef uf::stl::vector<Job> container_t;
 
@@ -70,6 +49,7 @@ namespace uf {
 		bool has( const uf::asset::Payload& payload );
 
 		uf::asset::userdata_t& get( const uf::stl::string& url );
+		uf::asset::userdata_t release( const uf::stl::string& url );
 		void remove( const uf::stl::string& url );
 
 		template<typename T>

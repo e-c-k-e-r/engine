@@ -11,11 +11,8 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"uv": [ 0, 0, 1, 1 ],
 		"color": [ 1, 1, 1, 0.8 ],
-		"location": "",
-		"scaling": [ 0.64, 1 ],
-		"mode": "flat"
+		"scaling": "relative-x"
 	},
 	"assets": [
 		"./textures/circle-in.png"

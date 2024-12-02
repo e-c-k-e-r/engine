@@ -1,0 +1,28 @@
+{
+	"name": "Gui: Dialogue Name Box",
+	"type": "Gui",
+	"behaviors": [
+		"GuiBehavior"
+	],
+	"ignore": false,
+	"transform": {
+		"position": [ -0.2750, 0.28, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+		"scale": [ 0.2062, 0.0917, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"color": [ 0.7, 0.7, 1, 1 ],
+		"scaling": "none"
+	},
+	"assets": [
+		"./textures/name_box.png"
+	]
+}

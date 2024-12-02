@@ -309,6 +309,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		moduleCreateInfo.pCode = (uint32_t*) spirv.data();
 
 		VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &module));
+		VK_REGISTER_HANDLE( module );
 		//UF_MSG_DEBUG("Shader: {}", filename);
 	}
 	
@@ -830,6 +831,7 @@ void ext::vulkan::Shader::destroy() {
 
 	if ( module != VK_NULL_HANDLE ) {
 		vkDestroyShaderModule( *device, module, nullptr );
+		VK_UNREGISTER_HANDLE( module );
 		module = VK_NULL_HANDLE;
 		descriptor = {};
 	}

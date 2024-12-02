@@ -41,7 +41,7 @@ namespace ext {
 			} descriptor = {};
 
 			void initialize( Device& device );
-			void destroy();
+			void destroy(bool defer = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 
 			static uf::stl::vector<ext::vulkan::Sampler> samplers;
 			static ext::vulkan::Sampler retrieve( const Descriptor& info );
@@ -77,7 +77,7 @@ namespace ext {
 			void initialize( Device& device, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
 			void initialize( Device& device, VkImageViewType, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
 			void updateDescriptors();
-			void destroy();
+			void destroy(bool defer = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 			bool generated() const;
 
 			static VkImageLayout remapRenderpassLayout( VkImageLayout );

@@ -67,16 +67,22 @@ layout (binding = 10) uniform sampler3D samplerNoise;
 
 layout (location = 0) rayPayloadEXT RayTracePayload payload;
 
-layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
-layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+//layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
+layout(buffer_reference, scalar) buffer Indices { uint i[]; };
+//layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
 layout(buffer_reference, scalar) buffer Indirects { DrawCommand dc[]; };
 
-layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
+//layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VPos { float v[]; };
 layout(buffer_reference, scalar) buffer VUv { vec2 v[]; };
+//layout(buffer_reference, scalar) buffer VUv { float v[]; };
 layout(buffer_reference, scalar) buffer VColor { uint v[]; };
 layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
-layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
-layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
+//layout(buffer_reference, scalar) buffer VSt { float v[]; };
+//layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VNormal { float v[]; };
+//layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VTangent { float v[]; };
 layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 #include "../common/functions.h"

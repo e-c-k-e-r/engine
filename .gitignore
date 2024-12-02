@@ -7,7 +7,6 @@
 *.lo
 *.o
 *.obj
-*.tmp
 
 # Precompiled Headers
 *.gch
@@ -45,9 +44,3 @@
 *.iso
 *.cdi
 *.gdi
-
-# Temporary
-/dep
-*.sublime-*
-*.html
-myconfig.config

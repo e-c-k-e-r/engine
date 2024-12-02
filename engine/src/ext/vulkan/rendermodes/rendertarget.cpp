@@ -317,6 +317,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi  ) {
 			auto& scene = uf::scene::getCurrentScene();
+			auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
 			auto& shader = blitter.material.getShader("compute");
@@ -341,14 +342,14 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{ "voxelRadiance", maxCascades },
 			});
 
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
+		//	shader.buffers.emplace_back( storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
+			shader.buffers.emplace_back( storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
+			shader.buffers.emplace_back( storage.buffers.material.alias() );
+			shader.buffers.emplace_back( storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( storage.buffers.light.alias() );
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
 		#if 0
 			auto& shader = blitter.material.getShader("fragment");
@@ -406,7 +407,6 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
-	blitter.destroy();
 }
 
 void ext::vulkan::RenderTargetRenderMode::render() {

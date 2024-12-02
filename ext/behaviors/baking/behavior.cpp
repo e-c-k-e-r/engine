@@ -31,6 +31,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& controller = scene.getController();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
@@ -83,12 +84,12 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		uf::stl::vector<uf::renderer::Texture2D> textures2D;
 		uf::stl::vector<uf::renderer::TextureCube> texturesCube;
 		// bind scene textures
-		for ( auto& key : uf::graph::storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
+		for ( auto& key : storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
 		// bind shadow maps
-		for ( auto& texture : uf::graph::storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
-		for ( auto& texture : uf::graph::storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
+		for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
+		for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
-		::totalIDs = uf::graph::storage.instances.keys.size();
+		::totalIDs = storage.instances.keys.size();
 
 		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
@@ -106,7 +107,8 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 			shader.buffers.insert( shader.buffers.begin(), metadata.buffers.uniforms.alias() );
 		});
-		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
+		renderMode.metadata.name = metadata.renderModeName;
+		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 		uf::renderer::states::rebuild = true;
 		UF_MSG_DEBUG("Finished initialiation.");
 	});
@@ -146,6 +148,7 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 PREPARE: {
 	UF_MSG_DEBUG("Preparing graphics to bake...");
 
+	uf::renderer::settings::defaultCommandBufferImmediate = true;
 	metadata.initialized.renderMode = true;
 	renderMode.execute = true;
 	renderMode.setTarget("");
@@ -199,11 +202,13 @@ SAVE: {
 }
 void ext::BakingBehavior::render( uf::Object& self ){}
 void ext::BakingBehavior::destroy( uf::Object& self ){
+/*
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::renderer::removeRenderMode( &renderMode, false );
 	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}
+*/
 #if 0
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();

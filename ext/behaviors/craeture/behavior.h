@@ -15,6 +15,8 @@ namespace ext {
 			struct {
 				float health;
 			} stats;
+
+			uf::stl::string animation = "idle";
 		);
 	}
 }

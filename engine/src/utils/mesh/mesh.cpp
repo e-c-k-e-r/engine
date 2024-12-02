@@ -241,6 +241,12 @@ std::string uf::Mesh::printVertices( bool full ) const {
 				case uf::renderer::enums::Type::UBYTE: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << (int) ((uint8_t*) e)[j] << " "; break;
 				case uf::renderer::enums::Type::BYTE: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << (int) ((int8_t*) e)[j] << " "; break;
 				case uf::renderer::enums::Type::FLOAT: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((float*) e)[j] << " "; break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((std::float16_t*) e)[j] << " "; break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT16: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((std::bfloat16_t*) e)[j] << " "; break;
+			#endif
 				default: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((float*) e)[j] << " "; break;
 			}
 			str << ")\n";
@@ -276,6 +282,12 @@ std::string uf::Mesh::printInstances( bool full ) const {
 				case uf::renderer::enums::Type::UBYTE: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << (int) ((uint8_t*) e)[j] << " "; break;
 				case uf::renderer::enums::Type::BYTE: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << (int) ((int8_t*) e)[j] << " "; break;
 				case uf::renderer::enums::Type::FLOAT: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((float*) e)[j] << " "; break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((std::float16_t*) e)[j] << " "; break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT16: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((std::bfloat16_t*) e)[j] << " "; break;
+			#endif
 				default: for ( auto j = 0; j < attribute.descriptor.components; ++j ) str << ((float*) e)[j] << " "; break;
 			}
 			str << ")\n";
@@ -526,12 +538,12 @@ void uf::Mesh::_reserveVs( uf::Mesh::Input& input, size_t count ) {
 		buffers[input.interleaved].reserve( count * input.size );
 		for ( auto& attribute : input.attributes ) {
 			attribute.length = buffers[input.interleaved].size();
-			attribute.pointer = (void*) (buffers[input.interleaved].data());
+			attribute.pointer = (uint8_t*) (buffers[input.interleaved].data());
 		}
 	} else for ( auto& attribute : input.attributes ) {
 		buffers[attribute.buffer].reserve( count * attribute.descriptor.size );
 		attribute.length = buffers[attribute.buffer].size();
-		attribute.pointer = (void*) (buffers[attribute.buffer].data());
+		attribute.pointer = (uint8_t*) (buffers[attribute.buffer].data());
 	}
 }
 void uf::Mesh::_resizeVs( uf::Mesh::Input& input, size_t count ) {
@@ -539,12 +551,12 @@ void uf::Mesh::_resizeVs( uf::Mesh::Input& input, size_t count ) {
 		buffers[input.interleaved].resize( count * input.size );
 		for ( auto& attribute : input.attributes ) {
 			attribute.length = buffers[input.interleaved].size();
-			attribute.pointer = (void*) (buffers[input.interleaved].data());
+			attribute.pointer = (uint8_t*) (buffers[input.interleaved].data());
 		}
 	} else for ( auto& attribute : input.attributes ) {
 		buffers[attribute.buffer].resize( count * attribute.descriptor.size );
 		attribute.length = buffers[attribute.buffer].size();
-		attribute.pointer = (void*) (buffers[attribute.buffer].data());
+		attribute.pointer = (uint8_t*) (buffers[attribute.buffer].data());
 	}
 }
 void uf::Mesh::_insertV( uf::Mesh::Input& input, const void* data ) {
@@ -587,13 +599,13 @@ void uf::Mesh::_reserveIs( uf::Mesh::Input& input, size_t count, size_t i ) {
 	auto& attribute = input.attributes[i];
 	buffers[attribute.buffer].reserve( count * attribute.descriptor.size );
 	attribute.length = buffers[attribute.buffer].size();
-	attribute.pointer = (void*) (buffers[attribute.buffer].data());
+	attribute.pointer = (uint8_t*) (buffers[attribute.buffer].data());
 }
 void uf::Mesh::_resizeIs( uf::Mesh::Input& input, size_t count, size_t i ) {
 	auto& attribute = input.attributes[i];
 	buffers[attribute.buffer].resize( count * attribute.descriptor.size );
 	attribute.length = buffers[attribute.buffer].size();
-	attribute.pointer = (void*) (buffers[attribute.buffer].data());
+	attribute.pointer = (uint8_t*) (buffers[attribute.buffer].data());
 }
 void uf::Mesh::_insertI( uf::Mesh::Input& input, const void* data, size_t i ) {			
 	auto& attribute = input.attributes[i];

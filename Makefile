@@ -45,8 +45,9 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.216.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.224.1/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.231.1/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.231.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.261.1/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.296.0/
 
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
@@ -59,10 +60,11 @@ INCS 					+= -I$(ENGINE_INC_DIR) -I./dep/include/ #-I/mingw64/include/
 LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH)/$(CC) -L$(LIB_DIR)/$(ARCH) #-L/mingw64/lib/
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
-DEPS 					+=
+DEPS 					+= 
+FLAGS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg ffx:fsr # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
@@ -74,7 +76,7 @@ else ifneq (,$(findstring dreamcast,$(ARCH)))
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
-	DEPS 				+= -lvulkan -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
+	DEPS 				+= -lvulkan-1 -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
 	INCS 				+= -I$(VULKAN_SDK_PATH)/include -I./dep/include/spirv_cross/
 	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
 endif
@@ -117,6 +119,9 @@ ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_IMGUI
 	INCS 				+= -I./dep/include/imgui/
 	INCS 				+= -I./dep/include/imgui/backends
+endif
+ifneq (,$(findstring imgui,$(REQ_DEPS)))
+	DEPS 				+= -lcpptrace
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_JSON
@@ -345,8 +350,8 @@ endif
 
 %.spv: %.glsl
 	$(GLSLC) --target-env=vulkan1.2 -o $@ $<
-	$(SPV_LINTER) $@
-	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
+	@-$(SPV_LINTER) $@
+	@-$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
 shaders: $(TARGET_SHADERS)
 
@@ -418,4 +423,4 @@ backup:
 	#make CC=zig RENDERER=opengl clean
 	#make CC=zig RENDERER=vulkan clean
 	@-rm $(shell find $(ENGINE_SRC_DIR) -name "*.o") $(shell find $(EXT_SRC_DIR) -name "*.o") $(shell find $(DEP_SRC_DIR) -name "*.o")
-	$(7Z) a -bsp1 -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z .
+	$(7Z) a -bsp1 -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z . -xr!.git

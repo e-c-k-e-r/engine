@@ -31,11 +31,16 @@
 #include "../voxelizer/behavior.h"
 #include "../raytrace/behavior.h"
 #include "../../ext.h"
-#include "../../gui/gui.h"
+// #include "../../gui/gui.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
 #define this ((uf::Scene*) &self)
+
+namespace {
+	uf::stl::vector<pod::Component::userdata_t> detachedAudios;
+}
+
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 //	auto& assetLoader = this->getComponent<uf::asset>();
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -46,34 +51,23 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		ext::ready = false;
 	});
 
-	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::asset::isExpected( payload, uf::asset::Type::AUDIO ) ) return;
-	//	if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
-		auto& audio = uf::asset::get<uf::Audio>( payload );
-	//	if ( !uf::asset::has(payload.filename) ) uf::asset::load( payload );
-	//	auto& audio = this->getComponent<uf::Audio>();
-
-	#if UF_AUDIO_MAPPED_VOLUMES
-		audio.setVolume(uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0);
-	#else
-		audio.setVolume(uf::audio::volumes::bgm);
-	#endif
-		audio.loop( true );
-		audio.play();
-
-		if ( !payload.asComponent ) {
-			this->moveComponent<uf::Audio>( uf::asset::get( payload.filename ) );
-		}
+	this->addHook( "menu:Open", [&](ext::json::Value& payload){
+		pod::payloads::menuOpen forward;
+		forward.name = payload["name"];
+		forward.metadata = payload["metadata"];
+		this->callHook("menu:Open", forward);
 	});
-
 	this->addHook( "menu:Open", [&](pod::payloads::menuOpen& payload){
-		TIMER(1) {
+		TIMER(2) {
 			uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 			if ( !manager ) return;
 
 			uf::stl::string key = payload.name;
-			uf::Object& gui = manager->loadChild(metadataJson["menus"][key].as<uf::stl::string>("/gui/"+key+"/menu.json"), false);
-			uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
+			uf::Object& gui = manager->loadChild(metadataJson["menus"][key].as<uf::stl::string>("/gui/"+key+"/main.json"), false);
+			if ( ext::json::isObject( payload.metadata ) ) {
+				uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
+				metadataJson.import( payload.metadata );
+			}
 			gui.initialize();
 		};
 	});
@@ -119,7 +113,68 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		if ( !payload.transform.reference ) transform.reference = payload.transform.reference;
 	});
 
+	this->addHook( "engine:Init3D.%UID%", [&](){
+		if ( !uf::renderer::hasRenderMode( "", true ) ) {
+		//	auto* renderMode = new uf::renderer::DeferredRenderMode;
+			auto& renderMode = this->getComponent<uf::renderer::DeferredRenderMode>();
+					
+			/*
+			if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
+				renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
+			*/
+
+			renderMode.blitter.descriptor.renderMode = "Swapchain";
+			renderMode.blitter.descriptor.subpass = 0;
+		#if UF_USE_FFX_FSR
+			if ( uf::renderer::settings::pipelines::fsr ) {
+				auto mode = uf::string::lowercase( ext::fsr::preset );
+				if ( mode == "native" ) renderMode.scale = 1;
+				else if ( mode == "quality" ) renderMode.scale = 1.0f / (1.5f);
+				else if ( mode == "balanced" ) renderMode.scale = 1.0f / (1.7f);
+				else if ( mode == "performance" ) renderMode.scale = 1.0f / (2.0f);
+				else if ( mode == "ultra" ) renderMode.scale = 1.0f / (3.0f);
+				else {
+					renderMode.scale = 1;
+					UF_MSG_WARNING("Invalid FFX FSR preset enum string specified: {}", mode);
+				}
+				UF_MSG_DEBUG("Using FFX FSR Preset: {} ({:.3f}% render scale)", mode, (100.0f / renderMode.scale));
+			} else
+		#endif
+			renderMode.scale = 1.0f; // ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
+			UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode.scale);
+		/*
+			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
+				renderMode.metadata.eyes = 2;
+			}
+		*/
+		#if UF_USE_VULKAN
+			if ( uf::renderer::settings::pipelines::deferred ) {
+				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);
+			}
+			if ( uf::renderer::settings::pipelines::culling ) {
+				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
+			}
+			if ( uf::renderer::settings::pipelines::rt ) {
+				renderMode.metadata.pipelines.emplace_back("skinning");
+			}
+		#endif
+			
+			renderMode.metadata.name = "";
+			if ( uf::renderer::settings::experimental::registerRenderMode ) {
+				uf::renderer::addRenderMode( &renderMode, "" );
+			} else {
+				renderMode.initialize(uf::renderer::device);
+				renderMode.tick();
+			}
+		}
+
+		uf::renderer::states::rebuild = true;
+	});
+
+
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
+
+	if ( metadata.shader.init3D ) this->callHook("engine:Init3D.%UID%");
 
 	// lock control
 	{
@@ -209,14 +264,6 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		}
 	}
 	#endif
-
-	if ( false ) {
-		uf::physics::terminate();
-		uf::graph::destroy();
-		
-		uf::physics::initialize();
-		uf::graph::initialize();
-	}
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 //	auto& assetLoader = this->getComponent<uf::asset>();
@@ -255,6 +302,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U || uf::scene::printTaskCalls )
 		{
+			/*
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
@@ -268,6 +316,23 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				if ( !scene ) continue;
 				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
 				scene->process(filter, 1);
+			}
+			*/
+
+			for ( uf::Scene* scene : uf::scene::scenes ) {
+				if ( !scene ) continue;
+				uf::iostream << ::fmt::format("Scene: {}\n", uf::string::toString( *scene ));
+				scene->process([]( uf::Entity* entity, int depth ) {
+					uf::stl::string indent = ""; for ( auto i = 1; i < depth; ++i ) indent += "\t";
+					uf::stl::string location = "";
+					
+					if ( entity->hasComponent<pod::Transform<>>() ) {
+						pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
+						location = uf::string::toString( t.position ) + " " + uf::string::toString( t.orientation );
+					}
+
+					uf::iostream << ::fmt::format("{} {} {}\n", indent, uf::string::toString( *entity ), location );
+				}, 1);
 			}
 		}
 	}
@@ -333,10 +398,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 
 #if UF_USE_OPENAL
-	/* check if audio needs to loop */ {
-		auto& audio = this->getComponent<uf::Audio>();
-		if ( !audio.playing() ) audio.play();
-	}
 	/* Updates Sound Listener */ {
 		auto& controller = this->getController();
 		// copy
@@ -354,26 +415,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		
 		ext::al::listener( transform );
 	}
-#if 0
-	/* check if audio needs to loop */ {
-		auto& bgm = this->getComponent<uf::Audio>();
-		float current = bgm.getTime();
-		float end = bgm.getDuration();
-		float epsilon = 0.005f;
-		if ( (current + epsilon >= end || !bgm.playing()) && !bgm.loops() ) {
-			// intro to main transition
-			uf::stl::string filename = bgm.getFilename();
-			filename = uf::asset::getOriginal(filename);
-			if ( filename.find("_intro") != uf::stl::string::npos ) {
-				uf::asset::load(uf::string::replace( filename, "_intro", "" ), this->formatHookName("asset:Load.%UID%"));
-			// loop
-			} else {
-				bgm.setTime(0);
-				if ( !bgm.playing() ) bgm.play();
-			}
-		}
-	}
-#endif
 #endif
 #if !UF_ENV_DREAMCAST
 	/* Regain control if nothing requests it */ {
@@ -458,6 +499,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #elif UF_USE_VULKAN
 	{
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : this->getComponent<pod::Graph::Storage>();
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 	//	auto& camera = controller.getComponent<uf::Camera>();
@@ -483,9 +525,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		
 		uf::stl::vector<LightInfo> entities; entities.reserve(graph.size() / 2);
 
-		uf::graph::storage.lights.clear(); uf::graph::storage.lights.reserve(metadata.light.max);
-		uf::graph::storage.shadow2Ds.clear(); uf::graph::storage.shadow2Ds.reserve(metadata.light.max);
-		uf::graph::storage.shadowCubes.clear(); uf::graph::storage.shadowCubes.reserve(metadata.light.max);
+		storage.lights.clear(); storage.lights.reserve(metadata.light.max);
+		storage.shadow2Ds.clear(); storage.shadow2Ds.reserve(metadata.light.max);
+		storage.shadowCubes.clear(); storage.shadowCubes.reserve(metadata.light.max);
 
 		// traverse scene graph
 		for ( auto entity : graph ) {
@@ -531,12 +573,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		for ( auto& info : entities ) if ( info.shadows && shadowCount-- <= 0 ) info.shadows = false;
 
 		// bind lighting and requested shadow maps
-		for ( uint32_t i = 0; i < entities.size() && uf::graph::storage.lights.size() < metadata.light.max; ++i ) {
+		for ( uint32_t i = 0; i < entities.size() && storage.lights.size() < metadata.light.max; ++i ) {
 			auto& info = entities[i];
 			uf::Entity* entity = info.entity;
 
 			if ( !info.shadows ) {
-				uf::graph::storage.lights.emplace_back(pod::Light{
+				storage.lights.emplace_back(pod::Light{
 					.view = uf::matrix::identity(),
 					.projection = uf::matrix::identity(),
 					.position = info.position,
@@ -567,24 +609,24 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					// separated texture2Ds
 					if ( metadata.shadow.typeMap == MODE_SEPARATE_2DS ) {
 						UF_MSG_WARNING("deprecated feature used: separate Texture2Ds for shadow maps");
-						index = uf::graph::storage.shadow2Ds.size();
+						index = storage.shadow2Ds.size();
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 							for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {			
-								uf::graph::storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
+								storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
 							}
 							break;
 						}
 					// cubemapped
 					} else if ( metadata.shadow.typeMap == MODE_CUBEMAP ) {
-						index = uf::graph::storage.shadowCubes.size();
+						index = storage.shadowCubes.size();
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-							uf::graph::storage.shadowCubes.emplace_back().aliasAttachment(attachment);
+							storage.shadowCubes.emplace_back().aliasAttachment(attachment);
 							break;
 						}
 					}
-					uf::graph::storage.lights.emplace_back(pod::Light{
+					storage.lights.emplace_back(pod::Light{
 						.view = lightCamera.getView(0),
 						.projection = lightCamera.getProjection(0),
 						.position = info.position,
@@ -602,7 +644,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 						if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 						for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
-							uf::graph::storage.lights.emplace_back(pod::Light{
+							storage.lights.emplace_back(pod::Light{
 								.view = lightCamera.getView(view),
 								.projection = lightCamera.getProjection(view),
 								.position = info.position,
@@ -611,32 +653,32 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 								.intensity = info.intensity,
 								.type = info.type,
 								.typeMap = 0,
-								.indexMap = uf::graph::storage.shadow2Ds.size(),
+								.indexMap = storage.shadow2Ds.size(),
 								.depthBias = info.bias,
 							});
-							uf::graph::storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
+							storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
 						}
 					}
 				}
 			}
 		}
 
-		for ( auto& texture : uf::graph::storage.shadowCubes ) {
+		for ( auto& texture : storage.shadowCubes ) {
 			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 		}
-		for ( auto& texture : uf::graph::storage.shadow2Ds ) {
+		for ( auto& texture : storage.shadow2Ds ) {
 			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 		}
 		
-		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
+		storage.buffers.light.update( (const void*) storage.lights.data(), storage.lights.size() * sizeof(pod::Light) );
 	}
 #endif
 #if UF_USE_VULKAN
 	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
-		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-		auto& deferredBlitter = deferredRenderMode.getBlitter();
+		auto& renderMode = this->hasComponent<uf::renderer::DeferredRenderMode>() ? this->getComponent<uf::renderer::DeferredRenderMode>() : uf::renderer::getRenderMode("", true);
+		auto& deferredBlitter = renderMode.getBlitter();
 		if ( deferredBlitter.material.hasShader("compute", "deferred") ) {
 			ext::ExtSceneBehavior::bindBuffers( *this, "", "compute", "deferred" );
 		} else {
@@ -646,7 +688,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 
 	/* Update post processing */ {
-		auto& renderMode = uf::renderer::getRenderMode("", true);
+		auto& renderMode = this->hasComponent<uf::renderer::DeferredRenderMode>() ? this->getComponent<uf::renderer::DeferredRenderMode>() : uf::renderer::getRenderMode("", true);
 		auto& blitter = renderMode.getBlitter();
 		if ( blitter.material.hasShader("fragment") ) {
 			auto& shader = blitter.material.getShader("fragment");
@@ -663,12 +705,17 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			};
 
 
-			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+			if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 		}
 	}
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}
 void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
+	if ( this->hasComponent<uf::renderer::DeferredRenderMode>() ) {
+	//	auto& renderMode = this->getComponent<uf::renderer::DeferredRenderMode>();
+	//	uf::renderer::removeRenderMode( &renderMode, false );
+	//	this->deleteComponent<uf::renderer::DeferredRenderMode>();
+	}
 	if ( this->hasComponent<pod::SceneTextures>() ) {
 		auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 		for ( auto& t : sceneTextures.voxels.id ) t.destroy();
@@ -712,6 +759,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["system"]["renderer"]["shader"]["mode"] = /*this->*/shader.mode;
 	serializer["system"]["renderer"]["shader"]["scalar"] = /*this->*/shader.scalar;
 	serializer["system"]["renderer"]["shader"]["parameters"] = uf::vector::encode( /*this->*/shader.parameters );
+	serializer["system"]["renderer"]["shader"]["init 3D"] = /*this->*/shader.init3D;
 }
 void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
 	// merge light settings with global settings
@@ -788,7 +836,8 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as(/*this->*/shader.scalar);
 	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], /*this->*/shader.parameters );
 	/*this->*/shader.frameAccumulateLimit = serializer["system"]["renderer"]["shader"]["frame accumulate limit"].as(/*this->*/shader.frameAccumulateLimit);
-
+	/*this->*/shader.init3D = serializer["system"]["renderer"]["shader"]["init 3D"].as(/*this->*/shader.init3D);
+	
 #if UF_AUDIO_MAPPED_VOLUMES
 	ext::json::forEach( serializer["volumes"], []( const uf::stl::string& key, ext::json::Value& value ){
 		float volume; volume = value.as(volume);
@@ -820,36 +869,56 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 */
 #endif
 #if UF_USE_VULKAN
+	auto& renderMode = this->hasComponent<uf::renderer::DeferredRenderMode>() ? this->getComponent<uf::renderer::DeferredRenderMode>() : uf::renderer::getRenderMode("", true);
 	if ( uf::renderer::settings::pipelines::bloom ) {
-		auto& renderMode = uf::renderer::getRenderMode("", true);
 		auto& blitter = renderMode.getBlitter();
-		auto& shader = blitter.material.getShader("compute", "bloom");
+		if ( blitter.material.hasShader("compute", "bloom") ) {
+			auto& shader = blitter.material.getShader("compute", "bloom");
 
-		struct UniformDescriptor {
-			float scale;
-			float strength;
-			float threshold;
-			float sigma;
+			struct UniformDescriptor {
+				float scale;
+				float strength;
+				float threshold;
+				float sigma;
 
-			float gamma;
-			float exposure;
-			uint32_t samples;
-			uint32_t padding;
-		};
+				float gamma;
+				float exposure;
+				uint32_t samples;
+				uint32_t padding;
+			};
 
-		UniformDescriptor uniforms = {
-			.scale = bloom.scale,
-			.strength = bloom.strength,
-			.threshold = bloom.threshold,
-			.sigma = bloom.sigma,
+			UniformDescriptor uniforms = {
+				.scale = bloom.scale,
+				.strength = bloom.strength,
+				.threshold = bloom.threshold,
+				.sigma = bloom.sigma,
 
-			.gamma = light.gamma,
-			.exposure = light.exposure,
-			.samples = bloom.samples,
-		};
+				.gamma = light.gamma,
+				.exposure = light.exposure,
+				.samples = bloom.samples,
+			};
 
-		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+			if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+		}
 	}
+#if UF_USE_FFX_FSR
+	/*this->*/framebuffer.scale = serializer["system"]["renderer"]["scale"].as(/*this->*/framebuffer.scale);
+
+	if ( uf::renderer::settings::pipelines::fsr ) {
+		auto mode = uf::string::lowercase( ext::fsr::preset );
+		if ( mode == "native" ) framebuffer.scale = 1;
+		else if ( mode == "quality" ) framebuffer.scale = 1.0f / (1.5f);
+		else if ( mode == "balanced" ) framebuffer.scale = 1.0f / (1.7f);
+		else if ( mode == "performance" ) framebuffer.scale = 1.0f / (2.0f);
+		else if ( mode == "ultra" ) framebuffer.scale = 1.0f / (3.0f);
+		else {
+			framebuffer.scale = 1;
+			UF_MSG_WARNING("Invalid FFX FSR preset enum string specified: {}", mode);
+		}
+		UF_MSG_DEBUG("Using FFX FSR Preset: {} ({:.3f}% render scale)", mode, (100.0f / framebuffer.scale));
+	}
+#endif
+	renderMode.scale = /*this->*/framebuffer.scale;
 #endif
 }
 
@@ -966,6 +1035,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 	// struct that contains our skybox cubemap, noise texture, and VXGI voxels
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : this->getComponent<pod::Graph::Storage>();
 	uf::stl::vector<uf::renderer::Texture> textures2D;
 	textures2D.reserve( metadata.max.textures2D );
 
@@ -976,11 +1046,11 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	texturesCube.reserve( metadata.max.texturesCube );
 
 	// bind scene textures
-	for ( auto& key : uf::graph::storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
+	for ( auto& key : storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
 	
 	// bind shadow maps
-	for ( auto& texture : uf::graph::storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
-	for ( auto& texture : uf::graph::storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
+	for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
+	for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
 	// bind skybox
 	size_t indexSkybox = texturesCube.size();
@@ -1003,7 +1073,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	while ( textures3D.size() < metadata.max.textures3D ) textures3D.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 
 	static uf::stl::unordered_map<uf::stl::string, UniformDescriptor> previousUniformsMap;
-	auto& previousUniforms = previousUniformsMap[shaderType+":"+shaderPipeline+":"+std::to_string(&graphic)];
+	auto& previousUniforms = previousUniformsMap[shaderType+":"+shaderPipeline+":"+std::to_string((size_t) &graphic)];
 
 	// update uniform information
 	// hopefully write combining kicks in
@@ -1029,9 +1099,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			};
 		}
 		uniforms.settings.lengths = UniformDescriptor::Settings::Lengths{
-			.lights = MIN( uf::graph::storage.lights.size(), metadata.light.max ),
-			.materials = MIN( uf::graph::storage.materials.keys.size(), metadata.max.textures2D ),
-			.textures = MIN( uf::graph::storage.textures.keys.size(), metadata.max.textures2D ),
+			.lights = MIN( storage.lights.size(), metadata.light.max ),
+			.materials = MIN( storage.materials.keys.size(), metadata.max.textures2D ),
+			.textures = MIN( storage.textures.keys.size(), metadata.max.textures2D ),
 			.drawCommands = MIN( 0, metadata.max.textures2D ),
 		};
 		uniforms.settings.mode = UniformDescriptor::Settings::Mode{
@@ -1107,8 +1177,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		graphic.updatePipelines();
 		metadata.shader.invalidated = false;
 	}
+	
+	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) {
+		return;
+	}
 
+	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) return;
 	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
+	if ( !shader.hasUniform("UBO") ) return;
+	//UF_MSG_DEBUG( "{}: {} {} // {}", uf::string::toString( self ), shaderType, shaderPipeline, uf::string::toString( uf::scene::getCurrentScene() ) );
 	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 
 	bool shouldUpdate2 = !uf::matrix::equals( uniforms.matrices[0].view, previousUniforms.matrices[0].view, 0.0001f );

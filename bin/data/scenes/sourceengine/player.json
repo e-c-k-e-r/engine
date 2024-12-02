@@ -4,7 +4,7 @@
 //		{ "filename": "/gui/hud/hud.json", "delay": 0 }
 	],
 	"transform": {
-		"orientation": [ 0, 1, 0, 0 ]
+	//	"orientation": [ 0, 1, 0, 0 ]
 	}
 //	"metadata": { "physics": { "gravity": [ 0, 0, 0 ] } }
 }

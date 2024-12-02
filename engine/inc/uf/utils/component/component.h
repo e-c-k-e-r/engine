@@ -60,6 +60,14 @@ namespace uf {
 	#if UF_COMPONENT_POINTERED_USERDATA
 		pod::PointeredUserdata addComponent( pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata moveComponent( pod::PointeredUserdata& userdata );
+		
+		template<typename T>
+		pod::PointeredUserdata detachComponent() {
+			pod::Component::id_t id = uf::component::type<T>();
+			auto userdata = this->m_container[id].userdata;
+			this->m_container.erase( id );
+			return userdata;
+		}
 
 		template<typename T> T& moveComponent( pod::PointeredUserdata& userdata ) {
 			this->moveComponent( userdata );
@@ -68,6 +76,13 @@ namespace uf {
 	#else
 		pod::Userdata* addComponent( pod::Userdata* userdata );
 		pod::Userdata* moveComponent( pod::Userdata*& userdata );
+		template<typename T>
+		pod::Userdata* detachComponent() {
+			pod::Component::id_t id = uf::component::type<T>();
+			auto userdata = this->m_container[id].userdata;
+			this->m_container.erase( id );
+			return userdata;
+		}
 
 		template<typename T> T& moveComponent( pod::Userdata*& userdata ) {
 			this->moveComponent( userdata );

@@ -56,6 +56,8 @@ namespace pod {
 					float speed = 1 / 0.125f;
 					uf::stl::unordered_map<int32_t, std::pair<pod::Transform<>, pod::Transform<>>> map;
 				} override;
+
+				uf::stl::string target = "";
 			} animations;
 		} settings;
 
@@ -101,6 +103,7 @@ namespace pod {
 namespace uf {
 	namespace graph {
 		extern UF_API size_t initialBufferElements;
+		extern UF_API bool globalStorage;
 		extern UF_API pod::Graph::Storage storage;
 	}
 }
@@ -132,7 +135,16 @@ namespace uf {
 		void UF_API initialize();
 		void UF_API tick();
 		void UF_API render();
-		void UF_API destroy();
+		void UF_API destroy( bool soft = false );
+
+		void UF_API initialize( uf::Object& );
+		void UF_API initialize( pod::Graph::Storage& );
+		void UF_API tick( uf::Object& );
+		void UF_API tick( pod::Graph::Storage& );
+		void UF_API render( uf::Object& );
+		void UF_API render( pod::Graph::Storage& );
+		void UF_API destroy( uf::Object&, bool soft = false );
+		void UF_API destroy( pod::Graph::Storage&, bool soft = false );
 
 		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
 		pod::Graph& UF_API convert( uf::Object&, bool = false );
@@ -144,18 +156,12 @@ namespace uf {
 	}
 }
 
-/*
-{
-	for ( auto& name : graph.storage.atlases.keys ) uf::graph::storage.atlases[name] = graph.storage.atlases[name];
-	for ( auto& name : graph.storage.images.keys ) uf::graph::storage.images[name] = graph.storage.images[name];
-	for ( auto& name : graph.storage.primitives.keys ) uf::graph::storage.primitives[name] = graph.storage.primitives[name];
-	for ( auto& name : graph.storage.meshes.keys ) uf::graph::storage.meshes[name] = graph.storage.meshes[name];
-	for ( auto& name : graph.storage.joints.keys ) uf::graph::storage.joints[name] = graph.storage.joints[name];
-	for ( auto& name : graph.storage.materials.keys ) uf::graph::storage.materials[name] = graph.storage.materials[name];
-	for ( auto& name : graph.storage.textures.keys ) uf::graph::storage.textures[name] = graph.storage.textures[name];
-	for ( auto& name : graph.storage.samplers.keys ) uf::graph::storage.samplers[name] = graph.storage.samplers[name];
-	for ( auto& name : graph.storage.skins.keys ) uf::graph::storage.skins[name] = graph.storage.skins[name];
-	for ( auto& name : graph.storage.animations.keys ) uf::graph::storage.animations[name] = graph.storage.animations[name];
-	for ( auto& name : graph.storage.entities.keys ) uf::graph::storage.entities[name] = graph.storage.entities[name];
+namespace pod {
+	namespace payloads {
+		struct QueueAnimationPayload {
+			bool loop = true;
+			float speed = 1.0f;
+			uf::stl::string name = "";
+		};
+	}
 }
-*/

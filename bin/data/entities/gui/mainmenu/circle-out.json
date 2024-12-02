@@ -11,14 +11,10 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"clickable": false,
-		"hoverable": true,
-		
-		"uv": [ 0, 0, 1, 1 ],
 		"color": [ 1, 1, 1, 0.8 ],
-		"location": "",
-		"scaling": [ 0.64, 1 ],
-		"mode": "flat"
+		
+		"hoverable": true,
+		"scaling": "relative-x"
 	},
 	"assets": [
 		"textures/circle-out.png"

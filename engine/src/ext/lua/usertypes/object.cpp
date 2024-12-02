@@ -160,6 +160,18 @@ namespace binds {
 		static uf::Object null;
 		return null;
 	}
+	uf::Object& globalFindByUid( uf::Object& self, size_t index ) {
+		auto* pointer = self.globalFindByUid( index );
+		if ( pointer ) return pointer->as<uf::Object>();
+		static uf::Object null;
+		return null;
+	}
+	uf::Object& globalFindByName( uf::Object& self, const uf::stl::string& index ){
+		auto* pointer = self.globalFindByName( index );
+		if ( pointer ) return pointer->as<uf::Object>();
+		static uf::Object null;
+		return null;
+	}
 	uf::Object& addChild( uf::Object& self, uf::Object& child ) {
 		self.addChild( child );
 		return self;
@@ -243,6 +255,8 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( bind, UF_LUA_C_FUN(::binds::bind) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByUid, UF_LUA_C_FUN(::binds::findByUid) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByName, UF_LUA_C_FUN(::binds::findByName) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( globalFindByUid, UF_LUA_C_FUN(::binds::globalFindByUid) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( globalFindByName, UF_LUA_C_FUN(::binds::globalFindByName) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( addChild, UF_LUA_C_FUN(::binds::addChild) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( removeChild, UF_LUA_C_FUN(::binds::removeChild) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( loadChild, UF_LUA_C_FUN(::binds::loadChild) ),

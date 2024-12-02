@@ -2,6 +2,10 @@
 
 #include <uf/config.h>
 
+#if UF_HALF_FLOATS
+	#include <stdfloat>
+#endif
+
 namespace uf {
 	namespace simd {
 		template<typename T>
@@ -109,7 +113,44 @@ namespace uf {
 	//	inline value<uint> /**UF_API**/ hadd( value<uint>, value<uint> );
 		inline uint /**UF_API**/ dot( value<uint>, value<uint> );
 		template<size_t N=4> inline pod::Vector<uint,N> vector( const value<uint> );
+
+	// these are effectively NOPs
+	#if UF_USE_FLOAT16
+		inline value<std::float16_t> /**UF_API**/ load( const std::float16_t* ) { return {}; }
+		inline void /**UF_API**/ store( value<std::float16_t>, std::float16_t* ) { return; }
+		inline value<std::float16_t> /**UF_API**/ set( std::float16_t ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ set( std::float16_t, std::float16_t, std::float16_t, std::float16_t ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ add( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ sub( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ mul( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ div( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ min( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ max( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline value<std::float16_t> /**UF_API**/ sqrt( value<std::float16_t> ) { return {}; }
+	//	inline value<std::float16_t> /**UF_API**/ hadd( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		inline std::float16_t /**UF_API**/ dot( value<std::float16_t>, value<std::float16_t> ) { return {}; }
+		template<size_t N=4> inline pod::Vector<std::float16_t,N> vector( const value<std::float16_t> ) { return {}; }
+	#endif
+	#if UF_USE_BFLOAT16
+		inline value<std::bfloat16_t> /**UF_API**/ load( const std::bfloat16_t* ) { return {}; }
+		inline void /**UF_API**/ store( value<std::bfloat16_t>, std::bfloat16_t* ) { return; }
+		inline value<std::bfloat16_t> /**UF_API**/ set( std::bfloat16_t ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ set( std::bfloat16_t, std::bfloat16_t, std::bfloat16_t, std::bfloat16_t ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ add( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ sub( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ mul( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ div( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ min( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ max( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline value<std::bfloat16_t> /**UF_API**/ sqrt( value<std::bfloat16_t> ) { return {}; }
+	//	inline value<std::bfloat16_t> /**UF_API**/ hadd( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		inline std::bfloat16_t /**UF_API**/ dot( value<std::bfloat16_t>, value<std::bfloat16_t> ) { return {}; }
+		template<size_t N=4> inline pod::Vector<std::bfloat16_t,N> vector( const value<std::bfloat16_t> ) { return {}; }
+
+
+	#endif
 	}
+
 }
 
 #include "simd.inl"

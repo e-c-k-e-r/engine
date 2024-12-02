@@ -8,18 +8,10 @@
 			"axis": [ 0, 0, 1 ],
 			"angle": 0
 		},
-		"scale": [ 0.156407, 0.0788377, 1 ]
+		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
 		"clickable": true,
-		"hoverable": true,
-		
-		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"debug": {
-			"moveable": true
-		},
 		"events": {
 			"click": [
 				{
@@ -37,9 +29,8 @@
 				}
 			]
 		},
-		"text settings": {			
-			"string": "Quit",
-			"string1": "終了する"
-		}
+
+		"string": "Quit",
+		"string1": "終了する"
 	}
 }

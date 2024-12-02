@@ -38,13 +38,14 @@ size_t uf::instantiator::collect( uint8_t level ) {
 	auto& allocations = uf::Entity::memoryPool.allocations();
 	auto& scene = uf::scene::getCurrentScene();
 
-	uf::stl::vector<uintptr_t> queued;
+	uf::stl::vector<uf::Entity*> queued;
 	for ( auto& allocation : allocations ) {
 		uf::Entity* e = (uf::Entity*) (allocation.pointer);
 		// no scenes
 		// if ( std::find( uf::scene::scenes.begin(), uf::scene::scenes.end(), (uf::Scene*) e ) != uf::scene::scenes.end() ) continue;
 		// not current scene
 		if ( e->getUid() == scene.getUid() ) continue;
+
 		if ( e->hasComponent<uf::ObjectBehavior::Metadata>() ) {
 			auto& metadata = e->getComponent<uf::ObjectBehavior::Metadata>();
 			if ( metadata.system.markedForDeletion ) goto FREE;
@@ -53,11 +54,20 @@ size_t uf::instantiator::collect( uint8_t level ) {
 		if ( e->hasParent() ) continue;
 		// uninitialized
 		if ( e->getName() == "Entity" && !e->isValid() ) continue;
-		// uf::iostream << "Found orphan: " << e->getName() << ": " << e->getUid() << "\n";
 	FREE:
-		queued.emplace_back( allocation.pointer );
+		// UF_MSG_DEBUG("Freeing: {}", uf::string::toString(e->as<uf::Object>()));
+		queued.emplace_back( (uf::Entity*) allocation.pointer );
 	}
-	for ( auto& p : queued ) uf::instantiator::free( (uf::Entity*) (p) );
+	for ( auto& p : queued ) {
+		if ( p->hasComponent<uf::SceneBehavior::Metadata>() ) continue;
+		// UF_MSG_DEBUG("Destroying: {}", uf::string::toString(*p));
+		uf::instantiator::free( p );
+	}
+	for ( auto& p : queued ) {
+		if ( !p->hasComponent<uf::SceneBehavior::Metadata>() ) continue;
+		// UF_MSG_DEBUG("Destroying scene: {}", uf::string::toString(*p));
+		uf::instantiator::free( p );
+	}
 	return queued.size();
 }
 
@@ -113,7 +123,7 @@ void uf::instantiator::registerBehavior( const uf::stl::string& name, const pod:
 	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;\
 	(*uf::instantiator::behaviors)[name] = behavior;
 #if UF_INSTANTIATOR_ANNOUNCE
-	UF_MSG_DEBUG("Registered behavior for {} | {}", name, behavior.type);
+	UF_MSG_DEBUG("Registered behavior for {} | {}", name, behavior.type.name().str());
 #endif
 }
 void uf::instantiator::registerBinding( const uf::stl::string& object, const uf::stl::string& behavior ) {
@@ -144,7 +154,7 @@ void uf::instantiator::bind( const uf::stl::string& name, uf::Entity& entity ) {
 		if ( uf::instantiator::behaviors->count( name ) == 0 ) return;
 		auto& behavior = (*uf::instantiator::behaviors)[name];
 	#if UF_INSTANTIATOR_ANNOUNCE
-		UF_MSG_DEBUG("Attaching {} | {} to {}", name, behavior.type, entity.getName());
+		UF_MSG_DEBUG("Attaching {} | {} to {}", name, behavior.type.name().str(), entity.getName());
 	#endif
 		entity.addBehavior(behavior);
 		return;
@@ -153,7 +163,7 @@ void uf::instantiator::bind( const uf::stl::string& name, uf::Entity& entity ) {
 	for ( auto& name : instantiator.behaviors ) {
 		auto& behavior = (*uf::instantiator::behaviors)[name];
 	#if UF_INSTANTIATOR_ANNOUNCE
-		UF_MSG_DEBUG("Attaching {} | {} to {}", name, behavior.type, entity.getName());
+		UF_MSG_DEBUG("Attaching {} | {} to {}", name, behavior.type.name().str(), entity.getName());
 	#endif
 		entity.addBehavior(behavior);
 	}

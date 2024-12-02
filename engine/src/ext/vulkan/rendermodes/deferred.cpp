@@ -15,7 +15,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/ext/ext.h>
 
-#define BARYCENTRIC 1
+#define BARYCENTRIC 0
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
 		#define BARYCENTRIC_CALCULATE 0
@@ -33,6 +33,8 @@ namespace {
 const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
+
+#include <cpptrace/cpptrace.hpp>
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -205,6 +207,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
 		blitter.descriptor.renderMode = "Swapchain";
 		blitter.descriptor.subpass = 0;
@@ -287,14 +290,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{ "voxelRadiance", maxCascades },
 			});
 
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
+		//	shader.buffers.emplace_back( storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
+			shader.buffers.emplace_back( storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
+			shader.buffers.emplace_back( storage.buffers.material.alias() );
+			shader.buffers.emplace_back( storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( storage.buffers.light.alias() );
 
 			shader.aliasAttachment("id", this);
 		#if BARYCENTRIC
@@ -345,6 +348,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			
 			for ( auto& view : ::depthPyramidViews ) {
 				vkDestroyImageView(device.logicalDevice, view, nullptr);
+				VK_UNREGISTER_HANDLE(view);
 			}
 			::depthPyramidViews.clear();
 			::depthPyramidViews.resize(mips-1);
@@ -364,6 +368,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				viewCreateInfo.format = source.format;
 				viewCreateInfo.image = source.image;
 				VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
+				VK_REGISTER_HANDLE(view);
 
 				if ( i + 1 < mips ) {
 					auto& texture = shader.textures.emplace_back();
@@ -438,6 +443,9 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 	if ( resized ) {
 		this->resized = false;
 		rebuild = true;
@@ -461,6 +469,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			
 			for ( auto& view : ::depthPyramidViews ) {
 				vkDestroyImageView(device->logicalDevice, view, nullptr);
+				VK_UNREGISTER_HANDLE(view);
 			}
 			::depthPyramidViews.clear();
 			::depthPyramidViews.resize(mips-1);
@@ -480,6 +489,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				viewCreateInfo.format = source.format;
 				viewCreateInfo.image = source.image;
 				VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+				VK_REGISTER_HANDLE(view);
 
 				if ( i + 1 < mips ) {
 					auto& texture = shader.textures.emplace_back();
@@ -501,7 +511,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	}
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
-		if ( true ) {
+		if ( blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
 			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
 			auto moved = std::move( shader.buffers );
@@ -511,12 +521,12 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				buffer.aliased = true;
 			}
 
-			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
+			shader.buffers.emplace_back( storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
+			shader.buffers.emplace_back( storage.buffers.material.alias() );
+			shader.buffers.emplace_back( storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( storage.buffers.light.alias() );
 		}
 		
 		if ( blitter.hasPipeline( blitter.descriptor ) ){
@@ -593,7 +603,6 @@ VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
 }
 void ext::vulkan::DeferredRenderMode::render() {
 //	if ( this->executed ) return;
-
 	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
 
 	//lockMutex( this->mostRecentCommandPoolId );
@@ -624,7 +633,6 @@ void ext::vulkan::DeferredRenderMode::render() {
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
-	blitter.destroy();
 }
 
 ext::vulkan::GraphicDescriptor ext::vulkan::DeferredRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {

@@ -14,6 +14,10 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/angle.h>
 
+#if UF_USE_BFLOAT16
+	#include <stdfloat>
+#endif
+
 namespace pod {
 	// Simple vectors (designed [to store in arrays] with minimal headaches)
 	template<typename T = pod::Math::num_t, size_t N = 3>
@@ -95,6 +99,18 @@ namespace pod {
 	typedef Vector4t<long> Vector4l;
 	typedef Vector4t<float> Vector4f;
 	typedef Vector4t<double> Vector4d;
+
+#if UF_USE_FLOAT16
+	typedef Vector2t<std::float16_t> Vector2f16;
+	typedef Vector3t<std::float16_t> Vector3f16;
+	typedef Vector4t<std::float16_t> Vector4f16;
+#endif
+
+#if UF_USE_BFLOAT16
+	typedef Vector2t<std::bfloat16_t> Vector2bf16;
+	typedef Vector3t<std::bfloat16_t> Vector3bf16;
+	typedef Vector4t<std::bfloat16_t> Vector4bf16;
+#endif
 }
 
 // 	POD vector accessing/manipulation

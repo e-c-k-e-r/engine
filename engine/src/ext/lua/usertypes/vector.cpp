@@ -34,6 +34,12 @@ namespace binds {
 		pod::Vector3f normalize( const pod::Vector3f& self ) {
 			return uf::vector::normalize( self );
 		}
+		float signedAngle( const pod::Vector3f& left, const pod::Vector3f& right, const pod::Vector3f& axis ) {
+			return uf::vector::signedAngle( left, right, axis );
+		}
+		pod::Vector3f cross( const pod::Vector3f& left, const pod::Vector3f& right ) {
+			return uf::vector::cross( left, right );
+		}
 		float magnitude( const pod::Vector3f& self ) {
 			return uf::vector::magnitude( self );
 		}
@@ -119,6 +125,8 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	sol::meta_function::division, UF_LUA_C_FUN( ::binds::v3f::divS ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, UF_LUA_C_FUN(::binds::v3f::lerp) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( normalize, UF_LUA_C_FUN(::binds::v3f::normalize) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( cross, UF_LUA_C_FUN(::binds::v3f::cross) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( signedAngle, UF_LUA_C_FUN(::binds::v3f::signedAngle) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( magnitude, UF_LUA_C_FUN(::binds::v3f::magnitude) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( norm, UF_LUA_C_FUN(::binds::v3f::norm) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, UF_LUA_C_FUN(::binds::v3f::dot) ),

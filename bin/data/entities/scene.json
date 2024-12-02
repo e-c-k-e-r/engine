@@ -5,6 +5,8 @@
 	],
 	"behaviors": [
 		"SceneBehavior",
-		"ExtSceneBehavior"
+		"ExtSceneBehavior",
+		"BgmEmitterBehavior",
+		"RegionBehavior"
 	]
 }

@@ -9,6 +9,7 @@ namespace pod {
 	namespace payloads {	
 		struct menuOpen {
 			uf::stl::string name = "";
+			uf::Serializer metadata;
 		};
 
 		struct worldCollision {

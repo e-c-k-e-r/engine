@@ -28,11 +28,14 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	uf::stl::unordered_map<size_t, size_t> sizesVertex;
 	uf::stl::unordered_map<size_t, size_t> sizesIndex;
 
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 	// copy source meshes
 	// create mesh decls for passing to xatlas
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
-		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+		auto& mesh = /*graph.storage*/storage.meshes[name];
 		auto& source = sources[index];
 
 		if ( mesh.isInterleaved() ) {
@@ -84,7 +87,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			}
 
 			if ( mesh.indirect.count ) {
-				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+				auto& primitives = /*graph.storage*/storage.primitives[name];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
 				for ( auto i = 0; i < mesh.indirect.count; ++i ) {
@@ -198,7 +201,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	// resize vertices
 	for ( auto i = 0; i < graph.meshes.size(); ++i ) {
 		auto& name = graph.meshes[i];
-		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+		auto& mesh = /*graph.storage*/storage.meshes[name];
 		auto& source = sources[i];
 		if ( source.vertex.count == 0 ) continue;
 
@@ -218,7 +221,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
 			auto& name = graph.meshes[entry.index];
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+			auto& mesh = /*graph.storage*/storage.meshes[name];
 			auto& source = sources[entry.index];
 
 			if ( source.vertex.count == 0 ) continue;
@@ -228,7 +231,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			// draw commands
 			if ( !mesh.indirect.count ) continue;
 
-			auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+			auto& primitives = /*graph.storage*/storage.primitives[name];
 			pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 			
 			auto& primitive = primitives[entry.commandID];
@@ -242,13 +245,13 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	// update vertexID offsets for indirect commands
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
-		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+		auto& mesh = /*graph.storage*/storage.meshes[name];
 		auto& source = sources[index];
 
 		if ( source.vertex.count == 0 ) continue;
 		if ( !mesh.indirect.count ) continue;
 
-		auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+		auto& primitives = /*graph.storage*/storage.primitives[name];
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 	
 		size_t vertexID = 0;
@@ -276,7 +279,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
 			auto& name = graph.meshes[entry.index];
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+			auto& mesh = /*graph.storage*/storage.meshes[name];
 			auto& source = sources[entry.index];
 
 			if ( source.vertex.count == 0 ) continue;
@@ -286,7 +289,7 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 				auto srcInput = source.remapVertexInput( entry.commandID );
 				auto dstInput = mesh.remapVertexInput( entry.commandID );
 
-				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+				auto& primitives = /*graph.storage*/storage.primitives[name];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
 				auto& drawCommand = drawCommands[entry.commandID];
@@ -397,11 +400,14 @@ size_t ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 	uf::stl::unordered_map<size_t, Atlas> atlases;
 	atlases.reserve(graph.meshes.size());
 
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 	// copy source meshes
 	// create mesh decls for passing to xatlas
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
-		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+		auto& mesh = /*graph.storage*/storage.meshes[name];
 
 		if ( mesh.isInterleaved() ) {
 			UF_EXCEPTION("unwrapping interleaved mesh is not supported");
@@ -449,7 +455,7 @@ size_t ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 			}
 
 			if ( mesh.indirect.count ) {
-				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+				auto& primitives = /*graph.storage*/storage.primitives[name];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
 				for ( auto i = 0; i < mesh.indirect.count; ++i ) {
@@ -536,7 +542,7 @@ size_t ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
 			auto& name = graph.meshes[entry.index];
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+			auto& mesh = /*graph.storage*/storage.meshes[name];
 
 			// draw commands
 			if ( mesh.indirect.count ) {
@@ -608,7 +614,7 @@ size_t ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
 			auto& name = graph.meshes[entry.index];
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+			auto& mesh = /*graph.storage*/storage.meshes[name];
 
 			// draw commands
 			if ( mesh.indirect.count ) {

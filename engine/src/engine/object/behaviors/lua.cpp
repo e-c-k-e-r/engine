@@ -23,7 +23,12 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 		if ( !uf::asset::isExpected( payload, uf::asset::Type::LUA ) ) return;
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
 		auto& script = uf::asset::get<pod::LuaScript>( payload );
-
+		if ( !payload.asComponent ) {
+		//	auto asset = uf::asset::release( payload.filename );
+		//	this->moveComponent<pod::LuaScript>( asset );
+			this->moveComponent<pod::LuaScript>( uf::asset::get( payload.filename ) );
+			uf::asset::remove( payload.filename );
+		}
 	/*
 		if ( !uf::asset::has(payload.filename) ) uf::asset::load( payload );
 		auto& script = uf::asset::get<pod::LuaScript>(payload.filename);

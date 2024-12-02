@@ -8,8 +8,42 @@
 
 #include <uf/engine/scene/scene.h>
 
+#include <cpptrace/cpptrace.hpp>
+
+#define VK_REGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
+	VK_VALIDATION_MESSAGE("Registered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
+	uf::stl::string id = ::fmt::format("{}: {}", cpptrace::generate_trace().to_string(), TYPE_NAME(decltype(*this)));\
+	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::add( handle, id ); \
+}
+#define VK_UNREGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
+	VK_VALIDATION_MESSAGE("Unregistered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
+	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::remove( handle );\
+}
+
 namespace ext {
 	namespace vulkan {
+		template<typename T>
+		struct Resource {
+		public:
+			static uf::stl::vector<Resource<T>> handles;
+
+			static void add( T handle, const uf::stl::string& id ) {
+				ext::vulkan::Resource<T>::handles.emplace_back( Resource<T>{
+					.handle = handle,
+					.id = id
+				} );
+			}
+			static void remove( T handle ) {
+				auto& v = ext::vulkan::Resource<T>::handles;
+				v.erase( std::remove_if( v.begin(), v.end(), [&]( Resource<T>& resource ){
+					return handle == resource.handle;
+				} ), v.end() );
+			}
+
+			T handle;
+			uf::stl::string id;
+		};
+
 		VkResult CreateDebugUtilsMessengerEXT(
 			VkInstance instance,
 			const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -81,6 +115,7 @@ namespace ext {
 				extern UF_API bool batchQueueSubmissions;
 				extern UF_API bool enableMultiGPU;
 				extern UF_API bool memoryBudgetBit;
+				extern UF_API bool registerRenderMode;
 			}
 
 			namespace validation {
@@ -142,6 +177,10 @@ namespace ext {
 			extern UF_API uint32_t frameSkip;
 		}
 
+		namespace gc {
+			extern UF_API uf::stl::vector<ext::vulkan::Texture> textures;
+		}
+
 		extern UF_API Device device;
 		extern UF_API Allocator allocator;
 		extern UF_API Swapchain swapchain;
@@ -165,10 +204,10 @@ namespace ext {
 		void UF_API setCurrentRenderMode( RenderMode* renderMode );
 		void UF_API setCurrentRenderMode( RenderMode* renderMode,  std::thread::id );
 
-		void UF_API initialize( /*uint8_t = 0*/ );
+		void UF_API initialize( bool = false );
 		void UF_API tick();
 		void UF_API render();
-		void UF_API destroy();
+		void UF_API destroy( bool = false );
 		
 		void UF_API synchronize( uint8_t = 0b11 );
 		void UF_API flushCommandBuffers();
@@ -177,3 +216,5 @@ namespace ext {
 		ext::vulkan::enums::Format::type_t UF_API formatFromString( const uf::stl::string& );
 	}
 }
+
+template<typename T> uf::stl::vector<ext::vulkan::Resource<T>> ext::vulkan::Resource<T>::handles;

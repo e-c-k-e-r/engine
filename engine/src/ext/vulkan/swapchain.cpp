@@ -169,10 +169,14 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		}
 
 		VK_CHECK_RESULT(vkCreateSwapchainKHR( device.logicalDevice, &swapchainCI, nullptr, &swapChain));
+	//	VK_REGISTER_HANDLE( swapchainCI );
 
 		// If an existing swap chain is re-created, destroy the old swap chain
 		// This also cleans up all the presentable images
-		if (oldSwapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
+		if (oldSwapchain != VK_NULL_HANDLE) {
+			vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
+		//	VK_UNREGISTER_HANDLE( oldSwapchain );
+		}
 		VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device.logicalDevice, swapChain, &buffers, NULL));
 	}
 }
@@ -182,6 +186,7 @@ void ext::vulkan::Swapchain::destroy() {
 
 	if ( swapChain != VK_NULL_HANDLE ) {
 		vkDestroySwapchainKHR( *device, swapChain, nullptr);
+	//	VK_UNREGISTER_HANDLE( swapChain )
 	}
 
 	swapChain = VK_NULL_HANDLE;

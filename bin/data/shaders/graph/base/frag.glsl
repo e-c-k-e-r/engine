@@ -101,7 +101,7 @@ void main() {
 	if ( A.a < 0.0001 ) discard;
 
 #if !BARYCENTRIC
-	outUv = vec4(surface.uv, surface.st);
+	outUv = vec4(surface.uv.xy, surface.st.xy);
 	outNormal = vec4( encodeNormals(inNormal), encodeNormals(inTangent) );
 #endif
 

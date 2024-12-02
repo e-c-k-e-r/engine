@@ -17,8 +17,8 @@
 	},
 	*/
 	"assets":  [
-	//	{ "filename": "./playerModel.json", "delay": 0 },
-		"./playerModel.json",
+		{ "filename": "./playerModel.json", "delay": 1 },
+	//	"./playerModel.json",
 		"./playerLight.json",
 		"./playerHands.json",
 		"./scripts/player.lua"
@@ -55,15 +55,15 @@
 			}
 		},
 		"movement": {
-			"walk": 8,
-			"move": 8,
-			"run": 16,
+			"walk": 12,
+			"move": 12,
+			"run": 20,
 		//	"rotate": 1.5,
-			"rotate": 4,
+			"rotate": 6,
 			"air": 0.1,
 
 			"crouch": 1,
-			"jump": [ 0, 3, 0 ],
+			"jump": [ 0, 6, 0 ],
 			"look": 1,
 			"floored": {
 				"feet": [ 0, -1.5, 0 ],
@@ -71,7 +71,7 @@
 				"floor": [ 0, -1.0, 0 ],
 				"print": false
 			},
-			"strafe": false
+			"strafe": true
 		},
 		"physics": {	
 			"gravity": [ 0, -9.81, 0 ],
@@ -88,8 +88,8 @@
 			"shared": false
 		},
 		"camera": {
-			"offset": [ 0, 5, 3 ],
-			"orientation": [ 0, 0.894427, -0.447214, 0 ],
+		//	"offset": [ 0, 10, 6 ],
+		//	"orientation": [ 0, 0.894427, -0.447214, 0 ],
 			"position" :  [ 0, 1.8, 0 ],
 			"scale": [ 1, 1, 1 ],
 			"invert": [ false, false, false ],
@@ -99,7 +99,7 @@
 				"current":[ null,   0, null ]
 			},
 			"settings": {
-				"fixed": true,
+				"fixed": false,
 				"fov" : 90.0,
 				"clip" : [ 0.1, 64.0 ],
 				"size" :  [ 0, 0 ]

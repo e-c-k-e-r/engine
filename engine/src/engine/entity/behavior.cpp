@@ -1,4 +1,5 @@
 #include <uf/engine/entity/entity.h>
+#if !UF_ENTITY_OBJECT_UNIFIED
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/instantiator/instantiator.h>
 
@@ -32,3 +33,4 @@ void uf::EntityBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 void uf::EntityBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Entity)
+#endif

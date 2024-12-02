@@ -146,15 +146,23 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	}
 #endif
 
+	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
+	if ( key != "" ) {
+		key += ":";
+	}
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
 	// load images
 	{
 		graph.images.reserve(model.images.size());
-		/*graph.storage*/uf::graph::storage.images.reserve(model.images.size());
+		/*graph.storage*/storage.images.reserve(model.images.size());
 
 		for ( auto& i : model.images ) {
 			auto imageID = graph.images.size();
-			auto keyName = graph.images.emplace_back(/*filename + "/" +*/ i.name);
-			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
+			auto keyName = graph.images.emplace_back(key + i.name);
+			auto& image = /*graph.storage*/storage.images[keyName];
 			if ( graph.metadata["debug"]["print"]["images"].as<bool>() ) {
 				UF_MSG_DEBUG("Image: {}", i.name );
 			}
@@ -164,11 +172,11 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	}
 	// load samplers
 	{
-		/*graph.storage*/uf::graph::storage.samplers.reserve(model.samplers.size());
+		/*graph.storage*/storage.samplers.reserve(model.samplers.size());
 		for ( auto& s : model.samplers ) {
 			auto samplerID = graph.samplers.size();
-			auto keyName = graph.samplers.emplace_back(/*filename + "/" +*/ s.name);
-			auto& sampler = /*graph.storage*/uf::graph::storage.samplers[keyName];
+			auto keyName = graph.samplers.emplace_back(key + s.name);
+			auto& sampler = /*graph.storage*/storage.samplers[keyName];
 			if ( graph.metadata["debug"]["print"]["samplers"].as<bool>() ) {
 				UF_MSG_DEBUG("Sampler: {}", s.name );
 			}
@@ -183,12 +191,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load textures
 	{
 		graph.textures.reserve(model.textures.size());
-		/*graph.storage*/uf::graph::storage.textures.reserve(model.textures.size());
+		/*graph.storage*/storage.textures.reserve(model.textures.size());
 
 		for ( auto& t : model.textures ) {
 			auto textureID = graph.textures.size();
-			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (/*filename + "/" +*/ t.name)));
-			auto& texture = /*graph.storage*/uf::graph::storage.textures[keyName];
+			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (key + t.name)));
+			auto& texture = /*graph.storage*/storage.textures[keyName];
 			if ( graph.metadata["debug"]["print"]["textures"].as<bool>() ) {
 				UF_MSG_DEBUG("Texture: {}", t.name );
 			}
@@ -200,12 +208,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load materials
 	{
 		graph.materials.reserve(model.materials.size());
-		/*graph.storage*/uf::graph::storage.materials.reserve(model.materials.size());
+		/*graph.storage*/storage.materials.reserve(model.materials.size());
 
 		for ( auto& m : model.materials ) {
 			auto materialID = graph.materials.size();
-			auto keyName = graph.materials.emplace_back(/*filename + "/" +*/ m.name);
-			auto& material = /*graph.storage*/uf::graph::storage.materials[keyName];
+			auto keyName = graph.materials.emplace_back(key + m.name);
+			auto& material = /*graph.storage*/storage.materials[keyName];
 			if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) {
 				UF_MSG_DEBUG("Material: {}", m.name );
 			}
@@ -248,11 +256,11 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	{
 		size_t masterAuxID = 0;
 		graph.meshes.reserve(model.meshes.size());
-		/*graph.storage*/uf::graph::storage.meshes.reserve(model.meshes.size());
+		/*graph.storage*/storage.meshes.reserve(model.meshes.size());
 
 		for ( auto& m : model.meshes ) {
 			auto meshID = graph.meshes.size();
-			auto keyName = graph.meshes.emplace_back(/*filename + "/" +*/ m.name);
+			auto keyName = graph.meshes.emplace_back(key + m.name);
 			if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) {
 				UF_MSG_DEBUG("Mesh: {}", m.name );
 			}
@@ -260,15 +268,16 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			graph.primitives.emplace_back(keyName);
 			graph.drawCommands.emplace_back(keyName);
 
-			auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
-			auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+			auto& drawCommands = /*graph.storage*/storage.drawCommands[keyName];
+			auto& primitives = /*graph.storage*/storage.primitives[keyName];
+			auto& mesh = /*graph.storage*/storage.meshes[keyName];
 			
 			struct {
 				uf::meshgrid::Grid grid;
 				ext::json::Value metadata;
 				float eps = std::numeric_limits<float>::epsilon();
 				bool print = false;
+				bool clip = true;
 				bool cleanup = true;
 			} meshgrid;
 
@@ -292,6 +301,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 				meshgrid.eps = meshgrid.metadata["epsilon"].as(meshgrid.eps);
 				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
+				meshgrid.clip = meshgrid.metadata["clip"].as(meshgrid.clip);
 				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
 			}
 
@@ -314,12 +324,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load skins
 	{
 		graph.skins.reserve( model.skins.size() );
-		/*graph.storage*/uf::graph::storage.skins.reserve( model.skins.size() );
+		/*graph.storage*/storage.skins.reserve( model.skins.size() );
 
 		for ( auto& s : model.skins ) {
 			auto skinID = graph.skins.size();
-			auto keyName = graph.skins.emplace_back(/*filename + "/" +*/ s.name);
-			auto& skin = /*graph.storage*/uf::graph::storage.skins[keyName];
+			auto keyName = graph.skins.emplace_back(key + s.name);
+			auto& skin = /*graph.storage*/storage.skins[keyName];
 			if ( graph.metadata["debug"]["print"]["skins"].as<bool>() ) {
 				UF_MSG_DEBUG("Skin: {}", s.name );
 			}
@@ -351,12 +361,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load animations
 	{
 		graph.animations.reserve( model.animations.size() );
-		/*graph.storage*/uf::graph::storage.animations.reserve( model.animations.size() );
+		/*graph.storage*/storage.animations.reserve( model.animations.size() );
 
 		for ( auto& a : model.animations ) {
 			auto animationID = graph.animations.size();
-			auto keyName = graph.animations.emplace_back(/*filename + "/" +*/ a.name);
-			auto& animation = /*graph.storage*/uf::graph::storage.animations[keyName];
+			auto keyName = graph.animations.emplace_back(key + a.name);
+			auto& animation = /*graph.storage*/storage.animations[keyName];
 			if ( graph.metadata["debug"]["print"]["animations"].as<bool>() ) {
 				UF_MSG_DEBUG("Animation: {}", a.name );
 			}
@@ -442,17 +452,17 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// generate atlas
 	if ( graph.metadata["renderer"]["atlas"].as<bool>() ) {
 		auto atlasName = filename + "/" + "atlas";
-		auto& atlas = /*graph.storage*/uf::graph::storage.atlases[atlasName];
+		auto& atlas = /*graph.storage*/storage.atlases[atlasName];
 		auto atlasImageIndex = graph.images.size();
 		auto atlasTextureIndex = graph.textures.size();
 	
-		for ( auto& keyName : graph.images ) atlas.addImage( /*graph.storage*/uf::graph::storage.images[keyName] );
+		for ( auto& keyName : graph.images ) atlas.addImage( /*graph.storage*/storage.images[keyName] );
 		atlas.generate();
 
 		for ( auto& keyName : graph.images ) {
-			auto& texture = /*graph.storage*/uf::graph::storage.textures[keyName];
+			auto& texture = /*graph.storage*/storage.textures[keyName];
 			if ( texture.index < 0 ) continue;
-			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
+			auto& image = /*graph.storage*/storage.images[keyName];
 
 			const auto& hash = image.getHash();
 			auto min = atlas.mapUv( {0, 0}, hash );
@@ -464,11 +474,11 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		{
 			graph.images.emplace_back(atlasName);
-			auto& image = /*graph.storage*/uf::graph::storage.images[atlasName];
+			auto& image = /*graph.storage*/storage.images[atlasName];
 			image = atlas.getAtlas();
 
 			graph.textures.emplace_back(atlasName);
-			auto& texture = /*graph.storage*/uf::graph::storage.textures[atlasName];
+			auto& texture = /*graph.storage*/storage.textures[atlasName];
 			texture.index = atlasImageIndex;
 		}
 	}
@@ -506,7 +516,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				if ( !should ) continue;
 			}
 
-			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+			auto& mesh = /*graph.storage*/storage.meshes[keyName];
 			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
 			if ( !ext::meshopt::optimize( mesh, simplify, level ) ) {
 				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );

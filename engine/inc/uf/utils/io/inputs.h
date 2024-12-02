@@ -310,10 +310,17 @@ namespace uf {
 
 				extern UF_API state_t START;
 			};
+
+			void UF_API print();
 		}
 
-		state_t key( const uf::stl::string& );
-		analog_t analog( const uf::stl::string& );
-		analog2_t analog2( const uf::stl::string& );
+		state_t UF_API key( const uf::stl::string& );
+		analog_t UF_API analog( const uf::stl::string& );
+		analog2_t UF_API analog2( const uf::stl::string& );
+
+		//
+		extern UF_API uf::stl::unordered_map<uf::stl::string, key_t> binds;
+		key_t UF_API nameToEnum( uf::stl::string );
+		key_t UF_API getBindAlias( const uf::stl::string& );
 	}
 }

@@ -56,7 +56,8 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
-		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
+		renderMode.metadata.name = metadata.renderModeName;
+		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 
 		renderMode.metadata.type = uf::renderer::settings::pipelines::names::vxgi;
 		renderMode.metadata.pipeline = uf::renderer::settings::pipelines::names::vxgi;
@@ -252,12 +253,14 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 void ext::VoxelizerSceneBehavior::render( uf::Object& self ){}
 void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
 #if UF_USE_VULKAN
+/*
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		
 		uf::renderer::removeRenderMode( &renderMode, false );
-		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
+	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}
+*/
 #endif
 }
 void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {

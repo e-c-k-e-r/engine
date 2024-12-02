@@ -5,7 +5,6 @@ namespace {
 	//	return ( min.x <= p.x && p.x <= max.x && min.y <= p.y && p.y <= max.y && min.z <= p.z && p.z <= max.z );
 		return (p.x <= max.x && p.x >= min.x) && (p.y <= max.y && p.y >= min.y) && (p.z <= max.z && p.z >= min.z);
 	}
-
 }
 
 void uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
@@ -29,15 +28,15 @@ void uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
 	}
 /*
 	UF_MSG_DEBUG( "== == == ==");
-	UF_MSG_DEBUG( "Min: " << uf::vector::toString( grid.extents.min ) );
-	UF_MSG_DEBUG( "Max: " << uf::vector::toString( grid.extents.max ) );
-	UF_MSG_DEBUG( "Center: " << uf::vector::toString( grid.extents.center ) );
-	UF_MSG_DEBUG( "Corner: " << uf::vector::toString( grid.extents.corner ) );
-	UF_MSG_DEBUG( "Size: " << uf::vector::toString( grid.extents.size ) );
-	UF_MSG_DEBUG( "Piece: " << uf::vector::toString( grid.extents.piece ) );
-	UF_MSG_DEBUG( "Divisions: " << uf::vector::toString( grid.divisions ) );
-	UF_MSG_DEBUG( "Nodes: " << grid.nodes.size() );
-	UF_MSG_DEBUG( "Indices: " << grid.indices );
+	UF_MSG_DEBUG( "Min: {}", uf::vector::toString( grid.extents.min ) );
+	UF_MSG_DEBUG( "Max: {}", uf::vector::toString( grid.extents.max ) );
+	UF_MSG_DEBUG( "Center: {}", uf::vector::toString( grid.extents.center ) );
+	UF_MSG_DEBUG( "Corner: {}", uf::vector::toString( grid.extents.corner ) );
+	UF_MSG_DEBUG( "Size: {}", uf::vector::toString( grid.extents.size ) );
+	UF_MSG_DEBUG( "Piece: {}", uf::vector::toString( grid.extents.piece ) );
+	UF_MSG_DEBUG( "Divisions: {}", uf::vector::toString( grid.divisions ) );
+	UF_MSG_DEBUG( "Nodes: {}", grid.nodes.size() );
+	UF_MSG_DEBUG( "Indices: {}", grid.indices );
 	UF_MSG_DEBUG( "== == == ==");
 */
 }
@@ -110,6 +109,7 @@ void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, float eps ){
 	grid.extents.center = (grid.extents.max + grid.extents.min) * 0.5f;
 	grid.extents.corner = grid.extents.size * 0.5f;
 
+
 // initialize
 	grid.nodes.reserve( grid.divisions.x * grid.divisions.y * grid.divisions.z );
 	for ( int z = 0; z < grid.divisions.z; ++z ) {
@@ -152,7 +152,7 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 		meshlet.primitive.instance.bounds.min = node.extents.min;
 		meshlet.primitive.instance.bounds.max = node.extents.max;
 	}
-	
+
 	// iterate
 	for ( size_t i = 0; i < iCount; i+=3 ) {
 		Triangle tri{};
@@ -201,7 +201,6 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 					node.effectiveExtents.min = uf::vector::min( node.effectiveExtents.min, tri.vertices[_] );
 					node.effectiveExtents.max = uf::vector::max( node.effectiveExtents.max, tri.vertices[_] );
 				}
-
 				found = true;
 				break;
 			}
@@ -216,12 +215,13 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 					node.effectiveExtents.min = uf::vector::min( node.effectiveExtents.min, tri.vertices[_] );
 					node.effectiveExtents.max = uf::vector::max( node.effectiveExtents.max, tri.vertices[_] );
 				}
-
 				found = true;
 				break;
 			}
 		}
-		if ( found ) continue;
+		if ( found ) {
+			continue;
+		}
 		rejects.emplace_back(tri);
 	}
 

@@ -19,34 +19,50 @@ UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = false, renders = false, multit
 void uf::GraphBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
 	this->addHook( "animation:Set.%UID%", [&](ext::json::Value& json){
-		uf::stl::string name = json["name"].as<uf::stl::string>();
+		auto name = json["name"].as<uf::stl::string>();
+		auto loop = json["loop"].as<bool>();
+		auto speed = json["speed"].as<float>();
+
+		pod::payloads::QueueAnimationPayload payload;
+		payload.name = name;
+		payload.loop = loop;
+		payload.speed = speed;
+		this->callHook( "animation:Set.%UID%", payload );
+	});
+	this->addHook( "animation:Set.%UID%", [&](pod::payloads::QueueAnimationPayload& payload){
 
 		if ( !this->hasComponent<pod::Graph>() ) return;
 		auto& graph = this->getComponent<pod::Graph>();
-		uf::graph::animate( graph, name );
+
+		graph.settings.animations.loop = payload.loop;
+		uf::graph::animate( graph, payload.name, payload.speed );
 	});
+
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::asset::isExpected( payload, uf::asset::Type::GRAPH ) ) return;
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
-		auto& graph = uf::asset::get<pod::Graph>( payload );
+		auto& graph = payload.asComponent ? this->getComponent<pod::Graph>() : uf::asset::get<pod::Graph>( payload );
+		if ( !payload.asComponent ) {
+		//	auto asset = uf::asset::release( payload.filename );
+		//	this->moveComponent<pod::Graph>( asset );
+			this->moveComponent<pod::Graph>( uf::asset::get( payload.filename ) );
+			uf::asset::remove( payload.filename );
+		}
 
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();
-		graph.root.entity->getComponent<pod::Transform<>>().reference = &transform;
+		auto& root = *graph.root.entity;
+		root.getComponent<pod::Transform<>>().reference = &transform;
 
 		uf::graph::initialize( graph );
 
 		if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
 			if ( metadata["graph"]["animation"].is<uf::stl::string>() ) {
-				uf::graph::animate( graph, metadata["graph"]["animation"].as<uf::stl::string>() );
+				uf::graph::animate( graph, metadata["graph"]["animation"].as<uf::stl::string>(), metadata["graph"]["speed"].as<float>( 1.0f ) );
 			}
 		}
 
-		this->addChild(graph.root.entity->as<uf::Entity>());
-
-		if ( !payload.asComponent ) {
-			this->moveComponent<pod::Graph>( uf::asset::get( payload.filename ) );
-		}
+		this->addChild(root.as<uf::Entity>());
 	});
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}

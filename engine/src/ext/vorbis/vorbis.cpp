@@ -94,7 +94,7 @@ namespace {
 }
 
 void ext::vorbis::open( uf::Audio::Metadata& metadata ) {
-	// UF_MSG_INFO( "Vorbis " << (metadata.settings.streamed ? "stream" : "load") << " opened: " << metadata.filename );
+	// //UF_MSG_INFO( "Vorbis {} opened: {}", (metadata.settings.streamed ? "stream" : "load"), metadata.filename );
 	return metadata.settings.streamed ? ext::vorbis::stream( metadata ) : ext::vorbis::load( metadata );
 }
 void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
@@ -224,7 +224,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 			} else if ( result == 0 ) {
 				if ( !metadata.settings.loop ) break;
 				std::int32_t seek = ov_raw_seek( &vorbisFile, 0 );
-				// UF_MSG_ERROR("Vorbis: EOF found in buffer read: " << (int) queuedBuffers << " " << metadata.filename); break;
+				// UF_MSG_ERROR("Vorbis: EOF found in buffer read: {} {}", (int) queuedBuffers, metadata.filename); break;
 				switch ( seek ) {
 					case OV_ENOSEEK: UF_MSG_ERROR("Vorbis: OV_ENOSEEK found in buffer loop: {}", metadata.filename); break;
 					case OV_EINVAL: UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer loop: {}", metadata.filename); break;
@@ -238,7 +238,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 		}
 	
 		if ( read == 0 ) {
-		//	UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: {} {}", (int) queuedBuffers, metadata.filename);
+			UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: {} {}", (int) queuedBuffers, metadata.filename);
 		//	if ( metadata.settings.loopMode == 0 ) metadata.settings.loopMode = 1;
 		//	if ( metadata.settings.loop ) metadata.al.source.set( AL_LOOPING, AL_TRUE );
 			break;
@@ -248,7 +248,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	AL_CHECK_RESULT(alSourceQueueBuffers(metadata.al.source.getIndex(), queuedBuffers, &metadata.al.buffer.getIndex()));
 	// switch to soft looping
 	if ( queuedBuffers >= metadata.settings.buffers ) {
-	//	UF_MSG_WARNING("Vorbis: file not completely consumed from initial buffer filled, yet looping is enabled. Soft looping...: " << metadata.filename );
+		//UF_MSG_WARNING("Vorbis: file not completely consumed from initial buffer filled, yet looping is enabled. Soft looping...: {}", metadata.filename );
 		metadata.settings.loopMode = 1;
 		metadata.al.source.set( AL_LOOPING, AL_FALSE );
 	}
@@ -263,11 +263,12 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	metadata.al.source.get( AL_SOURCE_STATE, state );
 	if ( state != AL_PLAYING ) {
 		if ( !metadata.settings.loop && metadata.stream.consumed >= metadata.info.size ) {
-		//	UF_MSG_INFO("Vorbis stream finished: " << metadata.filename);
+			//UF_MSG_INFO("Vorbis stream finished: {}", metadata.filename);
+			//metadata.al.source.stop();
 			return;
 		}
 		// stream stalled, restart it
-	//	UF_MSG_INFO("Vorbis stream stalled: " << metadata.filename);
+		//UF_MSG_INFO("Vorbis stream stalled: {}", metadata.filename);
 		metadata.al.source.play();
 	}
 
@@ -332,7 +333,7 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	if ( metadata.settings.loopMode == 1 ) metadata.al.source.set( AL_LOOPING, AL_TRUE );
 }
 void ext::vorbis::close( uf::Audio::Metadata& metadata ) {
-//	UF_MSG_INFO("Vorbis " << ( metadata.settings.streamed ? "stream" : "load" ) << " closed: " << metadata.filename);
+	//UF_MSG_INFO("Vorbis {} closed: {}", ( metadata.settings.streamed ? "stream" : "load" ), metadata.filename);
 	if ( metadata.stream.handle ) {
 		ov_clear((OggVorbis_File*) metadata.stream.handle);
 		delete (OggVorbis_File*) metadata.stream.handle;

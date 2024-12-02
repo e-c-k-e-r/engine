@@ -9,7 +9,7 @@
 
 namespace uf {
 	class UF_API Entity;
-	class UF_API Object;
+	typedef uf::Entity Object;
 }
 
 namespace pod {

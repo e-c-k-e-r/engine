@@ -1,14 +1,12 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [		
-	//	{ "filename": "./models/gm_construct.glb" }
-		{ "filename": "./models/gm_construct/graph.json" }
+		{ "filename": "./models/gm_construct.glb" }
+	//	{ "filename": "./models/gm_construct/graph.json" }
 	],
 	"metadata": {
 		"graph": {
-			"assets": [
-				"./audio/soundscape/ambience.ogg"	
-			],
+			"bgm": "./audio/soundscape/ambience.ogg",
 			"tags": {
 				// exact matches
 			//	"worldspawn_skybox": { "ignore": true },

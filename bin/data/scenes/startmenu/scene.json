@@ -2,11 +2,11 @@
 	"type": "Main Menu",
 	"behaviors": [
 		"SceneBehavior",
-		"ExtSceneBehavior"
+		"ExtSceneBehavior",
+		"BgmEmitterBehavior"
 	],
 	"assets": [
 		"/gui.json",
-		"/ui/main menu.ogg",
 		"/gui/mainmenu/menu.json"
 	],
 	"metadata": {
@@ -14,6 +14,23 @@
 			"sfx": 0.25,
 			"bgm": 0.15,
 			"voice": 1.0
+		},
+		"bgm": {
+			"tracks": {
+			//	"/ui/main menu.ogg": {},
+				"/ui/tainted.ogg": {
+					"intro": "/ui/tainted_intro.ogg",
+					"epsilon": 0.25,
+					"fade": true
+				}
+			}
+		}
+	},
+	"system": {
+		"renderer": {
+			"shader": {
+				"init 3D": false
+			}
 		}
 	}
 }

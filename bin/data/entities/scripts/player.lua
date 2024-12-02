@@ -70,8 +70,33 @@ local pullDistance = useDistance * 4
 
 -- on tick
 ent:bind( "tick", function(self)
+	local inControl = scene:globalFindByName("Gui: Menu"):uid() == 0
+
+	local keyE = inputs.key("E") or inputs.key("R_Y")
+	local keyF = inputs.key("F")
+	local mouse1 = inputs.key("Mouse1") or inputs.key("L_TRIGGER");
+	local mouse2 = inputs.key("Mouse2") or inputs.key("R_TRIGGER");
+	local mouse3 = inputs.key("Mouse3");
+	local wheel = inputs.analog("MouseWheel")
+
+	if not inControl then
+		keyE = false
+		keyF = false
+		mouse1 = false
+		mouse2 = false
+		mouse3 = false
+		wheel = 0
+	end
+
 	-- eye transform
-	local flattenedTransform = cameraTransform:flatten()
+	local flattenedTransform = nil
+
+	if metadata["camera"]["settings"]["fixed"] then
+		flattenedTransform = transform:flatten()
+	--	flattenedTransform.position.y = flattenedTransform.position.y
+	else
+		flattenedTransform = cameraTransform:flatten()
+	end
 	flattenedTransform.forward = ( transform.forward + Vector3f( 0, cameraTransform.forward.y, 0 ) ):normalize();
 
 	-- toggle flashlight
@@ -89,7 +114,7 @@ ent:bind( "tick", function(self)
 		light.transform.position = center + direction * (depth - offset)
 	end
 
-	if timers.flashlight:elapsed() > 0.5 and inputs.key("F") then
+	if timers.flashlight:elapsed() > 0.5 and keyF then
 		timers.flashlight:reset()
 
 		local metadata = { light = { power = light.power } }
@@ -106,7 +131,7 @@ ent:bind( "tick", function(self)
 	end
 
 	-- fire use ray
-	if timers.use:elapsed() > 0.5 and (inputs.key("E") or inputs.key("R_Y")) then
+	if timers.use:elapsed() > 0.5 and keyE and inControl then
 		timers.use:reset()
 
 		local center = flattenedTransform.position
@@ -126,7 +151,6 @@ ent:bind( "tick", function(self)
 
 	-- update HOLP
 	if heldObject.uid == 0 then
-		local mouse2 = inputs.key("Mouse2") or inputs.key("R_TRIGGER");
 		if mouse2 then
 		--[[
 			local center = transform.position + cameraTransform.position
@@ -152,9 +176,6 @@ ent:bind( "tick", function(self)
 			end
 		end
 	else
-		local mouse1 = inputs.key("Mouse1") or inputs.key("L_TRIGGER");
-		local mouse3 = inputs.key("Mouse3");
-		local wheel = inputs.analog("MouseWheel")
 
 		if wheel ~= 0 then
 			heldObject.distance = heldObject.distance + (wheel / 120 * heldObject.scrollSpeed) * time.delta()

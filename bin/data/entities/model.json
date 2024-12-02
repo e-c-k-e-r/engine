@@ -34,12 +34,13 @@
 				"combined": false,
 				"encode buffers": true,
 				"unwrap": "tagged",
+				"conversion": "",
 				"quit": true
 			},
 			"baking": {
 				"enabled": true,
 				"resolution": 2048,
-				"shadows": 1024,
+				"shadows": 8192,
 				"layers": 1,
 				"trigger": { "mode": "rendered", "quit": true },
 			//	"trigger": { "mode": "key", "value": "B" },
@@ -67,7 +68,7 @@
 				"invert": true,
 				"skinned": false,
 				"render": true,
-				"separate": false
+				"separate": true
 			},
 			"lights": {
 				"lightmap": "auto",

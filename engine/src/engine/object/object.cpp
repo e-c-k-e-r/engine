@@ -20,13 +20,19 @@ uf::Timer<long long> uf::Object::timer(false);
 bool uf::Object::assertionLoad = true;
 bool uf::Object::deferLazyCalls = true;
 
-UF_OBJECT_REGISTER_BEGIN(uf::Object)
-	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
-	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
-UF_OBJECT_REGISTER_END()
-uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
+#if UF_ENTITY_OBJECT_UNIFIED
+	uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
+#else
+	UF_OBJECT_REGISTER_BEGIN(uf::Object)
+		UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
+		UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
+	UF_OBJECT_REGISTER_END()
+	uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
+#endif
+
 
 void uf::Object::queueDeletion() {
+	//UF_MSG_DEBUG("Marked for deletion: {}", uf::string::toString(*this));
 	uf::scene::invalidateGraphs();
 	uf::renderer::states::rebuild = true;
 
@@ -203,19 +209,18 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 
 		for ( size_t i = 0; i < target.size(); ++i ) {
 			bool isObject = ext::json::isObject( target[i] );
-			uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
-			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
+			uf::stl::string filename = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
+			uf::stl::string uri = uf::io::resolveURI( filename, metadata.system.root );
 			uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";
 			bool bind = isObject ? target[i]["bind"].as<bool>(true) : true;
 
-			uf::asset::Payload payload = uf::asset::resolveToPayload( filename, mime );
+			uf::asset::Payload payload = this->resolveToPayload( uri, mime );
 			if ( !uf::asset::isExpected( payload, assetType ) ) continue;
 
 			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
 			payload.object = this->resolvable<>();
 			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
-			payload.asComponent = isObject ? !target[i]["component"].as<bool>(false) : false;
-			payload.asComponent = true;
+			payload.asComponent = isObject ? target[i]["component"].as<bool>(true) : true;
 			
 			switch ( assetType ) {
 				case uf::asset::Type::LUA: {
@@ -234,6 +239,28 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 					if ( ext::json::isObject(metadata["assets"]) || ext::json::isArray(metadata["assets"]) ) {
 						scene.loadAssets(metadata["assets"]);
 					}
+
+					// nasty hack to get a graph to queue BGM
+					auto& sceneMetadata = scene.getComponent<uf::Serializer>();
+					if ( ext::json::isObject(metadata["bgm"]) ) {
+						sceneMetadata["bgm"] = metadata["bgm"];
+					} else if ( metadata["bgm"].is<uf::stl::string>() ) {
+						sceneMetadata["bgm"]["load"] = metadata["bgm"];
+					}
+
+
+					/*
+					if ( ext::json::isObject(metadata["bgm"]) ) {
+						ext::json::Value payload;
+						payload["filename"] = metadata["bgm"]["load"];
+						UF_MSG_DEBUG("{}", payload.dump(1, '\t'));
+						scene.queueHook("bgm:Load.%UID%", payload, 0.5f);
+					} else if ( metadata["bgm"].is<uf::stl::string>() ) {
+						ext::json::Value payload;
+						UF_MSG_DEBUG("{}", payload.dump(1, '\t'));
+						scene.queueHook("bgm:Load.%UID%", payload, 0.5f);
+					}
+					*/
 				} break;
 			}
 
@@ -370,18 +397,18 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			target = json["assets"]["json"];
 		}
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			uf::stl::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
-			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
+			uf::stl::string filename = ext::json::isObject( target[i] ) ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
+			uf::stl::string uri = uf::io::resolveURI( filename, metadata.system.root );
 			uf::stl::string mime = ext::json::isObject( target[i] ) ? target[i]["mime"].as<uf::stl::string>() : "";
 			uf::stl::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<uf::stl::string>() : "";
 			
-			uf::asset::Payload payload = uf::asset::resolveToPayload( filename, mime );
+			uf::asset::Payload payload = this->resolveToPayload( uri, mime );
 			if ( !uf::asset::isExpected( payload, uf::asset::Type::JSON ) ) continue;
-			if ( (filename = uf::asset::load( payload )) == "" ) continue;
+			if ( (uri = uf::asset::load( payload )) == "" ) continue;
 			
 			float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : -1;
 			if ( delay > -1 ) {
-				payload.filename = filename;
+				payload.uri = uri;
 				payload.hash = hash;
 				payload.mime = mime;
 				this->queueHook( "asset:Load.%UID%", payload, delay );
@@ -389,11 +416,11 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			}
 			{
 				uf::Serializer json;
-				if ( !json.readFromFile(filename, hash) ) continue;
+				if ( !json.readFromFile(uri, hash) ) continue;
 
-				json["source"] = filename;
-				json["root"] = uf::io::directory(filename);
-				json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
+				json["source"] = uri;
+				json["root"] = uf::io::directory(uri);
+				json["hot reload"]["mtime"] = uf::io::mtime(uri) + 10;
 
 				if ( this->loadChildUid(json) == -1 ) continue;
 			}
@@ -488,10 +515,17 @@ uf::stl::string uf::Object::resolveURI( const uf::stl::string& filename, const u
 	return uf::io::resolveURI( filename, root == "" ? this->getComponent<uf::ObjectBehavior::Metadata>().system.root : root );
 }
 
+uf::asset::Payload uf::Object::resolveToPayload( const uf::stl::string& filename, const uf::stl::string& mime ) {
+	auto payload = uf::asset::resolveToPayload( this->resolveURI( filename ), mime );
+	payload.uri = filename;
+	payload.object = this->resolvable<>();
+	return payload;
+}
 
+
+/*
 #include <uf/utils/string/ext.h>
 uf::stl::string uf::string::toString( const uf::Object& object ) {
-	uf::stl::stringstream ss;
-	ss << object.getName() << ": " << object.getUid();
-	return ss.str();
+	return ::fmt::format("{} ({}): {}", object.getName(), object.getUid(), (void*) &object);
 }
+*/
