@@ -1,5 +1,9 @@
 # Engine
 
+<p align="center">
+<img src="./docs/assets/program.win64.gcc.vulkan_2024-12-02_23-07-35.png" width="500px"></img>
+</p>
+
 An unnamed, almost-entirely from-scratch, engine written in C++, using:
 * a Unity-like ECS + scene system
 * `?`-like hook system for dispatching events
