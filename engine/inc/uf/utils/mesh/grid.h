@@ -84,6 +84,7 @@ namespace uf {
 			uf::meshgrid::calculate( grid, eps );
 
 			// it's better to naively clip the mesh multiple times rather than calculate the triangles needed to clip
+			/*
 			if ( clip ) {
 				for ( auto& pair : grid.nodes ) {
 					++atlasID;
@@ -129,6 +130,7 @@ namespace uf {
 
 				return partitioned;
 			}
+			*/
 
 			for ( auto& meshlet : meshlets ) uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
 			if ( cleanup ) uf::meshgrid::cleanup( grid );

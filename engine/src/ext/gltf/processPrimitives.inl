@@ -360,6 +360,15 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 	meshlets = std::move( partitioned );
 }
 
+// optimize each meshlet if requested
+if ( meshopt.should ) {
+	for ( auto& meshlet : meshlets ) {
+		if ( !ext::meshopt::optimize( meshlet, meshopt.simplify, meshopt.level, meshopt.print ) ) {
+			UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
+		}
+	}
+}
+
 {
 	size_t indexID = 0;
 	size_t vertexID = 0;

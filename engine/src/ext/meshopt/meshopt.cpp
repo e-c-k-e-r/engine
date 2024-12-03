@@ -2,9 +2,9 @@
 #if UF_USE_MESHOPT
 #include <meshoptimizer.h>
 
-bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
+bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verbose ) {
 	if ( mesh.isInterleaved() ) {
-		UF_MSG_ERROR("optimization of interleaved meshes is currently not supported");
+		UF_MSG_ERROR("optimization of interleaved meshes is currently not supported. Consider optimizing on meshlets.");
 		return false;
 	}
 	mesh.updateDescriptor();
@@ -26,14 +26,28 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
 		stream.stride = p.attribute.stride;
 	}
 
-	size_t indicesCount = mesh.vertex.count;
+	bool hasIndices = mesh.index.count > 0;
+	size_t indicesCount = hasIndices ? mesh.index.count : mesh.vertex.count;
 	uf::stl::vector<uint32_t> remap(indicesCount);
 
-	size_t verticesCount = meshopt_generateVertexRemapMulti( &remap[0], NULL, indicesCount, indicesCount, &streams[0], streams.size() );
+	uint32_t* sourceIndicesPointer = NULL;
+	uf::stl::vector<uint32_t> sourceIndices(indicesCount);
+	if ( hasIndices ) {
+		uint8_t* pointer = (uint8_t*) mesh.getBuffer(mesh.index).data();
+		for ( auto index = 0; index < indicesCount; ++index ) {
+			switch ( mesh.index.size ) {
+				case 1: sourceIndices[index] = (( uint8_t*) pointer)[index]; break;
+				case 2: sourceIndices[index] = ((uint16_t*) pointer)[index]; break;
+				case 4: sourceIndices[index] = ((uint32_t*) pointer)[index]; break;
+			}
+		}
+	}
+
+	size_t verticesCount = meshopt_generateVertexRemapMulti( &remap[0], sourceIndicesPointer, indicesCount, indicesCount, &streams[0], streams.size() );
 
 	// generate new indices, as they're going to be specific to a region of vertices due to drawcommand shittery
 	uf::stl::vector<uint32_t> indices(indicesCount);
-	meshopt_remapIndexBuffer(&indices[0], NULL, indicesCount, &remap[0]);
+	meshopt_remapIndexBuffer(&indices[0], sourceIndicesPointer, indicesCount, &remap[0]);
 
 	// 
 	for ( auto& p : attributes ) {
@@ -64,10 +78,10 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
 		float targetError = 1e-2f / simplify;
 
 		float realError = 0.0f;
-	//	size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetError, realError);
-		size_t realIndices = meshopt_simplifySloppy(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetIndices);
+		size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetError, realError);
+	//	size_t realIndices = meshopt_simplifySloppy(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetIndices);
 		
-		UF_MSG_DEBUG("[Simplified] indices: {} -> {} | error: {} -> {}", indicesCount, realIndices, targetError, realError);
+		if ( verbose ) UF_MSG_DEBUG("[Simplified] indices: {} -> {} | error: {} -> {}", indicesCount, realIndices, targetError, realError);
 
 		indicesCount = realIndices;
 		indices.swap( indicesSimplified );
@@ -106,7 +120,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
 			} else if ( lastID + 1 == id.x )  {
 				lastID = id.x;
 			} else {
-				UF_MSG_DEBUG("Discontinuity detected: {} | {} | {} | {}", index, vertex, lastID, id.x);
+				if ( verbose ) UF_MSG_DEBUG("Discontinuity detected: {} | {} | {} | {}", index, vertex, lastID, id.x);
 				discontinuityDetected = true;
 				lastID = id.x;
 			}

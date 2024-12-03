@@ -281,6 +281,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				bool cleanup = true;
 			} meshgrid;
 
+			struct {
+				bool should = false;
+				bool print = false;
+				size_t level = SIZE_MAX;
+				float simplify = 1.0f;
+			} meshopt;
 
 			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
 				if ( !ext::json::isObject( value["grid"] ) ) return; // no tag["grid"] defined
@@ -290,6 +296,26 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				} else if ( m.name != key ) return;
 				meshgrid.metadata = value["grid"];
 			});
+
+		#if UF_USE_MESHOPT
+			// cleanup if blender's exporter is poopy
+			if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+				if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+					ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
+						if ( ext::json::isNull( value["optimize meshlets"] ) ) return;
+						if ( uf::string::isRegex( key ) ) {
+							if ( !uf::string::matched( keyName, key ) ) return;
+						} else if ( keyName != key ) return;
+						meshopt.should = true;
+						if ( ext::json::isObject( value["optimize meshlets"] ) ) {
+							meshopt.level = value["optimize meshlets"]["level"].as(meshopt.level);
+							meshopt.simplify = value["optimize meshlets"]["simplify"].as(meshopt.simplify);
+							meshopt.print = value["optimize meshlets"]["print"].as(meshopt.print);
+						}
+					});
+				}
+			}
+		#endif
 
 			if ( ext::json::isObject( meshgrid.metadata ) ) {
 				if ( meshgrid.metadata["size"].is<size_t>() ) {
@@ -497,6 +523,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		for ( auto& keyName : graph.meshes ) {
 			size_t level = SIZE_MAX;
 			float simplify = 1.0f;
+			bool print = false;
 
 			if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
 				bool should = false;
@@ -510,6 +537,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 					if ( ext::json::isObject( value["optimize mesh"] ) ) {
 						level = value["optimize mesh"]["level"].as(level);
 						simplify = value["optimize mesh"]["simplify"].as(simplify);
+						print = value["optimize mesh"]["print"].as(print);
 					}
 				});
 
@@ -518,7 +546,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 			auto& mesh = /*graph.storage*/storage.meshes[keyName];
 			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
-			if ( !ext::meshopt::optimize( mesh, simplify, level ) ) {
+			if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
 				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
 			}
 		}
