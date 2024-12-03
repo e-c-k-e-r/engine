@@ -131,7 +131,8 @@ for ( auto& p : m.primitives ) {
 				for ( size_t j = 0; j < attributes[name].components; ++j )\
 					vertex.member[j] = attributes[name].floats[i * attributes[name].components + j] * floatScale;\
 			} else {\
-				vertex.member = {};\
+				/*for some reason setting this breaks VXGI reflections*/\
+				/*vertex.member = {};*/\
 			}
 	#endif
 
