@@ -120,7 +120,7 @@ ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	INCS 				+= -I./dep/include/imgui/
 	INCS 				+= -I./dep/include/imgui/backends
 endif
-ifneq (,$(findstring imgui,$(REQ_DEPS)))
+ifneq (,$(findstring cpptrace,$(REQ_DEPS)))
 	DEPS 				+= -lcpptrace
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))

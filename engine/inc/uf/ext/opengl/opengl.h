@@ -34,6 +34,7 @@ namespace ext {
 				extern UF_API bool dedicatedThread;
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool batchQueueSubmissions;
+				extern UF_API bool registerRenderMode;
 			}
 
 			namespace validation {

@@ -5,7 +5,7 @@
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": false,
+				"useLightmaps": true,
 				"max": 1,
 				"shadows": {
 					"enabled": false,

@@ -65,7 +65,7 @@ namespace ext {
 			// RAII
 			~Buffer();
 			void initialize( Device& device );
-			void destroy();
+			void destroy(bool=false);
 		};
 		struct UF_API Buffers {
 			uf::stl::vector<Buffer> buffers;
@@ -74,7 +74,7 @@ namespace ext {
 		//	~Buffers();
 			//
 			void initialize( Device& device );
-			void destroy();
+			void destroy(bool=false);
 			//
 
 			size_t initializeBuffer( const void*, GLsizeiptr, GLenum, bool = false );

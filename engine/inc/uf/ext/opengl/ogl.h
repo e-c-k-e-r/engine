@@ -84,3 +84,5 @@
 	#define GL_MUTEX_LOCK();
 	#define GL_MUTEX_UNLOCK();
 #endif
+
+#define GL_DEFAULT_DEFER_BUFFER_DESTROY ext::opengl::settings::defaultDeferBufferDestroy

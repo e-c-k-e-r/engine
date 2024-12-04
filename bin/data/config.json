@@ -245,19 +245,26 @@
 				}
 			},
 			"opengl": {
-				"validation": { "enabled": false },
+				"validation": { "enabled": true },
 				"framebuffer": { "size": 1, "msaa": 1 },
 				"experimental": {
-					"rebuild on tick begin": true
+					"rebuild on tick begin": false
 				},
 				"pipelines": {
-					"culling": true
+					"culling": false
 				},
 				"experimental": {
-					"rebuild on tick begin": true
+					"rebuild on tick begin": false,
+					"batch queue submissions": true,
+					"dedicated thread": false,
+					"memory budget": false,
+					"register render modes": false
 				},
 				"invariant": {
-					"multithreaded recording": false
+					"default stage buffers": true,
+					"default defer buffer destroy": true,
+					"default command buffer immediate": true,
+					"multithreaded recording": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",

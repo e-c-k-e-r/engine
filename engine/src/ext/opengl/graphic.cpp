@@ -431,10 +431,10 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.descriptor.inputs.vertex.first = drawCommand.vertexID;
 			drawCommandInfo.descriptor.inputs.vertex.count = drawCommand.vertices;
 
-			drawCommandInfo.attributes.instance.pointer = &instance;
+			drawCommandInfo.attributes.instance.pointer = (uint8_t*) (void*) &instance;
 			drawCommandInfo.attributes.instance.length = sizeof(instance);
 
-			drawCommandInfo.attributes.indirect.pointer = &drawCommand;
+			drawCommandInfo.attributes.indirect.pointer = (uint8_t*) (void*) &drawCommand;
 			drawCommandInfo.attributes.indirect.length = sizeof(drawCommand);
 
 			drawCommandInfo.matrices.model = &instance.model;

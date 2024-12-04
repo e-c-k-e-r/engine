@@ -50,6 +50,7 @@ bool ext::opengl::settings::experimental::dedicatedThread = true;
 #endif
 bool ext::opengl::settings::experimental::rebuildOnTickBegin = false;
 bool ext::opengl::settings::experimental::batchQueueSubmissions = false;
+bool ext::opengl::settings::experimental::registerRenderMode = true;
 
 // not so experimental
 bool ext::opengl::settings::invariant::waitOnRenderEnd = false;

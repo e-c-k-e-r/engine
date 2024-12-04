@@ -112,7 +112,7 @@ ext::opengl::Buffer::~Buffer() {
 void ext::opengl::Buffer::initialize( Device& device ) {
 	this->device = &device;
 }
-void ext::opengl::Buffer::destroy() {
+void ext::opengl::Buffer::destroy( bool defer ) {
 	if ( device && buffer ) device->destroyBuffer( buffer );
 	device = NULL;
 	buffer = NULL;
@@ -124,8 +124,8 @@ void ext::opengl::Buffers::initialize( Device& device ) {
 	this->device = &device;
 }
 
-void ext::opengl::Buffers::destroy() {
-	for ( auto& buffer : buffers ) buffer.destroy();
+void ext::opengl::Buffers::destroy( bool defer ) {
+	for ( auto& buffer : buffers ) buffer.destroy(defer);
 	buffers.clear();
 }
 
