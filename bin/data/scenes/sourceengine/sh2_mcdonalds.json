@@ -1,8 +1,8 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-		{ "filename": "./models/sh2_mcdonalds.glb" }
-	//	{ "filename": "./models/sh2_mcdonalds/graph.json" }
+	//	{ "filename": "./models/sh2_mcdonalds.glb" }
+		{ "filename": "./models/sh2_mcdonalds/graph.json" }
 	],
 	"metadata": {
 		"graph": {
@@ -23,7 +23,7 @@
 				},
 			*/
 				"/^worldspawn_barrier$/": { "ignore": true },
-			//	"/^worldspawn_skybox/": { "ignore": true },
+				"/^worldspawn_skybox/": { "ignore": true },
 
 				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
 				"func_door_rotating_5509": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },

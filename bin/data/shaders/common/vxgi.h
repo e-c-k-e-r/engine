@@ -180,7 +180,7 @@ void indirectLightingVXGI() {
 	// deferred sampling doesn't have a blended albedo buffer
 	// in place we'll just cone trace behind the window
 #if !RT
-	if ( surface.material.albedo.a < 1.0 ) {
+	if ( 0.1 < surface.material.albedo.a && surface.material.albedo.a < 1.0 ) {
 		Ray ray;
 		ray.direction = surface.ray.direction;
 		ray.origin = surface.position.world + ray.direction;

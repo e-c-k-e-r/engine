@@ -6,12 +6,12 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 16,
+				"max": 32,
 				"shadows": {
 					"enabled": true,
 					"update": 4,
 					"max": 8,
-					"samples": 4
+					"samples": 2
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -30,11 +30,11 @@
 			},
 			"vxgi": {
 			//	"limiter": 0,
-				"limiter": 0.125,
-				"size": 256,
+				"limiter": 0.5,
+				"size": 128,
 				"dispatch": 8,
-				"cascades": 4,
-				"cascadePower": 1.5,
+				"cascades": 3,
+				"cascadePower": 2.0,
 				"granularity": 12,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
@@ -58,7 +58,7 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 1024,
+			"initial buffer elements": 2048,
 			"global storage": false
 		},
 		"ext": {
@@ -114,7 +114,7 @@
 					"deferred": true,
 					"gui": true,
 					"vsync": false,
-					"hdr": false,
+					"hdr": true,
 					"vxgi": true,
 					"culling": true,
 					"bloom": false,

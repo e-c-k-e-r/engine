@@ -11,12 +11,12 @@
 				// exact matches
 				"worldspawn": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true },
+					"grid": { "size": [16,1,16], "epsilon": 0.001, "cleanup": true, "print": true },
 					"optimize meshlets": { "simplify": 0.125, "print": false },
 					"unwrap mesh": true
 				},
 				"worldspawn_skybox": {
-					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true },
+					"grid": { "size": [16,1,16], "epsilon": 0.001, "cleanup": true, "print": true },
 					"optimize meshlets": { "simplify": 0.125, "print": false },
 					"unwrap mesh": true
 				},

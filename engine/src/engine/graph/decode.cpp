@@ -9,10 +9,11 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
 
+// it's too unstable right now to do multithreaded loading, perhaps there's a better way
 #if UF_USE_OPENGL
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1
+	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #endif
 
 #if 0 && UF_ENV_DREAMCAST

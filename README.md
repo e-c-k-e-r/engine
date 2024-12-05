@@ -4,12 +4,7 @@
 <img src="./docs/assets/program.win64.gcc.vulkan_2024-12-02_23-07-35.png" width="500px"></img>
 </p>
 
-An unnamed, almost-entirely from-scratch, engine written in C++, using:
-* a Unity-like ECS + scene system
-* `?`-like hook system for dispatching events
-* Vulkan (or OpenGL) as the rendering backend
-* ReactPhysics3D for physics
-* OpenAL for audio
+An unnamed, almost-entirely from-scratch, engine written in C++.
 
 ## Build
 
@@ -25,7 +20,7 @@ To compile, run `make`. The outputted libraries and executables will be placed i
 
 Currently, assets are not provided due to size (but mostly due to being test assets).
 
-*If* adequate assets are provided, run `./program.sh`.
+*If* adequate assets are provided, run `./program.sh` or `make run`. This ensures the path to the required libraries are added to the PATH.
 
 ## Documentation
 
