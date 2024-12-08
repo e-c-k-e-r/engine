@@ -19,8 +19,8 @@ To be filled.
 			* point lights are treated as a cubemap
 		* basic PBR shading
 		* a sovlful (sloppy) VXGI for GI and reflections
-		* (currently broken) hardware RT support
-		* (currently broken) bloom and additional post processing
+		* (partially broken) hardware RT support
+		* bloom and additional post processing
 		* FSR2 or something cringe
 	* OpenGL uses a very, very naive OpenGL 1.2 API with a homebrewed command recording system
 * ReactPhysics3D for physics

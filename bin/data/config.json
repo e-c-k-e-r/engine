@@ -117,7 +117,7 @@
 					"hdr": true,
 					"vxgi": true,
 					"culling": true,
-					"bloom": false,
+					"bloom": true,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false

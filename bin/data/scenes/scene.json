@@ -39,19 +39,15 @@
 		"light": {
 			"enabled": true,
 
-			"ambient": [ 0.0, 0.0, 0.0 ],
-		//	"ambient": [ 0.1, 0.1, 0.2 ],
+			"ambient": [ 0.1, 0.1, 0.1 ],
 
 			"exposure": 1.0,
-		//	"gamma": 2.2,
 			"gamma": 1.0,
 
 			"bloom": {
 				"threshold": 1.0,
-				"scale": 1.0,
-				"strength": 0.25,
-				"sigma": 1.0,
-				"samples": 4
+				"size": 4,
+				"smoothness": 1
 			},
 			"shadows": {
 				"enabled": true

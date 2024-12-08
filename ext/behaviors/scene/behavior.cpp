@@ -815,10 +815,8 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
 
 	/*this->*/bloom.threshold = serializer["light"]["bloom"]["threshold"].as(/*this->*/bloom.threshold);
-	/*this->*/bloom.scale = serializer["light"]["bloom"]["scale"].as(/*this->*/bloom.scale);
-	/*this->*/bloom.strength = serializer["light"]["bloom"]["strength"].as(/*this->*/bloom.strength);
-	/*this->*/bloom.sigma = serializer["light"]["bloom"]["sigma"].as(/*this->*/bloom.sigma);
-	/*this->*/bloom.samples = serializer["light"]["bloom"]["samples"].as(/*this->*/bloom.samples);
+	/*this->*/bloom.size = serializer["light"]["bloom"]["size"].as(/*this->*/bloom.size);
+	/*this->*/bloom.smoothness = serializer["light"]["bloom"]["smoothness"].as(/*this->*/bloom.smoothness);
 
 	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], /*this->*/fog.color );
 	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as( /*this->*/fog.stepScale );
@@ -870,37 +868,6 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 #endif
 #if UF_USE_VULKAN
 	auto& renderMode = this->hasComponent<uf::renderer::DeferredRenderMode>() ? this->getComponent<uf::renderer::DeferredRenderMode>() : uf::renderer::getRenderMode("", true);
-	if ( uf::renderer::settings::pipelines::bloom ) {
-		auto& blitter = renderMode.getBlitter();
-		if ( blitter.material.hasShader("compute", "bloom") ) {
-			auto& shader = blitter.material.getShader("compute", "bloom");
-
-			struct UniformDescriptor {
-				float scale;
-				float strength;
-				float threshold;
-				float sigma;
-
-				float gamma;
-				float exposure;
-				uint32_t samples;
-				uint32_t padding;
-			};
-
-			UniformDescriptor uniforms = {
-				.scale = bloom.scale,
-				.strength = bloom.strength,
-				.threshold = bloom.threshold,
-				.sigma = bloom.sigma,
-
-				.gamma = light.gamma,
-				.exposure = light.exposure,
-				.samples = bloom.samples,
-			};
-
-			if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-		}
-	}
 #if UF_USE_FFX_FSR
 	/*this->*/framebuffer.scale = serializer["system"]["renderer"]["scale"].as(/*this->*/framebuffer.scale);
 
@@ -941,6 +908,27 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	if ( !graphic.initialized ) return;
 
 #if UF_USE_VULKAN
+	// only update this when requested
+	// done outside of deserialize because the rendermode might not be initialized in time
+	if ( uf::renderer::settings::pipelines::bloom && metadata.bloom.outOfDate && graphic.material.hasShader("compute", "bloom") ) {
+		auto& shader = graphic.material.getShader("compute", "bloom");
+
+		struct UniformDescriptor {
+			float threshold;
+			float smoothness;
+			uint32_t size;
+			uint32_t padding;
+		};
+
+		UniformDescriptor uniforms = {
+			.threshold = metadata.bloom.threshold,
+			.smoothness = metadata.bloom.smoothness,
+			.size = metadata.bloom.size,
+		};
+		metadata.bloom.outOfDate = false;
+		if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+	}
+
 	struct UniformDescriptor {
 		struct Matrices {
 			alignas(16) pod::Matrix4f view;

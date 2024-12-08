@@ -29,10 +29,9 @@ namespace ext {
 			} light;
 			struct {
 				float threshold = 1.0f;
-				float scale = 1.0f;
-				float strength = 1.0f;
-				float sigma = 0.8f;
-				uint32_t samples = 1;
+				float smoothness = 1.0f;
+				uint32_t size = 1;
+				bool outOfDate = true;
 			} bloom;
 			struct {
 				bool enabled = true;
