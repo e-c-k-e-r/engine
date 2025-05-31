@@ -102,7 +102,7 @@
 					"batch queue submissions": true,
 					"dedicated thread": false,
 					"memory budget": false,
-					"register render modes": false
+					"register render modes": true
 				},
 				"invariant": {
 					"default stage buffers": true,

@@ -152,7 +152,8 @@ void ext::BgmEmitterBehavior::Metadata::serialize( uf::Object& self, uf::Seriali
 	}
 }
 void ext::BgmEmitterBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
-	ext::json::forEach( serializer["bgm"]["tracks"], [&]( const uf::stl::string& key, const ext::json::Value& value ){
+	// iterate by value instead of reference because some keys might not exist and jsoncpp is agony
+	ext::json::forEach( serializer["bgm"]["tracks"], [&]( const uf::stl::string& key, ext::json::Value value ){
 		auto& track = /*this->*/tracks[key];
 		track.filename = key;
 		track.intro = value["intro"].as(track.intro);
@@ -162,7 +163,8 @@ void ext::BgmEmitterBehavior::Metadata::deserialize( uf::Object& self, uf::Seria
 		} else if ( value["fade"].is<float>() ) {
 			track.fade = { value["fade"].as<float>(), value["fade"].as<float>() };
 		} else {
-			track.fade = ext::json::decode( value["fade"], track.fade );
+			// YUC
+			track.fade = ext::json::decode<float,2>( value["fade"], track.fade );
 		}
 
 		if ( track.intro != "" ) tracks[track.intro] = track;

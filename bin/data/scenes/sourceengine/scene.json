@@ -6,7 +6,7 @@
 	],
 	"metadata": {
 		"light": {
-			"fog-": {
+			"fog": {
 			//	"color": [ 0.1, 0.1, 0.1 ],
 			//	"color": [ 0.2, 0.2, 0.2 ],
 				"color": [ 0.3, 0.3, 0.3 ],
@@ -15,7 +15,7 @@
 				"absorbtion": 0.125,
 				"density": {
 					"threshold": 0.35,
-					"multiplier": 2.0,
+					"multiplier": 1.0,
 					"scale": 25.0,
 					"offset": [0.2, 0, 1],
 					"timescale": 32

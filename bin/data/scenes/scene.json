@@ -46,8 +46,8 @@
 
 			"bloom": {
 				"threshold": 1.0,
-				"size": 4,
-				"smoothness": 1
+				"size": 8,
+				"smoothness": 0.5
 			},
 			"shadows": {
 				"enabled": true

@@ -799,6 +799,99 @@ void EXT_API ext::initialize() {
 	
 	ext::ready = true;
 	UF_MSG_INFO("EXT took {} seconds to initialize", times.sys.elapsed().asDouble());
+
+	//
+	/*
+	{
+		struct Position {
+			pod::Vector3f position;
+			pod::Vector3f normal;
+			pod::Vector4f tangent;
+		};
+		struct TexCoord {
+			pod::ColorRgba color;
+			pod::Vector2f16 uv;
+			pod::Vector2f st;
+			pod::Vector2f16 wx;
+		};
+		struct Weight {
+			pod::Vector4f alpha;
+			pod::Vector4f indices;
+		};
+
+		auto ib_buffer = uf::io::readAsBuffer( "./data/tmp/a.ib" );
+		auto ib_buffer_start = (uint32_t*) ib_buffer.data();
+
+		auto pos_buffer = uf::io::readAsBuffer( "./data/tmp/pos.buf" );
+		auto uv_buffer = uf::io::readAsBuffer( "./data/tmp/uv.buf" );
+		auto weight_buffer = uf::io::readAsBuffer( "./data/tmp/weight.buf" );
+
+		auto pos_buffer_start = (Position*) pos_buffer.data();
+		auto uv_buffer_start = (TexCoord*) uv_buffer.data();
+		auto weight_buffer_start = (Weight*) weight_buffer.data();
+
+		auto pos_stride = sizeof(float) * 10;
+		auto uv_stride = sizeof(uint8_t) * 4 + sizeof(float) * 4;
+		auto weight_stride = sizeof(float) * 8;
+
+		auto vb_stride =  pos_stride + uv_stride + weight_stride;
+		auto ib_stride = sizeof(uint32_t);
+
+		auto ib_count = ib_buffer.size() / ib_stride;
+		auto vb_count = pos_buffer.size() / pos_stride;
+
+		uf::stl::vector<uint32_t> indices( ib_buffer_start, ib_buffer_start + ib_count );
+		uf::stl::vector<uf::graph::mesh::Skinned> vertices( vb_count );
+
+		for ( auto i = 0; i < vb_count; ++i ) {
+			auto& vertex = vertices[i];
+
+			auto& pos = pos_buffer_start[i];
+			auto& uv = uv_buffer_start[i];
+			auto& weight = weight_buffer_start[i];
+
+			vertex.position = pos.position;
+			vertex.normal = pos.normal;
+			vertex.tangent = pos.tangent;
+			
+			vertex.color = uv.color;
+			vertex.uv[0] = uv.uv[0];
+			vertex.uv[1] = uv.uv[1];
+			vertex.st = uv.st;
+			
+			vertex.joints = weight.indices;
+			vertex.weights = weight.alpha;
+		}
+
+		// printout
+		std::stringstream ib_ss;
+		std::stringstream vb_ss;
+		ib_ss << "byte offset: 0\nfirst index: 0\nindex count: " << ib_count << "\ntopology: trianglelist\nformat: DXGI_FORMAT_R16_UINT\n\n";
+		vb_ss << "stride: 92\nfirst vertex: 0\nvertex count: " << vb_count << "\ntopology: trianglelist\nelement[0]:\n  SemanticName: POSITION\n  SemanticIndex: 0\n  Format: R32G32B32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 0\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[1]:\n  SemanticName: NORMAL\n  SemanticIndex: 0\n  Format: R32G32B32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 12\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[2]:\n  SemanticName: TANGENT\n  SemanticIndex: 0\n  Format: R32G32B32A32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 24\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[3]:\n  SemanticName: BLENDWEIGHTS\n  SemanticIndex: 0\n  Format: R32G32B32A32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 40\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[4]:\n  SemanticName: BLENDINDICES\n  SemanticIndex: 0\n  Format: R32G32B32A32_UINT\n  InputSlot: 0\n  AlignedByteOffset: 56\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[5]:\n  SemanticName: COLOR\n  SemanticIndex: 0\n  Format: R8G8B8A8_UNORM\n  InputSlot: 0\n  AlignedByteOffset: 72\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[6]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 0\n  Format: R16G16_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 76\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[7]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 1\n  Format: R32G32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 80\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[8]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 2\n  Format: R16G16_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 88\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nvertex-data:\n\n";
+
+		for ( auto i = 0; i < ib_count / 3; ++i ) {
+			ib_ss << indices[i*3+0] << " " << indices[i*3+1] << " " << indices[i*3+2] << "\n";
+		}
+
+		for ( auto i = 0; i < vb_count; ++i ) {
+			auto& vertex = vertices[i];
+
+			vb_ss <<  "vb0[" << i << "]+000 POSITION: " << vertex.position[0] << ", " << vertex.position[1] << ", " << vertex.position[2] <<
+					"\nvb0[" << i << "]+012 NORMAL: " << vertex.normal[0] << ", " << vertex.normal[1] << ", " << vertex.normal[2] <<
+					"\nvb0[" << i << "]+024 TANGENT: " << vertex.tangent[0] << ", " << vertex.tangent[1] << ", " << vertex.tangent[2] << ", " << vertex.tangent[3] <<
+					"\nvb0[" << i << "]+040 BLENDWEIGHTS: " << vertex.weights[0] << ", " << vertex.weights[1] << ", " << vertex.weights[2] << ", " << vertex.weights[3] <<
+					"\nvb0[" << i << "]+056 BLENDINDICES: " << vertex.joints[0] << ", " << vertex.joints[1] << ", " << vertex.joints[2] << ", " << vertex.joints[3] <<
+					"\nvb0[" << i << "]+072 COLOR: " << (int) vertex.color[0] << ", " << (int) vertex.color[1] << ", " << (int) vertex.color[2] << ", " << (int) vertex.color[3] <<
+					"\nvb0[" << i << "]+076 TEXCOORD: " << vertex.uv[0] << ", " << vertex.uv[1] <<
+					"\nvb0[" << i << "]+080 TEXCOORD1: " << vertex.st[0] << ", " << vertex.st[1] <<
+					"\nvb0[" << i << "]+088 TEXCOORD2: " << vertex.uv[0] << ", " << vertex.uv[1] <<
+					"\n\n";
+		}
+
+		uf::io::write( "./data/tmp/vb.txt", vb_ss.str() );
+		uf::io::write( "./data/tmp/ib.txt", ib_ss.str() );
+	}
+	*/
 }
 
 void EXT_API ext::tick() {

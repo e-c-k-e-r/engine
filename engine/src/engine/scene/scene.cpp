@@ -324,7 +324,11 @@ void uf::scene::unloadScene() {
 	uf::scene::scenes.pop_back();
 }
 uf::Scene& uf::scene::getCurrentScene() {
-	UF_ASSERT( !uf::scene::scenes.empty() );
+	//UF_ASSERT( !uf::scene::scenes.empty() );
+	if ( uf::scene::scenes.empty() ) {
+		return uf::Entity::null.as<uf::Scene>();
+	}
+
 	return *uf::scene::scenes.back();
 }
 void uf::scene::invalidateGraphs() {

@@ -1,9 +1,9 @@
 {
 	"type": "Object",
-	"name": "Craeture",
+	"name": "Craeture2",
 	"ignore": false,
 	"assets": [
-		"./craetureModel.json",
+		"./craetureModel2.json",
 		"./scripts/craeture.lua"
 	],
 	"behaviors": [
@@ -11,7 +11,7 @@
 	],
 	"transform": {
 		//"position": [ 0, 1.5, 21 ],
-		"position": [ 16.3489, 1.37972, -68.1571 ],
+		"position": [ 0.595603, 2.63543, -68.4572 ],
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0

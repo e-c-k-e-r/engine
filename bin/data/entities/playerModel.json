@@ -4,8 +4,8 @@
 	"ignore": true,
 	"import": "/model.json",
 	"assets": [
-	//	"/player/bear.glb"
-		{ "filename": "/player/bear/graph.json" }
+		"/player/ben.glb"
+	//	{ "filename": "/player/bear/graph.json" }
 	],
 	"behaviors": [
 		"PlayerModelBehavior"

@@ -17,12 +17,13 @@
 		},
 		"bgm": {
 			"tracks": {
+				"/ui/tmrwah.ogg": {}
 			//	"/ui/main menu.ogg": {},
-				"/ui/tainted.ogg": {
-					"intro": "/ui/tainted_intro.ogg",
-					"epsilon": 0.25,
-					"fade": true
-				}
+			//	"/ui/tainted.ogg": {
+			//		"intro": "/ui/tainted_intro.ogg",
+			//		"epsilon": 0.25,
+			//		"fade": true
+			//	}
 			}
 		}
 	},

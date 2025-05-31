@@ -68,7 +68,7 @@
 				"invert": true,
 				"skinned": false,
 				"render": true,
-				"separate": true
+				"separate": false
 			},
 			"lights": {
 				"lightmap": "auto",
