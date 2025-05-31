@@ -13,6 +13,8 @@ namespace ext {
 		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector2ui size = { 1, 1 };
 			pod::Vector2ui reference = { 1920, 1080 };
+
+			bool boundGui = false;
 		);
 	}
 }

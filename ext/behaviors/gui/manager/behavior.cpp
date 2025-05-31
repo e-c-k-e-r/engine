@@ -26,20 +26,9 @@
 #include <uf/utils/window/payloads.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiManagerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = false, renders = true, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = true, multithread = false)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
-	// add gui render mode
-	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {
-		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		uf::stl::string name = "Gui";
-		renderMode.blitter.descriptor.renderMode = "Swapchain";
-		renderMode.blitter.descriptor.subpass = 0;
-		renderMode.metadata.type = "single";
-		renderMode.metadata.name = name;
-		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, name );
-	}
-
 	auto& metadata = this->getComponent<ext::GuiManagerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
@@ -50,7 +39,25 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
-void ext::GuiManagerBehavior::tick( uf::Object& self ) {}
+void ext::GuiManagerBehavior::tick( uf::Object& self ) {
+	// it would be sugoi to have this handled on init
+	// but sometimes a scene that owns the Gui rendermode is deferred, and therefore the new scene doesn't create its Gui rendermode
+	// this is the mess it is now because the program /COULD/ instead just have master rendermodes instead of per-scene rendermodes
+	// and this oversight seems to only happen when registerRenderMode = false
+	auto& metadata = this->getComponent<ext::GuiManagerBehavior::Metadata>();
+	if ( !metadata.boundGui && !uf::renderer::hasRenderMode( "Gui", true ) ) {
+		UF_MSG_DEBUG("ADDING RENDER MODE");
+		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+		uf::stl::string name = "Gui";
+		renderMode.blitter.descriptor.renderMode = "Swapchain";
+		renderMode.blitter.descriptor.subpass = 0;
+		renderMode.metadata.type = "single";
+		renderMode.metadata.name = name;
+		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, name );
+
+		metadata.boundGui = true;
+	}
+}
 void ext::GuiManagerBehavior::render( uf::Object& self ){
 	auto& renderMode = this->hasComponent<uf::renderer::RenderTargetRenderMode>() ? this->getComponent<uf::renderer::RenderTargetRenderMode>() : uf::renderer::getRenderMode( "Gui", true );
 

@@ -572,6 +572,7 @@ void EXT_API ext::initialize() {
 #endif
 
 	/* Initialize Vulkan */ {
+		// to-do: have this set per config value instead of relying on the scene to handle its own rendermodes
 		if ( false ) {
 			// setup render mode
 			if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
