@@ -4,7 +4,7 @@
 #include <uf/utils/string/string.h>
 #include <uf/utils/math/vector.h>
 
-#define UF_INPUT_USE_ENUM_MOUSE 1
+//#define UF_INPUT_USE_ENUM_MOUSE 1
 
 namespace uf {
 	namespace console {

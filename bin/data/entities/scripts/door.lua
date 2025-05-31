@@ -9,11 +9,13 @@ end
 
 local polarity = 1
 local state = 0
-local targetAlpha = 1
+local targetAlpha = 1.57
 local alpha = 0
 local target = Vector3f(0,0,0)
 local transform = ent:getComponent("Transform")
 local metadata = ent:getComponent("Metadata")
+local collider = ent:getComponent("PhysicsState")
+
 local speed = metadata["speed"] or 1.0
 local normal = Vector3f(0,0,-1)
 if metadata["normal"] ~= nil then
@@ -62,9 +64,10 @@ local stopSoundscape = function( key )
 end
 -- on tick
 ent:bind( "tick", function(self)
---	transform.orientation = starting:slerp( ending, math.cos(time.current() * speed) * 0.5 + 0.5 )
+	rot = nil
 	if state == 1 then
 		alpha = alpha + time.delta() * speed
+		rot = Quaternion.axisAngle( Vector3f(0, 1, 0), time.delta() * speed * polarity )
 
 		if alpha > targetAlpha then
 			state = 2
@@ -75,6 +78,7 @@ ent:bind( "tick", function(self)
 	end
 	if state == 3 then
 		alpha = alpha - time.delta() * speed
+		rot = Quaternion.axisAngle( Vector3f(0, 1, 0), time.delta() * speed * -polarity )
 
 		if alpha < 0 then
 			state = 0
@@ -83,8 +87,12 @@ ent:bind( "tick", function(self)
 		end
 	end
 
-	if state > 0 then
-		transform.orientation = starting:slerp( ending, alpha * polarity )
+	if state > 0 and rot ~= nil then
+		if collider:hasBody() then
+			collider:applyRotation( rot )
+		else
+			transform:rotate( rot )
+		end
 	end
 end )
 -- on use

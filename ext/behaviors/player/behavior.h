@@ -50,7 +50,9 @@ namespace ext {
 			} camera;
 			struct {
 				pod::Vector2f sensitivity = {1,1};
-				pod::Vector2f smoothing = {10,10};
+				pod::Vector2f smoothing = {0,0};
+				
+				pod::Vector2f accum = {};
 			} mouse;
 			struct {
 				struct {

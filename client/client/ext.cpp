@@ -145,16 +145,17 @@ void client::tick() {
 			auto size = client::window.getSize();
 			auto current = client::window.getMousePosition();
 			pod::Vector2i center = {
-				client::window.getSize().x * 0.5f,
-				client::window.getSize().y * 0.5f,
+				size.x * 0.5f,
+				size.y * 0.5f,
 			};
 			client::window.setMousePosition( center );
 			client::window.setCursorVisible(false);
 
+
 		#if UF_INPUT_USE_ENUM_MOUSE
 			uf::inputs::kbm::states::Mouse = {
-				(current.x - center.x) / (float) size.x,
-				(current.y - center.y) / (float) size.y,
+				(float) (current.x - center.x) / (float) size.x,
+				(float) (current.y - center.y) / (float) size.y,
 			};
 		#else
 			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{

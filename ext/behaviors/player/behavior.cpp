@@ -97,11 +97,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			const pod::Vector2ui deadZone{0, 0};
 			if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
-			pod::Vector2f delta = {
-				(float) metadata.mouse.sensitivity.x * (abs(payload.mouse.delta.x) < deadZone.x ? 0 : payload.mouse.delta.x) / payload.window.size.x,
-				(float) metadata.mouse.sensitivity.y * (abs(payload.mouse.delta.y) < deadZone.y ? 0 : payload.mouse.delta.y) / payload.window.size.y
-			};
-			metadata.camera.queued += delta;
+			if (abs(payload.mouse.delta.x) > deadZone.x) metadata.mouse.accum.x += payload.mouse.delta.x * uf::physics::time::delta / payload.window.size.x;
+			if (abs(payload.mouse.delta.y) > deadZone.y) metadata.mouse.accum.y += payload.mouse.delta.y * uf::physics::time::delta / payload.window.size.y;
 		});
 	#endif
 #endif
@@ -479,21 +476,25 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		const auto& mouseDelta = uf::inputs::kbm::states::Mouse;
 		bool shouldnt = (mouseDelta.x == 0 && mouseDelta.y == 0) || !metadata.system.control || metadata.camera.fixed;
 		if ( !shouldnt ) {
-			pod::Vector2f delta = {
-				(float) metadata.mouse.sensitivity.x * (abs(mouseDelta.x) < deadZone.x ? 0 : mouseDelta.x),
-				(float) metadata.mouse.sensitivity.y * (abs(mouseDelta.y) < deadZone.y ? 0 : mouseDelta.y)
-			};
-			metadata.camera.queued += delta;
+			if (abs(mouseDelta.x) > deadZone.x) metadata.mouse.accum.x += mouseDelta.x * uf::physics::time::delta;
+			if (abs(mouseDelta.y) > deadZone.y) metadata.mouse.accum.y += mouseDelta.y * uf::physics::time::delta;
 		}
 	}
 	#endif
-
 	if ( !metadata.camera.fixed ) {
+		if ( metadata.mouse.accum.x != 0 && metadata.mouse.accum.y != 0 ) {
+			metadata.camera.queued.x += metadata.mouse.accum.x * metadata.mouse.sensitivity.x;
+			metadata.camera.queued.y += metadata.mouse.accum.y * metadata.mouse.sensitivity.y;
+
+			metadata.mouse.accum = {};
+		}
+
+
 		if ( metadata.camera.queued.x != 0 || metadata.camera.queued.y != 0 ) {
 			auto lookDelta = metadata.camera.queued;
-			if ( abs(lookDelta.x) > uf::physics::time::delta / metadata.mouse.smoothing.x ) lookDelta.x *= uf::physics::time::delta * metadata.mouse.smoothing.x;
-			if ( abs(lookDelta.y) > uf::physics::time::delta / metadata.mouse.smoothing.y ) lookDelta.y *= uf::physics::time::delta * metadata.mouse.smoothing.y;
-			metadata.camera.queued -= lookDelta;
+			metadata.camera.queued -= lookDelta * metadata.mouse.smoothing;
+			//metadata.camera.queued = {};
+
 			if ( lookDelta.x != 0 ) {
 				if ( metadata.camera.invert.x ) lookDelta.x *= -1;
 				metadata.camera.limit.current.x += lookDelta.x;

@@ -303,7 +303,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		this->addHook( "window:Mouse.Click", [&](pod::payloads::windowMouseClick& payload){
 			if ( metadata.world ) return;
-			if ( !metadata.box.min && !metadata.box.max ) return;
+			//if ( !metadata.box.min && !metadata.box.max ) return;
+			if ((metadata.box.min.x > metadata.box.max.x)||(metadata.box.min.y > metadata.box.max.y)) return;
 
 		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
@@ -381,7 +382,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 			if ( metadata.world ) return;
-			if ( !metadata.box.min && !metadata.box.max ) return;
+			//if ( !metadata.box.min && !metadata.box.max ) return;
+			if ((metadata.box.min.x > metadata.box.max.x)||(metadata.box.min.y > metadata.box.max.y)) return;
 
 		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };

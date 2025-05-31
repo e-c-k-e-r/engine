@@ -395,8 +395,8 @@
 		"mouse" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 2, 2 ],
-			"smoothing": [ 0, 0 ]
+			"sensitivity": [ 50, 50 ],
+			"smoothing": [ 0.75, 0.75 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
