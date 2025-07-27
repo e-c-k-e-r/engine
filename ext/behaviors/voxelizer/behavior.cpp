@@ -45,6 +45,10 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		auto& normal = sceneTextures.voxels.normal.emplace_back();
 		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
+		if ( metadata.filtering == "NEAREST" ) {
+			radiance.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+			radiance.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		}
 		radiance.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	//	auto& depth = sceneTextures.voxels.depth.emplace_back();
 	//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
@@ -275,6 +279,7 @@ void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Ser
 	serializer["vxgi"]["occlusionFalloff"] = /*this->*/occlusionFalloff;
 	serializer["vxgi"]["traceStartOffsetFactor"] = /*this->*/traceStartOffsetFactor;
 	serializer["vxgi"]["shadows"] = /*this->*/shadows;
+	serializer["vxgi"]["filtering"] = /*this->*/filtering;
 
 	serializer["vxgi"]["extents"]["min"] = uf::vector::encode(/*this->*/extents.min);
 	serializer["vxgi"]["extents"]["max"] = uf::vector::encode(/*this->*/extents.max);
@@ -306,6 +311,7 @@ void ext::VoxelizerSceneBehavior::Metadata::deserialize( uf::Object& self, uf::S
 	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as(/*this->*/occlusionFalloff);
 	/*this->*/traceStartOffsetFactor = serializer["vxgi"]["traceStartOffsetFactor"].as(/*this->*/traceStartOffsetFactor);
 	/*this->*/shadows = serializer["vxgi"]["shadows"].as(/*this->*/shadows);
+	/*this->*/filtering = serializer["vxgi"]["filtering"].as(/*this->*/filtering);
 
 	/*this->*/extents.min = uf::vector::decode( serializer["vxgi"]["extents"]["min"], /*this->*/extents.min );
 	/*this->*/extents.max = uf::vector::decode( serializer["vxgi"]["extents"]["max"], /*this->*/extents.max );

@@ -271,9 +271,23 @@ void populateSurface() {
 
 		surface.motion = cNDC.xy - pNDC.xy;
 	}
+
 }
 
 void directLighting() {
+#if VXGI
+	// to-do: proper "visual" of the VXGI maps (directly pick the pixel instead of just rawdog tracing for it)
+	if ( ubo.settings.mode.type == 0x000A ) {
+		Ray ray;
+		ray.direction = surface.ray.direction;
+		ray.origin = surface.ray.origin;
+		vec4 radiance = voxelConeTrace( ray, 0.0000001f );
+
+		surface.material.albedo.rgb = radiance.rgb;
+		surface.material.indirect.rgb = vec3(0);
+	}
+#endif
+
 	surface.light.rgb += surface.material.albedo.rgb * ubo.settings.lighting.ambient.rgb * surface.material.occlusion; // add ambient lighting
 	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR

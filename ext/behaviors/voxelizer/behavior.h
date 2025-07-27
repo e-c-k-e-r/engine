@@ -25,6 +25,7 @@ namespace ext {
 			float occlusionFalloff = 0;
 			float traceStartOffsetFactor = 1.0f;
 			uint32_t shadows = 0;
+			uf::stl::string filtering = "LINEAR";
 
 			struct {
 				pod::Vector3f min = {};

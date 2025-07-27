@@ -1,8 +1,8 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-	//	{ "filename": "./models/ss2_medsci1_smallish.glb" }
-		{ "filename": "./models/ss2_medsci1_smallish/graph.json" }
+	//	{ "filename": "./models/ss2_medsci1.glb" }
+		{ "filename": "./models/ss2_medsci1/graph.json" }
 	],
 	"metadata": {
 		"graph": {

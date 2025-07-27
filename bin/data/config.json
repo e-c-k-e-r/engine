@@ -35,10 +35,11 @@
 				"dispatch": 8,
 				"cascades": 3,
 				"cascadePower": 2.0,
-				"granularity": 12,
+				"granularity": 16,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
+				"filtering": "LINEAR",
 				"shadows": 0,
 				"extents": {
 					"min": [ -8, -8, -8 ],
@@ -396,7 +397,7 @@
 			"visible" : true,
 			"center" : false,
 			"sensitivity": [ 50, 50 ],
-			"smoothing": [ 0.75, 0.75 ]
+			"smoothing": [ 0.25, 0.25 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
