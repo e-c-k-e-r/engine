@@ -58,7 +58,7 @@ layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelRadianceG[C
 layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
 layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
 layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
-layout (binding = 19, rgba16f) uniform volatile coherent image3D voxelOutput[CASCADES];
+layout (binding = 19, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
 
 #include "../../common/functions.h"
 #include "../../common/light.h"

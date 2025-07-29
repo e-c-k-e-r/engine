@@ -29,6 +29,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	const float tStart = rayBoxInfoA.x;
 	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfoB.y) : rayBoxInfoB.y;
 	const float tDelta = voxelInfo.radianceSizeRecip * granularityRecip;
+	const uint MIN_VOXEL_MIP_LEVEL = 1;
 	// marcher
 	ray.distance = tStart + tDelta * ubo.settings.vxgi.traceStartOffsetFactor;
 	ray.position = vec3(0);
@@ -41,7 +42,9 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	float occlusion = 0.0;
 	uint stepCounter = 0;
 	while ( color.a < 1.0 && occlusion < 1.0 && ray.distance < tEnd && stepCounter++ < maxSteps ) {
-		ray.distance += tDelta * cascadePower(cascade) * max(1, coneDiameter);
+		float stepScale = max(1.0, coneDiameter * cascadePower(cascade));
+		ray.distance += tDelta * stepScale;
+	//	ray.distance += tDelta * cascadePower(cascade) * max(1, coneDiameter);
 		ray.position = ray.origin + ray.direction * ray.distance;
 
 	#if VXGI_NDC
@@ -54,6 +57,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 		if ( cascade >= CASCADES || uvw.x <  0.0 || uvw.y <  0.0 || uvw.z <  0.0 || uvw.x >= 1.0 || uvw.y >= 1.0 || uvw.z >= 1.0 ) break;
 		coneDiameter = coneCoefficient * ray.distance;
 		level = aperture > 0 ? log2( coneDiameter ) : 0;
+	//	level = clamp(level, MIN_VOXEL_MIP_LEVEL, voxelInfo.mipmapLevels - 1);
 		if ( level >= voxelInfo.mipmapLevels ) break;
 		radiance = textureLod(voxelOutput[nonuniformEXT(cascade)], uvw.xzy, level);
 		color += (1.0 - color.a) * radiance;

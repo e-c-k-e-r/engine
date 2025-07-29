@@ -31,7 +31,7 @@
 			"vxgi": {
 				"limiter": 0,
 			//	"limiter": 0.5,
-				"size": 256,
+				"size": 128,
 				"dispatch": 8,
 				"cascades": 3,
 				"cascadePower": 2.0,
@@ -155,6 +155,7 @@
 							"instance": [
 								"VK_KHR_get_physical_device_properties2"
 								,"VK_KHR_get_surface_capabilities2"
+								,"VK_EXT_swapchain_colorspace"
 							],
 							"device": [
 								"VK_EXT_memory_budget"

@@ -292,6 +292,9 @@ void directLighting() {
 
 		surface.material.albedo.rgb = radiance.rgb;
 		surface.material.indirect.rgb = vec3(0);
+		surface.fragment.rgb = radiance.rgb;
+		surface.fragment.a = radiance.a;
+		return;
 	}
 #endif
 

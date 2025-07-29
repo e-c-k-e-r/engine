@@ -15,10 +15,12 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/ext/ext.h>
 
+// to-do: fix this
 #define BARYCENTRIC 0
 #if BARYCENTRIC
+	// agnostic for all devices, setting to 0 is only supported on AMD for little differences anyways
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 0
+		#define BARYCENTRIC_CALCULATE 1
 	#endif
 #endif
 
