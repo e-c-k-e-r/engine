@@ -12,7 +12,11 @@ layout( push_constant ) uniform PushBlock {
   uint mip;
 } PushConstant;
 
-layout (binding = 1, rg16f) uniform volatile coherent image3D voxelRadiance[CASCADES * MIPS];
+#if VXGI_HDR
+	layout (binding = 1, rgba32f) uniform volatile coherent image3D voxelRadiance[CASCADES * MIPS];
+#else
+	layout (binding = 1, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES * MIPS];
+#endif
 
 const float gaussianWeights[] = {
 	//Top slice

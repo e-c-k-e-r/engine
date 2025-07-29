@@ -191,11 +191,16 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		if ( uf::renderer::settings::pipelines::vxgi ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-			for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.depth ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.drawId ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.instanceId ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normalX ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normalY ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceR ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceG ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceB ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceA ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.count ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
 		}
 	#endif
 	}
@@ -361,11 +366,16 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		}
 		{
 			uint32_t voxelTypes = 0;
-			if ( !sceneTextures.voxels.id.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.normal.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.uv.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radiance.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.depth.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.drawId.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.instanceId.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.normalX.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.normalY.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceR.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceG.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceB.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceA.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.count.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.output.empty() ) ++voxelTypes;
 
 			uint32_t maxTextures = texture2Ds;
 			uint32_t maxCascades = texture3Ds / voxelTypes;
@@ -377,10 +387,16 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			});
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures },
-				{ "voxelId", maxCascades },
-				{ "voxelUv", maxCascades },
-				{ "voxelNormal", maxCascades },
-				{ "voxelRadiance", maxCascades },
+				{ "voxelDrawId", maxCascades },
+				{ "voxelInstanceId", maxCascades },
+				{ "voxelNormalX", maxCascades },
+				{ "voxelNormalY", maxCascades },
+				{ "voxelRadianceR", maxCascades },
+				{ "voxelRadianceG", maxCascades },
+				{ "voxelRadianceB", maxCascades },
+				{ "voxelRadianceA", maxCascades },
+				{ "voxelCount", maxCascades },
+				{ "voxelOutput", maxCascades },
 			});
 			
 			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );

@@ -55,7 +55,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 		coneDiameter = coneCoefficient * ray.distance;
 		level = aperture > 0 ? log2( coneDiameter ) : 0;
 		if ( level >= voxelInfo.mipmapLevels ) break;
-		radiance = textureLod(voxelRadiance[nonuniformEXT(cascade)], uvw.xzy, level);
+		radiance = textureLod(voxelOutput[nonuniformEXT(cascade)], uvw.xzy, level);
 		color += (1.0 - color.a) * radiance;
 		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + occlusionFalloff * coneDiameter);
 	}
@@ -82,7 +82,7 @@ float shadowFactorVXGI( const Light light, float def ) {
 	return 1.0 - voxelTrace( ray, SHADOW_APERTURE, z ).a;
 }
 void indirectLightingVXGI() {
-	voxelInfo.radianceSize = textureSize( voxelRadiance[0], 0 ).x;
+	voxelInfo.radianceSize = textureSize( voxelOutput[0], 0 ).x;
 	voxelInfo.radianceSizeRecip = 1.0 / voxelInfo.radianceSize;
 	voxelInfo.mipmapLevels = log2(voxelInfo.radianceSize) + 1;
 #if VXGI_NDC

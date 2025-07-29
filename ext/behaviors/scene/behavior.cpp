@@ -718,20 +718,27 @@ void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
 	}
 	if ( this->hasComponent<pod::SceneTextures>() ) {
 		auto& sceneTextures = this->getComponent<pod::SceneTextures>();
-		for ( auto& t : sceneTextures.voxels.id ) t.destroy();
-		sceneTextures.voxels.id.clear();
-
-		for ( auto& t : sceneTextures.voxels.normal ) t.destroy();
-		sceneTextures.voxels.normal.clear();
-
-		for ( auto& t : sceneTextures.voxels.uv ) t.destroy();
-		sceneTextures.voxels.uv.clear();
-
-		for ( auto& t : sceneTextures.voxels.radiance ) t.destroy();
-		sceneTextures.voxels.radiance.clear();
-
-		for ( auto& t : sceneTextures.voxels.depth ) t.destroy();
-		sceneTextures.voxels.depth.clear();
+		for ( auto& t : sceneTextures.voxels.drawId ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.instanceId ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.normalX ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.normalY ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.radianceR ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.radianceG ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.radianceB ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.radianceA ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.count ) t.destroy();
+		for ( auto& t : sceneTextures.voxels.output ) t.destroy();
+		
+		sceneTextures.voxels.drawId.clear();
+		sceneTextures.voxels.instanceId.clear();
+		sceneTextures.voxels.normalX.clear();
+		sceneTextures.voxels.normalY.clear();
+		sceneTextures.voxels.radianceR.clear();
+		sceneTextures.voxels.radianceG.clear();
+		sceneTextures.voxels.radianceB.clear();
+		sceneTextures.voxels.radianceA.clear();
+		sceneTextures.voxels.count.clear();
+		sceneTextures.voxels.output.clear();
 
 		sceneTextures.noise.destroy();
 		sceneTextures.skybox.destroy();
@@ -1049,11 +1056,16 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 	// attach VXGI voxels
 	if ( uf::renderer::settings::pipelines::vxgi ) {
-		for ( auto& t : sceneTextures.voxels.id ) textures3D.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.normal ) textures3D.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.uv ) textures3D.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radiance ) textures3D.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.depth ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.drawId ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.instanceId ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.normalX ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.normalY ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radianceR ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radianceG ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radianceB ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radianceA ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.count ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.output ) textures3D.emplace_back().aliasTexture(t);
 	}
 	// bind textures
 	while ( textures2D.size() < metadata.max.textures2D ) textures2D.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);

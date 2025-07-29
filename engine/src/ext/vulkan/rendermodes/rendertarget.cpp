@@ -336,10 +336,16 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures2D },
 				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelId", maxCascades },
-				{ "voxelUv", maxCascades },
-				{ "voxelNormal", maxCascades },
-				{ "voxelRadiance", maxCascades },
+				{ "voxelDrawId", maxCascades },
+				{ "voxelInstanceId", maxCascades },
+				{ "voxelNormalX", maxCascades },
+				{ "voxelNormalY", maxCascades },
+				{ "voxelRadianceR", maxCascades },
+				{ "voxelRadianceG", maxCascades },
+				{ "voxelRadianceB", maxCascades },
+				{ "voxelRadianceA", maxCascades },
+				{ "voxelCount", maxCascades },
+				{ "voxelOutput", maxCascades },
 			});
 
 		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );

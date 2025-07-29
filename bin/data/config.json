@@ -29,9 +29,9 @@
 				}
 			},
 			"vxgi": {
-			//	"limiter": 0,
-				"limiter": 0.5,
-				"size": 128,
+				"limiter": 0,
+			//	"limiter": 0.5,
+				"size": 256,
 				"dispatch": 8,
 				"cascades": 3,
 				"cascadePower": 2.0,
@@ -288,7 +288,7 @@
 				"compression": "gz"
 			},
 			"imgui": {
-				"enabled": false
+				"enabled": true
 			},
 			"fsr": {
 				"enabled": true,

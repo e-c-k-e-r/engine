@@ -49,13 +49,16 @@ layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 8) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 9) uniform sampler3D samplerNoise;
 
-layout (binding = 10, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
-layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
-#if VXGI_HDR
-	layout (binding = 12, rgba32f) uniform volatile coherent image3D voxelRadiance[CASCADES];
-#else
-	layout (binding = 12, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
-#endif
+layout (binding = 10, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
+layout (binding = 11, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
+layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
+layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
+layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
+layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
+layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
+layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
+layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
+layout (binding = 19, rgba16f) uniform volatile coherent image3D voxelOutput[CASCADES];
 
 #include "../../common/functions.h"
 #include "../../common/light.h"
@@ -65,10 +68,14 @@ layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
-		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
+		vec2 N_E;
+		N_E.x = uintBitsToFloat(imageLoad(voxelNormalX[CASCADE], ivec3(tUvw) ).x);
+		N_E.y = uintBitsToFloat(imageLoad(voxelNormalY[CASCADE], ivec3(tUvw) ).x);
+
+		surface.normal.world = decodeNormals( N_E );
 		surface.normal.eye = vec3( ubo.settings.vxgi.matrix * vec4( surface.normal.world, 0.0f ) );
 	
-		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
+		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelOutput[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
 		surface.position.world = vec3( inverse(ubo.settings.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
 
 		surface.pass = 0; // PushConstant.pass;
@@ -78,10 +85,32 @@ void main() {
 		surface.material.indirect = vec4(0);
 
 #if 0
-		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
+	#if 0
+		vec4 A = imageLoad(voxelOutput[CASCADE], ivec3(tUvw) );
+	#else
+		vec4 A = vec4(0);
+		A.r = imageLoad(voxelRadianceR[CASCADE], ivec3(tUvw) ).r;
+		A.g = imageLoad(voxelRadianceG[CASCADE], ivec3(tUvw) ).r;
+		A.b = imageLoad(voxelRadianceB[CASCADE], ivec3(tUvw) ).r;
+		A.a = imageLoad(voxelRadianceA[CASCADE], ivec3(tUvw) ).r;
+		A /= 256.0;
+
+		uint count = imageLoad(voxelCount[CASCADE], ivec3(tUvw) ).r;
+		if ( count > 0 ) A /= count;
+	/*
+		vec4 A = vec4(surface.normal.world, 1.0);
+	*/
+	#endif
+
+		surface.material.albedo = A;
 		surface.fragment.rgb = surface.material.albedo.rgb;
+		
+		const bool DISCARD_DUE_TO_DIVERGENCE = surface.material.albedo.a == 0;
 #else
-		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
+		const uvec2 ID = uvec2(
+			imageLoad(voxelDrawId[CASCADE], ivec3(tUvw) ).x,
+			imageLoad(voxelInstanceId[CASCADE], ivec3(tUvw) ).x
+		);
 		const bool DISCARD_DUE_TO_DIVERGENCE = ID.x == 0 || ID.y == 0;
 
 		const uint drawID = ID.x == 0 ? 0 : ID.x - 1;
@@ -90,7 +119,7 @@ void main() {
 	//	if ( ID.x == 0 || ID.y == 0 ) {
 	#if 1
 		if ( DISCARD_DUE_TO_DIVERGENCE ) {
-			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
+			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(0));
 			continue;
 		}
 	#endif
@@ -101,7 +130,21 @@ void main() {
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
 
-		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
+	#if 0
+		vec4 A = imageLoad(voxelOutput[CASCADE], ivec3(tUvw) );
+	#else
+		vec4 A = vec4(0);
+		A.r = imageLoad(voxelRadianceR[CASCADE], ivec3(tUvw) ).r;
+		A.g = imageLoad(voxelRadianceG[CASCADE], ivec3(tUvw) ).r;
+		A.b = imageLoad(voxelRadianceB[CASCADE], ivec3(tUvw) ).r;
+		A.a = imageLoad(voxelRadianceA[CASCADE], ivec3(tUvw) ).r;
+		A /= 256.0;
+
+		uint count = imageLoad(voxelCount[CASCADE], ivec3(tUvw) ).r;
+		if ( count > 0 ) A /= count;
+	#endif
+
+		surface.material.albedo = A;
 		surface.material.metallic = material.factorMetallic;
 		surface.material.roughness = material.factorRoughness;
 		surface.material.occlusion = material.factorOcclusion;
@@ -167,12 +210,12 @@ void main() {
 	#endif
 
 	#if 0
-		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+		imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 	#else
 		if ( DISCARD_DUE_TO_DIVERGENCE ) {
-			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
+			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(0));
 		} else {
-			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 		}
 	#endif
 	}

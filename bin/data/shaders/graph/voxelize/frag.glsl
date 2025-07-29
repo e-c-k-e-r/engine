@@ -7,8 +7,7 @@
 #define DEFERRED_SAMPLING 0
 #define CUBEMAPS 1
 
-#define BLEND 1
-#define DEPTH_TEST 0
+#define BLEND 0
 #define USE_LIGHTMAP 1
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CASCADES = 16;
@@ -38,16 +37,16 @@ layout (std140, binding = 11) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 12, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
-layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
-#if VXGI_HDR
-	layout (binding = 14, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
-#else
-	layout (binding = 14, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
-#endif
-#if DEPTH_TEST
-	layout (binding = 15, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
-#endif
+layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
+layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
+layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
+layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
+layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
+layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
+layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
+layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
+layout (binding = 20, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
+layout (binding = 21, rgba16f) uniform volatile coherent image3D voxelOutput[CASCADES];
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;
@@ -120,23 +119,20 @@ void main() {
 		N = TBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - 1.0 );
 	}
 
-	const ivec3 uvw = ivec3(P * imageSize(voxelRadiance[CASCADE]));
-	
-#if DEPTH_TEST
-	const float outDepth = length(inPosition.xzy);
-	const float inDepth = imageLoad(voxelDepth[CASCADE], uvw).r;
-	if ( inDepth != 0 && inDepth < outDepth ) discard;
-	imageStore(voxelDepth[CASCADE], uvw, vec4(inDepth, 0, 0, 0));
-#endif
+	const ivec3 uvw = ivec3(P * imageSize(voxelOutput[CASCADE]));
 
-	imageStore(voxelId[CASCADE], uvw, uvec4(uvec2(drawID + 1, instanceID + 1), 0, 0));
-	imageStore(voxelNormal[CASCADE], uvw, vec4(encodeNormals( normalize( N ) ), 0, 0));
-#if BLEND
-	// GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
-	const vec4 src = A * inColor;
-	const vec4 dst = imageLoad(voxelRadiance[CASCADE], uvw);
-	imageStore(voxelRadiance[CASCADE], uvw, blend( src, dst, src.a ) );
-#else
-	imageStore(voxelRadiance[CASCADE], uvw, A );
-#endif
+	imageAtomicMax(voxelDrawId[CASCADE], ivec3(uvw), uint( drawID + 1 ) );
+	imageAtomicMax(voxelInstanceId[CASCADE], ivec3(uvw), uint( instanceID + 1 ) );
+
+	vec2 N_E = encodeNormals( normalize( N ) );
+	imageAtomicMin(voxelNormalX[CASCADE], ivec3(uvw), uint( floatBitsToUint( N_E.x ) ) );
+	imageAtomicMin(voxelNormalY[CASCADE], ivec3(uvw), uint( floatBitsToUint( N_E.y ) ) );
+
+	imageAtomicAdd(voxelRadianceR[CASCADE], ivec3(uvw), uint( A.r * 256 ) );
+	imageAtomicAdd(voxelRadianceG[CASCADE], ivec3(uvw), uint( A.g * 256 ) );
+	imageAtomicAdd(voxelRadianceB[CASCADE], ivec3(uvw), uint( A.b * 256 ) );
+	imageAtomicAdd(voxelRadianceA[CASCADE], ivec3(uvw), uint( A.a * 256 ) );
+	imageAtomicAdd(voxelCount[CASCADE], ivec3(uvw), uint( 1 ) );
+
+	imageStore(voxelOutput[CASCADE], uvw, vec4(N.x, N.y, N.z, A.a) );
 }

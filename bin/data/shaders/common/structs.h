@@ -275,6 +275,7 @@ struct VoxelInfo {
 	float mipmapLevels;
 	float radianceSize;
 	float radianceSizeRecip;
+	uint state; // yuck
 } voxelInfo;
 
 // Raytrace stuff

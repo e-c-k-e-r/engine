@@ -17,6 +17,25 @@ float mipLevels( ivec2 size ) {
 	return floor(log2(max(size.x, size.y)));
 }
 //
+vec4 rgbaUVec4toVec4( uvec4 rgba ) {
+/*
+	return vec4(float((val & 0x000000FF)), 
+    float((val & 0x0000FF00) >> 8U), 
+    float((val & 0x00FF0000) >> 16U), 
+    float((val & 0xFF000000) >> 24U));
+*/
+	return rgba / vec4(256.0);
+}
+uvec4 rgbaVec4toUvec4( vec4 rgba ) {
+/*
+	 return (uint(val.w) & 0x000000FF) << 24U | 
+    (uint(val.z) & 0x000000FF) << 16U | 
+    (uint(val.y) & 0x000000FF) << 8U | 
+    (uint(val.x) & 0x000000FF);
+*/
+	return uvec4(rgba * uvec4(256));
+}
+//
 void toneMap( inout vec3 color, float exposure ) {
 	color.rgb = vec3(1.0) - exp(-color.rgb * exposure);
 }
