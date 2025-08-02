@@ -287,9 +287,9 @@ struct Vertex {
 	vec2 st;
 	vec3 normal;
 	vec3 tangent;
+	uint id;
 	uvec2 joints;
 	vec4 weights;
-	uint id;
 };
 
 struct Triangle {

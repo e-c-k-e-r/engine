@@ -340,8 +340,7 @@ uvec4 uvec2_16x4( uvec2 i ) {
 void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
-
-	if ( isValidAddress(instanceAddresses.vertex) ) {
+	if ( false && isValidAddress(instanceAddresses.vertex) ) {
 	//	Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
 	//	#pragma unroll 3
 	//	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
@@ -349,7 +348,8 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 		if ( isValidAddress(instanceAddresses.position) ) {
 			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position[_] = buf.v[/*triangle.*/indices[_]*3+_];
+			for ( uint _ = 0; _ < 3; ++_ ) points[_].position = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+			//for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
 		if ( isValidAddress(instanceAddresses.uv) ) {
 			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
@@ -364,7 +364,8 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 		if ( isValidAddress(instanceAddresses.normal) ) {
 			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal[_] = buf.v[/*triangle.*/indices[_]*3+_];
+			for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
 		if ( isValidAddress(instanceAddresses.tangent) ) {
 			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
@@ -399,14 +400,14 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	}
 #endif
 	
-	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
-	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
-
+	// triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
 	triangle.point.position = /*triangle.*/points[0].position * surface.barycentric[0] + /*triangle.*/points[1].position * surface.barycentric[1] + /*triangle.*/points[2].position * surface.barycentric[2];
+	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
 	triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentric[0] + /*triangle.*/points[1].uv * surface.barycentric[1] + /*triangle.*/points[2].uv * surface.barycentric[2];
 	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
 	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
 
+	// triangle.point.normal = triangle.geomNormal;
 	
 	if ( triangle.point.tangent != vec3(0) ) {
 		surface.tangent.world = normalize(vec3( surface.instance.model * vec4(triangle.point.tangent, 0.0) ));
@@ -414,8 +415,8 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 		surface.tbn = mat3(surface.tangent.world, bitangent, triangle.point.normal);
 	}
 
-	// bind position
-#if 1 || BARYCENTRIC_CALCULATE
+	// bind position (seems to muck with the skybox + fog)
+#if 0 && BARYCENTRIC_CALCULATE
 	{
 		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
 		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );

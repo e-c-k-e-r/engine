@@ -68,9 +68,10 @@ layout (binding = 19, rgba8) uniform volatile coherent image3D voxelOutput[CASCA
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
-		vec2 N_E;
-		N_E.x = uintBitsToFloat(imageLoad(voxelNormalX[CASCADE], ivec3(tUvw) ).x);
-		N_E.y = uintBitsToFloat(imageLoad(voxelNormalY[CASCADE], ivec3(tUvw) ).x);
+		vec2 N_E = vec2(
+			uintBitsToFloat(imageLoad(voxelNormalX[CASCADE], ivec3(tUvw) ).x),
+			uintBitsToFloat(imageLoad(voxelNormalY[CASCADE], ivec3(tUvw) ).x)
+		);
 
 		surface.normal.world = decodeNormals( N_E );
 		surface.normal.eye = vec3( ubo.settings.vxgi.matrix * vec4( surface.normal.world, 0.0f ) );
@@ -160,6 +161,7 @@ void main() {
 		#if 0
 			pbr();
 		#else
+		/*
 			surface.material.roughness *= 4.0;
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
@@ -197,6 +199,7 @@ void main() {
 				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 				surface.light.a += light.power * La * Ls;
 			}
+		*/
 		#endif
 		}
 		surface.fragment.rgb += surface.light.rgb;

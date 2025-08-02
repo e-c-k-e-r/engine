@@ -55,8 +55,8 @@
 			}
 		},
 		"movement": {
-			"walk": 12,
-			"move": 12,
+			"walk": 8,
+			"move": 8,
 			"run": 20,
 		//	"rotate": 1.5,
 			"rotate": 6,

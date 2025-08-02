@@ -69,13 +69,10 @@
 	#extension GL_EXT_nonuniform_qualifier : enable
 #endif
 
-#if !UINT64_ENABLED
-	#define uint64_t uvec2
-#endif
 
 // easy and accessible in one place
 #ifndef BARYCENTRIC
-	#define BARYCENTRIC 0
+	#define BARYCENTRIC 1
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
@@ -84,6 +81,15 @@
 	#ifndef BUFFER_REFERENCE
 		#define BUFFER_REFERENCE 1
 	#endif
+#endif
+
+#if RT || BARYCENTRIC
+	#define BUFFER_REFERENCE 1
+	#define UINT64_ENABLED 1
+#endif
+
+#if !UINT64_ENABLED
+	#define uint64_t uvec2
 #endif
 
 #if BUFFER_REFERENCE

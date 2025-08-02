@@ -15,11 +15,16 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../../common/structs.h"
 
 #if BARYCENTRIC && !BARYCENTRIC_CALCULATE
-	#define BARYCENTRIC_STABILIZE 1
-// 	#define BARY_COORD  gl_BaryCoordEXT
-//	#extension GL_EXT_fragment_shader_barycentric : enable
-	#define BARY_COORD gl_BaryCoordSmoothAMD
-	#extension GL_AMD_shader_explicit_vertex_parameter : enable
+	// AMD has a specific extension with a helpful intrinsic, but it's not necessary
+	#if AMD
+		#define BARYCENTRIC_STABILIZE 1
+		#define BARY_COORD gl_BaryCoordSmoothAMD
+		#extension GL_AMD_shader_explicit_vertex_parameter : enable
+	#else
+		#define BARYCENTRIC_STABILIZE 0
+ 		#define BARY_COORD gl_BaryCoordEXT
+		#extension GL_EXT_fragment_shader_barycentric : enable
+	#endif
 #endif
 
 layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
@@ -110,8 +115,11 @@ void main() {
 	outId = uvec2(triangleID + 1, instanceID + 1);
 
 #if BARYCENTRIC && !BARYCENTRIC_CALCULATE
-	vec3 bary = vec3(gl_BaryCoordSmoothAMD.xy, 1 - gl_BaryCoordSmoothAMD.x - gl_BaryCoordSmoothAMD.y);
-	bary = bary.yzx;
+	vec3 bary = vec3(BARY_COORD.xy, 1 - BARY_COORD.x - BARY_COORD.y);
+	// AMD's barycentric emits a different order for coords
+	#if AMD
+		bary = bary.yzx;
+	#endif
 	#if BARYCENTRIC_STABILIZE
 		vec4 v0 = interpolateAtVertexAMD(inPOS1, 0);
 		vec4 v1 = interpolateAtVertexAMD(inPOS1, 1);

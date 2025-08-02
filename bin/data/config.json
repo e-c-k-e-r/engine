@@ -31,19 +31,19 @@
 			"vxgi": {
 				"limiter": 0,
 			//	"limiter": 0.5,
-				"size": 128,
-				"dispatch": 8,
+				"size": 192,
+				"dispatch": 16,
 				"cascades": 3,
-				"cascadePower": 2.0,
+				"cascadePower": 1.5,
 				"granularity": 16,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
-				"filtering": "LINEAR",
+				"filtering": "NEAREST",
 				"shadows": 0,
 				"extents": {
-					"min": [ -8, -8, -8 ],
-					"max": [  8,  8,  8 ]
+					"min": [ -16, -16, -16 ],
+					"max": [  16,  16,  16 ]
 				}
 			},
 			"rt": {
@@ -70,8 +70,8 @@
 					"messages": false,
 					"checkpoints": false,
 					"filters": [
-						"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI)
-						,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit)
+					//	"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI) (seems to be fixed?)
+					//	,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit) (seems to be fixed?)
 					
 					//	,"0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)						
 					//	,"0x141cb623" // UNASSIGNED-Threading-MultipleThreads ("false-positive" multithreading)
@@ -406,6 +406,7 @@
 		"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
+	//	"size" :  [ 480, 640 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",
 		"visible" : true

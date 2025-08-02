@@ -14,10 +14,6 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 #define PBR 1
 #define LAMBERT 0
-#if RT || BARYCENTRIC
-	#define BUFFER_REFERENCE 1
-	#define UINT64_ENABLED 1
-#endif
 #define FOG 1
 #define FOG_RAY_MARCH 1
 
@@ -170,7 +166,8 @@ void postProcess() {
 	if ( ubo.settings.mode.type > 0x0000 ) {
 		uvec2 renderSize = imageSize(imageColor);
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
-		if ( inUv.x < 0 ) {
+		if ( true ) {
+		//	if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.barycentric.rgb, 1);
 			if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.material.albedo.rgb, 1);
 			else if ( ubo.settings.mode.type == 0x0002 ) outFragColor = vec4(surface.light.rgb, 1);
 			else if ( ubo.settings.mode.type == 0x0003 ) outFragColor = vec4(vec3(surface.light.a), 1);
@@ -182,7 +179,7 @@ void postProcess() {
 			else if ( ubo.settings.mode.type == 0x0009 ) outFragColor = vec4(vec3(surface.material.occlusion), 1);
 		}
 	}
-	
+
 	IMAGE_STORE( imageColor, outFragColor );
 	IMAGE_STORE( imageBright, outFragBright );
 	IMAGE_STORE( imageMotion, vec4(outFragMotion, 0, 0) );
@@ -288,13 +285,15 @@ void directLighting() {
 		Ray ray;
 		ray.direction = surface.ray.direction;
 		ray.origin = surface.ray.origin;
-		vec4 radiance = voxelConeTrace( ray, 0.0000001f );
+		ray.origin -= ray.direction;
+
+		vec4 radiance = voxelConeTrace( ray, 0 );
 
 		surface.material.albedo.rgb = radiance.rgb;
 		surface.material.indirect.rgb = vec3(0);
 		surface.fragment.rgb = radiance.rgb;
 		surface.fragment.a = radiance.a;
-		return;
+		//return;
 	}
 #endif
 
