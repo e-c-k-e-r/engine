@@ -35,7 +35,6 @@ const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
 
-#include <cpptrace/cpptrace.hpp>
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );

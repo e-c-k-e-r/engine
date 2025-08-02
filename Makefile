@@ -64,8 +64,12 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
 FLAGS 					+=
 
+ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
+	REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
+	FLAGS 				+= -g
+endif
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg # meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
@@ -122,6 +126,7 @@ ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	INCS 				+= -I./dep/include/imgui/backends
 endif
 ifneq (,$(findstring cpptrace,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_CPPTRACE
 	DEPS 				+= -lcpptrace
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))

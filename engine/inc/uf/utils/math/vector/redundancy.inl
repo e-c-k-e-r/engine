@@ -618,6 +618,7 @@ pod::Vector<T,4>& pod::Vector<T,4>::operator=( const pod::Vector<U,M>& vector ) 
 	return *this = uf::vector::cast<T,4>(vector);
 }
 //
+#if UF_USE_CLASS_OF_PODS
 namespace uf {
 	template<typename T>
 	struct /*UF_API*/ Vector<T,1> {
@@ -1972,3 +1973,4 @@ template<typename T>  															// 	Equality check between two vectors (gre
 inline bool uf::Vector<T,4>::operator>=( const uf::Vector<T,4>& vector ) const {
 	return uf::vector::compareTo(this->m_pod, vector.data() ) >= 0;
 }
+#endif

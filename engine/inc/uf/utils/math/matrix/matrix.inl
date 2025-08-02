@@ -1,5 +1,7 @@
 #include "pod.inl"
-#include "class.inl"
+#if UF_USE_CLASS_OF_PODS
+	#include "class.inl"
+#endif
 
 template<typename T, size_t R, size_t C>
 uf::stl::string /*UF_API*/ uf::string::toString( const pod::Matrix<T,R,C>& m ) {

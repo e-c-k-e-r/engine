@@ -66,6 +66,7 @@ namespace uf {
 	}
 }
 
+#if UF_USE_CLASS_OF_PODS
 namespace uf {
 	template<typename T = pod::Math::num_t>
 	class /*UF_API*/ Quaternion {
@@ -160,7 +161,7 @@ public:
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 }
-
+#endif
 
 #include "quaternion/quaternion.inl"
 #ifdef UF_USE_GLM_TMP

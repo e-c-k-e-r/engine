@@ -8,8 +8,8 @@
 
 #include <uf/engine/scene/scene.h>
 
+#if UF_USE_CPPTRACE
 #include <cpptrace/cpptrace.hpp>
-
 #define VK_REGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
 	VK_VALIDATION_MESSAGE("Registered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
 	uf::stl::string id = ::fmt::format("{}: {}", cpptrace::generate_trace().to_string(), TYPE_NAME(decltype(*this)));\
@@ -19,6 +19,10 @@
 	VK_VALIDATION_MESSAGE("Unregistered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
 	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::remove( handle );\
 }
+#else
+#define VK_REGISTER_HANDLE( X ) {};
+#define VK_UNREGISTER_HANDLE( X ) {};
+#endif
 
 namespace ext {
 	namespace vulkan {

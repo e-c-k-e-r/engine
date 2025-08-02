@@ -113,6 +113,7 @@ namespace uf {
 	}
 }
 
+#if UF_USE_CLASS_OF_PODS
 namespace uf {
 	template<typename T = pod::Math::num_t, std::size_t R = 4, std::size_t C = R>
 	class /*UF_API*/ Matrix {
@@ -186,6 +187,7 @@ namespace uf {
 	typedef Matrix4t<> Matrix4;
 	typedef Matrix4t<float> Matrix4f;
 }
+#endif
 
 #include <sstream>
 namespace uf {

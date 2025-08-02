@@ -14,11 +14,15 @@
 #include <fstream>
 #include <atomic>
 
+#if UF_USE_CPPTRACE
 #define VK_REGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
 	VK_VALIDATION_MESSAGE("Registered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
 	uf::stl::string id = cpptrace::generate_trace().to_string();\
 	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::add( handle, id ); \
 }
+#else
+#define VK_REGISTER_HANDLE( X ) {};
+#endif
 
 namespace {
 	struct {

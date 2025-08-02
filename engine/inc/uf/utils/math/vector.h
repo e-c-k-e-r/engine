@@ -185,7 +185,7 @@ namespace uf {
 	}
 }
 
-
+#if UF_USE_CLASS_OF_PODS
 namespace uf {
 	// Provides operations for POD vector
 	template<typename T = pod::Math::num_t, size_t N = 3> 
@@ -320,6 +320,7 @@ namespace uf {
 	typedef Vector4t<float> Vector4f;
 	typedef Vector4t<double> Vector4d;
 }
+#endif
 
 //#include <uf/utils/string/ext.h>
 #include <sstream>

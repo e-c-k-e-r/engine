@@ -5,12 +5,10 @@ local metadata = ent:getComponent("Metadata")
 local masterdata = scene:getComponent("Metadata")
 
 local children = {
-	mainText = ent:loadChild("./main-text.json",true),
 	circleOut = ent:loadChild("./circle-out.json",true),
 	circleIn = ent:loadChild("./circle-in.json",true),
 	coverBar = ent:loadChild("./yellow-box.json",true),
 	commandText = ent:loadChild("./command-text.json",true),
-	tenkouseiOption = ent:loadChild("./tenkousei.json",true),
 	closeOption = ent:loadChild("./close.json",true),
 	quit = ent:loadChild("./quit.json",true),
 }
@@ -43,7 +41,6 @@ destination(children.circleOut, nil, -2, 0)
 destination(children.circleIn, nil, 2, 0)
 destination(children.coverBar, -1.5, nil, 0)
 destination(children.commandText, -1.5, nil, 0)
-destination(children.tenkouseiOption, -1.5, nil, 0)
 destination(children.closeOption, -1.5, nil, 0)
 destination(children.quit, -1.5, nil, 0)
 
@@ -122,16 +119,6 @@ if os.arch() == "Dreamcast" then
 			end
 		end
 
-		-- main text
-		local child = children.mainText
-		if child:uid() > 0 then
-			local transform = child:getComponent("Transform")
-			local speed = 0.5
-			transform.position.y = transform.position.y + time.delta() * speed
-			if transform.position.y > 2 then
-				transform.position.y = -2
-			end
-		end
 		-- circle in
 		if children.circleIn:uid() > 0 then
 			local static = Static.get( children.circleIn )
@@ -237,17 +224,6 @@ else
 			::continue::
 		end
 
-		-- main text
-		local child = children.mainText
-		if child:uid() > 0 then
-			local transform = child:getComponent("Transform")
-			local metadata = child:getComponent("Metadata")
-			local speed = metadata["hovered"] and 0.75 or 0.5
-			transform.position.y = transform.position.y + time.delta() * speed
-			if transform.position.y > 2 then
-				transform.position.y = -2
-			end
-		end
 		-- circle in
 		if children.circleIn:uid() > 0 then
 			local static = Static.get( children.circleIn )
