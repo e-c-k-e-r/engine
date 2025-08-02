@@ -9,7 +9,7 @@ void pbr() {
 	// angle of outcoming light
 	const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
 
-	const float Rs = 1.0; //4.0;
+	const float Rs = 4.0;
 	
 	for ( uint i = 0, shadows = 0; i < MAX_LIGHTS; ++i ) {
 	#if BAKING

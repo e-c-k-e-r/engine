@@ -29,21 +29,21 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0,
-			//	"limiter": 0.5,
+			//	"limiter": 0,
+				"limiter": 0.0125,
 				"size": 192,
 				"dispatch": 16,
 				"cascades": 3,
-				"cascadePower": 1.5,
-				"granularity": 16,
+				"cascadePower": 2,
+				"granularity": 10,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
-				"filtering": "NEAREST",
+				"filtering": "LINEAR",
 				"shadows": 0,
 				"extents": {
-					"min": [ -16, -16, -16 ],
-					"max": [  16,  16,  16 ]
+					"min": [ -8, -8, -8 ],
+					"max": [  8,  8,  8 ]
 				}
 			},
 			"rt": {

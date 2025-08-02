@@ -1,7 +1,7 @@
 # Engine
 
 <p align="center">
-<img src="./docs/assets/program.win64.gcc.vulkan_2024-12-02_23-07-35.png" width="500px"></img>
+<img src="./docs/assets/program.win64.gcc.vulkan_2025-08-01_21-24-59.jpg" width="500px"></img>
 </p>
 
 An unnamed, almost-entirely from-scratch, engine written in C++.
