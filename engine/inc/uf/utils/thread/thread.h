@@ -18,8 +18,9 @@
 
 namespace uf {
 	namespace thread {
-		extern UF_API uf::stl::string workerThreadName;
 		extern UF_API uf::stl::string mainThreadName;
+		extern UF_API uf::stl::string workerThreadName;
+		extern UF_API uf::stl::string asyncThreadName;
 	}
 }
 

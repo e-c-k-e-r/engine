@@ -18,7 +18,7 @@ To compile, run `make`. The outputted libraries and executables will be placed i
 
 ## Run
 
-Currently, assets are not provided due to size (but mostly due to being test assets).
+Currently, a barebones setup is provided via the [`.zip` bundle](https://github.com/e-c-k-e-r/engine/releases/tag/bundle).
 
 *If* adequate assets are provided, run `./program.sh` or `make run`. This ensures the path to the required libraries are added to the PATH.
 

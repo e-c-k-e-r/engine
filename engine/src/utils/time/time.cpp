@@ -11,3 +11,7 @@ double uf::time::current = 0;
 double uf::time::previous = 0;
 float uf::time::delta = 0;
 float uf::time::clamp = 0;
+
+size_t uf::time::time() {
+	return spec::time.unixTime();
+}

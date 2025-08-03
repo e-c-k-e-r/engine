@@ -288,6 +288,9 @@
 				"encoding": "msgpack",
 				"compression": "gz"
 			},
+			"vall_e": {
+				"enabled": true
+			},
 			"imgui": {
 				"enabled": true
 			},

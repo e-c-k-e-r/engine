@@ -12,6 +12,7 @@ namespace spec {
 		protected:
 			
 		public:
+			spec::uni::Time::time_t UF_API_CALL unixTime();
 			spec::uni::Time::time_t UF_API_CALL getTime();
 		};
 	};

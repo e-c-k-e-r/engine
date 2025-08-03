@@ -38,18 +38,29 @@ void uf::console::initialize() {
 	});
 
 	uf::console::registerCommand("callHook", "Calls a hook, passing the arguments as a JSON object", [&]( const uf::stl::string& arguments )->uf::stl::string{
-		auto match = uf::string::match( arguments, "/^(.+?)(?: (.+?))?$/" );
+		auto match = uf::string::match( arguments, "/^\"?(.+?)\"?(?: (.+?))?$/" );
 		if ( match.empty() ) return "invalid invocation";
 
+		uf::stl::vector<pod::Hook::userdata_t> results;
 		if ( match.size() > 2 ) {
 			ext::json::Value json;
 			ext::json::decode( json, match[2] );
-			uf::hooks.call( match[1], json );
+
+			results = uf::hooks.call( match[1], json );
 		} else {
-			uf::hooks.call( match[1] );
+			results = uf::hooks.call( match[1] );
 		}
 
-		return "Hook executed: " + match[1];
+		// this could probably be its own function
+		uf::stl::string s_result = "";
+		for ( auto i = 0; i < results.size(); ++i ) {
+			auto& res = results[i];
+			if ( res.is<uf::stl::string>() ) s_result += ::fmt::format("\n[{}] => {}", i, res.as<uf::stl::string>());
+			else if ( res.is<ext::json::Value>() ) s_result += ::fmt::format("\n[{}] => {}", i, ext::json::encode( res.as<ext::json::Value>() ));
+			else s_result += ::fmt::format("\n[{}] => Userdata: {}", i, (void*) res);
+		}
+
+		return "Hook executed: " + match[1] + s_result;
 	});
 	
 	uf::console::registerCommand("json", "Modifies the gamestate by setting a JSON value", [&]( const uf::stl::string& arguments )->uf::stl::string{

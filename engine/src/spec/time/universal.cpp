@@ -12,6 +12,9 @@ namespace {
 	chrono_time_t start = getTimePoint();
 }
 
+spec::uni::Time::time_t spec::uni::Time::unixTime() {
+	return std::chrono::duration_cast<std::chrono::microseconds>(getTimePoint().time_since_epoch()).count();
+}
 spec::uni::Time::time_t spec::uni::Time::getTime() {
 	std::chrono::duration<double> elapsed = getTimePoint() - start;
 	return elapsed.count() * 1000000;

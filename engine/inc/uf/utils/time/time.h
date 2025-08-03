@@ -90,6 +90,8 @@ namespace uf {
 		extern UF_API double previous;
 		extern UF_API float delta;
 		extern UF_API float clamp;
+
+		size_t UF_API time();
 	}
 }
 

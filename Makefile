@@ -62,10 +62,10 @@ LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
-FLAGS 					+=
+FLAGS 					+= # -DUF_DEBUG
 
 ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
-	REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -g
 endif
 ifneq (,$(findstring win64,$(ARCH)))
@@ -215,7 +215,7 @@ ifneq (,$(findstring bullet,$(REQ_DEPS)))
 		DEPS 				+= -lbulletdynamics -lbulletcollision -lbulletlinearmath
 	else
 		DEPS 				+= -lBulletDynamics -lBulletCollision -lLinearMath
-		INCS 				+= -I./dep/bullet/
+		INCS 				+= -I./dep/include/bullet/
 	endif
 endif
 ifneq (,$(findstring reactphysics,$(REQ_DEPS)))
@@ -247,6 +247,11 @@ else
 endif
 ifneq (,$(findstring toml,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_TOML
+endif
+ifneq (,$(findstring vall_e,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_VALL_E
+	INCS 				+= -I./dep/include/vall_e.cpp/
+	DEPS 				+= -lvall_e
 endif
 
 # SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)

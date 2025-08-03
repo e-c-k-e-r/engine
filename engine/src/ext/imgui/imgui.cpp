@@ -118,7 +118,26 @@ namespace {
 				this->scroll.bottom = true;
 				reclaimFocus = true;
 
-				uf::console::execute( command );
+				// to-do: add a way to either asynchronously invoke commands or not
+
+				uf::thread::queue( uf::thread::asyncThreadName, [=](){
+					uf::console::execute( command );
+				});
+			/*
+				// this blocks
+				uf::thread::queue( uf::thread::fetchWorker(), [=](){
+					uf::console::execute( command );
+				});
+			*/
+			/*
+				// this still blocks
+				auto tasks = uf::thread::schedule(true);
+				tasks.queue([=](){
+					uf::console::execute( command );
+				});
+				uf::thread::execute( tasks );
+			*/
+
 			}
 
 			ImGui::SetItemDefaultFocus();

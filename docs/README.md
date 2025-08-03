@@ -27,9 +27,12 @@ To be filled.
 	* *very* loosely integrated
 	* basic shapes and triangulated mesh collision and some form of ray queries
 * OpenAL for audio
-	* Currently only loads from ogg (vorbis) files
+	* Currently only loads from `.ogg` (vorbis) files
 	* Supports loading in full and streaming
 	* *very* loosely integrated
+* Speech synthesis using [vall_e.cpp](https://github.com/e-c-k-e-r/vall-e/)
+	* `win64.gcc.vulkan` binaries can be found [here](https://github.com/e-c-k-e-r/vall-e/releases/tag/vall_e.cpp), if compiled.
+	* currently only generates `.wav` files
 
 ## Supported Systems
 

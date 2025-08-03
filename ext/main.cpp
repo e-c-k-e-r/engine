@@ -1,10 +1,10 @@
 #include "main.h"
+#include "ext.h"
 
-#include <uf/ext/ext.h>
-#include <uf/ext/oal/oal.h>
-
-#include <uf/spec/terminal/terminal.h>
-#include <uf/spec/controller/controller.h>
+#include <fstream>
+#include <iostream>
+#include <regex>
+#include <sys/stat.h>
 
 #include <uf/utils/time/time.h>
 #include <uf/utils/audio/audio.h>
@@ -22,32 +22,27 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/http/http.h>
+#include <uf/utils/renderer/renderer.h>
+#include <uf/utils/io/console.h>
+#include <uf/utils/io/inputs.h>
+#include <uf/spec/terminal/terminal.h>
+#include <uf/spec/controller/controller.h>
+#include <uf/utils/memory/string.h>
 
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/graph/graph.h>
-#include <uf/utils/io/inputs.h>
-
-#include <sys/stat.h>
-
-#include <uf/utils/memory/string.h>
-#include <fstream>
-#include <iostream>
-
-#include <regex>
-
-#include "ext.h"
-
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/asset/asset.h>
 
-#include <uf/utils/renderer/renderer.h>
-#include <uf/utils/io/console.h>
+#include <uf/ext/ext.h>
+#include <uf/ext/oal/oal.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/ultralight/ultralight.h>
-#include <uf/ext/imgui/imgui.h>
 #include <uf/ext/ffx/fsr.h>
+#include <uf/ext/imgui/imgui.h>
+#include <uf/ext/vall_e/vall_e.h>
 
 bool ext::ready = false;
 uf::stl::vector<uf::stl::string> ext::arguments;
@@ -88,6 +83,11 @@ namespace {
 				struct {
 					bool enabled;
 				} ultralight, discord, imgui;
+				struct {
+					bool enabled;
+					std::string model_path = "";
+					std::string encodec_path = "";
+				} vall_e;
 			} ext;
 
 			struct {
@@ -118,6 +118,10 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	::config.engine.ext.ultralight.enabled = json["engine"]["ext"]["ultralight"]["enabled"].as(::config.engine.ext.ultralight.enabled);
 	::config.engine.ext.discord.enabled = json["engine"]["ext"]["discord"]["enabled"].as(::config.engine.ext.discord.enabled);
 	::config.engine.ext.imgui.enabled = json["engine"]["ext"]["imgui"]["enabled"].as(::config.engine.ext.imgui.enabled);
+	
+	::config.engine.ext.vall_e.enabled = json["engine"]["ext"]["vall_e"]["enabled"].as(::config.engine.ext.vall_e.enabled);
+	::config.engine.ext.vall_e.model_path = json["engine"]["ext"]["vall_e"]["model_path"].as(::config.engine.ext.vall_e.model_path);
+	::config.engine.ext.vall_e.encodec_path = json["engine"]["ext"]["vall_e"]["encodec_path"].as(::config.engine.ext.vall_e.encodec_path);
 
 	::config.engine.limiter.print = json["engine"]["debug"]["framerate"]["print"].as(::config.engine.limiter.print);
 
@@ -304,6 +308,9 @@ void EXT_API ext::load( ext::json::Value& json ) {
 void EXT_API ext::initialize() {
 	/* Setup deferred Main thread */ {
 		uf::thread::get(uf::thread::mainThreadName);
+	}
+	/* Setup non-blocking, asynchronous thread */ {
+		uf::thread::get(uf::thread::asyncThreadName);
 	}
 	/* set JSON implicit preferences */ {
 		ext::json::PREFERRED_ENCODING = ::json["engine"]["ext"]["json"]["encoding"].as(ext::json::PREFERRED_ENCODING);
@@ -716,6 +723,23 @@ void EXT_API ext::initialize() {
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 	//	ext::imgui::initialize();
+	}
+#endif
+#if UF_USE_VALL_E
+	if ( ::config.engine.ext.vall_e.enabled ) {
+		ext::vall_e::initialize( ::config.engine.ext.vall_e.model_path, ::config.engine.ext.vall_e.encodec_path );
+
+		// bind the hook
+		uf::hooks.addHook( "llm:VALL-E.synthesize", [&](ext::json::Value& json){
+			auto text = json["text"].as<uf::stl::string>();
+			auto prom = json["prom"].as<uf::stl::string>();
+		
+			auto path = ext::vall_e::generate( text, prom );
+			
+			UF_MSG_DEBUG("Called {} {}: {}", text, prom, path);
+
+			return path;
+		});
 	}
 #endif
 	/* Add hooks */ {
@@ -1138,6 +1162,11 @@ void EXT_API ext::terminate() {
 	/* Terminate controllers */ {
 		spec::controller::terminate();
 	}
+#if UF_USE_VALL_E
+	if ( ::config.engine.ext.vall_e.enabled ) {
+		ext::vall_e::terminate();
+	}
+#endif
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 		ext::imgui::terminate();

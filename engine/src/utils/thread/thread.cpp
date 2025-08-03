@@ -8,8 +8,9 @@ float uf::thread::limiter = 1.0f / 120.0f;
 uint uf::thread::workers = 1;
 std::thread::id uf::thread::mainThreadId = std::this_thread::get_id();
 bool uf::thread::async = false;
-uf::stl::string uf::thread::workerThreadName = "Worker";
 uf::stl::string uf::thread::mainThreadName = "Main";
+uf::stl::string uf::thread::workerThreadName = "Worker";
+uf::stl::string uf::thread::asyncThreadName = "Async";
 
 #define UF_THREAD_ANNOUNCE(...) UF_MSG_DEBUG(__VA_ARGS__)
 
