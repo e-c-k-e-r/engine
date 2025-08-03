@@ -31,6 +31,11 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 			metadata["sounds"].erase(i);
 		}
 	});
+	this->addHook( "sound:Emit.%UID%", [&]( pod::PCM& waveform ){
+		uf::Audio& audio = emitter.add();
+		audio.load( waveform );
+		audio.play();
+	});
 	this->addHook( "sound:Emit.%UID%", [&](ext::json::Value& json){
 		if ( ext::json::isNull(json["volume"]) ) json["volume"] = metadata["audio"]["volume"];
 		if ( ext::json::isNull(json["pitch"]) ) json["pitch"] = metadata["audio"]["pitch"];

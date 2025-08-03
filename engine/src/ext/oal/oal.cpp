@@ -1,10 +1,13 @@
 #include <uf/config.h>
-#if defined(UF_USE_OPENAL)
 
+#if UF_USE_OPENAL
 #include <uf/ext/oal/oal.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
-#include <uf/ext/vorbis/vorbis.h>
+
+#include <uf/ext/audio/vorbis.h>
+#include <uf/ext/audio/wav.h>
+#include <uf/ext/audio/pcm.h>
 #include <uf/utils/audio/audio.h>
 #include <iostream>
 
@@ -116,17 +119,51 @@ uf::audio::Metadata* ext::al::create( const uf::stl::string& filename, bool stre
 	metadata.al.source.set( AL_LOOPING, metadata.settings.loop ? AL_TRUE : AL_FALSE );
 	return pointer;
 }
+uf::audio::Metadata* ext::al::create( const pod::PCM& buffer, bool streamed, uint8_t buffers ) {
+#if UF_MEMORYPOOL_INVALID_MALLOC
+	uf::audio::Metadata* pointer = &uf::memoryPool::global.alloc<uf::audio::Metadata>();
+#else
+	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;
+	uf::audio::Metadata* pointer = (memoryPool) ? &memoryPool->alloc<uf::audio::Metadata>() : new uf::audio::Metadata;
+#endif
+	uf::audio::Metadata& metadata = *pointer;
+	metadata.filename = "tmp.pcm"; // probably just stringify the pointer
+	metadata.settings.streamed = streamed;
+	metadata.settings.buffers = buffers;
+	metadata.extension = uf::io::extension( metadata.filename );
+
+	metadata.al.buffer.initialize( metadata.settings.buffers );
+	metadata.al.source.initialize();
+	metadata.al.source.set( AL_PITCH, 1.0f );
+	metadata.al.source.set( AL_GAIN, 1.0f );
+	metadata.al.source.set( AL_LOOPING, metadata.settings.loop ? AL_TRUE : AL_FALSE );
+	return pointer;
+}
 uf::audio::Metadata* ext::al::open( const uf::stl::string& filename ) {
 	return ext::al::open( filename, uf::audio::streamsByDefault );
 }
+uf::audio::Metadata* ext::al::open( const pod::PCM& buffer ) {
+	return ext::al::open( buffer, uf::audio::streamsByDefault );
+}
 uf::audio::Metadata* ext::al::open( const uf::stl::string& filename, bool streams ) {
 	return streams ? ext::al::stream( filename ) : ext::al::load( filename );
+}
+uf::audio::Metadata* ext::al::open( const pod::PCM& buffer, bool streams ) {
+	return streams ? ext::al::stream( buffer ) : ext::al::load( buffer );
 }
 uf::audio::Metadata* ext::al::load( const uf::stl::string& filename ) {
 	uf::audio::Metadata* pointer = ext::al::create( filename, false, 1 );
 	uf::audio::Metadata& metadata = *pointer;
 
 	if ( metadata.extension == "ogg" ) ext::vorbis::open( metadata );
+	else if ( metadata.extension == "wav" ) ext::wav::open( metadata );
+	return pointer;
+}
+uf::audio::Metadata* ext::al::load( const pod::PCM& buffer ) {
+	uf::audio::Metadata* pointer = ext::al::create( buffer, false, 1 );
+	uf::audio::Metadata& metadata = *pointer;
+
+	ext::pcm::open( metadata, buffer );
 	return pointer;
 }
 
@@ -135,10 +172,20 @@ uf::audio::Metadata* ext::al::stream( const uf::stl::string& filename ) {
 	uf::audio::Metadata& metadata = *pointer;
 
 	if ( metadata.extension == "ogg" ) ext::vorbis::open( metadata );
+	else if ( metadata.extension == "wav" ) ext::wav::open( metadata );
+	return pointer;
+}
+uf::audio::Metadata* ext::al::stream( const pod::PCM& buffer ) {
+	uf::audio::Metadata* pointer = ext::al::create( buffer, true, uf::audio::buffers );
+	uf::audio::Metadata& metadata = *pointer;
+
+	ext::pcm::open( metadata, buffer );
 	return pointer;
 }
 void ext::al::update( uf::audio::Metadata& metadata ) {
 	if ( metadata.extension == "ogg" ) return ext::vorbis::update( metadata );
+	if ( metadata.extension == "wav" ) return ext::wav::update( metadata );
+	if ( metadata.extension == "pcm" ) return ext::pcm::update( metadata );
 }
 void ext::al::close( uf::audio::Metadata* metadata ) {
 	if ( !metadata ) return;
@@ -157,6 +204,8 @@ void ext::al::close( uf::audio::Metadata& metadata ) {
 	metadata.al.source.destroy();
 	metadata.al.buffer.destroy();
 	if ( metadata.extension == "ogg" ) return ext::vorbis::close( metadata );
+	if ( metadata.extension == "wav" ) return ext::wav::close( metadata );
+	if ( metadata.extension == "pcm" ) return ext::pcm::close( metadata );
 }
 
 void ext::al::listener( const pod::Transform<>& transform ) {

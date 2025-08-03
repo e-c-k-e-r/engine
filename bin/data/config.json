@@ -292,7 +292,7 @@
 				"enabled": true
 			},
 			"imgui": {
-				"enabled": true
+				"enabled": false
 			},
 			"fsr": {
 				"enabled": true,

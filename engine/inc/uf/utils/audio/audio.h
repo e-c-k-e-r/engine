@@ -50,8 +50,12 @@ namespace uf {
 
 		void open( const uf::stl::string& );
 		void open( const uf::stl::string&, bool );
+		void open( const pod::PCM& );
+		void open( const pod::PCM&, bool );
 		void load( const uf::stl::string& );
+		void load( const pod::PCM& );
 		void stream( const uf::stl::string& );
+		void stream( const pod::PCM& );
 		void update();
 		void destroy();
 

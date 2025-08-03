@@ -21,15 +21,14 @@ void ext::vall_e::initialize( const std::string& model_path, const std::string& 
 		return;
 	}
 }
-std::string ext::vall_e::generate( const std::string& text, const std::string& prom, const std::string& lang ) {	
-	if ( !::ctx ) return "";
+pod::PCM ext::vall_e::generate( const std::string& text, const std::string& prom, const std::string& lang ) {	
+	pod::PCM pcm;
 
-	std::string path = "./data/tmp/" + std::to_string(uf::time::time()) + ".wav";
+	if ( !::ctx ) return pcm;
 
 	vall_e_args_t args;
 	args.text = text;
 	args.prompt_path = prom;
-	args.output_path = path;
 	args.language = lang == "" ? "en" : lang;
 	args.task = "tts";
 	args.modality = MODALITY_NAR_LEN;
@@ -39,10 +38,12 @@ std::string ext::vall_e::generate( const std::string& text, const std::string& p
 	auto inputs = vall_e_prepare_inputs( ::ctx, args.text, args.prompt_path, args.language );
 	auto output_audio_codes = vall_e_generate( ::ctx, inputs, args.max_steps, args.max_duration, args.modality );
 	auto waveform = decode_audio( ::ctx->encodec.ctx, output_audio_codes );
-	write_audio_to_disk( waveform, args.output_path );
-	//UF_MSG_DEBUG("Generated to {}", path);
+	
+	pcm.waveform.insert( pcm.waveform.end(), waveform.begin(), waveform.end() ); // because technically im using different vector classes
+	pcm.sampleRate = 24000; // should deduce from the backend in the event I ever get around to porting the other models
+	pcm.channels = 1;
 
-	return path;
+	return pcm;
 }
 void ext::vall_e::terminate() {	
 	if ( !::ctx ) return;

@@ -63,6 +63,7 @@ end
 
 local collider = ent:getComponent("PhysicsState")
 local target_transform = nil
+local soundEmitter = ent
 -- on tick
 ent:bind( "tick", function(self)
 	-- rotate to target
@@ -126,6 +127,12 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 	}
 
 	local text = texts[math.random( #texts )] or "!! Test Message !!"
+
+	ent:callHook("llm:VALL-E.synthesize", {
+		text = text,
+		prom = "./data/tmp/prom.wav",
+		callback = soundEmitter:formatHookName("sound:Emit.%UID%")
+	} )
 
 	local forward = {
 		name = "dialogue",

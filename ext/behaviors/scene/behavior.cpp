@@ -69,6 +69,15 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 				metadataJson.import( payload.metadata );
 			}
 			gui.initialize();
+
+			// an example to synthesize and playback speech
+		/*
+			ext::json::Value payload;
+			payload["text"] = "Opening menu.";
+			payload["prom"] = "./data/tmp/prom.wav";
+			payload["callback"] = this->formatHookName("sound:Emit.%UID%");
+			uf::hooks.call("llm:VALL-E.synthesize", payload);
+		*/
 		};
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){

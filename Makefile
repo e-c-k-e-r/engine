@@ -62,14 +62,14 @@ LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
-FLAGS 					+= # -DUF_DEBUG
+FLAGS 					+= -DUF_DEBUG
 
 ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
 	REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -g
 endif
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg # meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav # meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
@@ -171,6 +171,9 @@ ifneq (,$(findstring ogg,$(REQ_DEPS)))
 	else
 		DEPS 				+= -lvorbis -lvorbisfile -logg
 	endif
+endif
+ifneq (,$(findstring wav,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_WAV
 endif
 ifneq (,$(findstring freetype,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_FREETYPE 

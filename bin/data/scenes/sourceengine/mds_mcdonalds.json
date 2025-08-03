@@ -7,7 +7,7 @@
 	],
 	"metadata": {
 		"graph": {
-			"bgm": "./audio/soundscape/sh2_ambience.ogg",
+			"bgm": "./audio/soundscape/sh2_ambience.wav",
 			"tags": {
 				// exact matches
 				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },

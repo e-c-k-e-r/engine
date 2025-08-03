@@ -107,6 +107,7 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "png", 	uf::asset::Type::IMAGE },
 		
 		{ "ogg", 	uf::asset::Type::AUDIO },
+		{ "wav", 	uf::asset::Type::AUDIO },
 
 		{ "json", 	uf::asset::Type::JSON },
 		{ "bson", 	uf::asset::Type::JSON },

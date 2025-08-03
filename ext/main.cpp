@@ -733,12 +733,22 @@ void EXT_API ext::initialize() {
 		uf::hooks.addHook( "llm:VALL-E.synthesize", [&](ext::json::Value& json){
 			auto text = json["text"].as<uf::stl::string>();
 			auto prom = json["prom"].as<uf::stl::string>();
-		
-			auto path = ext::vall_e::generate( text, prom );
-			
-			UF_MSG_DEBUG("Called {} {}: {}", text, prom, path);
+			auto play = json["play"].as<bool>();
+			auto callback = json["callback"].as<uf::stl::string>("");
 
-			return path;
+			uf::thread::queue( uf::thread::asyncThreadName, [=](){
+				auto waveform = ext::vall_e::generate( text, prom );
+				if ( callback != "" ) {
+					UF_MSG_DEBUG("Calling hook: {}", callback);
+					uf::hooks.call( callback, waveform );
+				}
+				if ( play ) {
+					uf::Audio audio;
+					audio.load( waveform );
+					audio.setVolume( 4.0f );
+					audio.play();
+				}
+			});
 		});
 	}
 #endif

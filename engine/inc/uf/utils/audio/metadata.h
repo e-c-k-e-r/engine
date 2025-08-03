@@ -1,11 +1,22 @@
 #pragma once
 
-#include <uf/utils/memory/string.h>
 #include <fstream>
+
+#include <uf/utils/memory/string.h>
+#include <uf/utils/memory/vector.h>
 
 #include <uf/ext/oal/source.h>
 #include <uf/ext/oal/buffer.h>
 #include <uf/utils/time/time.h>
+
+namespace pod {
+	struct UF_API PCM {
+		uf::stl::vector<float> waveform;
+		uint16_t sampleRate = 24000;
+		uint16_t channels = 1;
+	};
+}
+
 namespace uf {
 	namespace audio {
 		struct UF_API Metadata {

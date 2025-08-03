@@ -118,11 +118,14 @@ namespace {
 				this->scroll.bottom = true;
 				reclaimFocus = true;
 
-				// to-do: add a way to either asynchronously invoke commands or not
 
+				// to-do: add a way to either asynchronously invoke commands or not
+				uf::console::execute( command );
+			/*
 				uf::thread::queue( uf::thread::asyncThreadName, [=](){
 					uf::console::execute( command );
 				});
+			*/
 			/*
 				// this blocks
 				uf::thread::queue( uf::thread::fetchWorker(), [=](){

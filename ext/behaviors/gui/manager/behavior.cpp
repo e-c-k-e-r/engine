@@ -46,7 +46,6 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 	// and this oversight seems to only happen when registerRenderMode = false
 	auto& metadata = this->getComponent<ext::GuiManagerBehavior::Metadata>();
 	if ( !metadata.boundGui && !uf::renderer::hasRenderMode( "Gui", true ) ) {
-		UF_MSG_DEBUG("ADDING RENDER MODE");
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::stl::string name = "Gui";
 		renderMode.blitter.descriptor.renderMode = "Swapchain";

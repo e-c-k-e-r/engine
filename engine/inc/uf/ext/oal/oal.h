@@ -54,10 +54,15 @@ namespace ext {
 		uf::stl::string UF_API getError( ALenum = 0 );
 
 		uf::audio::Metadata* UF_API create( const uf::stl::string&, bool, uint8_t );
+		uf::audio::Metadata* UF_API create( const pod::PCM&, bool, uint8_t );
 		uf::audio::Metadata* UF_API open( const uf::stl::string& );
 		uf::audio::Metadata* UF_API open( const uf::stl::string&, bool );
+		uf::audio::Metadata* UF_API open( const pod::PCM& );
+		uf::audio::Metadata* UF_API open( const pod::PCM&, bool );
 		uf::audio::Metadata* UF_API load( const uf::stl::string& );
+		uf::audio::Metadata* UF_API load( const pod::PCM& );
 		uf::audio::Metadata* UF_API stream( const uf::stl::string& );
+		uf::audio::Metadata* UF_API stream( const pod::PCM& );
 		void UF_API update( uf::audio::Metadata& );
 
 		void UF_API close( uf::audio::Metadata* );

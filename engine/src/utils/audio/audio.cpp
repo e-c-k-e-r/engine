@@ -2,7 +2,9 @@
 #include <uf/utils/string/ext.h>
 
 #if UF_USE_OPENAL
-	#include <uf/ext/vorbis/vorbis.h>
+	#include <uf/ext/audio/vorbis.h>
+	#include <uf/ext/audio/wav.h>
+	#include <uf/ext/audio/pcm.h>
 	#include <uf/ext/oal/oal.h>
 #endif
 
@@ -46,6 +48,12 @@ void uf::Audio::open( const uf::stl::string& filename ) {
 void uf::Audio::open( const uf::stl::string& filename, bool streamed ) {
 	streamed ? stream( filename ) : load( filename );
 }
+void uf::Audio::open( const pod::PCM& buffer ) {
+	this->open( buffer, uf::audio::streamsByDefault );
+}
+void uf::Audio::open( const pod::PCM& buffer, bool streamed ) {
+	streamed ? stream( buffer ) : load( buffer );
+}
 void uf::Audio::load( const uf::stl::string& filename ) {
 	if ( uf::audio::muted ) return;
 #if UF_USE_OPENAL
@@ -53,11 +61,25 @@ void uf::Audio::load( const uf::stl::string& filename ) {
 	this->m_metadata = ext::al::load( filename );
 #endif
 }
+void uf::Audio::load( const pod::PCM& buffer ) {
+	if ( uf::audio::muted ) return;
+#if UF_USE_OPENAL
+	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
+	this->m_metadata = ext::al::load( buffer );
+#endif
+}
 void uf::Audio::stream( const uf::stl::string& filename ) {
 	if ( uf::audio::muted ) return;
 #if UF_USE_OPENAL
 	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
 	this->m_metadata = ext::al::stream( filename );
+#endif
+}
+void uf::Audio::stream( const pod::PCM& buffer ) {
+	if ( uf::audio::muted ) return;
+#if UF_USE_OPENAL
+	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
+	this->m_metadata = ext::al::stream( buffer );
 #endif
 }
 void uf::Audio::update() {
