@@ -2,9 +2,6 @@
 #include <uf/utils/string/ext.h>
 
 #if UF_USE_OPENAL
-	#include <uf/ext/audio/vorbis.h>
-	#include <uf/ext/audio/wav.h>
-	#include <uf/ext/audio/pcm.h>
 	#include <uf/ext/oal/oal.h>
 #endif
 

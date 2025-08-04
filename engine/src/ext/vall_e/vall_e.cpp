@@ -1,5 +1,6 @@
 #include <uf/ext/vall_e/vall_e.h>
 #include <uf/utils/time/time.h>
+#include <uf/ext/audio/pcm.h>
 
 #if UF_USE_VALL_E
 namespace {
@@ -32,14 +33,13 @@ pod::PCM ext::vall_e::generate( const std::string& text, const std::string& prom
 	args.language = lang == "" ? "en" : lang;
 	args.task = "tts";
 	args.modality = MODALITY_NAR_LEN;
-	args.max_steps = 30;
+	args.max_steps = 15;
 	args.max_duration = MAX_DURATION;
 
 	auto inputs = vall_e_prepare_inputs( ::ctx, args.text, args.prompt_path, args.language );
 	auto output_audio_codes = vall_e_generate( ::ctx, inputs, args.max_steps, args.max_duration, args.modality );
 	auto waveform = decode_audio( ::ctx->encodec.ctx, output_audio_codes );
-	
-	pcm.waveform.insert( pcm.waveform.end(), waveform.begin(), waveform.end() ); // because technically im using different vector classes
+	pcm.samples = ext::pcm::convertTo16bit( waveform.data(), waveform.size() ); // need to cringily pass it this way because theyre different vector classes
 	pcm.sampleRate = 24000; // should deduce from the backend in the event I ever get around to porting the other models
 	pcm.channels = 1;
 

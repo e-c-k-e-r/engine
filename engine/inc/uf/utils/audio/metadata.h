@@ -9,9 +9,11 @@
 #include <uf/ext/oal/buffer.h>
 #include <uf/utils/time/time.h>
 
+// shoved here because dependencies
 namespace pod {
+	// this technically could either be a template or have the samples buffer be uint8_t and store the bit depth / an enum for the format but I only really care about supporting 16-bit PCMs
 	struct UF_API PCM {
-		uf::stl::vector<float> waveform;
+		uf::stl::vector<int16_t> samples;
 		uint16_t sampleRate = 24000;
 		uint16_t channels = 1;
 	};

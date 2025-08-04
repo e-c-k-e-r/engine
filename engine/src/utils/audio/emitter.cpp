@@ -1,11 +1,6 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/string/ext.h>
 
-#if defined(UF_USE_OPENAL)
-#include <uf/ext/vorbis/vorbis.h>
-#include <uf/ext/oal/oal.h>
-#endif
-
 uf::SoundEmitter::~SoundEmitter() {
 	this->cleanup(true);
 }

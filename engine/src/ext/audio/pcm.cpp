@@ -14,8 +14,8 @@ void ext::pcm::open( uf::Audio::Metadata& metadata, const pod::PCM& pcm ) {
 	metadata.info.channels = pcm.channels;
 	metadata.info.bitDepth = 16;
 	metadata.info.frequency = pcm.sampleRate;
-	metadata.info.duration = double(pcm.waveform.size()) / pcm.channels / pcm.sampleRate;
-	metadata.info.size = pcm.waveform.size() * sizeof(int16_t);
+	metadata.info.duration = double(pcm.samples.size()) / pcm.channels / pcm.sampleRate;
+	metadata.info.size = pcm.samples.size() * sizeof(int16_t);
 
 
 	// Determine OpenAL format
@@ -28,15 +28,9 @@ void ext::pcm::open( uf::Audio::Metadata& metadata, const pod::PCM& pcm ) {
 		return;
 	}
 
-	metadata.stream.handle = malloc( metadata.info.size );
 	metadata.stream.consumed = 0;
-
-	// Convert float waveform to int16_t PCM
-	int16_t* pcm16 = (int16_t*) metadata.stream.handle;
-	for (size_t i = 0; i < pcm.waveform.size(); ++i) {
-		float sample = std::clamp(pcm.waveform[i], -1.0f, 1.0f);
-		pcm16[i] = static_cast<int16_t>(sample * 32767.0f);
-	}
+	metadata.stream.handle = malloc( metadata.info.size ); // to-do: use builtin memory pools i cant be assed
+	memcpy( metadata.stream.handle, pcm.samples.data(), metadata.info.size );
 
 	// choose load or stream
 	return metadata.settings.streamed ? ext::pcm::stream(metadata) : ext::pcm::load(metadata);
@@ -144,6 +138,18 @@ void ext::pcm::close(uf::Audio::Metadata& metadata) {
 		free( metadata.stream.handle );
 		metadata.stream.handle = NULL;
 	}
+}
+
+uf::stl::vector<int16_t> ext::pcm::convertTo16bit( const uf::stl::vector<float>& waveform ) {
+	return ext::pcm::convertTo16bit( waveform.data(), waveform.size() );
+}
+uf::stl::vector<int16_t> ext::pcm::convertTo16bit( const float* data, size_t len ) {
+	uf::stl::vector<int16_t> samples( len );
+	for (size_t i = 0; i < len; ++i) {
+		float sample = std::clamp(data[i], -1.0f, 1.0f);
+		samples[i] = static_cast<int16_t>(sample * 32767.0f);
+	}
+	return samples;
 }
 
 #endif

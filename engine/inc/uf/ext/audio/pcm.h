@@ -11,5 +11,8 @@ namespace ext {
 		void UF_API stream( uf::Audio::Metadata& );
 		void UF_API update( uf::Audio::Metadata& );
 		void UF_API close( uf::Audio::Metadata& );
+
+		uf::stl::vector<int16_t> UF_API convertTo16bit( const uf::stl::vector<float>& );
+		uf::stl::vector<int16_t> UF_API convertTo16bit( const float*, size_t );
 	}
 }
