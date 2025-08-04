@@ -556,7 +556,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 #endif
 
 	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
+	#if !UF_ENV_DREAMCAST
 		graph.name = uf::graph::save( graph, filename );
+	#endif
 		
 	// 	disable baking, doesn't output right if baking from a gltf imported model
 	//	graph.metadata["baking"]["enabled"] = false;

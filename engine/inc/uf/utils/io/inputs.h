@@ -3,6 +3,7 @@
 #include <uf/config.h>
 #include <uf/utils/string/string.h>
 #include <uf/utils/math/vector.h>
+#include <uf/utils/memory/unordered_map.h>
 
 #define UF_INPUT_USE_ENUM_MOUSE 1
 

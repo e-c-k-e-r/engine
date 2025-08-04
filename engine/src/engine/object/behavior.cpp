@@ -1,6 +1,7 @@
 #include <uf/engine/object/object.h>
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
+#include <uf/utils/math/collision.h>
 #include <uf/utils/time/time.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/math/transform.h>
@@ -11,6 +12,7 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/math/physics.h>
 #include <uf/ext/gltf/gltf.h>
+#include <uf/engine/graph/graph.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multithread = false) // segfaults @  engine/src/ext/lua/lua.cpp:298 `auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );`

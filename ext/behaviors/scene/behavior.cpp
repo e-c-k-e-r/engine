@@ -14,6 +14,8 @@
 
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
+#include <uf/engine/scene/scene.h>
+#include <uf/engine/graph/graph.h>
 
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/renderer/renderer.h>
@@ -330,7 +332,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			for ( uf::Scene* scene : uf::scene::scenes ) {
 				if ( !scene ) continue;
+			#if UF_USE_FMT
 				uf::iostream << ::fmt::format("Scene: {}\n", uf::string::toString( *scene ));
+			#else
+				uf::iostream << "Scene: " << uf::string::toString( *scene ) << "\n";
+			#endif
 				scene->process([]( uf::Entity* entity, int depth ) {
 					uf::stl::string indent = ""; for ( auto i = 1; i < depth; ++i ) indent += "\t";
 					uf::stl::string location = "";
@@ -340,7 +346,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						location = uf::string::toString( t.position ) + " " + uf::string::toString( t.orientation );
 					}
 
+				#if UF_USE_FMT
 					uf::iostream << ::fmt::format("{} {} {}\n", indent, uf::string::toString( *entity ), location );
+				#else
+					uf::iostream << indent << " " << uf::string::toString( *entity ) << " " << location << "\n";
+				#endif
 				}, 1);
 			}
 		}

@@ -53,12 +53,14 @@ void uf::console::initialize() {
 
 		// this could probably be its own function
 		uf::stl::string s_result = "";
+	#if UF_USE_FMT
 		for ( auto i = 0; i < results.size(); ++i ) {
 			auto& res = results[i];
 			if ( res.is<uf::stl::string>() ) s_result += ::fmt::format("\n[{}] => {}", i, res.as<uf::stl::string>());
 			else if ( res.is<ext::json::Value>() ) s_result += ::fmt::format("\n[{}] => {}", i, ext::json::encode( res.as<ext::json::Value>() ));
 			else s_result += ::fmt::format("\n[{}] => Userdata: {}", i, (void*) res);
 		}
+	#endif
 
 		return "Hook executed: " + match[1] + s_result;
 	});
@@ -98,7 +100,11 @@ void uf::console::initialize() {
 		};
 		for ( uf::Scene* scene : uf::scene::scenes ) {
 			if ( !scene ) continue;
+		#if UF_USE_FMT
 			res += ::fmt::format("Scene: {}: {}\n", scene->getName(), scene->getUid());
+		#else
+			res += "Scene: " + scene->getName() + ": " + std::to_string(scene->getUid()) + "\n";
+		#endif
 			scene->process(filter, 1);
 		}
 

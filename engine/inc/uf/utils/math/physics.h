@@ -5,9 +5,11 @@
 #include <uf/utils/time/time.h>
 
 #if UF_USE_BULLET
-#include <uf/ext/bullet/bullet.h>
+	#include <uf/ext/bullet/bullet.h>
 #elif UF_USE_REACTPHYSICS
-#include <uf/ext/reactphysics/reactphysics.h>
+	#include <uf/ext/reactphysics/reactphysics.h>
+#else
+	#include "physics/stub.h"
 #endif
 
 namespace uf {

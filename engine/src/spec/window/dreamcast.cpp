@@ -47,8 +47,12 @@ namespace {
 	pod::Vector2ui resolution = { 640, 480 };
 
 	bool GetModifier( uint8_t modifier ) {
+		// to-fix later
+		return false;
+	/*
 		if ( !::keyboard.state ) return false;
 		return ::keyboard.state->cond.modifiers & modifier;
+	*/
 	}
 	uf::stl::vector<uint8_t> GetKeys() {
 		uf::stl::vector<uint8_t> keys;
@@ -367,11 +371,11 @@ spec::dreamcast::Window::vector_t spec::dreamcast::Window::getMousePosition( ) {
 }
 void spec::dreamcast::Window::setSize( const spec::dreamcast::Window::vector_t& size ) {
 	int e = 0;
-	int p = PM_RGB565;
+	vid_pixel_mode_t p = PM_RGB565;
 
 	if ( size.x == 320 && size.y == 240 ) e = DM_320x240;
 	else if ( size.x == 640 && size.y == 480 ) e = DM_640x480;
-	else if ( size.x == 800 && size.y == 608 ) e = DM_800x608;
+	//else if ( size.x == 800 && size.y == 608 ) e = DM_800x608;
 	else if ( size.x == 256 && size.y == 256 ) e = DM_256x256;
 	else if ( size.x == 768 && size.y == 480 ) e = DM_768x480;
 	else if ( size.x == 768 && size.y == 576 ) e = DM_768x576;

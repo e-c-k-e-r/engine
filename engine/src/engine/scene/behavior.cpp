@@ -3,6 +3,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/math/physics.h>
+#include <uf/engine/graph/graph.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Scene)
 UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, multithread = false)

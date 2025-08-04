@@ -414,10 +414,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		TIMER(0.25, keys.vee ) {
 			bool state = !stats.noclipped;
 			metadata.system.noclipped = state;
+		#if UF_USE_REACTPHYSICS
 			if ( collider.body ) {
 				collider.body->enableGravity(!state);
 				uf::physics::impl::activateCollision(collider, !state);
 			}
+		#endif
 			
 			stats.noclipped = state;
 			UF_MSG_DEBUG( "{}abled noclip: {}", (state ? "En" : "Dis"), uf::vector::toString(transform.position));

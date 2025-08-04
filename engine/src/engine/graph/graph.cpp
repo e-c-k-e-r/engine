@@ -1475,7 +1475,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
 					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
 					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
-
+				
 					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !phyziks["static"].as<bool>(true) );
 				} else {
 					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );

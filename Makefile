@@ -64,11 +64,11 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
 FLAGS 					+= -DUF_DEBUG
 
-ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
-	REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
-	FLAGS 				+= -g
-endif
 ifneq (,$(findstring win64,$(ARCH)))
+	ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
+		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
+		FLAGS 				+= -g
+	endif
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav # meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
@@ -76,7 +76,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	INCS 				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt imgui freetype openal aldc ogg # gltf bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann png zlib ctti reactphysics lua freetype fmt imgui openal aldc ogg wav gltf # bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
@@ -90,7 +90,7 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		ifneq (,$(findstring gldc,$(REQ_DEPS)))
-			DEPS 		+= -lGLdc
+			DEPS 		+= -lGL # kos-ports version saves it as libGL instead of libGLdc
 			FLAGS 		+= -DUF_USE_OPENGL_GLDC
 		else
 			DEPS 		+= -lGL
@@ -109,6 +109,7 @@ endif
 ifneq (,$(findstring fmt,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_FMT
 	ifneq (,$(findstring dreamcast,$(ARCH)))
+		# dreamcast uses a header only version because reasons
 	else
 		DEPS 				+= -lfmt
 	endif
@@ -155,7 +156,7 @@ ifneq (,$(findstring openal,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENAL -DUF_USE_ALUT
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		ifneq (,$(findstring aldc,$(REQ_DEPS)))
-			DEPS 		+= -lALdc
+			DEPS 		+= -lAL -lpthread # kos-ports version saves it as libAL instead of libALdc
 			FLAGS 		+= -DUF_USE_OPENAL_ALDC -DUF_USE_ALUT
 		else
 			DEPS 		+= -lAL

@@ -11,7 +11,6 @@
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/math/vector.h>
-#include <uf/utils/math/physics.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/string/string.h>
 #include <uf/utils/string/ext.h>
@@ -33,6 +32,8 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/asset/asset.h>
+
+#include <uf/utils/math/physics.h>
 
 #include <uf/ext/ext.h>
 #include <uf/ext/oal/oal.h>
@@ -107,7 +108,11 @@ namespace {
 }
 
 void EXT_API ext::load() {
+#if UF_ENV_DREAMCAST
+	ext::config.readFromFile("/cd/data/config.json");
+#else
 	ext::config.readFromFile(uf::io::root+"/config.json");
+#endif
 }
 void EXT_API ext::load( ext::json::Value& json ) {
 	::config.engine.gc.enabled = json["engine"]["debug"]["garbage collection"]["enabled"].as(::config.engine.gc.enabled);

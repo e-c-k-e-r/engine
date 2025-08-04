@@ -6,7 +6,7 @@
 #include <math.h>
 
 namespace std {
-#if 1
+#if 0
 	inline double log2( double n ) { return log(n) / log(2); }
 	inline double cbrt( double x ) { return ::cbrt( x ); }
 #endif

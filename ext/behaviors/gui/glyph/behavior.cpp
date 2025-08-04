@@ -69,8 +69,13 @@ namespace {
 	};
 
 	struct {
+	#if UF_USE_FREETYPE
 		ext::freetype::Glyph glyph;
 		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, uf::Glyph>> cache;
+	#else
+		char glyph;
+		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, char>> cache;
+	#endif
 	} glyphs;
 
 	struct {
@@ -96,12 +101,14 @@ namespace {
 	}
 
 	uf::stl::vector<::GlyphBox> generateGlyphs( uf::Object& self, const uf::stl::string& _string ) {
+		uf::stl::vector<::GlyphBox> gs;
+	
+	#if UF_USE_FREETYPE
 		auto& glyphs = ::glyphs;
 		auto& metadata = this->getComponent<ext::GuiGlyphBehavior::Metadata>();
 		auto& metadataGui = this->getComponent<ext::GuiBehavior::Metadata>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 
-		uf::stl::vector<::GlyphBox> gs;
 
 		auto string = _string == "" ? metadata.string : _string;
 		auto font = uf::io::root+"/fonts/" + metadata.font;
@@ -311,6 +318,7 @@ namespace {
 
 			gs.push_back(g);
 		}
+	#endif
 
 		return gs;
 	}
@@ -354,6 +362,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 		metadataGui.scaleMode = "none";
 
 		// generate texture
+		#if UF_USE_FREETYPE
 		{
 			atlas.clear();
 
@@ -393,6 +402,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 			atlas.generate();
 			atlas.clear(false);
 		}
+		#endif
 
 		// generate mesh
 		{

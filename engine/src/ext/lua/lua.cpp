@@ -131,7 +131,7 @@ namespace binds {
 				std::cout << str;
 				if ( --count != 0 ) std::cout << "\t";
 			}
-			std::cout <<"\n");
+			std::cout <<"\n";
 			std::cout.flush();
 		#endif
 		};

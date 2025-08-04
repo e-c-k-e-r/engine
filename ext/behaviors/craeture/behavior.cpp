@@ -49,6 +49,7 @@ namespace {
 	}
 
 	void load_migoto( uf::Object& self, const uf::Serializer& json ) {
+	#if !UF_ENV_DREAMCAST
 		struct Position {
 			pod::Vector3f position;
 			pod::Vector3f normal;
@@ -130,6 +131,7 @@ namespace {
 		mesh.insertIndices<uint32_t>( indices );
 
 		uf::graph::convert( self );
+	#endif
 	}
 }
 void ext::CraetureBehavior::initialize( uf::Object& self ) {

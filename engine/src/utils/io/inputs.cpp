@@ -1,4 +1,5 @@
 #include <uf/utils/io/inputs.h>
+#include <uf/utils/string/ext.h>
 
 uf::inputs::state_t uf::inputs::kbm::states::LShift = false;
 uf::inputs::state_t uf::inputs::kbm::states::RShift = false;
