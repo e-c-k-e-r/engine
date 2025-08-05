@@ -76,7 +76,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	INCS 				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann png zlib ctti reactphysics lua freetype fmt imgui openal aldc ogg wav gltf # bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann png zlib ctti reactphysics lua freetype fmt imgui openal aldc ogg wav # gltf bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))

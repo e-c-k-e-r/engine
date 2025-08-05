@@ -25,7 +25,11 @@
 #include "../behavior.h"
 #include "../manager/behavior.h"
 
+#if UF_USE_OPENGL
+#define EXT_COLOR_FLOATS 0
+#else
 #define EXT_COLOR_FLOATS 1
+#endif
 
 namespace {
 	struct Mesh {

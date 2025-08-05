@@ -171,9 +171,14 @@ uf::stl::string uf::io::hash( const uf::stl::string& filename ) {
 	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
 }
 bool uf::io::exists( const uf::stl::string& _filename ) {
+#if UF_ENV_DREAMCAST
+	// to-do: actually fix this
+	return true;
+#else
 	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
 	return stat(filename.c_str(), &buffer) == 0;
+#endif
 }
 size_t uf::io::mtime( const uf::stl::string& _filename ) {
 	uf::stl::string filename = sanitize(_filename);
@@ -217,6 +222,7 @@ uf::stl::string uf::io::resolveURI( const uf::stl::string& filename, const uf::s
 		else if ( extension == "gltf" || extensions == "gltf.gz" ) root = uf::io::root + "/models/";
 		else if ( extension == "graph" || extensions == "graph.gz" ) root = uf::io::root + "/models/";
 		else if ( extension == "ogg" || extensions == "ogg.gz" ) root = uf::io::root + "/audio/";
+		else if ( extension == "wav" || extensions == "wav.gz" ) root = uf::io::root + "/audio/";
 		else if ( extension == "spv" || extensions == "spv.gz" ) root = uf::io::root + "/shaders/";
 		else if ( extension == "lua" || extensions == "lua.gz" ) root = uf::io::root + "/scripts/";
 	}

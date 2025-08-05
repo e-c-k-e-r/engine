@@ -1,25 +1,12 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SourceEngine",
+			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": true,
-				"max": 1,
-				"shadows": {
-					"enabled": false,
-					"update": 4,
-					"max": 8,
-					"samples": 4
-				},
-				"bloom": {
-					"scale": 1.0,
-					"strength": 0.125,
-					"sigma": 0.8,
-					"samples": 5,
-					"threshold": 1.0
-				}
+				"useLightmaps": false,
+				"max": 1
 			},
 			"textures": {
 				"max": {
@@ -34,7 +21,7 @@
 		},
 		"ext": {
 			"opengl": {
-				"validation": { "enabled": false },
+				"validation": { "enabled": true },
 				"framebuffer": { "size": 1, "msaa": 1 },
 				"pipelines": {
 					"culling": true
@@ -65,12 +52,6 @@
 			"imgui": {
 				"enabled": false
 			},
-			"fsr": {
-				"enabled": true,
-				"sharpness": 1,
-				"jitter scale": 0.0625,
-				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
-			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
 				"interpolate": false,
@@ -84,16 +65,7 @@
 					"layer": "",
 					"rate": 0.0125
 				}
-			},
-			"vr" :  {
-				"enable" : false,
-				"manifest": "./data/openvr_manifest.json",
-				"swap eyes": false,
-				"dominant eye": 0,
-				"scale": 1.0
-			},
-			"ultralight": { "enabled": true, "scale": 1.5 },
-			"discord": { "enabled": false }
+			}
 		},
 		"audio": {
 			"mute": false,

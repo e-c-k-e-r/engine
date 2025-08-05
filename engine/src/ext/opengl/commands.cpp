@@ -325,7 +325,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case uf::renderer::enums::Type::SHORT: vertexType = GL_SHORT; break;
 		case uf::renderer::enums::Type::USHORT: vertexType = GL_UNSIGNED_SHORT; break;
 
+	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: vertexType = GL_HALF_FLOAT; break;
+	#endif
 	//	case uf::renderer::enums::Type::BFLOAT: vertexType = GL_HALF_FLOAT; break; // 
 		case uf::renderer::enums::Type::FLOAT: vertexType = GL_FLOAT; break;
 	}
@@ -335,7 +337,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case uf::renderer::enums::Type::SHORT: normalType = GL_SHORT; break;
 		case uf::renderer::enums::Type::USHORT: normalType = GL_UNSIGNED_SHORT; break;
 
+	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: normalType = GL_HALF_FLOAT; break;
+	#endif
 	//	case uf::renderer::enums::Type::BFLOAT: normalType = GL_HALF_FLOAT; break; // 
 		case uf::renderer::enums::Type::FLOAT: normalType = GL_FLOAT; break;
 	}
@@ -345,7 +349,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case uf::renderer::enums::Type::SHORT: uvType = GL_SHORT; break;
 		case uf::renderer::enums::Type::USHORT: uvType = GL_UNSIGNED_SHORT; break;
 
+	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: uvType = GL_HALF_FLOAT; break;
+	#endif
 	//	case uf::renderer::enums::Type::BFLOAT: uvType = GL_HALF_FLOAT; break; // 
 		case uf::renderer::enums::Type::FLOAT: uvType = GL_FLOAT; break;
 	}
@@ -354,8 +360,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	switch ( drawInfo.attributes.st.descriptor.type ) {
 		case uf::renderer::enums::Type::SHORT: stType = GL_SHORT; break;
 		case uf::renderer::enums::Type::USHORT: stType = GL_UNSIGNED_SHORT; break;
-
+	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: stType = GL_HALF_FLOAT; break;
+	#endif
 	//	case uf::renderer::enums::Type::BFLOAT: stType = GL_HALF_FLOAT; break; // 
 		case uf::renderer::enums::Type::FLOAT: stType = GL_FLOAT; break;
 	}

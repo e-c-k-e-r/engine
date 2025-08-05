@@ -17,7 +17,7 @@
 		},
 		"bgm": {
 			"tracks": {
-				"/ui/tmrwah.ogg": {}
+				"/ui/tmrwah.wav": {}
 			//	"/ui/main menu.ogg": {},
 			//	"/ui/tainted.ogg": {
 			//		"intro": "/ui/tainted_intro.ogg",

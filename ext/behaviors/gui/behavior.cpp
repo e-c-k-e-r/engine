@@ -168,6 +168,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		//	for ( auto& v : vertices ) v.position.z = metadata.depth;
 		}
 	*/
+	#if UF_USE_OPENGL
+		// for some reason things break and this is needed, but only for OpenGL
+		metadataJson["cull mode"] = "none";
+	#else
+		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "back";
+	#endif
 		graphic.descriptor.parse( metadataJson );
 
 
@@ -208,7 +214,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 
 			#if UF_USE_OPENGL
-				if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
 				if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
 			//	transform.position.z = metadata.depth;
 			#else
@@ -284,8 +289,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		// generate default mesh
 		::generateMesh( mesh, metadata.color );
-		
-		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
 
 		{
 			ext::payloads::GuiInitializationPayload payload;
@@ -318,9 +321,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 				click.x = (click.x * 2.0f) - 1.0f;
 				click.y = (click.y * 2.0f) - 1.0f;
-			#if UF_USE_OPENGL
-				click.y = -click.y;
-			#endif
 
 				float x = click.x;
 				float y = click.y;
@@ -396,9 +396,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			click.x = (click.x * 2.0f) - 1.0f;
 			click.y = (click.y * 2.0f) - 1.0f;
-		#if UF_USE_OPENGL
-			click.y = -click.y;
-		#endif
+
 			float x = click.x;
 			float y = click.y;
 
@@ -484,8 +482,10 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 	// bind UBO
 	#if UF_USE_OPENGL
 	{
+		// "flip" the viewport because I can't be assed to do it within the rendermode
 		if ( metadata.mode == 0 ) {
-			transform.position.y = -transform.position.y;
+			flatten.scale.y = -flatten.scale.y;
+			flatten.position.y = -flatten.position.y;
 		}
 		model = uf::transform::model( transform );
 		auto& shader = graphic.material.getShader("vertex");

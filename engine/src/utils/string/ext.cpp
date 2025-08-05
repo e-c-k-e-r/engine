@@ -57,7 +57,7 @@ uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, 
 		prev = pos + delim.length();
 	} while (pos < str.length() && prev < str.length());
 	if ( tokens.empty() ) tokens.emplace_back(str);
-    return tokens;
+	return tokens;
 /*
 	uf::stl::vector<uf::stl::string> cont;
 	size_t last = 0, next = 0;
@@ -108,71 +108,38 @@ bool uf::string::contains( const uf::stl::string& string, const uf::stl::string&
 	return string.find(search) != uf::stl::string::npos;
 }
 uf::stl::string uf::string::si( double value, const uf::stl::string& unit, size_t precision ) {
-	int power = floor(std::log10( value ));
-	double base = value / std::pow( 10, power );
+	static const struct {
+		int exp;
+		const char* prefix;
+	} SI[] = {
+		{24, "Y"}, {21, "Z"}, {18, "E"}, {15, "P"}, {12, "T"},
+		{ 9, "G"}, { 6, "M"}, { 3, "k"}, { 0, "" },
+		{-3, "m"}, {-6, "μ"}, {-9, "n"}, {-12, "p"}
+	};
 
-//	std::cout << base << " x 10^" << power << " -> ";
+	if (value == 0.0) {
+		return "0" + unit;
+	}
 
-	size_t pValue = -1;
-	#define REDUCE(VAL)\
-		while ( pValue > power && power > VAL ) {\
-			--power;\
-			base *= 10;\
-		}\
-		pValue = VAL;
-	#define INCREASE(VAL)\
-		if ( pValue < power && power < VAL ) std::cout << " (increasing (" << pValue << ", " << VAL << ")) ";\
-		while ( pValue < power && power < VAL ) {\
-			++power;\
-			base /= 10;\
-		}\
-		pValue = VAL;
-	
-	REDUCE(24)
-	REDUCE(21)
-	REDUCE(18)
-	REDUCE(15)
-	REDUCE(12)
-	REDUCE( 9)
-	REDUCE( 6)
-	REDUCE( 3)
-//	REDUCE( 2)
-//	REDUCE( 1)
-	REDUCE( 0)
-/*
-//	INCREASE(-1)
-	INCREASE(-2)
-	INCREASE(-3)
-	INCREASE(-6)
-	INCREASE(-9)
-	INCREASE(-12)
-*/
+	int exp = static_cast<int>(std::floor(std::log10(std::fabs(value))));
+	int exp3 = exp / 3 * 3; // Round down to nearest multiple of 3
 
-	// std::cout << base << " x 10^" << power << std::endl;
+	// Clamp to available SI prefixes
+	if (exp3 > 24) exp3 = 24;
+	if (exp3 < -12) exp3 = -12;
+
+	// Find matching SI prefix
+	const char* prefix = "";
+	for (const auto& si : SI) {
+		if (exp3 == si.exp) {
+			prefix = si.prefix;
+			break;
+		}
+	}
+
+	double scaled = value / std::pow(10, exp3);
 
 	uf::stl::stringstream ss;
-	ss << std::fixed << std::setprecision(precision) << base;
-	uf::stl::string string = ss.str();
-
-	switch ( power ) {
-		case 24: string += "Y"; break;
-		case 21: string += "Z"; break;
-		case 18: string += "E"; break;
-		case 15: string += "P"; break;
-		case 12: string += "T"; break;
-		case  9: string += "G"; break;
-		case  6: string += "M"; break;
-		case  3: string += "k"; break;
-	//	case  2: string += "h"; break;
-	//	case  1: string += "da"; break;
-		case  0: string += ""; break;
-	//	case -1: string += "d"; break;
-		case -2: string += "c"; break;
-		case -3: string += "m"; break;
-		case -6: string += "μ"; break;
-		case -9: string += "n"; break;
-		case-12: string += "p"; break;
-	}
-	string += unit;
-	return string;
+	ss << std::fixed << std::setprecision(precision) << scaled << prefix << unit;
+	return ss.str();
 }

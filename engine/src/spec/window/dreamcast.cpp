@@ -327,8 +327,6 @@ void spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _
 
 	this->setSize(_size);
 
-	UF_MSG_DEBUG("DBL_MEM: {}", DBL_MEM);
-
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	this->m_context = (void*) spec::uni::Context::create( settings, *this );
 #endif

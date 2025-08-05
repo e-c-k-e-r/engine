@@ -108,11 +108,7 @@ namespace {
 }
 
 void EXT_API ext::load() {
-#if UF_ENV_DREAMCAST
-	ext::config.readFromFile("/cd/data/config.json");
-#else
-	ext::config.readFromFile(uf::io::root+"/config.json");
-#endif
+	ext::config.readFromFile(uf::io::root+"config.json");
 }
 void EXT_API ext::load( ext::json::Value& json ) {
 	::config.engine.gc.enabled = json["engine"]["debug"]["garbage collection"]["enabled"].as(::config.engine.gc.enabled);
