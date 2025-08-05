@@ -32,9 +32,13 @@ local light = {
 	entity = nil
 }
 for k, v in pairs(ent:getChildren()) do
+	if type(v) == "number" then
+		goto continue
+	end
 	if v:name() == "Light" then
 		light.entity = v
 	end
+	::continue::
 end
 
 if light.entity == nil then

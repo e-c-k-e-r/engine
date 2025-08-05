@@ -3,7 +3,12 @@
 #include <uf/config.h>
 #if UF_USE_VORBIS
 
-#include <vorbis/vorbisfile.h>
+#if UF_USE_TREMOR
+	#include <tremor/ivorbisfile.h>
+#else
+	#include <vorbis/vorbisfile.h>
+#endif
+
 #include <uf/utils/audio/audio.h>
 
 namespace ext {

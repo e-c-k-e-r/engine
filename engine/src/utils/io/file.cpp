@@ -172,8 +172,12 @@ uf::stl::string uf::io::hash( const uf::stl::string& filename ) {
 }
 bool uf::io::exists( const uf::stl::string& _filename ) {
 #if UF_ENV_DREAMCAST
-	// to-do: actually fix this
-	return true;
+	FILE* file = fopen(_filename.c_str(), "r");
+	if (file) {
+		fclose(file);
+		return true;
+	}
+	return false;
 #else
 	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;

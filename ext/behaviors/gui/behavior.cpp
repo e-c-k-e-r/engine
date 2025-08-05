@@ -84,13 +84,13 @@ namespace {
 	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color = {1, 1, 1, 1} ) {
 		mesh.bind<::Mesh, uint16_t>();
 		mesh.insertVertices<::Mesh>({
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
 			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
-		
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
 			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
+		
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
 		});
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 3, 4, 5
@@ -168,14 +168,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		//	for ( auto& v : vertices ) v.position.z = metadata.depth;
 		}
 	*/
-	#if UF_USE_OPENGL
-		// for some reason things break and this is needed, but only for OpenGL
-		metadataJson["cull mode"] = "none";
-	#else
 		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "back";
-	#endif
-		graphic.descriptor.parse( metadataJson );
 
+		// 
+		graphic.descriptor.parse( metadataJson );
 
 		// bind texture data
 		if ( payload.image ) {
@@ -213,23 +209,13 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
 			}
 
-			#if UF_USE_OPENGL
-				if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
-			//	transform.position.z = metadata.depth;
-			#else
-			//	if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
-			#endif
 		#if UF_USE_OPENGL
+			if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
+			
+			// set depth 
 			for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-				// set depth
 				float* position = (float*) (static_cast<uint8_t*>(positionAttribute.pointer) + i * positionAttribute.stride );
 				position[2] = metadata.depth;
-			
-				// flip
-			/*
-				float* uv = (float*) (static_cast<uint8_t*>(uvAttribute.pointer) + i * uvAttribute.stride );
-				uv[1] = 1.0f - uv[1];
-			*/
 			}
 		#endif
 

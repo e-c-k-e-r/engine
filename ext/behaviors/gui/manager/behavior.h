@@ -12,7 +12,11 @@ namespace ext {
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector2ui size = { 1, 1 };
+		#if UF_ENV_DREAMCAST
+			pod::Vector2ui reference = { 640, 480 };
+		#else
 			pod::Vector2ui reference = { 1920, 1080 };
+		#endif
 
 			bool boundGui = false;
 		);

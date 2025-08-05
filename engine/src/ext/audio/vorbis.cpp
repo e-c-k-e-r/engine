@@ -13,44 +13,29 @@
 #include <cstdio>
 #include <cstring>
 
+#if UF_USE_TREMOR
+	#define OV_READ( file, buffer, len, endian, _x, _y, bitStream ) ov_read( file, buffer, len, bitStream )
+#else
+	#define OV_READ( file, buffer, len, endian, _x, _y, bitStream ) ov_read( file, buffer, len, endian, _x, _y, bitStream )
+#endif
+
 namespace {
 	constexpr int endian = 0; // 0 = little endian
 
 	namespace funs {
 		size_t read(void* destination, size_t size, size_t nmemb, void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			std::ifstream& file = *metadata.stream.file;
-			size_t length = size * nmemb;
-
-			if (metadata.stream.consumed + length > metadata.info.size)
-				length = metadata.info.size - metadata.stream.consumed;
-
-			if (!file.is_open()) {
-				file.open(metadata.filename, std::ios::binary);
-				if (!file.is_open()) {
-					UF_MSG_ERROR("Could not open file: {}", metadata.filename);
-					return 0;
-				}
-			}
-			file.clear();
-			file.seekg(metadata.stream.consumed);
-			uf::stl::vector<char> data(length);
-			if (!file.read(data.data(), length)) {
-				if (file.eof()) file.clear();
-				else {
-					UF_MSG_ERROR("File stream error: {}", metadata.filename);
-					file.clear();
-					return 0;
-				}
-			}
-			memcpy(destination, data.data(), length);
-			metadata.stream.consumed += length;
-			return length;
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			FILE* file = (FILE*) metadata.stream.file;
+			size_t read_count = fread(destination, size, nmemb, file);
+			metadata.stream.consumed += read_count * size;
+			return read_count;
 		}
 
-		int seek(void* userdata, ogg_int64_t to, int type) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			switch (type) {
+		int seek( void* userdata, ogg_int64_t to, int type ) {
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			FILE* file = (FILE*) metadata.stream.file;
+
+			switch ( type ) {
 				case SEEK_CUR: metadata.stream.consumed += to; break;
 				case SEEK_END: metadata.stream.consumed = metadata.info.size - to; break;
 				case SEEK_SET: metadata.stream.consumed = to; break;
@@ -58,22 +43,23 @@ namespace {
 			}
 			if (metadata.stream.consumed < 0) metadata.stream.consumed = 0;
 			if (metadata.stream.consumed > metadata.info.size) metadata.stream.consumed = metadata.info.size;
+			
+			if (fseek(file, to, type) != 0) return -1;
 			return 0;
 		}
 
 		int close(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			if (metadata.stream.file) {
-				std::ifstream& file = *metadata.stream.file;
-				if (file.is_open()) file.close();
-				delete metadata.stream.file;
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			FILE* file = (FILE*) metadata.stream.file;
+			if ( file ) {
+				fclose(file);
 				metadata.stream.file = NULL;
 			}
 			return 0;
 		}
 
 		long tell(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
 			return metadata.stream.consumed;
 		}
 	}
@@ -92,17 +78,13 @@ namespace {
 }
 
 void ext::vorbis::open(uf::Audio::Metadata& metadata) {
-	if (metadata.settings.streamed)
-		stream(metadata);
-	else
-		load(metadata);
-}
+	if ( !metadata.stream.file ) metadata.stream.file = fopen(metadata.filename.c_str(), "rb");
+	if ( !metadata.stream.handle ) metadata.stream.handle = (void*) new OggVorbis_File;
 
-void ext::vorbis::load(uf::Audio::Metadata& metadata) {
-	if (metadata.settings.streamed) return stream(metadata);
+	FILE* file = (FILE*) metadata.stream.file;
+	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
-	FILE* file = fopen(metadata.filename.c_str(), "rb");
-	if (!file) {
+	if ( !file ) {
 		UF_MSG_ERROR("Vorbis: failed to open {}. File error.", metadata.filename);
 		return;
 	}
@@ -112,81 +94,58 @@ void ext::vorbis::load(uf::Audio::Metadata& metadata) {
 	fseek(file, 0, SEEK_SET);
 	metadata.stream.consumed = 0;
 
-	OggVorbis_File vorbisFile;
-	if (ov_open_callbacks(file, &vorbisFile, NULL, 0, OV_CALLBACKS_DEFAULT) < 0) {
-		UF_MSG_ERROR("Vorbis: failed to open {}. Not Ogg.", metadata.filename);
-		fclose(file);
+	ov_callbacks callbacks;
+	callbacks.read_func = funs::read;
+	callbacks.seek_func = funs::seek;
+	callbacks.close_func = funs::close;
+	callbacks.tell_func = funs::tell;
+	
+	int error = ov_open_callbacks((void*) &metadata, vorbisFile, NULL,  metadata.settings.streamed ? -1 : 0, callbacks);
+	if (error < 0) {
+		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: {}", metadata.filename);
 		return;
 	}
 
-	vorbis_info* info = ov_info(&vorbisFile, -1);
+	vorbis_info* info = ov_info(vorbisFile, -1);
 	metadata.info.channels = info->channels;
 	metadata.info.bitDepth = 16;
 	metadata.info.frequency = info->rate;
-	metadata.info.duration = ov_time_total(&vorbisFile, -1);
+	metadata.info.duration = ov_time_total(vorbisFile, -1);
 
-	if (!format(metadata, info->channels, 16)) {
-		ov_clear(&vorbisFile);
+	if ( !format(metadata, info->channels, 16) ) {
+		ov_clear(vorbisFile);
 		return;
 	}
+
+	if ( metadata.settings.streamed ) ext::vorbis::stream(metadata); else ext::vorbis::load(metadata);
+}
+
+void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
+	if ( metadata.settings.streamed ) return ext::vorbis::stream(metadata);
+
+	FILE* file = (FILE*) metadata.stream.file;
+	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
 	uf::stl::vector<char> bytes;
 	char buffer[uf::audio::bufferSize];
 	int bitStream = 0;
 	int read = 0;
 	do {
-		read = ov_read(&vorbisFile, buffer, uf::audio::bufferSize, endian, 2, 1, &bitStream);
-		if (read > 0)
-			bytes.insert(bytes.end(), buffer, buffer + read);
-	} while (read > 0);
+		read = OV_READ(vorbisFile, buffer, uf::audio::bufferSize, endian, 2, 1, &bitStream);
+		if ( read > 0 ) bytes.insert(bytes.end(), buffer, buffer + read);
+	} while ( read > 0 );
 
-	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei)bytes.size(), metadata.info.frequency);
-	metadata.al.source.set(AL_BUFFER, (ALint)metadata.al.buffer.getIndex());
+	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei) bytes.size(), metadata.info.frequency);
+	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
 
-	ov_clear(&vorbisFile);
+	ov_clear(vorbisFile);
+	fclose(file);
 }
 
 void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
-	if (!metadata.settings.streamed) return load(metadata);
+	if ( !metadata.settings.streamed ) return ext::vorbis::load(metadata);
 
-	if (!metadata.stream.file) metadata.stream.file = new std::ifstream;
-	if (!metadata.stream.handle) metadata.stream.handle = new OggVorbis_File;
-
-	std::ifstream& file = *metadata.stream.file;
-	OggVorbis_File& vorbisFile = *(OggVorbis_File*)metadata.stream.handle;
-
-	file.open(metadata.filename, std::ios::binary);
-	if (!file.is_open()) {
-		UF_MSG_ERROR("Vorbis: failed to open file stream: {}", metadata.filename);
-		return;
-	}
-
-	file.seekg(0, std::ios::end);
-	metadata.info.size = file.tellg();
-	file.seekg(0, std::ios::beg);
-	metadata.stream.consumed = 0;
-
-	ov_callbacks callbacks;
-	callbacks.read_func = funs::read;
-	callbacks.seek_func = funs::seek;
-	callbacks.close_func = funs::close;
-	callbacks.tell_func = funs::tell;
-
-	if (ov_open_callbacks((void*)&metadata, &vorbisFile, NULL, -1, callbacks) < 0) {
-		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: {}", metadata.filename);
-		return;
-	}
-
-	vorbis_info* info = ov_info(&vorbisFile, -1);
-	metadata.info.channels = info->channels;
-	metadata.info.bitDepth = 16;
-	metadata.info.frequency = info->rate;
-	metadata.info.duration = ov_time_total(&vorbisFile, -1);
-
-	if (!format(metadata, info->channels, 16)) {
-		ov_clear(&vorbisFile);
-		return;
-	}
+	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
 	// Fill and queue initial buffers
 	char buffer[uf::audio::bufferSize];
@@ -195,10 +154,10 @@ void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
 	for (; queuedBuffers < metadata.settings.buffers; ++queuedBuffers) {
 		int totalRead = 0;
 		while (totalRead < uf::audio::bufferSize) {
-			int result = ov_read(&vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
+			int result = OV_READ(vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
 			if (result <= 0) {
 				if (result == 0 && metadata.settings.loop) {
-					if (ov_raw_seek(&vorbisFile, 0) != 0) {
+					if (ov_raw_seek(vorbisFile, 0) != 0) {
 						UF_MSG_ERROR("Vorbis: failed to loop (seek to start): {}", metadata.filename);
 						break;
 					}
@@ -244,7 +203,7 @@ void ext::vorbis::update(uf::Audio::Metadata& metadata) {
 	metadata.al.source.get(AL_BUFFERS_PROCESSED, processed);
 	if (processed <= 0) return;
 
-	OggVorbis_File& vorbisFile = *(OggVorbis_File*)metadata.stream.handle;
+	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 	int bitStream = metadata.stream.bitStream;
 	ALuint index;
 	char buffer[uf::audio::bufferSize];
@@ -255,10 +214,10 @@ void ext::vorbis::update(uf::Audio::Metadata& metadata) {
 
 		int totalRead = 0;
 		while (totalRead < uf::audio::bufferSize) {
-			int result = ov_read(&vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
+			int result = OV_READ(vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
 			if (result <= 0) {
 				if (result == 0 && metadata.settings.loop) {
-					if (ov_raw_seek(&vorbisFile, 0) != 0) {
+					if (ov_raw_seek(vorbisFile, 0) != 0) {
 						UF_MSG_ERROR("Vorbis: failed to loop (seek to start): {}", metadata.filename);
 						break;
 					}
@@ -292,9 +251,9 @@ void ext::vorbis::close(uf::Audio::Metadata& metadata) {
 		delete file;
 		metadata.stream.handle = NULL;
 	}
-	if (metadata.stream.file) {
-		if (metadata.stream.file->is_open()) metadata.stream.file->close();
-		delete metadata.stream.file;
+	if ( metadata.stream.file ) {
+		FILE* file = (FILE*) metadata.stream.file;
+		fclose(file);
 		metadata.stream.file = NULL;
 	}
 }

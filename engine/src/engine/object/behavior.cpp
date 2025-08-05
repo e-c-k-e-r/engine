@@ -200,7 +200,6 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	//	uf::physics::detach( collider );
 		uf::physics::terminate( *this );
 	}
-#if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		if ( uf::renderer::settings::experimental::registerRenderMode ) {
@@ -232,8 +231,6 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	for ( uf::Entity* kv : this->getChildren() ) kv->destroy();
 	if ( this->hasParent() ) this->getParent().removeChild(*this);
 	this->unsetUid();
-#endif
-
 #endif
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {

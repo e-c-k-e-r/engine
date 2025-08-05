@@ -36,23 +36,11 @@ EXT_LIB_NAME 			+= ext
 
 7Z 						+= /c/Program\ Files/7-Zip/7z.exe
 
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.204.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.216.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.224.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.231.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.261.1/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.296.0/
 VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.4.321.1/
-
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
 SPV_LINTER 				+= $(VULKAN_SDK_PATH)/Bin/spirv-lint
+
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)
 LIB_DIR 				+= $(ENGINE_LIB_DIR)
@@ -62,23 +50,24 @@ LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
-FLAGS 					+= -DUF_DEBUG
+FLAGS 					+= -DUF_DEV_ENV
 
 ifneq (,$(findstring win64,$(ARCH)))
-	ifneq (,$(findstring -DUF_DEBUG,$(FLAGS)))
+	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
 		FLAGS 				+= -g
 	endif
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav # meshoptimizer toml xatlas curl ffx:fsr cpptrace # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
 	INCS 				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann png zlib ctti reactphysics lua freetype fmt imgui openal aldc ogg wav # gltf bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua reactphysics simd ctti imgui fmt freetype openal aldc ogg wav png
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
+
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
 	DEPS 				+= -lvulkan-1 -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
@@ -96,9 +85,11 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 			DEPS 		+= -lGL
 		endif
 	else
+		# software rendering version through GLdc
 		ifneq (,$(findstring gldc,$(REQ_DEPS)))
 			DEPS 			+= -lGLdc -lSDL2
 			FLAGS 			+= -DUF_USE_OPENGL_GLDC
+		# OpenGL through GLEW
 		else
 			FLAGS 			+= -DUF_USE_GLEW
 			DEPS 			+= -lglew32 -lopengl32 -lglu32
@@ -140,18 +131,6 @@ endif
 ifneq (,$(findstring gltf,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_GLTF
 endif
-ifneq (,$(findstring png,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_PNG -DUF_USE_ZLIB
-	DEPS 				+= -lpng -lz
-endif
-ifneq (,$(findstring lz4,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_LZ4
-	DEPS 				+= -llz4
-endif
-ifneq (,$(findstring xz,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_XZ -DUF_USE_LZMA
-	DEPS 				+= -lxz -llzma
-endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENAL -DUF_USE_ALUT
 	ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -168,7 +147,8 @@ endif
 ifneq (,$(findstring ogg,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_VORBIS
 	ifneq (,$(findstring dreamcast,$(ARCH)))
-		DEPS 				+= -lvorbis -logg
+		FLAGS 				+= -DUF_USE_TREMOR
+		DEPS 				+= -ltremor
 	else
 		DEPS 				+= -lvorbis -lvorbisfile -logg
 	endif
@@ -176,21 +156,17 @@ endif
 ifneq (,$(findstring wav,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_WAV
 endif
+ifneq (,$(findstring zlib,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_ZLIB
+	DEPS 				+= -lz
+endif
 ifneq (,$(findstring freetype,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_FREETYPE 
 	DEPS 				+= -lfreetype -lbz2
 endif
-ifneq (,$(findstring ncurses,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_NCURSES
-	DEPS 				+= -lncursesw
-endif
 ifneq (,$(findstring curl,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_CURL
 	DEPS 				+= -lcurl
-endif
-ifneq (,$(findstring discord,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_DISCORD
-	DEPS 				+= -ldiscord_game_sdk
 endif
 ifneq (,$(findstring openvr,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENVR -DUSE_OPENVR_MINGW
@@ -209,19 +185,6 @@ ifneq (,$(findstring lua,$(REQ_DEPS)))
 		endif
 	endif
 endif
-ifneq (,$(findstring ultralight-ux,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_ULTRALIGHT_UX
-	DEPS 				+= -lUltralight -lUltralightCore -lWebCore -lAppCore
-endif
-ifneq (,$(findstring bullet,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_BULLET
-	ifneq (,$(findstring dreamcast,$(ARCH)))
-		DEPS 				+= -lbulletdynamics -lbulletcollision -lbulletlinearmath
-	else
-		DEPS 				+= -lBulletDynamics -lBulletCollision -lLinearMath
-		INCS 				+= -I./dep/include/bullet/
-	endif
-endif
 ifneq (,$(findstring reactphysics,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_REACTPHYSICS
 	DEPS 				+= -lreactphysics3d
@@ -236,10 +199,6 @@ endif
 ifneq (,$(findstring meshoptimizer,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_MESHOPT
 	DEPS 				+= -lmeshoptimizer
-endif
-ifneq (,$(findstring draco,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_DRACO
-	DEPS 				+= -ldraco
 endif
 ifneq (,$(findstring xatlas,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_XATLAS
@@ -257,14 +216,36 @@ ifneq (,$(findstring vall_e,$(REQ_DEPS)))
 	INCS 				+= -I./dep/include/vall_e.cpp/
 	DEPS 				+= -lvall_e
 endif
-
-# SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
-#SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
-ifneq (,$(findstring zig,$(CC)))
-	SRCS_DLL 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp") $(shell find ./dep/zig/src/ -name "*.cpp")
-else
-	SRCS_DLL 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
+ifneq (,$(findstring draco,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_DRACO
+	DEPS 				+= -ldraco
 endif
+ifneq (,$(findstring ultralight-ux,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_ULTRALIGHT_UX
+	DEPS 				+= -lUltralight -lUltralightCore -lWebCore -lAppCore
+endif
+ifneq (,$(findstring discord,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_DISCORD
+	DEPS 				+= -ldiscord_game_sdk
+endif
+ifneq (,$(findstring ncurses,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_NCURSES
+	DEPS 				+= -lncursesw
+endif
+ifneq (,$(findstring png,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_PNG
+	DEPS 				+= -lpng
+endif
+ifneq (,$(findstring lz4,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_LZ4
+	DEPS 				+= -llz4
+endif
+ifneq (,$(findstring xz,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_XZ -DUF_USE_LZMA
+	DEPS 				+= -lxz -llzma
+endif
+
+SRCS_DLL 				:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
 IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a
@@ -430,12 +411,5 @@ clean-shaders:
 	-rm $(TARGET_SHADERS)
 
 backup:
-	#make ARCH=dreamcast clean
-	#make CC=gcc RENDERER=opengl clean
-	#make CC=gcc RENDERER=vulkan clean
-	#make CC=clang RENDERER=opengl clean
-	#make CC=clang RENDERER=vulkan clean
-	#make CC=zig RENDERER=opengl clean
-	#make CC=zig RENDERER=vulkan clean
 	@-rm $(shell find $(ENGINE_SRC_DIR) -name "*.o") $(shell find $(EXT_SRC_DIR) -name "*.o") $(shell find $(DEP_SRC_DIR) -name "*.o")
 	$(7Z) a -bsp1 -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z . -xr!.git

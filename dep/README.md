@@ -4,6 +4,5 @@ This folder stores any code for external dependencies because my environment has
 
 Separate per-target copies of dependencies may exist here as well, such as:
 * Dreamcast
-* Zig
 
-All code under this repo is not mine and are licensed under their respective licenses.
+All code under this folder is not mine and are licensed under their respective licenses.

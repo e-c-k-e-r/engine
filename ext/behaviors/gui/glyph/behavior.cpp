@@ -84,7 +84,11 @@ namespace {
 
 	struct {
 		uf::Serializer settings;
+	#if UF_ENV_DREAMCAST
+		pod::Vector2ui size = { 640, 480 };
+	#else
 		pod::Vector2ui size = { 1920, 1080 };
+	#endif
 	} defaults;
 }
 
@@ -208,11 +212,7 @@ namespace {
 				if ( !glyph.generated() ) {
 					glyph.setPadding( { metadata.padding[0], metadata.padding[1] } );
 					glyph.setSpread( metadata.spread );
-				#if UF_USE_VULKAN
-					if ( metadata.sdf ) glyph.useSdf(true);
-				#else
-					glyph.useSdf(false);
-				#endif
+					glyph.useSdf( metadata.sdf );
 					glyph.generate( glyphs.glyph, c, metadata.size );
 				}
 
@@ -353,6 +353,8 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 		auto font = uf::io::root+"/fonts/" + payload["font"].as(metadata.font);
 		bool forced = payload["force"].as(false);
 
+		metadata.sdf = false;
+
 		auto glyphs = ::generateGlyphs( self, string );
 
 		auto& scene = uf::scene::getCurrentScene();
@@ -381,7 +383,6 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 				if ( metadata.sdf ) {
 					glyph_atlas_map[key] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
 				} else {
-				#if 1 || UF_ENV_DREAMCAST
 					pixels.reserve( len * 4 );
 					for ( size_t i = 0; i < len; ++i ) {
 						pixels.emplace_back( buffer[i] );
@@ -391,7 +392,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 					//	pixels.emplace_back( buffer[i] > 127 ? 255 : 0 );
 					}
 					glyph_atlas_map[key] = atlas.addImage( &pixels[0], glyph.getSize(), 8, 4, true );
-				#else
+				#if 0
 					pixels.reserve( len * 2 );
 					for ( size_t i = 0; i < len; ++i ) {
 						pixels.emplace_back( buffer[i] );
@@ -434,6 +435,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
 				vertices.emplace_back( ::Mesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
@@ -565,7 +567,6 @@ void ext::GuiGlyphBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shader.weight = serializer["weight"].as(/*this->*/shader.weight);
 	/*this->*/shader.stroke = uf::vector::decode(serializer["stroke"], /*this->*/shader.stroke);
 	/*this->*/shader.range = uf::vector::decode(serializer["range"], /*this->*/shader.range);
-
 
 	size_t newHash = ::hashGlyphSettings( string, *this );
 	

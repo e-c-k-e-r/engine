@@ -15,7 +15,7 @@
 
 namespace {
 	namespace funs {
-		size_t wav_read(void* destination, size_t size, size_t nmemb, void* userdata) {
+		size_t read(void* destination, size_t size, size_t nmemb, void* userdata) {
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
 			drwav* wav = (drwav*) metadata.stream.handle;
 			size_t bytesRequested = size * nmemb;
@@ -28,7 +28,7 @@ namespace {
 			metadata.stream.consumed += bytesRead;
 			return bytesRead;
 		}
-		int wav_seek(void* userdata, int64_t to, int type) {
+		int seek(void* userdata, int64_t to, int type) {
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
 			drwav* wav = (drwav*) metadata.stream.handle;
 
@@ -43,7 +43,7 @@ namespace {
 			metadata.stream.consumed = (size_t)(targetFrame * wav->channels * (wav->bitsPerSample / 8));
 			return 0;
 		}
-		int wav_close(void* userdata) {
+		int close(void* userdata) {
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
 			drwav* wav = (drwav*) metadata.stream.handle;
 			if (wav) {
@@ -53,7 +53,7 @@ namespace {
 			}
 			return 0;
 		}
-		long wav_tell(void* userdata) {
+		long tell(void* userdata) {
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
 			return metadata.stream.consumed;
 		}
@@ -89,7 +89,7 @@ void ext::wav::open(uf::Audio::Metadata& metadata) {
 		metadata.info.format = AL_FORMAT_STEREO16;
 	else {
 		UF_MSG_ERROR("WAV: unrecognized format: {} channels, {} bps", wav->channels, wav->bitsPerSample);
-		funs::wav_close(&metadata);
+		funs::close(&metadata);
 		return;
 	}
 
@@ -107,8 +107,8 @@ void ext::wav::load(uf::Audio::Metadata& metadata) {
 	size_t totalBytes = (size_t) metadata.info.size;
 	std::vector<uint8_t> bytes(totalBytes);
 
-	// Use funs::wav_read instead of drwav_read_pcm_frames
-	size_t bytesRead = funs::wav_read(bytes.data(), 1, totalBytes, &metadata);
+	// Use funs::read instead of drwav_read_pcm_frames
+	size_t bytesRead = funs::read(bytes.data(), 1, totalBytes, &metadata);
 	if (bytesRead < totalBytes) {
 		bytes.resize(bytesRead); // in case file is truncated
 	}
@@ -117,29 +117,29 @@ void ext::wav::load(uf::Audio::Metadata& metadata) {
 	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei) bytes.size(), metadata.info.frequency);
 	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
 
-	funs::wav_close(&metadata);
+	funs::close(&metadata);
 }
 
 void ext::wav::stream(uf::Audio::Metadata& metadata) {
 	if (!metadata.settings.streamed) return ext::wav::load(metadata);
 
 	// Ensure we're at the start
-	funs::wav_seek(&metadata, 0, SEEK_SET);
+	funs::seek(&metadata, 0, SEEK_SET);
 
 	drwav* wav = (drwav*) metadata.stream.handle;
 	char buffer[uf::audio::bufferSize];
 	uint8_t queuedBuffers = 0;
 	for (; queuedBuffers < metadata.settings.buffers; ++queuedBuffers) {
-		size_t bytesRead = funs::wav_read(buffer, 1, uf::audio::bufferSize, &metadata);
+		size_t bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
 
 		if (bytesRead == 0) {
 			if (metadata.settings.loop) {
 				metadata.stream.consumed = 0;
-				if (funs::wav_seek(&metadata, 0, SEEK_SET) != 0) {
+				if (funs::seek(&metadata, 0, SEEK_SET) != 0) {
 					UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
 					break;
 				}
-				bytesRead = funs::wav_read(buffer, 1, uf::audio::bufferSize, &metadata);
+				bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
 			}
 		}
 
@@ -186,17 +186,17 @@ void ext::wav::update(uf::Audio::Metadata& metadata) {
 		memset(buffer, 0, uf::audio::bufferSize);
 		AL_CHECK_RESULT(alSourceUnqueueBuffers(metadata.al.source.getIndex(), 1, &index));
 
-		// Use funs::wav_read instead of drwav_read_pcm_frames
-		size_t bytesRead = funs::wav_read(buffer, 1, uf::audio::bufferSize, &metadata);
+		// Use funs::read instead of drwav_read_pcm_frames
+		size_t bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
 
 		if (bytesRead == 0) {
 			// no more data left to read, reset file stream if we're looping
 			if (!metadata.settings.loop) break;
-			if (funs::wav_seek(&metadata, 0, SEEK_SET) != 0) {
+			if (funs::seek(&metadata, 0, SEEK_SET) != 0) {
 				UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
 				break;
 			}
-			bytesRead = funs::wav_read(buffer, 1, uf::audio::bufferSize, &metadata);
+			bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
 			if (bytesRead == 0) {
 				UF_MSG_ERROR("WAV: failed to read after looping: {}", metadata.filename);
 				break;
@@ -218,7 +218,7 @@ void ext::wav::update(uf::Audio::Metadata& metadata) {
 
 void ext::wav::close(uf::Audio::Metadata& metadata) {
 	if (metadata.stream.handle) {
-		funs::wav_close(&metadata);
+		funs::close(&metadata);
 	}
 	metadata.stream.handle = nullptr;
 }
