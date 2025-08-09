@@ -640,42 +640,6 @@ void EXT_API ext::initialize() {
 			}
 		}
 
-#if UF_USE_VULKAN
-		/* Callbacks for 2KHR stuffs */ {
-			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
-			//	UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);
-			});
-			uf::hooks.addHook("vulkan:Device.ExtensionsEnabled", []( const ext::json::Value& json ) {
-			//	UF_MSG_DEBUG("vulkan:Device.ExtensionsEnabled: " << json);
-			});
-			uf::hooks.addHook("vulkan:Device.FeaturesEnabled", []( const ext::json::Value& json ) {
-			//	UF_MSG_DEBUG("vulkan:Device.FeaturesEnabled: " << json);
-
-				VkPhysicalDeviceFeatures2KHR deviceFeatures2{};
-				VkPhysicalDeviceMultiviewFeaturesKHR extFeatures{};
-				extFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
-				deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR;
-				deviceFeatures2.pNext = &extFeatures;
-				PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceFeatures2KHR"));
-				vkGetPhysicalDeviceFeatures2KHR(uf::renderer::device.physicalDevice, &deviceFeatures2);
-			//	UF_MSG_DEBUG("Multiview features:" );
-			//	UF_MSG_DEBUG("\tmultiview = " << extFeatures.multiview );
-			//	UF_MSG_DEBUG("\tmultiviewGeometryShader = " << extFeatures.multiviewGeometryShader );
-			//	UF_MSG_DEBUG("\tmultiviewTessellationShader = " << extFeatures.multiviewTessellationShader );
-
-				VkPhysicalDeviceProperties2KHR deviceProps2{};
-				VkPhysicalDeviceMultiviewPropertiesKHR extProps{};
-				extProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHR;
-				deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-				deviceProps2.pNext = &extProps;
-				PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceProperties2KHR"));
-				vkGetPhysicalDeviceProperties2KHR(uf::renderer::device.physicalDevice, &deviceProps2);
-			//	UF_MSG_DEBUG("Multiview properties:");
-			//	UF_MSG_DEBUG("\tmaxMultiviewViewCount = " << extProps.maxMultiviewViewCount);
-			//	UF_MSG_DEBUG("\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex);
-			});
-		}
-#endif
 	}
 #if UF_USE_OPENVR
 	if ( ext::openvr::enabled ) {
@@ -752,47 +716,6 @@ void EXT_API ext::initialize() {
 	}
 #endif
 	/* Add hooks */ {
-
-	#if 0
-		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
-			auto function = [json](){
-				uf::hooks.call("game:Scene.Cleanup");
-				auto& scene = uf::scene::loadScene( json["scene"].as<uf::stl::string>() );
-				auto& metadata = scene.getComponent<uf::Serializer>();
-			};
-		
-
-			if ( json["immediate"].as<bool>(false) ) function();
-			else uf::thread::queue( uf::thread::get(uf::thread::mainThreadName), function );
-		});
-
-		uf::hooks.addHook( "game:Scene.Cleanup", [&](){
-			if ( ::requestDedicatedRenderThread ) {
-				::requestDedicatedRenderThread = true;
-				uf::renderer::settings::experimental::dedicatedThread = false;
-			}
-			if ( ::requestDeferredCommandBufferSubmit ) {
-				::requestDeferredCommandBufferSubmit = true;
-				uf::renderer::settings::defaultCommandBufferImmediate = true;
-			}
-
-			uf::renderer::synchronize();
-			uf::renderer::flushCommandBuffers();
-
-			uf::scene::unloadScene();
-
-		/*
-			// do GC
-			if ( ::config.engine.gc.enabled ) {
-				size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
-				if ( collected > 0 ) {
-					if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
-					uf::renderer::states::rebuild = true;
-				}
-			}
-		*/
-		});
-	#endif
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			::sceneTransition.payload = json;
 			::sceneTransition.phase = 0;
@@ -806,17 +729,6 @@ void EXT_API ext::initialize() {
 	}
 
 	/* Initialize root scene*/ {
-	/*
-		ext::json::Value payload;
-		payload["scene"] = ::json["engine"]["scenes"]["start"];
-		payload["immediate"] = true;
-		uf::hooks.call("game:Scene.Load", payload);
-	*/
-	/*
-		ext::json::Value payload;
-		payload["scene"] = ::json["engine"]["scenes"]["start"];
-		uf::hooks.call("game:Scene.Load", payload);
-	*/
 		ext::json::Value payload;
 		payload["scene"] = ::json["engine"]["scenes"]["start"];
 		::sceneTransition.payload = payload;
@@ -833,99 +745,6 @@ void EXT_API ext::initialize() {
 	
 	ext::ready = true;
 	UF_MSG_INFO("EXT took {} seconds to initialize", times.sys.elapsed().asDouble());
-
-	//
-	/*
-	{
-		struct Position {
-			pod::Vector3f position;
-			pod::Vector3f normal;
-			pod::Vector4f tangent;
-		};
-		struct TexCoord {
-			pod::ColorRgba color;
-			pod::Vector2f16 uv;
-			pod::Vector2f st;
-			pod::Vector2f16 wx;
-		};
-		struct Weight {
-			pod::Vector4f alpha;
-			pod::Vector4f indices;
-		};
-
-		auto ib_buffer = uf::io::readAsBuffer( "./data/tmp/a.ib" );
-		auto ib_buffer_start = (uint32_t*) ib_buffer.data();
-
-		auto pos_buffer = uf::io::readAsBuffer( "./data/tmp/pos.buf" );
-		auto uv_buffer = uf::io::readAsBuffer( "./data/tmp/uv.buf" );
-		auto weight_buffer = uf::io::readAsBuffer( "./data/tmp/weight.buf" );
-
-		auto pos_buffer_start = (Position*) pos_buffer.data();
-		auto uv_buffer_start = (TexCoord*) uv_buffer.data();
-		auto weight_buffer_start = (Weight*) weight_buffer.data();
-
-		auto pos_stride = sizeof(float) * 10;
-		auto uv_stride = sizeof(uint8_t) * 4 + sizeof(float) * 4;
-		auto weight_stride = sizeof(float) * 8;
-
-		auto vb_stride =  pos_stride + uv_stride + weight_stride;
-		auto ib_stride = sizeof(uint32_t);
-
-		auto ib_count = ib_buffer.size() / ib_stride;
-		auto vb_count = pos_buffer.size() / pos_stride;
-
-		uf::stl::vector<uint32_t> indices( ib_buffer_start, ib_buffer_start + ib_count );
-		uf::stl::vector<uf::graph::mesh::Skinned> vertices( vb_count );
-
-		for ( auto i = 0; i < vb_count; ++i ) {
-			auto& vertex = vertices[i];
-
-			auto& pos = pos_buffer_start[i];
-			auto& uv = uv_buffer_start[i];
-			auto& weight = weight_buffer_start[i];
-
-			vertex.position = pos.position;
-			vertex.normal = pos.normal;
-			vertex.tangent = pos.tangent;
-			
-			vertex.color = uv.color;
-			vertex.uv[0] = uv.uv[0];
-			vertex.uv[1] = uv.uv[1];
-			vertex.st = uv.st;
-			
-			vertex.joints = weight.indices;
-			vertex.weights = weight.alpha;
-		}
-
-		// printout
-		std::stringstream ib_ss;
-		std::stringstream vb_ss;
-		ib_ss << "byte offset: 0\nfirst index: 0\nindex count: " << ib_count << "\ntopology: trianglelist\nformat: DXGI_FORMAT_R16_UINT\n\n";
-		vb_ss << "stride: 92\nfirst vertex: 0\nvertex count: " << vb_count << "\ntopology: trianglelist\nelement[0]:\n  SemanticName: POSITION\n  SemanticIndex: 0\n  Format: R32G32B32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 0\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[1]:\n  SemanticName: NORMAL\n  SemanticIndex: 0\n  Format: R32G32B32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 12\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[2]:\n  SemanticName: TANGENT\n  SemanticIndex: 0\n  Format: R32G32B32A32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 24\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[3]:\n  SemanticName: BLENDWEIGHTS\n  SemanticIndex: 0\n  Format: R32G32B32A32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 40\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[4]:\n  SemanticName: BLENDINDICES\n  SemanticIndex: 0\n  Format: R32G32B32A32_UINT\n  InputSlot: 0\n  AlignedByteOffset: 56\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[5]:\n  SemanticName: COLOR\n  SemanticIndex: 0\n  Format: R8G8B8A8_UNORM\n  InputSlot: 0\n  AlignedByteOffset: 72\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[6]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 0\n  Format: R16G16_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 76\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[7]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 1\n  Format: R32G32_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 80\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nelement[8]:\n  SemanticName: TEXCOORD\n  SemanticIndex: 2\n  Format: R16G16_FLOAT\n  InputSlot: 0\n  AlignedByteOffset: 88\n  InputSlotClass: per-vertex\n  InstanceDataStepRate: 0\nvertex-data:\n\n";
-
-		for ( auto i = 0; i < ib_count / 3; ++i ) {
-			ib_ss << indices[i*3+0] << " " << indices[i*3+1] << " " << indices[i*3+2] << "\n";
-		}
-
-		for ( auto i = 0; i < vb_count; ++i ) {
-			auto& vertex = vertices[i];
-
-			vb_ss <<  "vb0[" << i << "]+000 POSITION: " << vertex.position[0] << ", " << vertex.position[1] << ", " << vertex.position[2] <<
-					"\nvb0[" << i << "]+012 NORMAL: " << vertex.normal[0] << ", " << vertex.normal[1] << ", " << vertex.normal[2] <<
-					"\nvb0[" << i << "]+024 TANGENT: " << vertex.tangent[0] << ", " << vertex.tangent[1] << ", " << vertex.tangent[2] << ", " << vertex.tangent[3] <<
-					"\nvb0[" << i << "]+040 BLENDWEIGHTS: " << vertex.weights[0] << ", " << vertex.weights[1] << ", " << vertex.weights[2] << ", " << vertex.weights[3] <<
-					"\nvb0[" << i << "]+056 BLENDINDICES: " << vertex.joints[0] << ", " << vertex.joints[1] << ", " << vertex.joints[2] << ", " << vertex.joints[3] <<
-					"\nvb0[" << i << "]+072 COLOR: " << (int) vertex.color[0] << ", " << (int) vertex.color[1] << ", " << (int) vertex.color[2] << ", " << (int) vertex.color[3] <<
-					"\nvb0[" << i << "]+076 TEXCOORD: " << vertex.uv[0] << ", " << vertex.uv[1] <<
-					"\nvb0[" << i << "]+080 TEXCOORD1: " << vertex.st[0] << ", " << vertex.st[1] <<
-					"\nvb0[" << i << "]+088 TEXCOORD2: " << vertex.uv[0] << ", " << vertex.uv[1] <<
-					"\n\n";
-		}
-
-		uf::io::write( "./data/tmp/vb.txt", vb_ss.str() );
-		uf::io::write( "./data/tmp/ib.txt", ib_ss.str() );
-	}
-	*/
 }
 
 void EXT_API ext::tick() {
@@ -1043,7 +862,7 @@ void EXT_API ext::tick() {
 	/* Update vulkan */ {
 		uf::renderer::tick();
 	}
-	//UF_TIMER_TRACE("ticking renderer");
+
 #if UF_USE_DISCORD
 	/* Discord */ if ( ::config.engine.ext.discord.enabled ) {
 		ext::discord::tick();
@@ -1068,7 +887,6 @@ void EXT_API ext::tick() {
 	
 	auto& controller = uf::scene::getCurrentScene().getController();
 	
-//	if ( controller.getName() == "Player" ) {	
 	if ( ::config.engine.gc.enabled ) {
 		TIMER( ::config.engine.gc.every ) {
 			size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
@@ -1080,45 +898,16 @@ void EXT_API ext::tick() {
 #if !UF_ENV_DREAMCAST
 	if ( ::times.limiter > 0 ) {
 		double limiter = ::times.limiter * 1000.0;
-	/*
-		static std::chrono::system_clock::time_point cur = std::chrono::system_clock::now();
-		static std::chrono::system_clock::time_point prev = std::chrono::system_clock::now();
-		
-		cur = std::chrono::system_clock::now();
-		std::chrono::duration<double, std::milli> elapsed = cur - prev;
 
-		if ( elapsed.count() < limiter ) {
-			std::chrono::duration<double, std::milli> delta(limiter - elapsed.count());
-			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
-			if ( ::config.engine.limiter.print ) UF_MSG_DEBUG("Frame limiting: sleeping for {:.3f}ms (from {:.3f}ms < {:.3f}ms)", delta.count(), elapsed.count(), limiter);
-			std::this_thread::sleep_for(std::chrono::milliseconds(duration.count()));
-		}
-
-		prev = std::chrono::system_clock::now();
-//		std::chrono::duration<double, std::milli> sleep_time = prev - cur;
-//		UF_MSG_DEBUG("Frame limiting: total time {:.3f}ms ({:.3f}ms + {:.3f}ms)", elapsed.count() + sleep_time.count(), elapsed.count(), sleep_time.count());
-	*/
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		auto elapsed = timer.elapsed().asMilliseconds();
 		if ( elapsed < limiter ) {
 			std::chrono::duration<double, std::milli> delta(limiter - elapsed);
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
-		//	if ( ::config.engine.limiter.print ) UF_MSG_DEBUG("Frame limiting: sleeping for {}ms (from {}ms < {}ms)", delta.count(), elapsed, limiter);
 			std::this_thread::sleep_for(std::chrono::milliseconds(duration.count()));
 		}
 		timer.reset();
-	/*
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		auto elapsed = timer.elapsed().asMilliseconds();
-		long long sleep = (::times.limiter * 1000) - elapsed;
-		if ( sleep > 0 ) {
-		 	if ( ::config.engine.limiter.print ) UF_MSG_DEBUG("Frame limiting: sleeping for {}ms (from {})", elapsed, ::times.limiter * 1000);
-			std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
-		}
-		timer.reset();
-	*/
 	}
 
 

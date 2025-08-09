@@ -2,13 +2,13 @@
 
 
 namespace uf {
-	class UF_API SoundEmitter {
+	class UF_API AudioEmitter {
 	public:
 		typedef uf::stl::vector<uf::Audio> container_t;
 	protected:
-		uf::SoundEmitter::container_t m_container;
+		uf::AudioEmitter::container_t m_container;
 	public:
-		~SoundEmitter();
+		~AudioEmitter();
 		
 		bool has( const uf::stl::string& ) const;
 
@@ -26,13 +26,13 @@ namespace uf {
 		void update();
 		void cleanup( bool = false );
 	};
-	class UF_API MappedSoundEmitter {
+	class UF_API MappedAudioEmitter {
 	public:
 		typedef uf::stl::unordered_map<uf::stl::string, uf::Audio> container_t;
 	protected:
-		uf::MappedSoundEmitter::container_t m_container;
+		uf::MappedAudioEmitter::container_t m_container;
 	public:
-		~MappedSoundEmitter();
+		~MappedAudioEmitter();
 		
 		bool has( const uf::stl::string& ) const;
 
@@ -49,4 +49,7 @@ namespace uf {
 		void update();
 		void cleanup( bool = false );
 	};
+
+	using SoundEmitter = AudioEmitter; // alias
+	using MappedSoundEmitter = MappedAudioEmitter; // alias
 }

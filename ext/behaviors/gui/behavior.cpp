@@ -476,6 +476,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		model = uf::transform::model( transform );
 		auto& shader = graphic.material.getShader("vertex");
 		pod::Uniform uniform;
+		uniform.color = metadata.color;
 
 		if ( metadata.mode == 1 ) {
 			uniform.modelView = model; 

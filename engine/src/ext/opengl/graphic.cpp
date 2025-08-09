@@ -361,7 +361,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	auto uniformBuffer = (*uniformBufferIt).buffer;
 	auto uniformBufferSize = (*uniformBufferIt).range;
 	pod::Camera::Viewports* viewports = (pod::Camera::Viewports*) device->getBuffer( uniformBuffer );
-	pod::Uniform* viewports2 = (pod::Uniform*) device->getBuffer( uniformBuffer );
+	pod::Uniform* uniforms = (pod::Uniform*) device->getBuffer( uniformBuffer );
 
 	CommandBuffer::InfoDraw drawCommandInfoBase = {};
 	drawCommandInfoBase.type = ext::opengl::enums::Command::DRAW;
@@ -372,16 +372,21 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		if ( attribute.descriptor.name == "position" ) drawCommandInfoBase.attributes.position = attribute;
 		else if ( attribute.descriptor.name == "uv" ) drawCommandInfoBase.attributes.uv = attribute;
 		else if ( attribute.descriptor.name == "st" ) drawCommandInfoBase.attributes.st = attribute;
-	//	else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
-	//	else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
+		else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
+		else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
 	}
 
 	if ( uniformBufferSize == sizeof(pod::Camera::Viewports) ) {
 		drawCommandInfoBase.matrices.view = &viewports->matrices[0].view;
 		drawCommandInfoBase.matrices.projection = &viewports->matrices[0].projection;
 	} else if ( uniformBufferSize == sizeof(pod::Uniform) ) {
-		drawCommandInfoBase.matrices.model = &viewports2->modelView;
-		drawCommandInfoBase.matrices.projection = &viewports2->projection;
+		drawCommandInfoBase.matrices.model = &uniforms->modelView;
+		drawCommandInfoBase.matrices.projection = &uniforms->projection;
+
+		drawCommandInfoBase.color.value = uniforms->color;
+		drawCommandInfoBase.color.enabled = drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+
+		UF_MSG_DEBUG("{}: {}", uf::vector::toString(drawCommandInfoBase.color.value), drawCommandInfoBase.color.enabled);
 	}
 
 	struct {
@@ -462,9 +467,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	} else {		
 		CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
 
+		// ???
+	/*
 		drawCommandInfoBase.matrices.model = NULL;
 		drawCommandInfoBase.matrices.view = NULL;
 		drawCommandInfoBase.matrices.projection = NULL;
+	*/
 
 		if ( !material.textures.empty() ) {
 			auto& texture = material.textures.front();

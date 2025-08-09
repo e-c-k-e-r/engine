@@ -441,16 +441,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
 
-	#if UF_ENV_DREAMCAST
 		if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
 		} else {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 		}
-	#else
-		// modern drivers for fixed function OpenGL does not implement GL_MODULATE properly for vertex colored + texture sampling
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-	#endif
 
 		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));

@@ -1,54 +1,54 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/string/ext.h>
 
-uf::SoundEmitter::~SoundEmitter() {
+uf::AudioEmitter::~AudioEmitter() {
 	this->cleanup(true);
 }
-bool uf::SoundEmitter::has( const uf::stl::string& filename ) const {
+bool uf::AudioEmitter::has( const uf::stl::string& filename ) const {
 	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return true;
 	return false;
 }
-uf::Audio& uf::SoundEmitter::add() {
+uf::Audio& uf::AudioEmitter::add() {
 	return this->m_container.emplace_back();
 }
-uf::Audio& uf::SoundEmitter::add( const uf::stl::string& filename ) {
+uf::Audio& uf::AudioEmitter::add( const uf::stl::string& filename ) {
 //	if ( this->has(filename) ) return this->get(filename);
 	uf::Audio& sound = this->add();
 	sound.open(filename);
 	return sound;
 }
-uf::Audio& uf::SoundEmitter::load( const uf::stl::string& filename ) {
+uf::Audio& uf::AudioEmitter::load( const uf::stl::string& filename ) {
 //	if ( this->has(filename) ) return this->get(filename);
 	uf::Audio& sound = this->add();
 	sound.load(filename);
 	return sound;
 }
-uf::Audio& uf::SoundEmitter::stream( const uf::stl::string& filename ) {
+uf::Audio& uf::AudioEmitter::stream( const uf::stl::string& filename ) {
 //	if ( this->has(filename) ) return this->get(filename);
 	uf::Audio& sound = this->add();
 	sound.stream(filename);
 	return sound;
 }
 
-uf::Audio& uf::SoundEmitter::get( const uf::stl::string& filename ) {
+uf::Audio& uf::AudioEmitter::get( const uf::stl::string& filename ) {
 	if ( !this->has(filename) ) return this->add(filename);
 	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return audio;
 	return this->add();
 }
-const uf::Audio& uf::SoundEmitter::get( const uf::stl::string& filename ) const {
+const uf::Audio& uf::AudioEmitter::get( const uf::stl::string& filename ) const {
 	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return audio;
 	return uf::audio::null;
 }
-uf::SoundEmitter::container_t& uf::SoundEmitter::get() {
+uf::AudioEmitter::container_t& uf::AudioEmitter::get() {
 	return this->m_container;
 }
-const uf::SoundEmitter::container_t& uf::SoundEmitter::get() const {
+const uf::AudioEmitter::container_t& uf::AudioEmitter::get() const {
 	return this->m_container;
 }
-void uf::SoundEmitter::update() {
+void uf::AudioEmitter::update() {
 	for ( auto& audio : this->m_container ) if ( audio.playing() ) audio.update();
 }
-void uf::SoundEmitter::cleanup( bool purge ) {
+void uf::AudioEmitter::cleanup( bool purge ) {
 	for ( size_t i = 0; i < this->m_container.size(); ++i ) {
 		if ( !purge && this->m_container[i].playing() ) continue;
 		this->m_container[i].destroy();
@@ -57,13 +57,13 @@ void uf::SoundEmitter::cleanup( bool purge ) {
 }
 
 //
-uf::MappedSoundEmitter::~MappedSoundEmitter() {
+uf::MappedAudioEmitter::~MappedAudioEmitter() {
 	this->cleanup(true);
 }
-bool uf::MappedSoundEmitter::has( const uf::stl::string& filename ) const {
+bool uf::MappedAudioEmitter::has( const uf::stl::string& filename ) const {
 	return this->m_container.count(filename) > 0;
 }
-uf::Audio& uf::MappedSoundEmitter::add( const uf::stl::string& filename ) {
+uf::Audio& uf::MappedAudioEmitter::add( const uf::stl::string& filename ) {
 	if ( this->has(filename) ) return this->get(filename);
 
 	uf::Audio& sound = this->m_container[filename];
@@ -71,14 +71,14 @@ uf::Audio& uf::MappedSoundEmitter::add( const uf::stl::string& filename ) {
 	return sound;
 }
 
-uf::Audio& uf::MappedSoundEmitter::load( const uf::stl::string& filename ) {
+uf::Audio& uf::MappedAudioEmitter::load( const uf::stl::string& filename ) {
 	if ( this->has(filename) ) return this->get(filename);
 
 	uf::Audio& sound = this->m_container[filename];
 	sound.load(filename);
 	return sound;
 }
-uf::Audio& uf::MappedSoundEmitter::stream( const uf::stl::string& filename ) {
+uf::Audio& uf::MappedAudioEmitter::stream( const uf::stl::string& filename ) {
 	if ( this->has(filename) ) return this->get(filename);
 
 	uf::Audio& sound = this->m_container[filename];
@@ -86,25 +86,25 @@ uf::Audio& uf::MappedSoundEmitter::stream( const uf::stl::string& filename ) {
 	return sound;
 }
 
-uf::Audio& uf::MappedSoundEmitter::get( const uf::stl::string& filename ) {
+uf::Audio& uf::MappedAudioEmitter::get( const uf::stl::string& filename ) {
 	if ( !this->has(filename) ) return this->add(filename);
 	return this->m_container[filename];
 }
-const uf::Audio& uf::MappedSoundEmitter::get( const uf::stl::string& filename ) const {
+const uf::Audio& uf::MappedAudioEmitter::get( const uf::stl::string& filename ) const {
 	return this->m_container.at(filename);
 }
-uf::MappedSoundEmitter::container_t& uf::MappedSoundEmitter::get() {
+uf::MappedAudioEmitter::container_t& uf::MappedAudioEmitter::get() {
 	return this->m_container;
 }
-const uf::MappedSoundEmitter::container_t& uf::MappedSoundEmitter::get() const {
+const uf::MappedAudioEmitter::container_t& uf::MappedAudioEmitter::get() const {
 	return this->m_container;
 }
-void uf::MappedSoundEmitter::update() {
+void uf::MappedAudioEmitter::update() {
 	for ( auto& pair : this->m_container ) {
 		pair.second.update();
 	}
 }
-void uf::MappedSoundEmitter::cleanup( bool purge ) {
+void uf::MappedAudioEmitter::cleanup( bool purge ) {
 	for ( auto& pair : this->m_container ) {
 		if ( purge || !pair.second.playing() ) {
 			pair.second.stop();
