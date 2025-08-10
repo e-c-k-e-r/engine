@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#include <uf/ext/ext.h>
+#include <uf/engine/ext.h>
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/math/vector.h>

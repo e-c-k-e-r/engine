@@ -13,7 +13,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
-#include <uf/ext/ext.h>
+#include <uf/engine/ext.h>
 
 #define BARYCENTRIC 1
 #if BARYCENTRIC
@@ -270,11 +270,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
-			size_t maxLights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-			size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
-			size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+			size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+			size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+			size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },
@@ -687,7 +687,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			}
 		}
 	}
-	bool shouldRecord = true; // ( settings::pipelines::rt && !ext::config["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
+	bool shouldRecord = true; // ( settings::pipelines::rt && !uf::config["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
 	for (size_t i = 0; i < commands.size(); ++i) {
 		auto commandBuffer = commands[i];
 		VK_CHECK_RESULT( vkBeginCommandBuffer(commandBuffer, &cmdBufInfo) );

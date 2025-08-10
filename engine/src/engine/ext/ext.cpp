@@ -1,9 +1,10 @@
-#include "main.h"
-#include "ext.h"
+#include <uf/engine/ext.h>
 
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <cstdlib>
+
 #include <sys/stat.h>
 
 #include <uf/utils/time/time.h>
@@ -45,9 +46,9 @@
 #include <uf/ext/imgui/imgui.h>
 #include <uf/ext/vall_e/vall_e.h>
 
-bool ext::ready = false;
-uf::stl::vector<uf::stl::string> ext::arguments;
-uf::Serializer ext::config;
+bool uf::ready = false;
+uf::stl::vector<uf::stl::string> uf::arguments;
+uf::Serializer uf::config;
 
 namespace {
 	struct {
@@ -69,7 +70,7 @@ namespace {
 		} total;
 	} times;
 
-	auto& json = ext::config;
+	auto& json = uf::config;
 
 	struct {
 		struct {
@@ -107,10 +108,10 @@ namespace {
 	} sceneTransition;
 }
 
-void EXT_API ext::load() {
-	ext::config.readFromFile(uf::io::root+"config.json");
+void UF_API uf::load() {
+	uf::config.readFromFile(uf::io::root+"config.json");
 }
-void EXT_API ext::load( ext::json::Value& json ) {
+void UF_API uf::load( ext::json::Value& json ) {
 	::config.engine.gc.enabled = json["engine"]["debug"]["garbage collection"]["enabled"].as(::config.engine.gc.enabled);
 	::config.engine.gc.every = json["engine"]["debug"]["garbage collection"]["every"].as(::config.engine.gc.every);
 	::config.engine.gc.mode = json["engine"]["debug"]["garbage collection"]["mode"].as(::config.engine.gc.mode);
@@ -306,7 +307,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	}
 }
 
-void EXT_API ext::initialize() {
+void UF_API uf::initialize() {
 	/* Setup deferred Main thread */ {
 		uf::thread::get(uf::thread::mainThreadName);
 	}
@@ -323,7 +324,7 @@ void EXT_API ext::initialize() {
 	/* Arguments */ {
 		bool modified = false;
 		auto& arguments = ::json["arguments"];
-		for ( auto& arg : ext::arguments ) {
+		for ( auto& arg : uf::arguments ) {
 			// store raw argument
 			int i = arguments.size();
 			arguments[i] = arg;
@@ -354,10 +355,10 @@ void EXT_API ext::initialize() {
 		if ( modified ) UF_MSG_DEBUG("New config: {}", ::json.serialize());
 	}
 	/* Seed */ {
-		srand(time(NULL));
+		std::srand(std::time(NULL));
 	}
 	/* Open output file */ {
-		io.output.open(io.filenames.output);
+		::io.output.open(::io.filenames.output);
 	}
 	/* Initialize timers */ {
 		times.sys.start();
@@ -428,7 +429,7 @@ void EXT_API ext::initialize() {
 	//	metadata["system"]["config"] = ::json;
 	}
 
-	ext::load( ::json );
+	uf::load( ::json );
 
 	// renderer settings
 	{
@@ -724,7 +725,7 @@ void EXT_API ext::initialize() {
 			if ( json["message"].is<uf::stl::string>() ) {
 				UF_MSG_DEBUG( "{}", json["message"].as<uf::stl::string>() );
 			}
-			ext::ready = false;
+			uf::ready = false;
 		});
 	}
 
@@ -743,11 +744,11 @@ void EXT_API ext::initialize() {
 	});
 */
 	
-	ext::ready = true;
+	uf::ready = true;
 	UF_MSG_INFO("EXT took {} seconds to initialize", times.sys.elapsed().asDouble());
 }
 
-void EXT_API ext::tick() {
+void UF_API uf::tick() {
 #if 1
 	if ( ::sceneTransition.phase >= 0 ) {
 		auto target = ::sceneTransition.payload["scene"].as<uf::stl::string>();
@@ -925,7 +926,7 @@ void EXT_API ext::tick() {
 #endif
 #endif
 }
-void EXT_API ext::render() {
+void UF_API uf::render() {
 	if ( uf::scene::scenes.empty() ) return;
 
 	if ( ::sceneTransition.phase >= 0 ) {
@@ -953,7 +954,7 @@ void EXT_API ext::render() {
 	}
 #endif
 }
-void EXT_API ext::terminate() {
+void UF_API uf::terminate() {
 	/* Kill threads */ {
 		uf::thread::terminate();
 	}
@@ -1025,9 +1026,9 @@ void EXT_API ext::terminate() {
 	}
 
 	/* Flush input buffer */ {
-		io.output << io.input << "\n";
-		for ( const auto& str : uf::iostream.getHistory() ) io.output << str << "\n";
-		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << "\n";
-		io.output.close();
+		::io.output << ::io.input << "\n";
+		for ( const auto& str : uf::iostream.getHistory() ) ::io.output << str << "\n";
+		::io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << "\n";
+		::io.output.close();
 	}
 }

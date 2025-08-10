@@ -16,7 +16,7 @@
 
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
-#include <uf/ext/ext.h>
+#include <uf/engine/ext.h>
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerSceneBehavior)
@@ -112,9 +112,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 		renderMode.blitter.process = true;
 
-		size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-		size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-		size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+		size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+		size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+		size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
 
 		for ( size_t i = 0; i < maxTextures2D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
 		for ( size_t i = 0; i < maxTexturesCube; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
@@ -318,7 +318,7 @@ void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Ser
 void ext::VoxelizerSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
 	// merge vxgi settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["vxgi"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["vxgi"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["vxgi"][key] ) ) return;
 			serializer["vxgi"][key] = value;

@@ -9,7 +9,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/ext/ext.h>
+#include <uf/engine/ext.h>
 
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
@@ -322,11 +322,11 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute");
 			
-			size_t maxLights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-			size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-			size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+			size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+			size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+			size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },

@@ -19,9 +19,9 @@ uf::Serializer client::config;
 void client::initialize() {
 	uf::renderer::device.window = &client::window;
 
-	ext::load();
+	uf::load();
 
-	client::config = ext::config;
+	client::config = uf::config;
 
 	/* Initialize window */ {
 		// Window size
@@ -46,7 +46,7 @@ void client::initialize() {
 		client::window.create( size, title );
 	#if !UF_ENV_DREAMCAST
 		// Set refresh rate
-		ext::config["window"]["refresh rate"] = client::window.getRefreshRate();
+		uf::config["window"]["refresh rate"] = client::window.getRefreshRate();
 		// Miscellaneous
 		client::window.setVisible(client::config["window"]["visible"].as<bool>());
 		client::window.setCursorVisible(client::config["window"]["mouse"]["visible"].as<bool>());

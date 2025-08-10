@@ -10,7 +10,8 @@
 #include <uf/utils/memory/map.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/ffx/fsr.h>
-#include <uf/ext/ext.h>
+
+#include <uf/engine/ext.h>
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
@@ -440,9 +441,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		}
 
 		{
-			size_t maxTextures = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxCubemaps = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+			size_t maxTextures = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxCubemaps = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 
 			auto& shader = graphic.material.getShader("fragment", "baking");
 			shader.setSpecializationConstants({

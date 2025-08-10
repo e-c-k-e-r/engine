@@ -1,7 +1,8 @@
 #include <uf/utils/io/fmt.h>
 #include <uf/utils/io/console.h>
 #include <uf/utils/hook/hook.h>
-#include <uf/ext/ext.h>
+
+#include <uf/engine/ext.h>
 
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
@@ -68,7 +69,7 @@ void uf::console::initialize() {
 	uf::console::registerCommand("json", "Modifies the gamestate by setting a JSON value", [&]( const uf::stl::string& arguments )->uf::stl::string{
 		auto match = uf::string::match( arguments, "/^(.+?) *= *(.+?)$/" );
 		if ( match.empty() ) {
-			uf::Serializer target = ext::config;
+			uf::Serializer target = uf::config;
 			return ext::json::encode( arguments == "" ? target : target.path( arguments ), {
 				.pretty = true
 			} );
@@ -80,8 +81,8 @@ void uf::console::initialize() {
 		uf::Serializer value;
 		value.deserialize(valueString);
 
-		ext::config.path(keyString) = value;
-		ext::load( ext::config );
+		uf::config.path(keyString) = value;
+		uf::load( uf::config );
 
 		return "Value `" + keyString + "` set to `" + ext::json::encode( value ) + "`";
 	});

@@ -29,10 +29,15 @@ namespace {
 			
 			if ( client::terminated ) return;
 			UF_MSG_INFO("Termination via std::atexit()!");
-			ext::ready = false;
+			
 			client::ready = false;
+			//ext::ready = false;
+			uf::ready = false;
+			
 			client::terminated = true;
-			ext::terminate();
+			
+			//ext::terminate();
+			uf::terminate();
 			client::terminate();
 		}
 
@@ -72,7 +77,7 @@ int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
 		std::string string(argv[i]);
-		ext::arguments.emplace_back(string);
+		uf::arguments.emplace_back(string);
 	}
 
 	std::atexit(::handlers::exit);
@@ -80,10 +85,11 @@ int main(int argc, char** argv){
 	signal(SIGSEGV, ::handlers::segv);
 
 	client::initialize();
-	ext::initialize();
+	//ext::initialize();
+	uf::initialize();
 
 	// For Multithreaded initialization
-	while ( !client::ready || !ext::ready ) {
+	while ( !client::ready || !uf::ready ) {
 		static uf::Timer<long long> timer(false);
 		static double next = 1;
 		if ( !timer.running() ) timer.start();
@@ -95,7 +101,7 @@ int main(int argc, char** argv){
 		}
 	}
 
-	while ( client::ready && ext::ready ) {
+	while ( client::ready && uf::ready ) {
 	#if UF_EXCEPTIONS
 		try {	
 	#endif
@@ -103,19 +109,23 @@ int main(int argc, char** argv){
 			//	auto& thread = uf::thread::fetchWorker();
 				auto& thread = uf::thread::get("Render");
 				uf::thread::queue(thread, [&]{
-					ext::render();
+					//ext::render();
+					uf::render();
 					client::render();
 				});
 				
 				client::tick();
-				ext::tick();
+				//ext::tick();
+				uf::tick();
 
 				uf::thread::wait( thread );
 			} else {
 				client::tick();
-				ext::tick();
+				uf::tick();
+				//ext::tick();
 
-				ext::render();
+				//ext::render();
+				uf::render();
 				client::render();
 			}
 	#if UF_EXCEPTIONS
@@ -139,7 +149,8 @@ int main(int argc, char** argv){
 	if ( !client::terminated ) {
 		client::terminated = true;
 		UF_MSG_INFO("Natural termination!");
-		ext::terminate();
+		//ext::terminate();
+		uf::terminate();
 		client::terminate();
 	}
 	return 0;

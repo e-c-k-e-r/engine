@@ -32,7 +32,10 @@
 #include "../light/behavior.h"
 #include "../voxelizer/behavior.h"
 #include "../raytrace/behavior.h"
-#include "../../ext.h"
+
+#include <uf/engine/ext.h>
+
+//#include "../../ext.h"
 // #include "../../gui/gui.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
@@ -50,7 +53,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "system:Quit.%UID%", [&](ext::json::Value& payload){
 		uf::renderer::settings::experimental::dedicatedThread = false;
-		ext::ready = false;
+		uf::ready = false;
 	});
 
 	this->addHook( "menu:Open", [&](ext::json::Value& payload){
@@ -790,7 +793,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
 	// merge light settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["light"][key] ) ) return;
 			serializer["light"][key] = value;
@@ -798,7 +801,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 	// merge bloom settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["bloom"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"]["bloom"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["light"]["bloom"][key] ) ) return;
 			serializer["light"]["bloom"][key] = value;
@@ -806,7 +809,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 	// merge shadows settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["shadows"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"]["shadows"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["light"]["shadows"][key] ) ) return;
 			serializer["light"]["shadows"][key] = value;
@@ -814,16 +817,16 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 	// merge fog settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["fog"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"]["fog"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["light"]["fog"][key] ) ) return;
 			serializer["light"]["fog"][key] = value;
 		} );
 	}
 
-	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as(/*this->*/max.textures2D);
-	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as(/*this->*/max.texturesCube);
-	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as(/*this->*/max.textures3D);
+	/*this->*/max.textures2D   = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as(/*this->*/max.textures2D);
+	/*this->*/max.texturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as(/*this->*/max.texturesCube);
+	/*this->*/max.textures3D   = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as(/*this->*/max.textures3D);
 
 	/*this->*/shadow.enabled = serializer["light"]["shadows"]["enabled"].as(/*this->*/shadow.enabled);
 	/*this->*/shadow.samples = serializer["light"]["shadows"]["samples"].as(/*this->*/shadow.samples);

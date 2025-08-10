@@ -190,11 +190,11 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				//
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-				size_t maxLights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-				size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-				size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-				size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-				size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+				size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+				size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+				size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+				size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 				shader.buffers.emplace_back( storage.buffers.instance.alias() );
 				shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
@@ -332,7 +332,7 @@ void ext::RayTraceSceneBehavior::Metadata::serialize( uf::Object& self, uf::Seri
 void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
 	// merge vxgi settings with global settings
 	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["rt"];
+		const auto& globalSettings = uf::config["engine"]["scenes"]["rt"];
 		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
 			if ( !ext::json::isNull( serializer["rt"][key] ) ) return;
 			serializer["rt"][key] = value;
@@ -350,8 +350,8 @@ void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Se
 		/*this->*/renderer.scale = serializer["rt"]["size"].as(/*this->*/renderer.scale);
 	} else if ( ext::json::isArray( serializer["rt"]["size"] ) ) {
 		/*this->*/renderer.size = uf::vector::decode( serializer["rt"]["size"], /*this->*/renderer.size );
-	} else if ( ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
-		/*this->*/renderer.scale = ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(/*this->*/renderer.scale);
+	} else if ( uf::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
+		/*this->*/renderer.scale = uf::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(/*this->*/renderer.scale);
 	}
 	
 	/*this->*/renderer.full =  serializer["rt"]["full"].as(/*this->*/renderer.full);

@@ -64,7 +64,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			float raidou = (float) size.x / (float) size.y;
 
 			if ( size.x == 0 || size.y == 0 )  {
-				size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
+				size = uf::vector::decode( uf::config["window"]["size"], pod::Vector2ui{} );
 				raidou = (float) size.x / (float) size.y;
 			#if 0
 				this->addHook( "window:Resized", [&, fov, range](pod::payloads::windowResized& payload){
@@ -80,8 +80,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	}
 	
 	// sloppy
-	metadata.mouse.sensitivity = uf::vector::decode( ext::config["window"]["mouse"]["sensitivity"], metadata.mouse.sensitivity );
-	metadata.mouse.smoothing = uf::vector::decode( ext::config["window"]["mouse"]["smoothing"], metadata.mouse.smoothing );
+	metadata.mouse.sensitivity = uf::vector::decode( uf::config["window"]["mouse"]["sensitivity"], metadata.mouse.sensitivity );
+	metadata.mouse.smoothing = uf::vector::decode( uf::config["window"]["mouse"]["smoothing"], metadata.mouse.smoothing );
 
 	this->addHook( "window:Mouse.CursorVisibility", [&](pod::payloads::windowMouseCursorVisibility& payload){
 		metadata.system.control = !payload.mouse.visible;

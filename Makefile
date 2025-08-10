@@ -319,13 +319,13 @@ cdi:
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
 
 else
-$(PREFIX): $(EX_DLL) $(TARGET) $(TARGET_SHADERS)
+$(PREFIX): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
 %.$(PREFIX).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
-#$(EX_DLL): FLAGS += -DUF_EXPORTS
+#$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
+$(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
 	$(CXX) $(FLAGS) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
 	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).a
@@ -341,7 +341,7 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
 
 $(TARGET): $(OBJS)
-	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -o $(TARGET)
+	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
 endif
 
 %.spv: %.glsl

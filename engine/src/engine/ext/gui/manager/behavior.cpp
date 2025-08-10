@@ -32,7 +32,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::GuiManagerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	metadata.size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2f{} );
+	metadata.size = uf::vector::decode( uf::config["window"]["size"], pod::Vector2f{} );
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		metadata.size = payload.window.size;
 	} );

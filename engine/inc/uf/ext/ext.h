@@ -36,17 +36,8 @@
 	#define EXT_API EXT_API_IMPORT
 #endif
 
-#include <uf/utils/memory/string.h>
-#include <uf/utils/serialize/serializer.h>
 namespace ext {
-	extern bool EXT_API ready;
-	extern uf::stl::vector<uf::stl::string> EXT_API arguments;
-	extern uf::Serializer EXT_API config;
-	
-	extern void EXT_API load();
-	extern void EXT_API load( ext::json::Value& );
 	extern void EXT_API initialize();
-	extern bool EXT_API running();
 	extern void EXT_API tick();
 	extern void EXT_API render();
 	extern void EXT_API terminate();
