@@ -1030,20 +1030,4 @@ void EXT_API ext::terminate() {
 		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << "\n";
 		io.output.close();
 	}
-
-	/* Write persistent data */ if ( false ) {
-		struct {
-			bool exists = false;
-			uf::stl::string filename = uf::io::root+"/persistent.json";
-		} file;
-		struct {
-			uf::Serializer file;
-		} config;
-		/* Read from file */  {
-			file.exists = config.file.readFromFile(file.filename);
-		}
-		/* Write persistent data */ {
-			config.file.writeToFile(file.filename);
-		}
-	}
 }

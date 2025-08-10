@@ -15,7 +15,7 @@
 namespace uf {
 	namespace physics {
 		typedef pod::Math::num_t num_t;
-		namespace time = uf::time;
+		namespace time = uf::time; // to-do: have separate values from the physics system
 		
 		void UF_API initialize();
 		void UF_API tick();
