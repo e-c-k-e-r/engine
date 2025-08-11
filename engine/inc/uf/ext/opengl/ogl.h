@@ -5,10 +5,10 @@
 	#include <GL/glew.h>
 #endif
 #if UF_USE_OPENGL_GLDC
-	#include <GLdc/gl.h>
-	#include <GLdc/glu.h>
-	#include <GLdc/glkos.h>
-	#include <GLdc/glext.h>
+	#include <GL/gl.h>
+	#include <GL/glu.h>
+	#include <GL/glkos.h>
+	#include <GL/glext.h>
 
 	#define GL_NONE 0
 	#define GLsizeiptr GLsizei

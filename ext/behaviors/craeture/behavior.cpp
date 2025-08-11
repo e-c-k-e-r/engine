@@ -49,7 +49,7 @@ namespace {
 	}
 
 	void load_migoto( uf::Object& self, const uf::Serializer& json ) {
-	#if !UF_ENV_DREAMCAST
+	#if !UF_ENV_DREAMCAST && UF_USE_FLOAT16
 		struct Position {
 			pod::Vector3f position;
 			pod::Vector3f normal;

@@ -262,8 +262,9 @@ namespace {
 		mesh.updateDescriptor();
 
 		if ( graph.metadata["renderer"]["separate"].as<bool>() ) {
-		#if UF_ENV_DREAMCAST
+		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 			mesh.convert<float, uint16_t>();
+			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
 		#else
 			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
 			if ( conversion != "" ) {

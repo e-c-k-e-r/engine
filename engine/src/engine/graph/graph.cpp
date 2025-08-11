@@ -44,6 +44,21 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R16G16_UINT, id)
 );
+// it'd be super sugoi if I could somehow macro this annoyance
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		//uf::vector::lerp( p1.color, p2.color, t ),
+		t < 0.5 ? p1.color : p2.color,
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		//uf::vector::lerp( p1.id, p2.id, t ),
+		t < 0.5 ? p1.id : p2.id,
+	};
+})
+
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, uv)
@@ -55,6 +70,23 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
 );
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		//uf::vector::lerp( p1.color, p2.color, t ),
+		t < 0.5 ? p1.color : p2.color,
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		//uf::vector::lerp( p1.id, p2.id, t ),
+		t < 0.5 ? p1.id : p2.id,
+		//uf::vector::lerp( p1.joints, p2.joints, t ),
+		t < 0.5 ? p1.joints : p2.joints,
+		uf::vector::lerp( p1.weights, p2.weights, t ),
+	};
+})
+
 #if UF_USE_FLOAT16
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, position)
@@ -65,6 +97,21 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16_UINT, id)
 );
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_16f, {
+	return t < 0.5 ? p1 : p2;
+/*
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::lerp( p1.color, p2.color, t ),
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.id, p2.id, t ),
+	};
+*/
+})
+
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16_SFLOAT, uv)
@@ -76,6 +123,22 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_SFLOAT, weights)
 );
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned_16f, {
+	return t < 0.5 ? p1 : p2;
+/*
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::lerp( p1.color, p2.color, t ),
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.id, p2.id, t ),
+		uf::vector::lerp( p1.joints, p2.joints, t ),
+		uf::vector::lerp( p1.weights, p2.weights, t ),
+	};
+*/
+})
 #endif
 
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_u16q,
@@ -87,6 +150,21 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16_UINT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16_UINT, id)
 );
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_u16q, {
+	return t < 0.5 ? p1 : p2;
+/*
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::lerp( p1.color, p2.color, t ),
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.id, p2.id, t ),
+	};
+*/
+})
+
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16_UINT, position)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16_UINT, uv)
@@ -98,6 +176,23 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, weights)
 );
+
+UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned_u16q, {
+	return t < 0.5 ? p1 : p2;
+/*
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::lerp( p1.color, p2.color, t ),
+		uf::vector::lerp( p1.st, p2.st, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.id, p2.id, t ),
+		uf::vector::lerp( p1.joints, p2.joints, t ),
+		uf::vector::lerp( p1.weights, p2.weights, t ),
+	};
+*/
+})
 
 pod::Matrix4f uf::graph::local( pod::Graph& graph, int32_t index ) {
 	auto& node = 0 < index && index <= graph.nodes.size() ? graph.nodes[index] : graph.root;
@@ -1220,8 +1315,9 @@ void uf::graph::process( pod::Graph& graph ) {
 		#endif
 	
 		{
-		#if UF_ENV_DREAMCAST
+		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 			mesh.convert<float, uint16_t>();
+			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
 		#else
 			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
 			if ( conversion != "" ) {

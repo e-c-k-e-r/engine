@@ -323,7 +323,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GLenum vertexType = GL_FLOAT;
 	switch ( drawInfo.attributes.position.descriptor.type ) {
 		case uf::renderer::enums::Type::SHORT: vertexType = GL_SHORT; break;
+	#if GL_QUANTIZED_SHORT
+		case uf::renderer::enums::Type::USHORT: vertexType = GL_QUANTIZED_SHORT; break;
+	#else
 		case uf::renderer::enums::Type::USHORT: vertexType = GL_UNSIGNED_SHORT; break;
+	#endif
 
 	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: vertexType = GL_HALF_FLOAT; break;
@@ -335,8 +339,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GLenum normalType = GL_FLOAT;
 	switch ( drawInfo.attributes.normal.descriptor.type ) {
 		case uf::renderer::enums::Type::SHORT: normalType = GL_SHORT; break;
+	#if GL_QUANTIZED_SHORT
+		case uf::renderer::enums::Type::USHORT: normalType = GL_QUANTIZED_SHORT; break;
+	#else
 		case uf::renderer::enums::Type::USHORT: normalType = GL_UNSIGNED_SHORT; break;
-
+	#endif
 	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: normalType = GL_HALF_FLOAT; break;
 	#endif
@@ -347,7 +354,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GLenum uvType = GL_FLOAT;
 	switch ( drawInfo.attributes.uv.descriptor.type ) {
 		case uf::renderer::enums::Type::SHORT: uvType = GL_SHORT; break;
+	#if GL_QUANTIZED_SHORT
+		case uf::renderer::enums::Type::USHORT: uvType = GL_QUANTIZED_SHORT; break;
+	#else
 		case uf::renderer::enums::Type::USHORT: uvType = GL_UNSIGNED_SHORT; break;
+	#endif
 
 	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: uvType = GL_HALF_FLOAT; break;
@@ -359,7 +370,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GLenum stType = GL_FLOAT;
 	switch ( drawInfo.attributes.st.descriptor.type ) {
 		case uf::renderer::enums::Type::SHORT: stType = GL_SHORT; break;
+	#if GL_QUANTIZED_SHORT
+		case uf::renderer::enums::Type::USHORT: stType = GL_QUANTIZED_SHORT; break;
+	#else
 		case uf::renderer::enums::Type::USHORT: stType = GL_UNSIGNED_SHORT; break;
+	#endif
 	#if GL_HALF_FLOAT
 		case uf::renderer::enums::Type::HALF: stType = GL_HALF_FLOAT; break;
 	#endif

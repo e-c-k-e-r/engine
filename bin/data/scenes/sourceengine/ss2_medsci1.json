@@ -3,7 +3,8 @@
 	"assets": [	
 	//	{ "filename": "./models/ss2_medsci1.glb" }
 	//	{ "filename": "./models/ss2_medsci1/graph.json" }
-		{ "filename": "./models/ss2_medsci1_smallish/graph.json" }
+	//	{ "filename": "./models/ss2_medsci1_smallish/graph.json" }
+		{ "filename": "./models/ss2_medsci1_small/graph.json" }
 	],
 	"metadata": {
 		"graph": {

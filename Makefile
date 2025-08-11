@@ -55,7 +55,7 @@ FLAGS 					+= -DUF_DEV_ENV
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
-		FLAGS 				+= -g
+		FLAGS 				+= -march=native -flto # -g
 	endif
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
@@ -287,6 +287,9 @@ OBJS 					= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(PRE
 
 DEPS 					+= -lkallisti -lc -lm -lgcc -lstdc++ # -l$(LIB_NAME) -l$(EXT_LIB_NAME)
 
+INCS 					+= -I$(KOS_PORTS)/include
+LIBS 					+= -I$(KOS_PORTS)/lib
+
 %.$(PREFIX).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
@@ -310,7 +313,7 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 
 $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
 	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
-	# $(KOS_STRIP) --strip-unneeded $(TARGET)	
+	$(KOS_STRIP) --strip-unneeded $(TARGET)	
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)

@@ -8,6 +8,14 @@ UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F4F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F4F, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F4F, R32_UINT, color)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F2F3F4F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::lerp( p1.color, p2.color, t ),
+	};
+})
 // Used for terrain
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F32B,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F32B, R32G32B32_SFLOAT, position)
@@ -15,37 +23,85 @@ UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F32B,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F32B, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F32B, R32_UINT, color)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F2F3F32B, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		t < 0.5 ? p1.color : p2.color,
+		//uf::vector::lerp( p1.color, p2.color, t ),
+	};
+})
 // Used for normal meshses
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F, R32G32_SFLOAT, uv)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F, R32G32B32_SFLOAT, normal)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F3F3F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+	};
+})
 // (Typically) used for displaying textures
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F, R32G32_SFLOAT, uv)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F2F3F1UI, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+		uf::vector::lerp( p1.id, p2.id, t ),
+	};
+})
 UF_VERTEX_DESCRIPTOR(pod::Vertex_2F2F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_2F2F, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_2F2F, R32G32_SFLOAT, uv)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F2F3F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
+	};
+})
 // used for texture arrays
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F3F3F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F3F3F, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F3F3F, R32G32B32_SFLOAT, uv)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F3F3F, R32G32B32_SFLOAT, normal)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F2F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+	};
+})
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F1UI,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F1UI, R32G32B32_SFLOAT, position)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F1UI, R32G32_SFLOAT, uv)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F1UI, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F2F3F1UI, R32_UINT, id)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_2F2F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+		uf::vector::lerp( p1.uv, p2.uv, t ),
+	};
+})
 // Basic
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F, R32G32B32_SFLOAT, position)
 )
+UF_VERTEX_INTERPOLATE(pod::Vertex_3F, {
+	return {
+		uf::vector::lerp( p1.position, p2.position, t ),
+	};
+})
 
 #if UF_USE_OPENGL
 	bool uf::Mesh::defaultInterleaved = true;

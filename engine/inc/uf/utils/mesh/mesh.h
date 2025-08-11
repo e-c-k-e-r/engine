@@ -436,6 +436,8 @@ namespace std {
 #define UF_VERTEX_DESCRIPTOR( TYPE, ... )\
 	uf::stl::vector<uf::renderer::AttributeDescriptor> TYPE::descriptor = { __VA_ARGS__ };
 
+#define UF_VERTEX_INTERPOLATE( TYPE, ... )\
+	TYPE UF_API TYPE::interpolate( const TYPE& p1, const TYPE& p2, float t ) __VA_ARGS__
 
 namespace pod {
 	struct /*UF_API*/ Vertex_3F2F3F4F {
@@ -445,14 +447,7 @@ namespace pod {
 		pod::Vector4f color;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F2F3F4F interpolate( const Vertex_3F2F3F4F& p1, const Vertex_3F2F3F4F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-				uf::vector::lerp( p1.color, p2.color, t ),
-			};
-		}
+		static UF_API Vertex_3F2F3F4F interpolate( const Vertex_3F2F3F4F& p1, const Vertex_3F2F3F4F& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F2F3F32B {
 		pod::Vector3f position;
@@ -461,15 +456,7 @@ namespace pod {
 		pod::Vector4t<uint8_t> color;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F2F3F32B interpolate( const Vertex_3F2F3F32B& p1, const Vertex_3F2F3F32B& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-				t < 0.5 ? p1.color : p2.color,
-				//uf::vector::lerp( p1.color, p2.color, t ),
-			};
-		}
+		static UF_API Vertex_3F2F3F32B interpolate( const Vertex_3F2F3F32B& p1, const Vertex_3F2F3F32B& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F3F3F {
 		pod::Vector3f position;
@@ -477,13 +464,7 @@ namespace pod {
 		pod::Vector3f normal;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F3F3F interpolate( const Vertex_3F3F3F& p1, const Vertex_3F3F3F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-			};
-		}
+		static UF_API Vertex_3F3F3F interpolate( const Vertex_3F3F3F& p1, const Vertex_3F3F3F& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F2F3F1UI {
 		pod::Vector3f position;
@@ -492,14 +473,7 @@ namespace pod {
 		pod::Vector1ui id;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F2F3F1UI interpolate( const Vertex_3F2F3F1UI& p1, const Vertex_3F2F3F1UI& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-				uf::vector::lerp( p1.id, p2.id, t ),
-			};
-		}
+		static UF_API Vertex_3F2F3F1UI interpolate( const Vertex_3F2F3F1UI& p1, const Vertex_3F2F3F1UI& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F2F3F {
 		pod::Vector3f position;
@@ -507,47 +481,27 @@ namespace pod {
 		pod::Vector3f normal;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F2F3F interpolate( const Vertex_3F2F3F& p1, const Vertex_3F2F3F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-				uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-			};
-		}
+		static UF_API Vertex_3F2F3F interpolate( const Vertex_3F2F3F& p1, const Vertex_3F2F3F& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F2F {
 		pod::Vector3f position;
 		pod::Vector2f uv;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F2F interpolate( const Vertex_3F2F& p1, const Vertex_3F2F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-			};
-		}
+		static UF_API Vertex_3F2F interpolate( const Vertex_3F2F& p1, const Vertex_3F2F& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_2F2F {
 		pod::Vector2f position;
 		pod::Vector2f uv;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_2F2F interpolate( const Vertex_2F2F& p1, const Vertex_2F2F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-				uf::vector::lerp( p1.uv, p2.uv, t ),
-			};
-		}
+		static UF_API Vertex_2F2F interpolate( const Vertex_2F2F& p1, const Vertex_2F2F& p2, float t );
 	};
 	struct /*UF_API*/ Vertex_3F {
 		pod::Vector3f position;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-		static Vertex_3F interpolate( const Vertex_3F& p1, const Vertex_3F& p2, float t ) {
-			return {
-				uf::vector::lerp( p1.position, p2.position, t ),
-			};
-		}
+		static UF_API Vertex_3F interpolate( const Vertex_3F& p1, const Vertex_3F& p2, float t );
 	};
 }
 

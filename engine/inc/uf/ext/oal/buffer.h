@@ -3,15 +3,9 @@
 #include <uf/config.h>
 #if UF_USE_OPENAL
 
-#if UF_ENV_DREAMCAST && UF_USE_OPENAL_ALDC
-	#include <ALdc/al.h>
-	#include <ALdc/alc.h>
-	#include <ALdc/alut.h>
-#else
-	#include <AL/al.h>
-	#include <AL/alc.h>
-	#include <AL/alut.h>
-#endif
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alut.h>
 
 namespace ext {
 	namespace al {

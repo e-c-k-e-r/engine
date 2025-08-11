@@ -116,10 +116,10 @@
 					"gui": true,
 					"vsync": false,
 					"hdr": true,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": true,
 					"bloom": true,
-					"rt": true,
+					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
 				},
