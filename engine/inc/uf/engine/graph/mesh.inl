@@ -10,8 +10,8 @@ namespace uf {
 				pod::Vector3f tangent{};
 				pod::Vector<uint16_t, 2> id{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Base interpolate( const Base& p1, const Base& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Base interpolate( const Base& p1, const Base& p2, float t ) {
 					return {
 						uf::vector::lerp( p1.position, p2.position, t ),
 						uf::vector::lerp( p1.uv, p2.uv, t ),
@@ -36,8 +36,8 @@ namespace uf {
 				pod::Vector<uint16_t, 4> joints{};
 				pod::Vector4f weights{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Skinned interpolate( const Skinned& p1, const Skinned& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Skinned interpolate( const Skinned& p1, const Skinned& p2, float t ) {
 					return {
 						uf::vector::lerp( p1.position, p2.position, t ),
 						uf::vector::lerp( p1.uv, p2.uv, t ),
@@ -64,8 +64,8 @@ namespace uf {
 				pod::Vector3f16 tangent{};
 				pod::Vector<uint16_t, 2> id{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Base_16f interpolate( const Base_16f& p1, const Base_16f& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Base_16f interpolate( const Base_16f& p1, const Base_16f& p2, float t ) {
 					return t < 0.5 ? p1 : p2;
 				/*
 					return {
@@ -91,8 +91,8 @@ namespace uf {
 				pod::Vector<uint16_t, 4> joints{};
 				pod::Vector3f16 weights{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Skinned_16f interpolate( const Skinned_16f& p1, const Skinned_16f& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Skinned_16f interpolate( const Skinned_16f& p1, const Skinned_16f& p2, float t ) {
 					return t < 0.5 ? p1 : p2;
 				/*
 					return {
@@ -119,8 +119,8 @@ namespace uf {
 				pod::Vector<uint16_t, 3> tangent{};
 				pod::Vector<uint16_t, 2> id{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Base_u16q interpolate( const Base_u16q& p1, const Base_u16q& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Base_u16q interpolate( const Base_u16q& p1, const Base_u16q& p2, float t ) {
 					return t < 0.5 ? p1 : p2;
 				/*
 					return {
@@ -146,8 +146,8 @@ namespace uf {
 				pod::Vector<uint16_t, 4> joints{};
 				pod::Vector<uint16_t, 3> weights{};
 
-				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-				static UF_API Skinned_u16q interpolate( const Skinned_u16q& p1, const Skinned_u16q& p2, float t ) {
+				static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+				static Skinned_u16q interpolate( const Skinned_u16q& p1, const Skinned_u16q& p2, float t ) {
 					return t < 0.5 ? p1 : p2;
 				/*
 					return {

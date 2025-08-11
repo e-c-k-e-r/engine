@@ -36,7 +36,7 @@ namespace {
 			
 			client::terminated = true;
 			
-			//ext::terminate();
+			ext::terminate();
 			uf::terminate();
 			client::terminate();
 		}
@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 	signal(SIGSEGV, ::handlers::segv);
 
 	client::initialize();
-	//ext::initialize();
+	ext::initialize();
 	uf::initialize();
 
 	// For Multithreaded initialization
@@ -109,22 +109,22 @@ int main(int argc, char** argv){
 			//	auto& thread = uf::thread::fetchWorker();
 				auto& thread = uf::thread::get("Render");
 				uf::thread::queue(thread, [&]{
-					//ext::render();
+					ext::render();
 					uf::render();
 					client::render();
 				});
 				
 				client::tick();
-				//ext::tick();
+				ext::tick();
 				uf::tick();
 
 				uf::thread::wait( thread );
 			} else {
 				client::tick();
 				uf::tick();
-				//ext::tick();
+				ext::tick();
 
-				//ext::render();
+				ext::render();
 				uf::render();
 				client::render();
 			}
@@ -149,7 +149,7 @@ int main(int argc, char** argv){
 	if ( !client::terminated ) {
 		client::terminated = true;
 		UF_MSG_INFO("Natural termination!");
-		//ext::terminate();
+		ext::terminate();
 		uf::terminate();
 		client::terminate();
 	}
