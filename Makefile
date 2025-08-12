@@ -55,7 +55,7 @@ FLAGS 					+= -DUF_DEV_ENV
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
-		FLAGS 				+= -march=native -flto # -g
+		FLAGS 				+= -march=native # -flto # -g
 	endif
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN

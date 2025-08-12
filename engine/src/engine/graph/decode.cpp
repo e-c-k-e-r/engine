@@ -65,6 +65,11 @@ namespace {
 		sampler.descriptor.addressMode.u = (uf::renderer::enums::AddressMode::type_t) json["u"].as<size_t>();
 		sampler.descriptor.addressMode.v = (uf::renderer::enums::AddressMode::type_t) json["v"].as<size_t>();
 		sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
+
+	#if UF_ENV_DREAMCAST
+		sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+		sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+	#endif
 		
 		return sampler;
 	}

@@ -83,55 +83,6 @@ namespace uf {
 
 			uf::meshgrid::calculate( grid, eps );
 
-			// it's better to naively clip the mesh multiple times rather than calculate the triangles needed to clip
-			/*
-			if ( clip ) {
-				for ( auto& pair : grid.nodes ) {
-					++atlasID;
-					for ( auto& meshlet : meshlets ) {
-						auto& node = pair.second;
-
-						uf::stl::vector<T> vertices = meshlet.vertices;
-						uf::stl::vector<U> indices = meshlet.indices;
-						
-						uf::shapes::clip<T,U>( vertices, indices, node.extents.min, node.extents.max );
-
-						if ( vertices.empty() || indices.empty() ) continue;
-
-						size_t primitiveID = partitioned.size();
-						auto& slice = partitioned.emplace_back();
-
-						slice.vertices = std::move( vertices );
-						slice.indices = std::move( indices );
-
-						for ( auto& vertex : slice.vertices ) {
-							vertex.id.x = primitiveID;
-							vertex.id.y = meshlet.primitive.instance.meshID;
-						}
-
-						slice.primitive.instance = meshlet.primitive.instance;
-						slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;
-						slice.primitive.instance.primitiveID = primitiveID;
-						slice.primitive.instance.meshID = meshlet.primitive.instance.meshID;
-						slice.primitive.instance.objectID = 0;
-						slice.primitive.instance.auxID = atlasID;
-						slice.primitive.instance.bounds.min = node.extents.min;
-						slice.primitive.instance.bounds.max = node.extents.max;
-
-						slice.primitive.drawCommand.indices = slice.indices.size();
-						slice.primitive.drawCommand.instances = 1;
-						slice.primitive.drawCommand.indexID = 0;
-						slice.primitive.drawCommand.vertexID = 0;
-						slice.primitive.drawCommand.instanceID = 0;
-						slice.primitive.drawCommand.auxID = atlasID; // meshlet.primitive.instance.meshID;
-						slice.primitive.drawCommand.vertices = slice.vertices.size();
-					}
-				}
-
-				return partitioned;
-			}
-			*/
-
 			for ( auto& meshlet : meshlets ) uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
 			if ( cleanup ) uf::meshgrid::cleanup( grid );
 
@@ -154,14 +105,6 @@ namespace uf {
 						vertex.id.x = primitiveID;
 						vertex.id.y = meshlet.primitive.instance.meshID;
 					}
-
-					/*
-					if ( clip ) {
-						node.effectiveExtents.min = node.extents.min;
-						node.effectiveExtents.max = node.extents.max;
-						uf::shapes::clip<T,U>( slice.vertices, slice.indices, node.extents.min, node.extents.max );
-					}
-					*/
 
 					slice.primitive.instance = meshlet.primitive.instance;
 					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;

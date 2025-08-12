@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SourceEngine",
+			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,

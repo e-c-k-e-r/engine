@@ -226,6 +226,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 	
+	
 	auto& graphic = entity.getComponent<uf::renderer::Graphic>();
 	graphic.initialize();
 	graphic.initializeMesh( mesh );
@@ -1217,132 +1218,9 @@ void uf::graph::process( pod::Graph& graph ) {
 	}
 
 	UF_DEBUG_TIMER_MULTITRACE("Updating master graph");
+	uf::graph::reload( graph );
 	uf::graph::reload();
-
-	// setup combined mesh if requested
-	if ( !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
-		UF_DEBUG_TIMER_MULTITRACE("Processing root graphic");
-
-		graph.root.mesh = graph.meshes.size();
-		auto keyName = graph.name + "/" + graph.root.name;
-		auto& mesh = storage.meshes[graph.meshes.emplace_back(keyName)];
-
-		mesh.bindIndirect<pod::DrawCommand>();
-		#if UF_ENV_DREAMCAST
-			mesh.bind<uf::graph::mesh::Base, uint32_t>();
-		#else
-			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-		#endif
-	/*
-		{
-		#if UF_ENV_DREAMCAST
-			mesh.bind<uf::graph::mesh::Base_u16q, uint32_t>();
-		//	mesh.convert<float, uint16_t>();
-		#else
-			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
-			if ( conversion != "" ) {
-				if ( conversion == "uint16_t" ) mesh.bind<uf::graph::mesh::Skinned_16f, uint32_t>();
-			#if UF_USE_FLOAT16
-				else if ( conversion == "float16" ) mesh.bind<uf::graph::mesh::Skinned_16f, uint32_t>();
-			#endif
-			#if UF_USE_BFLOAT16
-				else if ( conversion == "bfloat16" ) mesh.bind<uf::graph::mesh::Skinned_16f, uint32_t>();
-			#endif
-				else mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-			} else mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-		#endif
-		}
-	*/
-
-		uf::stl::vector<pod::DrawCommand> drawCommands;
-		
-		size_t counts = 0;
-		for ( auto& name : graph.meshes ) {
-			if ( name == keyName ) continue;
-			auto tag = ext::json::find( name, graph.metadata["tags"] );
-			if ( ext::json::isObject( tag ) ) {
-				if ( tag["ignore"].as<bool>() ) continue;
-			}
-
-			auto& m = storage.meshes.map[name];
-			m.updateDescriptor();
-
-			mesh.insertVertices( m );
-			mesh.insertIndices( m );
-			mesh.insertInstances( m );
-
-		//	mesh.insertIndirects( m );
-			pod::DrawCommand* drawCommand = (pod::DrawCommand*) m.getBuffer( m.indirect ).data();
-			for ( size_t i = 0; i < m.indirect.count; ++i ) drawCommands.emplace_back( drawCommand[i] );
-		}
-
-		// fix up draw command for combined mesh
-		{
-			size_t totalIndices = 0;
-			size_t totalVertices = 0;
-			for ( auto& drawCommand : drawCommands ) {
-				drawCommand.indexID = totalIndices;
-				drawCommand.vertexID = totalVertices;
-
-				totalIndices += drawCommand.indices;
-				totalVertices += drawCommand.vertices;
-			}
-			
-			mesh.insertIndirects( drawCommands );
-		}
-
-		#if UF_ENV_DREAMCAST
-		{
-			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
-			if ( !mesh.isInterleaved() ) {
-				uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
-
-				for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
-					auto& attribute = mesh.vertex.attributes[i];
-					if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
-					remove.insert(remove.begin(), i);
-					UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
-				}
-				for ( auto& i : remove ) {
-					mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
-					mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
-					mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
-				}
-			} else {
-				UF_MSG_DEBUG("Attribute removal requested yet mesh is interleaved, ignoring...");
-			}
-		}
-		#endif
 	
-		{
-		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
-			mesh.convert<float, uint16_t>();
-			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
-		#else
-			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
-			if ( conversion != "" ) {
-			#if UF_USE_FLOAT16
-				if ( conversion == "float16" ) mesh.convert<float, float16>();
-				else if ( conversion == "float" ) mesh.convert<float16, float>();
-			#endif
-			#if UF_USE_BFLOAT16
-				if ( conversion == "bfloat16" ) mesh.convert<float, bfloat16>();
-				else if ( conversion == "float" ) mesh.convert<bfloat16, float>();
-			#endif
-				if ( conversion == "uint16_t" ) mesh.convert<float, uint16_t>();
-				else if ( conversion == "float" ) mesh.convert<uint16_t, float>();
-			}
-		#endif
-		}
-			
-		mesh.updateDescriptor();
-
-		{
-			auto& graphic = graph.root.entity->getComponent<uf::renderer::Graphic>();
-			uf::graph::initializeGraphics( graph, *graph.root.entity, mesh );
-		}
-	}
-
 	storage.instanceAddresses.keys = storage.instances.keys;
 	UF_DEBUG_TIMER_MULTITRACE_END("Processed graph.");
 }
@@ -1520,7 +1398,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	size_t objectID = storage.entities.keys.size();
 	auto objectKeyName = std::to_string(objectID);
 	storage.entities[objectKeyName] = &entity;
-
+	
+	// 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		auto model = uf::transform::model( transform );
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
@@ -1553,9 +1432,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				drawCommand.instanceID = instanceID;
 			}
 		}
-		if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
-			uf::graph::initializeGraphics( graph, entity, mesh );
-		}
 		
 		{
 			auto phyziks = tag["physics"];
@@ -1565,16 +1441,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( ext::json::isObject( phyziks ) ) {
 				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
 
-				if ( type == "mesh" ) {
-					auto& collider = entity.getComponent<pod::PhysicsState>();
-					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
-					collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
-					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
-					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
-					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
-				
-					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !phyziks["static"].as<bool>(true) );
-				} else {
+				if ( type != "mesh" ) {
 					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
 					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
 
@@ -1587,6 +1454,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 	}
+
 	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
 }
 void uf::graph::cleanup( pod::Graph& graph ) {
@@ -1987,6 +1855,174 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	}
 
 	uf::renderer::states::rebuild = true;
+}
+void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
+	if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) return;
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+	auto& entity = node.entity->as<uf::Object>();
+
+	auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = entity.getComponent<uf::Serializer>();
+	auto& transform = entity.getComponent<pod::Transform<>>();
+	
+	ext::json::Value tag = ext::json::find( node.name, graph.metadata["tags"] );
+
+	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
+		auto model = uf::transform::model( transform );
+		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+
+	#if 0
+		if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
+	#endif
+		if ( graph.metadata["renderer"]["render"].as<bool>() ) {
+			bool exists = entity.hasComponent<uf::renderer::Graphic>();
+			if ( exists ) {
+				auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+				graphic.updateMesh( mesh );
+			} else {
+				uf::graph::initializeGraphics( graph, entity, mesh );
+			}
+		}
+		{
+			auto phyziks = tag["physics"];
+			if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
+			else metadataJson["physics"] = phyziks;
+			
+			if ( ext::json::isObject( phyziks ) ) {
+				uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
+				if ( type == "mesh" ) {
+					bool exists = entity.hasComponent<pod::PhysicsState>();
+					if ( exists ) {
+						uf::physics::terminate( entity );
+					//	entity.deleteComponent<pod::PhysicsState>();
+					}
+					auto& collider = entity.getComponent<pod::PhysicsState>();
+
+					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
+					collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
+					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
+					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
+					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
+				
+					uf::physics::impl::create( entity, mesh, !phyziks["static"].as<bool>(true) );
+				}
+			}
+		}
+	}
+}
+void uf::graph::reload( pod::Graph& graph ) {
+	// update graphics
+	for ( auto& node : graph.nodes ) uf::graph::reload( graph, node );
+
+	// setup combined mesh if requested
+	// disabled for now
+#if 0
+	if ( !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
+		UF_DEBUG_TIMER_MULTITRACE("Processing root graphic");
+
+		graph.root.mesh = graph.meshes.size();
+		auto keyName = graph.name + "/" + graph.root.name;
+		auto& mesh = storage.meshes[graph.meshes.emplace_back(keyName)];
+
+		mesh.bindIndirect<pod::DrawCommand>();
+		#if UF_ENV_DREAMCAST
+			mesh.bind<uf::graph::mesh::Base, uint32_t>();
+		#else
+			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+		#endif
+
+		uf::stl::vector<pod::DrawCommand> drawCommands;
+		
+		size_t counts = 0;
+		for ( auto& name : graph.meshes ) {
+			if ( name == keyName ) continue;
+			auto tag = ext::json::find( name, graph.metadata["tags"] );
+			if ( ext::json::isObject( tag ) ) {
+				if ( tag["ignore"].as<bool>() ) continue;
+			}
+
+			auto& m = storage.meshes.map[name];
+			m.updateDescriptor();
+
+			mesh.insertVertices( m );
+			mesh.insertIndices( m );
+			mesh.insertInstances( m );
+
+		//	mesh.insertIndirects( m );
+			pod::DrawCommand* drawCommand = (pod::DrawCommand*) m.getBuffer( m.indirect ).data();
+			for ( size_t i = 0; i < m.indirect.count; ++i ) drawCommands.emplace_back( drawCommand[i] );
+		}
+
+		// fix up draw command for combined mesh
+		{
+			size_t totalIndices = 0;
+			size_t totalVertices = 0;
+			for ( auto& drawCommand : drawCommands ) {
+				drawCommand.indexID = totalIndices;
+				drawCommand.vertexID = totalVertices;
+
+				totalIndices += drawCommand.indices;
+				totalVertices += drawCommand.vertices;
+			}
+			
+			mesh.insertIndirects( drawCommands );
+		}
+
+		#if UF_ENV_DREAMCAST
+		{
+			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
+			if ( !mesh.isInterleaved() ) {
+				uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
+
+				for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
+					auto& attribute = mesh.vertex.attributes[i];
+					if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
+					remove.insert(remove.begin(), i);
+					UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
+				}
+				for ( auto& i : remove ) {
+					mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
+					mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
+					mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
+				}
+			} else {
+				UF_MSG_DEBUG("Attribute removal requested yet mesh is interleaved, ignoring...");
+			}
+		}
+		#endif
+	
+		{
+		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
+			mesh.convert<float, uint16_t>();
+			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
+		#else
+			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
+			if ( conversion != "" ) {
+			#if UF_USE_FLOAT16
+				if ( conversion == "float16" ) mesh.convert<float, float16>();
+				else if ( conversion == "float" ) mesh.convert<float16, float>();
+			#endif
+			#if UF_USE_BFLOAT16
+				if ( conversion == "bfloat16" ) mesh.convert<float, bfloat16>();
+				else if ( conversion == "float" ) mesh.convert<bfloat16, float>();
+			#endif
+				if ( conversion == "uint16_t" ) mesh.convert<float, uint16_t>();
+				else if ( conversion == "float" ) mesh.convert<uint16_t, float>();
+			}
+		#endif
+		}
+			
+		mesh.updateDescriptor();
+
+		{
+			auto& graphic = graph.root.entity->getComponent<uf::renderer::Graphic>();
+			uf::graph::initializeGraphics( graph, *graph.root.entity, mesh );
+		}
+	}
+#endif
 }
 void uf::graph::reload() {
 	::newGraphAdded = true;

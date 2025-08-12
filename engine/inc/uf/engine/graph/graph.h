@@ -152,6 +152,8 @@ namespace uf {
 
 		uf::stl::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );
+		void UF_API reload( pod::Graph& graph );
+		void UF_API reload( pod::Graph& graph, pod::Node& node );
 		void UF_API reload();
 	}
 }
