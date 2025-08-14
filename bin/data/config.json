@@ -311,7 +311,7 @@
 				"debug draw": {
 					"enabled": false,
 					"line width": 8,
-					"layer": "",
+					"layer": "Gui",
 					"rate": 0.0125
 				}
 			},

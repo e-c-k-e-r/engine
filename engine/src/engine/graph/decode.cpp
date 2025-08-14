@@ -237,8 +237,27 @@ namespace {
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			const uf::stl::string filename = value.as<uf::stl::string>();
 			const uf::stl::string directory = uf::io::directory( graph.name );
-			auto& buffer = mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
+			// uf::io::readAsBuffer( directory + "/" + filename )
+			if ( graph.metadata["stream"]["enabled"].as<bool>() ) {
+				mesh.buffers.emplace_back();
+				mesh.buffer_paths.emplace_back(directory + "/" + filename );
+			} else {
+				// to-do: make it work for interleaved meshes
+				mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
+			}
 		});
+
+		// load non vertex/index buffers
+		for ( size_t i = 0; i < mesh.instance.attributes.size(); ++i ) {
+			auto& attribute = mesh.instance.attributes[i];
+			if ( !mesh.buffers[attribute.buffer].empty() ) continue;
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
+		for ( size_t i = 0; i < mesh.indirect.attributes.size(); ++i ) {
+			auto& attribute = mesh.indirect.attributes[i];
+			if ( !mesh.buffers[attribute.buffer].empty() ) continue;
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
 
 	#if UF_ENV_DREAMCAST
 		// remove extraneous buffers
@@ -265,7 +284,7 @@ namespace {
 	#endif
 
 		mesh.updateDescriptor();
-
+	#if 0
 		if ( graph.metadata["renderer"]["separate"].as<bool>() ) {
 		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 			mesh.convert<float, uint16_t>();
@@ -286,43 +305,6 @@ namespace {
 			}
 		#endif
 			mesh.updateDescriptor();
-		}
-
-	#if 0
-		// swap winding order
-		if ( graph.metadata["decode"]["invert winding order"].as<bool>() ) {
-			if ( mesh.index.count ) {
-				uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
-				size_t tri[3];
-				for ( size_t i = 0; i < mesh.index.count / 3; ++i ) {
-					switch ( mesh.index.size ) {
-						case sizeof(uint8_t): {
-							uint8_t* pointer = (uint8_t*) (indexAttribute.pointer);
-							tri[0] = pointer[i * 3 + 0];
-							tri[2] = pointer[i * 3 + 2];
-
-							pointer[i * 3 + 0] = tri[2];
-							pointer[i * 3 + 2] = tri[0];
-						} break;
-						case sizeof(uint16_t): {
-							uint16_t* pointer = (uint16_t*) (indexAttribute.pointer);
-							tri[0] = pointer[i * 3 + 0];
-							tri[2] = pointer[i * 3 + 2];
-
-							pointer[i * 3 + 0] = tri[2];
-							pointer[i * 3 + 2] = tri[0];
-						} break;
-						case sizeof(uint32_t): {
-							uint32_t* pointer = (uint32_t*) (indexAttribute.pointer);
-							tri[0] = pointer[i * 3 + 0];
-							tri[2] = pointer[i * 3 + 2];
-
-							pointer[i * 3 + 0] = tri[2];
-							pointer[i * 3 + 2] = tri[0];
-						} break;
-					}
-				}
-			}
 		}
 	#endif
 
@@ -388,6 +370,34 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	#else
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "tangent", "joints", "weights", "normal", "id" });
 	#endif
+	}
+
+	// failsafes
+	if ( graph.metadata["stream"]["enabled"].is<uf::stl::string>() && graph.metadata["stream"]["enabled"].as<uf::stl::string>() == "auto" ) {
+	#if UF_ENV_DREAMCAST
+		graph.metadata["stream"]["enabled"] = true;
+	#else
+		graph.metadata["stream"]["enabled"] = false;
+	#endif
+	}
+	if ( graph.metadata["stream"]["enabled"].as<bool>() && graph.metadata["stream"]["radius"].as<float>(0) <= 0.0f ) {
+		graph.metadata["stream"]["enabled"] = false;
+	}
+	if ( !graph.metadata["stream"]["enabled"].as<bool>() ) {
+		graph.metadata["stream"]["radius"] = 0.0f;
+	}
+
+	// copy important settings
+	{
+		graph.settings.stream.enabled = graph.metadata["stream"]["enabled"].as(graph.settings.stream.enabled);
+		graph.settings.stream.radius = graph.metadata["stream"]["radius"].as(graph.settings.stream.radius);
+		graph.settings.stream.every = graph.metadata["stream"]["every"].as(graph.settings.stream.every);
+
+		graph.settings.stream.tag = graph.metadata["stream"]["tag"].as(graph.settings.stream.tag);
+		graph.settings.stream.player = graph.metadata["stream"]["player"].as(graph.settings.stream.player);
+
+		graph.settings.stream.hash = graph.metadata["stream"]["hash"].as(graph.settings.stream.hash);
+		graph.settings.stream.lastUpdate = graph.metadata["stream"]["lastUpdate"].as(graph.settings.stream.lastUpdate);
 	}
 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");

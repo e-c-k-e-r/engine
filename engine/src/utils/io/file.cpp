@@ -133,7 +133,73 @@ uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename,
 		buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	}
 	uf::stl::string expected = "";
-	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
+	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
+		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
+		return uf::stl::vector<uint8_t>();
+	}
+	return buffer;
+}
+
+uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, size_t start, size_t len, const uf::stl::string& hash ) {
+	uf::stl::vector<uint8_t> buffer;
+	uf::stl::string filename = sanitize(_filename);
+	uf::stl::string extension = uf::io::extension(filename);
+
+	if ( extension == "gz" || extension == "lz4" ) {
+		buffer = uf::io::decompress( filename, start, len );
+	} else {
+		std::ifstream is(filename, std::ios::binary);
+		if (!is.is_open()) {
+			UF_MSG_ERROR("Error: Could not open file: {}", filename);
+			return buffer;
+		}
+		is.seekg(start, std::ios::beg);
+		buffer.resize(len);
+		is.read(reinterpret_cast<char*>(buffer.data()), len);
+		buffer.resize(static_cast<size_t>(is.gcount())); // adjust if EOF
+	}
+
+	uf::stl::string expected;
+	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
+		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
+		return uf::stl::vector<uint8_t>();
+	}
+	return buffer;
+}
+
+uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::vector<pod::Range>& ranges, const uf::stl::string& hash ) {
+	uf::stl::vector<uint8_t> buffer;
+	uf::stl::string filename = sanitize(_filename);
+	uf::stl::string extension = uf::io::extension(filename);
+
+	if ( extension == "gz" || extension == "lz4" ) {
+		buffer = uf::io::decompress( filename, ranges );
+	} else {
+		std::ifstream is(filename, std::ios::binary);
+		if (!is.is_open()) {
+			UF_MSG_ERROR("Error: Could not open file: {}", filename);
+			return buffer;
+		}
+
+		// Precompute total size to reserve memory
+		size_t totalBytes = 0;
+		for (const auto& r : ranges) {
+			totalBytes += r.len;
+		}
+		buffer.reserve(totalBytes);
+
+		// Read each range
+		for (const auto& r : ranges) {
+			is.seekg(r.start, std::ios::beg);
+			size_t oldSize = buffer.size();
+			buffer.resize(oldSize + r.len);
+			is.read(reinterpret_cast<char*>(buffer.data() + oldSize), r.len);
+			buffer.resize(oldSize + static_cast<size_t>(is.gcount()));
+		}
+	}
+
+	uf::stl::string expected;
+	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
 		return uf::stl::vector<uint8_t>();
 	}
@@ -156,6 +222,20 @@ uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
 //	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename );
+	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
+	return {};
+}
+uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename, size_t start, size_t len ) {
+	uf::stl::string extension = uf::io::extension( filename );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename, start, len );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename, start, len );
+	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
+	return {};
+}
+uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
+	uf::stl::string extension = uf::io::extension( filename );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename, ranges );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename, ranges );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return {};
 }

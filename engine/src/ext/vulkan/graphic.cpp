@@ -1169,13 +1169,13 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 		if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
 			auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
 			if ( !buffer.empty() ) {\
-				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] );\
+				rebuild = updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] ) || rebuild;\
 			} else mesh.NAME.interleaved = -1;\
 		} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 			auto& attribute = descriptor.inputs.NAME.attributes[i];\
 			auto& buffer = mesh.buffers[attribute.buffer];\
 			if ( !buffer.empty() ) {\
-				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] );\
+				rebuild = updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] ) || rebuild;\
 			} else attribute.buffer = -1;\
 		}\
 	}

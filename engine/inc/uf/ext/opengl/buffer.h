@@ -85,14 +85,17 @@ namespace ext {
 			template<typename T> inline size_t initializeBuffer( const T& data, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), usage, alias ); }
 
 			inline bool updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( data, length, buffers.at(index), alias ); }
+		/*
+			inline bool updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( data, length, buffers.at(index), alias ); }
 			inline bool updateBuffer( void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) data, length, index, alias ); }
 			inline bool updateBuffer( void* data, GLsizeiptr length, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) data, length, buffer, alias ); }
-			
+
 			template<typename T> inline bool updateBuffer( const T& data, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), index, alias ); }
 			template<typename T> inline bool updateBuffer( const T& data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) &data, length, index, alias ); }
 			
 			template<typename T> inline bool updateBuffer( const T& data, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), buffer, alias ); }
 			template<typename T> inline bool updateBuffer( const T& data, GLsizeiptr length, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) &data, length, buffer, alias ); }
+		*/
 		};
 	}
 }

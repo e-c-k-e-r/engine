@@ -12,9 +12,10 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/string/hash.h>
+#include <uf/utils/io/inputs.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::GraphBehavior)
-UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = false, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void uf::GraphBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -66,7 +67,15 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 	});
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
-void uf::GraphBehavior::tick( uf::Object& self ) {}
+void uf::GraphBehavior::tick( uf::Object& self ) {
+	/* Test */ {
+		TIMER(1, uf::inputs::kbm::states::T ) {
+			UF_MSG_DEBUG("Regenerating graph graphics...");
+			auto& graph = this->getComponent<pod::Graph>();
+			uf::graph::reload( graph );
+		}
+	}
+}
 void uf::GraphBehavior::render( uf::Object& self ) {}
 void uf::GraphBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
 void uf::GraphBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}

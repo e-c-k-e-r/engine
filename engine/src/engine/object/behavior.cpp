@@ -196,9 +196,9 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	//	this->deleteComponent<uf::Atlas>();
 	}
 	if ( this->hasComponent<pod::PhysicsState>() ) {
-	//	auto& collider = this->getComponent<pod::PhysicsState>();
-	//	uf::physics::detach( collider );
-		uf::physics::terminate( *this );
+		auto& collider = this->getComponent<pod::PhysicsState>();
+		uf::physics::impl::detach( collider );
+	//	this->deleteComponent<pod::PhysicsState>();
 	}
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();

@@ -158,6 +158,7 @@ namespace uf {
 		} bounds;
 	*/
 		uf::stl::vector<buffer_t> buffers;
+		uf::stl::vector<uf::stl::string> buffer_paths; // crunge
 	protected:
 		void _destroy( uf::Mesh::Input& input );
 		void _bind( bool interleaved = uf::Mesh::defaultInterleaved );

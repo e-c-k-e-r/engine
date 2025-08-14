@@ -1,0 +1,15 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [	
+	//	{ "filename": "./models/test_grid.glb" }
+		{ "filename": "./models/test_grid/graph.json" }
+	],
+	"metadata": {
+		"graph": {
+			"tags": {
+				"/^prop_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
+				"/^func_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } }
+			}
+		}
+	}
+}

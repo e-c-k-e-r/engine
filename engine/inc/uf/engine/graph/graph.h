@@ -59,6 +59,17 @@ namespace pod {
 
 				uf::stl::string target = "";
 			} animations;
+			struct {
+				bool enabled = false;
+				float radius = 64.0f;
+				float every = 4.0f;
+
+				uf::stl::string tag = "worldspawn";
+				uf::stl::string player = "info_player_spawn";
+				
+				size_t hash = 0;
+				float lastUpdate = 0;
+			} stream;
 		} settings;
 
 		// Local storage, used for save/load

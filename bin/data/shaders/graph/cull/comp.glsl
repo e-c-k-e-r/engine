@@ -83,6 +83,8 @@ bool frustumCull( uint id ) {
 	const DrawCommand drawCommand = drawCommands[id];
 	const Instance instance = instances[drawCommand.instanceID];
 
+	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return false;
+
 	bool visible = false;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 #if 0

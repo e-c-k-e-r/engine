@@ -23,8 +23,20 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 
+#define UF_GRAPH_SPARSE_READ_MESH 1
+
 namespace {
 	bool newGraphAdded = true;
+
+	// todo: shove it into the "std"lib
+	inline uint64_t fnv1aHash(const uf::stl::vector<bool>& bits) {
+		uint64_t hash = 1469598103934665603ULL;
+		for (bool b : bits) {
+			hash ^= static_cast<uint64_t>(b);
+			hash *= 1099511628211ULL;
+		}
+		return hash;
+	}
 }
 
 #if UF_ENV_DREAMCAST
@@ -1424,6 +1436,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
 
+			primitive.drawCommand.instanceID = instanceID;
 			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
 				auto& attribute = mesh.indirect.attributes.front();
 				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
@@ -1540,6 +1553,12 @@ void uf::graph::update( pod::Graph& graph ) {
 void uf::graph::update( pod::Graph& graph, float delta ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+	// get last update time
+	if ( graph.settings.stream.enabled && graph.settings.stream.hash != 0 && uf::physics::time::current - graph.settings.stream.lastUpdate > graph.settings.stream.every ) {
+		graph.settings.stream.lastUpdate = uf::physics::time::current;
+		uf::graph::reload( graph );
+	}
 
 	// update our instances
 #if !UF_ENV_DREAMCAST
@@ -1870,45 +1889,212 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	
 	ext::json::Value tag = ext::json::find( node.name, graph.metadata["tags"] );
 
-	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		auto model = uf::transform::model( transform );
-		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+	pod::Vector3f controllerPosition;
+	auto& controller = scene.getController();
+	if ( controller.getName() != "Scene" ) {
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+		controllerPosition = controllerTransform.position;
+	} else {
+		// find info_player_spawn
+		// to-do: deduce the node via tag that attaches the player
+		for ( auto& node : graph.nodes ) {
+			if ( node.name != graph.settings.stream.player ) continue;
+			auto& controllerTransform = node.entity->getComponent<pod::Transform<>>();
+			controllerPosition = controllerTransform.position;
+			break;
+		}
+	}
 
-	#if 0
-		if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
-	#endif
-		if ( graph.metadata["renderer"]["render"].as<bool>() ) {
-			bool exists = entity.hasComponent<uf::renderer::Graphic>();
-			if ( exists ) {
-				auto& graphic = entity.getComponent<uf::renderer::Graphic>();
-				graphic.updateMesh( mesh );
-			} else {
-				uf::graph::initializeGraphics( graph, entity, mesh );
+	auto model = uf::transform::model( transform );
+	auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+
+	float radius = graph.settings.stream.radius;
+	float radiusSquared = radius * radius;
+
+	// disable if not tagged for streaming
+	// to-do: check tag
+	if ( node.name != graph.settings.stream.tag ) {
+		radius = 0;
+	}
+
+	if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
+		// deduce draw command (indirect) buffer to write to
+		auto& attribute = mesh.indirect.attributes.front();
+		auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+		pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
+		// queues
+		uf::stl::unordered_map<size_t, uf::stl::vector<pod::Range>> ranges;
+		uf::stl::vector<bool> queuedDrawIDs( primitives.size(), false ); // this is to maintain draw command order because apparently my code requires draw commands to stay in order
+		// fallbacks for when no draw calls are requested (mainly for the collision mesh)
+		float closestDistance = std::numeric_limits<float>::max();
+		size_t closestDrawID = 0;
+		bool found = false;
+
+		// iterate through meshlets and cull if out of radius
+		for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+			auto& primitive = primitives[drawID];
+			auto& instance = primitive.instance;
+			auto& drawCommand = primitive.drawCommand;
+
+			pod::Vector3f center = uf::matrix::multiply( model, (instance.bounds.max + instance.bounds.min) * 0.5f, 1.0f ); // transform the center of the draw call
+			float distanceSquared = uf::vector::distanceSquared( center, controllerPosition ); // saves a sqrt()
+
+			// store closest draw call
+			if ( distanceSquared < closestDistance ) {
+				closestDistance = distanceSquared;
+				closestDrawID = drawID;
+			}
+			// queue if we're within the radius
+			if ( (queuedDrawIDs[drawID] = distanceSquared <= radiusSquared) ) {
+				found = true;
 			}
 		}
-		{
-			auto phyziks = tag["physics"];
-			if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
-			else metadataJson["physics"] = phyziks;
-			
-			if ( ext::json::isObject( phyziks ) ) {
-				uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
-				if ( type == "mesh" ) {
-					bool exists = entity.hasComponent<pod::PhysicsState>();
-					if ( exists ) {
-						uf::physics::terminate( entity );
-					//	entity.deleteComponent<pod::PhysicsState>();
-					}
-					auto& collider = entity.getComponent<pod::PhysicsState>();
 
-					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
-					collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
-					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
-					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
-					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
-				
-					uf::physics::impl::create( entity, mesh, !phyziks["static"].as<bool>(true) );
+		// insert closest primitive if all are out of range (because of cringe logic)
+		if ( !found ) {
+			queuedDrawIDs[closestDrawID] = true;
+		}
+
+		// bail if no update is detected
+		uint64_t drawCommandHash = ::fnv1aHash(queuedDrawIDs);
+		if ( drawCommandHash == graph.settings.stream.hash ) {
+			return;
+		}
+		graph.settings.stream.hash = drawCommandHash;
+		graph.settings.stream.lastUpdate = uf::physics::time::current;
+	// read from disk
+	#if UF_GRAPH_SPARSE_READ_MESH
+		// reset counts
+		mesh.vertex.count = 0;
+		mesh.index.count = 0;
+
+		for (size_t drawID = 0; drawID < queuedDrawIDs.size(); ++drawID) {
+			bool queued = queuedDrawIDs[drawID];
+			auto& primitive = primitives[drawID];
+			auto& drawCommand = drawCommands[drawID];
+			
+			// disable draw call
+			if ( !queued ) {
+				drawCommand.instances = 0;
+				drawCommand.vertices = 0;
+				drawCommand.indices = 0;
+				drawCommand.vertexID = 0;
+				drawCommand.indexID = 0;
+				continue;
+			}
+
+			// queue up ranges to read from disk
+			for (auto& attribute : mesh.index.attributes) {
+				auto size = attribute.descriptor.size;
+				ranges[attribute.buffer].emplace_back(pod::Range{
+					primitive.drawCommand.indexID * size,
+					primitive.drawCommand.indices * size,
+				});
+			}
+			for (auto& attribute : mesh.vertex.attributes) {
+				auto size = attribute.descriptor.size;
+				ranges[attribute.buffer].emplace_back(pod::Range{
+					primitive.drawCommand.vertexID * size,
+					primitive.drawCommand.vertices * size,
+				});
+			}
+
+			// reset draw call and remap
+			drawCommand = primitive.drawCommand;
+			drawCommand.vertexID = mesh.vertex.count;
+			drawCommand.indexID  = mesh.index.count;
+			// increment remap indices
+			mesh.vertex.count += drawCommand.vertices;
+			mesh.index.count  += drawCommand.indices;
+		}
+
+		// load mesh data
+		for ( auto& attribute : mesh.index.attributes ) {
+			if ( ranges.count(attribute.buffer) <= 0 ) { 
+				mesh.buffers[attribute.buffer].clear();
+			} else {
+				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );
+			}
+		}
+		for ( auto& attribute : mesh.vertex.attributes ) {
+			if ( ranges.count(attribute.buffer) <= 0 ) {
+				mesh.buffers[attribute.buffer].clear();
+			} else {
+				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );
+			}
+		}
+	// keep the vertex data intact
+	#else
+		// disable remaining draw commands
+		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
+			bool queued = queuedDrawIDs[drawID];
+			if ( !queued ) {
+				drawCommands[drawID].instances = 0;
+				drawCommands[drawID].vertices = 0;
+				drawCommands[drawID].indices = 0;
+				drawCommands[drawID].indexID = 0;
+				drawCommands[drawID].vertexID = 0;
+			} else {
+				drawCommands[drawID] = primitives[drawID].drawCommand;
+			}
+		}
+
+		// load mesh data
+		for ( auto& attribute : mesh.index.attributes ) {
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
+		for ( auto& attribute : mesh.vertex.attributes ) {
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
+	#endif
+	} else {
+		// load mesh data
+		for ( auto& attribute : mesh.index.attributes ) {
+			if ( mesh.buffers[attribute.buffer].empty() ) mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
+		for ( auto& attribute : mesh.vertex.attributes ) {
+			if ( mesh.buffers[attribute.buffer].empty() ) mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		}
+	}
+
+	mesh.updateDescriptor();
+
+	// update graphic
+#if 0
+	if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
+#endif
+	if ( graph.metadata["renderer"]["render"].as<bool>() ) {
+		bool exists = entity.hasComponent<uf::renderer::Graphic>();
+		if ( exists ) {
+			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+			graphic.updateMesh( mesh );
+		} else {
+			uf::graph::initializeGraphics( graph, entity, mesh );
+		}
+	}
+	// bind mesh to physics state
+	{
+		auto phyziks = tag["physics"];
+		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
+		else metadataJson["physics"] = phyziks;
+		
+		if ( ext::json::isObject( phyziks ) ) {
+			uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
+			if ( type == "mesh" ) {
+				bool exists = entity.hasComponent<pod::PhysicsState>();
+				if ( exists ) {
+					uf::physics::impl::destroy( entity );
 				}
+				
+				auto& collider = entity.getComponent<pod::PhysicsState>();
+				collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
+				collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
+				collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
+				collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
+				collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
+			
+				uf::physics::impl::create( entity, mesh, !phyziks["static"].as<bool>(true) );
 			}
 		}
 	}

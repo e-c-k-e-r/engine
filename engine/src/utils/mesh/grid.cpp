@@ -5,6 +5,15 @@ namespace {
 	//	return ( min.x <= p.x && p.x <= max.x && min.y <= p.y && p.y <= max.y && min.z <= p.z && p.z <= max.z );
 		return (p.x <= max.x && p.x >= min.x) && (p.y <= max.y && p.y >= min.y) && (p.z <= max.z && p.z >= min.z);
 	}
+
+	inline pod::Vector3ui cellCoords(const pod::Vector3f& p, const pod::Vector3f& min, const pod::Vector3f& piece, const pod::Vector3ui& divs) {
+		pod::Vector3f rel = (p - min) / piece;
+		return {
+			std::min<uint32_t>(std::max<int>(0, (int)rel.x), divs.x - 1),
+			std::min<uint32_t>(std::max<int>(0, (int)rel.y), divs.y - 1),
+			std::min<uint32_t>(std::max<int>(0, (int)rel.z), divs.z - 1)
+		};
+	}
 }
 
 void uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
@@ -15,30 +24,7 @@ void uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
 		for ( auto& pair2 : node.meshlets ) indices += pair2.second.indices.size();
 		float percentage = 100.0f * indices / grid.indices;
 		total += percentage;
-	/*
-		UF_MSG_DEBUG( 
-			"[" << node.id.x << "," << node.id.y << "," << node.id.z << "] "
-			"[" << percentage << "%|" << total << "%] "
-			"Min: " << uf::vector::toString( node.extents.min ) << " | "
-			"Max: " << uf::vector::toString( node.extents.max ) << " | "
-			"Meshlets: " << node.meshlets.size() << " | "
-			"Indices: " << indices
-		);
-	*/
 	}
-/*
-	UF_MSG_DEBUG( "== == == ==");
-	UF_MSG_DEBUG( "Min: {}", uf::vector::toString( grid.extents.min ) );
-	UF_MSG_DEBUG( "Max: {}", uf::vector::toString( grid.extents.max ) );
-	UF_MSG_DEBUG( "Center: {}", uf::vector::toString( grid.extents.center ) );
-	UF_MSG_DEBUG( "Corner: {}", uf::vector::toString( grid.extents.corner ) );
-	UF_MSG_DEBUG( "Size: {}", uf::vector::toString( grid.extents.size ) );
-	UF_MSG_DEBUG( "Piece: {}", uf::vector::toString( grid.extents.piece ) );
-	UF_MSG_DEBUG( "Divisions: {}", uf::vector::toString( grid.divisions ) );
-	UF_MSG_DEBUG( "Nodes: {}", grid.nodes.size() );
-	UF_MSG_DEBUG( "Indices: {}", grid.indices );
-	UF_MSG_DEBUG( "== == == ==");
-*/
 }
 void uf::meshgrid::cleanup( uf::meshgrid::Grid& grid ) {
 	uf::stl::vector<pod::Vector3ui> eraseNodes;
@@ -57,198 +43,103 @@ void uf::meshgrid::cleanup( uf::meshgrid::Grid& grid ) {
 	}
 	
 	for ( auto& e : eraseNodes ) grid.nodes.erase(e);
-
-/*
-	for ( auto it = grid.nodes.begin(); it != grid.nodes.end(); ++it ) {
-		auto& node = it->second;
-		
-		uf::stl::vector<size_t> eraseMeshlets;
-		for ( auto it2 = node.meshlets.begin(); it2 != node.meshlets.end(); ++it2 ) {
-			auto& meshlet = it2->second;
-
-			if ( !meshlet.indices.empty() ) continue;
-			UF_MSG_DEBUG("Erase: " << it2->first);
-			it2 = node.meshlets.erase(it2);
-		}
-
-		if ( !node.meshlets.empty() ) continue;
-		UF_MSG_DEBUG("Erase: " << uf::vector::toString(it->first));
-		it = grid.nodes.erase(it);
-	}
-*/
-/*
-	for ( auto& pair : grid.nodes ) { auto& node = pair.second;
-		for ( auto& pair2 : node.meshlets ) { auto& meshlet = pair2.second;
-			if ( !meshlet.indices.empty() ) continue;
-	//		node.meshlets.erase(pair2.first);
-	//		UF_MSG_DEBUG("Erase: " << pair2.first);
-		}
-		if ( !node.meshlets.empty() ) continue;
-		UF_MSG_DEBUG("Erase: " << uf::vector::toString(pair.first));
-		grid.nodes.erase(pair.first);
-	}
-*/
 }
 
-void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, int divisions, float eps ){
+void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, int divisions, float padding ){
 	grid.divisions = {divisions, divisions, divisions};
-	return calculate( grid, eps );
+	return calculate( grid, padding );
 }
-void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, const pod::Vector3ui& divisions, float eps ){
+void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, const pod::Vector3ui& divisions, float padding ){
 	grid.divisions = divisions; 
-	return calculate( grid, eps );
+	return calculate( grid, padding );
 }
-void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, float eps ){
-	// calculate extents
-	constexpr float epsilon = std::numeric_limits<float>::epsilon();
-	grid.extents.min -= pod::Vector3f{ epsilon, epsilon, epsilon }; // dilate
-	grid.extents.max += pod::Vector3f{ epsilon, epsilon, epsilon }; // dilate
-	grid.extents.size = uf::vector::abs(grid.extents.max - grid.extents.min);
+void uf::meshgrid::calculate( uf::meshgrid::Grid& grid, float padding ){
+	// Pad bounding box
+	grid.extents.min -= pod::Vector3f{ padding, padding, padding };
+	grid.extents.max += pod::Vector3f{ padding, padding, padding };
+
+	grid.extents.size = grid.extents.max - grid.extents.min;
 	grid.extents.piece = grid.extents.size / grid.divisions;
 
-	grid.extents.center = (grid.extents.max + grid.extents.min) * 0.5f;
-	grid.extents.corner = grid.extents.size * 0.5f;
+	grid.nodes.clear();
+	grid.nodes.reserve(grid.divisions.x * grid.divisions.y * grid.divisions.z);
 
-
-// initialize
-	grid.nodes.reserve( grid.divisions.x * grid.divisions.y * grid.divisions.z );
-	for ( int z = 0; z < grid.divisions.z; ++z ) {
-		for ( int y = 0; y < grid.divisions.y; ++y ) {
-			for ( int x = 0; x < grid.divisions.x; ++x ) {
-				auto id = pod::Vector3ui{ x, y, z };
-				grid.nodes[id] = {
-					.extents = {
-						.min = grid.extents.min + grid.extents.piece * pod::Vector3f{ x, y, z },
-						.max = grid.extents.min + grid.extents.piece * pod::Vector3f{ x+1, y+1, z+1 },
-					},
-					.id = id
-				};
+	for (uint32_t z = 0; z < grid.divisions.z; ++z) {
+		for (uint32_t y = 0; y < grid.divisions.y; ++y) {
+			for (uint32_t x = 0; x < grid.divisions.x; ++x) {
+				Node node;
+				node.id = { x, y, z };
+				node.extents.min = grid.extents.min + grid.extents.piece * pod::Vector3f{ x, y, z };
+				node.extents.max = node.extents.min + grid.extents.piece;
+				grid.nodes[{x,y,z}] = std::move(node);
 			}
 		}
 	}
 }
-void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
+
+void uf::meshgrid::partition(uf::meshgrid::Grid& grid,
 	const void* pPointer, size_t pStride,
 	const void* iPointer, size_t iStride,
-	const pod::Primitive& primitive
-) {
+	const pod::Primitive& primitive)
+{
 	size_t pFirst = primitive.drawCommand.vertexID;
 	size_t pCount = primitive.drawCommand.vertices;
 	size_t iFirst = primitive.drawCommand.indexID;
 	size_t iCount = primitive.drawCommand.indices;
 
-	const float oneOverThree = 1.0f / 3.0f;
-
 	struct Triangle {
 		pod::Vector3ui indices;
-		pod::Vector3f center;
-		pod::Vector3f vertices[3];
+		pod::Vector3f verts[3];
 	};
-	uf::stl::vector<Triangle> rejects;
 
-	for ( auto& pair : grid.nodes ) { auto& node = pair.second;
-		auto& meshlet = node.meshlets[primitive.instance.primitiveID];
-		meshlet.primitive = primitive;
-		meshlet.primitive.instance.bounds.min = node.extents.min;
-		meshlet.primitive.instance.bounds.max = node.extents.max;
-	}
+	const uint8_t* idxBase = reinterpret_cast<const uint8_t*>(iPointer);
+	const uint8_t* vtxBase = reinterpret_cast<const uint8_t*>(pPointer);
 
-	// iterate
-	for ( size_t i = 0; i < iCount; i+=3 ) {
+	for (size_t i = 0; i < iCount; i += 3) {
 		Triangle tri{};
-		const uint8_t* indexPointers[3] = {
-			(static_cast<const uint8_t*>(iPointer) + iStride * (iFirst + i + 0)),
-			(static_cast<const uint8_t*>(iPointer) + iStride * (iFirst + i + 1)),
-			(static_cast<const uint8_t*>(iPointer) + iStride * (iFirst + i + 2)),
+		// Read indices
+		auto readIndex = [&](size_t offs) -> uint32_t {
+			switch (iStride) {
+				case 1: return *(const uint8_t*)(idxBase + iStride * (iFirst + offs));
+				case 2: return *(const uint16_t*)(idxBase + iStride * (iFirst + offs));
+				default: return *(const uint32_t*)(idxBase + iStride * (iFirst + offs));
+			}
 		};
+		tri.indices[0] = readIndex(i);
+		tri.indices[1] = readIndex(i+1);
+		tri.indices[2] = readIndex(i+2);
 
-		switch ( iStride ) {
-			case  sizeof(uint8_t): {
-				tri.indices[0] = *( const uint8_t*) indexPointers[0];
-				tri.indices[1] = *( const uint8_t*) indexPointers[1];
-				tri.indices[2] = *( const uint8_t*) indexPointers[2];
-			} break;
-			case sizeof(uint16_t): {
-				tri.indices[0] = *(const uint16_t*) indexPointers[0];
-				tri.indices[1] = *(const uint16_t*) indexPointers[1];
-				tri.indices[2] = *(const uint16_t*) indexPointers[2];
-			} break;
-			case sizeof(uint32_t): {
-				tri.indices[0] = *(const uint32_t*) indexPointers[0];
-				tri.indices[1] = *(const uint32_t*) indexPointers[1];
-				tri.indices[2] = *(const uint32_t*) indexPointers[2];
-			} break;
+		// Read vertices
+		for (int v = 0; v < 3; v++) {
+			tri.verts[v] = *(const pod::Vector3f*)(vtxBase + pStride * (pFirst + tri.indices[v]));
 		}
 
-		tri.vertices[0] = *(const pod::Vector3f*) (static_cast<const uint8_t*>(pPointer) + pStride * (pFirst + tri.indices[0]));
-		tri.vertices[1] = *(const pod::Vector3f*) (static_cast<const uint8_t*>(pPointer) + pStride * (pFirst + tri.indices[1]));
-		tri.vertices[2] = *(const pod::Vector3f*) (static_cast<const uint8_t*>(pPointer) + pStride * (pFirst + tri.indices[2]));
-		
-		tri.center = (tri.vertices[0] + tri.vertices[1] + tri.vertices[2]) * oneOverThree;
+		// Compute bounding cell range
+		pod::Vector3f triMin = uf::vector::min(uf::vector::min(tri.verts[0], tri.verts[1]), tri.verts[2]);
+		pod::Vector3f triMax = uf::vector::max(uf::vector::max(tri.verts[0], tri.verts[1]), tri.verts[2]);
 
-		bool found = false;
-		for ( auto& pair : grid.nodes ) { auto& node = pair.second;
-			auto& meshlet = node.meshlets[primitive.instance.primitiveID];
+		pod::Vector3ui minCell = ::cellCoords(triMin, grid.extents.min, grid.extents.piece, grid.divisions);
+		pod::Vector3ui maxCell = ::cellCoords(triMax, grid.extents.min, grid.extents.piece, grid.divisions);
 
-			if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
-		//	if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
-				meshlet.indices.emplace_back( tri.indices[0] );
-				meshlet.indices.emplace_back( tri.indices[1] );
-				meshlet.indices.emplace_back( tri.indices[2] );
+		// Assign triangle to all overlapping cells
+		for (uint32_t z = minCell.z; z <= maxCell.z; z++) {
+			for (uint32_t y = minCell.y; y <= maxCell.y; y++) {
+				for (uint32_t x = minCell.x; x <= maxCell.x; x++) {
+					pod::Vector3ui cid{x,y,z};
+					auto& node = grid.nodes[cid];
+					auto& meshlet = node.meshlets[primitive.instance.primitiveID];
+					meshlet.primitive = primitive;
 
-				#pragma unroll // GCC unroll N
-				for ( uint_fast8_t _ = 0; _ < 3; ++_ ) {
-					node.effectiveExtents.min = uf::vector::min( node.effectiveExtents.min, tri.vertices[_] );
-					node.effectiveExtents.max = uf::vector::max( node.effectiveExtents.max, tri.vertices[_] );
+					meshlet.indices.emplace_back(tri.indices[0]);
+					meshlet.indices.emplace_back(tri.indices[1]);
+					meshlet.indices.emplace_back(tri.indices[2]);
+
+					for (int v = 0; v < 3; v++) {
+						node.effectiveExtents.min = uf::vector::min(node.effectiveExtents.min, tri.verts[v]);
+						node.effectiveExtents.max = uf::vector::max(node.effectiveExtents.max, tri.verts[v]);
+					}
 				}
-				found = true;
-				break;
 			}
-		//	if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
-			if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
-				meshlet.indices.emplace_back( tri.indices[0] );
-				meshlet.indices.emplace_back( tri.indices[1] );
-				meshlet.indices.emplace_back( tri.indices[2] );
-
-				#pragma unroll // GCC unroll N
-				for ( uint_fast8_t _ = 0; _ < 3; ++_ ) {
-					node.effectiveExtents.min = uf::vector::min( node.effectiveExtents.min, tri.vertices[_] );
-					node.effectiveExtents.max = uf::vector::max( node.effectiveExtents.max, tri.vertices[_] );
-				}
-				found = true;
-				break;
-			}
-		}
-		if ( found ) {
-			continue;
-		}
-		rejects.emplace_back(tri);
-	}
-
-	for ( auto& tri : rejects ) {
-		uf::meshgrid::Node* closest = NULL;
-		float closestDistance = std::numeric_limits<float>::max();
-
-		for ( auto& pair : grid.nodes ) { auto& node = pair.second;
-			auto nodeCenter = (node.extents.max + node.extents.min) * 0.5f;
-			float curDistance = uf::vector::distanceSquared( nodeCenter, tri.center );
-			if ( curDistance < closestDistance ) {
-				closestDistance = curDistance;
-				closest = &node;
-			}
-		}
-		if ( closest ) {
-			auto& meshlet = closest->meshlets[primitive.instance.primitiveID];
-			meshlet.indices.emplace_back( tri.indices[0] );
-			meshlet.indices.emplace_back( tri.indices[1] );
-			meshlet.indices.emplace_back( tri.indices[2] );
-
-			#pragma unroll // GCC unroll N
-			for ( uint_fast8_t _ = 0; _ < 3; ++_ ) {
-				closest->effectiveExtents.min = uf::vector::min( closest->effectiveExtents.min, tri.vertices[_] );
-				closest->effectiveExtents.max = uf::vector::max( closest->effectiveExtents.max, tri.vertices[_] );
-			}
-		} else {
 		}
 	}
 

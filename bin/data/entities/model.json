@@ -74,6 +74,13 @@
 				"lightmap": "auto",
 			//	"disable if lightmapped": false,
 				"shadows": true
+			},
+			"stream": {
+				"tag": "worldspawn",
+				"player": "info_player_spawn",
+				"enabled": "auto",
+				"radius": 32,
+				"every": 4
 			}
 		}
 	}

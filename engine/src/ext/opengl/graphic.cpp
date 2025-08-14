@@ -241,28 +241,29 @@ void ext::opengl::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 			GLenum usage;
 		};
 		uf::stl::vector<Queue> queue;
-		descriptor.inputs.bufferOffset = buffers.empty() ? 0 : buffers.size() - 1;
+		descriptor.inputs.bufferOffset = buffers.size(); // buffers.empty() ? 0 : buffers.size() - 1;
 
-		#define PARSE_ATTRIBUTE(i, usage) {\
-			auto& buffer = mesh.buffers[i];\
-			if ( queue.size() <= i ) queue.resize( i );\
-			if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
+		#define PARSE_INPUT_INITIALIZE(NAME, USAGE){\
+			if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
+				auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
+				if ( !buffer.empty() ) {\
+					descriptor.inputs.NAME.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE, alias );\
+					this->metadata.buffers[#NAME] = descriptor.inputs.NAME.interleaved;\
+				} else mesh.NAME.interleaved = -1;\
+			} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+				auto& attribute = descriptor.inputs.NAME.attributes[i];\
+				auto& buffer = mesh.buffers[attribute.buffer];\
+				if ( !buffer.empty() ) {\
+					attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE, alias );\
+					this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] = attribute.buffer;\
+				} else attribute.buffer = -1;\
+			}\
 		}
-		#define PARSE_INPUT(name, usage){\
-			if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
-			else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
-		}
-
-		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
-		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
-		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
-		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
-
 		// allocate buffers
-		for ( auto i = 0; i < queue.size(); ++i ) {
-			auto& q = queue[i];
-			initializeBuffer( q.data, q.size, q.usage, alias );
-		}
+		PARSE_INPUT_INITIALIZE(vertex, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT_INITIALIZE(index, uf::renderer::enums::Buffer::INDEX )
+		PARSE_INPUT_INITIALIZE(instance, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT_INITIALIZE(indirect, uf::renderer::enums::Buffer::INDIRECT )
 	}
 
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
@@ -292,27 +293,32 @@ bool ext::opengl::Graphic::updateMesh( uf::Mesh& mesh ) {
 	};
 	uf::stl::vector<Queue> queue;
 
-	#define PARSE_ATTRIBUTE(i, usage) {\
-		auto& buffer = mesh.buffers[i];\
-		if ( queue.size() <= i ) queue.resize( i );\
-		if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
-	}
-	#define PARSE_INPUT(name, usage){\
-		if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
-		else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
+	#define PARSE_INPUT_UPDATE(NAME, USAGE){\
+		if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
+			auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
+			if ( !buffer.empty() ) {\
+				rebuild |= updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] );\
+			} else mesh.NAME.interleaved = -1;\
+		} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+			auto& attribute = descriptor.inputs.NAME.attributes[i];\
+			auto& buffer = mesh.buffers[attribute.buffer];\
+			if ( !buffer.empty() ) {\
+				rebuild |= updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] );\
+			} else attribute.buffer = -1;\
+		}\
 	}
 
-	PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
-	PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
-	PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
-	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
-
+	bool rebuild = true;
+	ext::opengl::states::rebuild = true;
+	// we actually don't buffer anything directly at the moment so this will always fail
+	// as vertex data is directly read from the mesh object
+	/*
 	bool rebuild = false;
-	// allocate buffers
-	for ( auto i = 0; i < queue.size(); ++i ) {
-		auto& q = queue[i];
-		rebuild = rebuild || updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i, true );
-	}
+	PARSE_INPUT_UPDATE(vertex, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT_UPDATE(index, uf::renderer::enums::Buffer::INDEX)
+	PARSE_INPUT_UPDATE(instance, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT_UPDATE(indirect, uf::renderer::enums::Buffer::INDIRECT)
+	*/
 
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
 		descriptor.inputs.instance.count = 1;
@@ -385,8 +391,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 		drawCommandInfoBase.color.value = uniforms->color;
 		drawCommandInfoBase.color.enabled = drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
-
-		UF_MSG_DEBUG("{}: {}", uf::vector::toString(drawCommandInfoBase.color.value), drawCommandInfoBase.color.enabled);
 	}
 
 	struct {

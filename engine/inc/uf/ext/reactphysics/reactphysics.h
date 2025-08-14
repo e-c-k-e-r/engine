@@ -20,6 +20,7 @@ namespace pod {
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
 		rp3d::RigidBody* body = NULL;	
 		rp3d::CollisionShape* shape = NULL;	
+		rp3d::Collider* colliders = NULL;	
 
 		rp3d::PhysicsWorld* world = NULL;
 	
@@ -100,11 +101,14 @@ namespace ext {
 		void UF_API detach( pod::PhysicsState& );
 
 		// collider for mesh (static or dynamic)
-		pod::PhysicsState& create( uf::Object&, const uf::Mesh&, bool );
+		pod::PhysicsState& UF_API create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
 		pod::PhysicsState& UF_API create( uf::Object&, const pod::Vector3f& );
 		// collider for capsule
 		pod::PhysicsState& UF_API create( uf::Object&, float, float );
+
+		// update mesh
+		void UF_API update( pod::PhysicsState&, const uf::Mesh&, bool );
 
 		// synchronize engine transforms to bullet transforms
 		void UF_API syncTo( ext::reactphysics::WorldState& );
