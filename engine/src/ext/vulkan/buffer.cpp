@@ -186,12 +186,24 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 //	if ( !data || !length ) return false;
 	if ( !length ) return false;
 	if ( !buffer ) return false;
-	if ( length > allocationInfo.size ) {
-		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size );
 
-		Buffer& b = *const_cast<Buffer*>(this);
-		b.destroy(true);
-		b.initialize( data, length, usage, memoryProperties, stage );
+	// to-do: fix this because it's a thorn in my side when a mesh needs to update
+	if ( length > allocationInfo.size ) {
+		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size);
+
+		auto savedUsage = usage;
+		auto savedMemProps = memoryProperties;
+		auto savedAlignment = alignment;
+
+		Buffer& oldBuffer = *const_cast<Buffer*>(this);
+		Buffer newBuffer = {};
+
+		oldBuffer.swap(newBuffer);
+		newBuffer.destroy(true);
+
+		oldBuffer.initialize(*device, savedAlignment);
+		oldBuffer.initialize(data, length, savedUsage, savedMemProps, stage);
+
 		return true;
 	}
 	if ( !data ) return false;

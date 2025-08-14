@@ -58,11 +58,7 @@
 #define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl.h>
 #else
-#if UF_ENV_DREAMCAST
-#include <GLdc/gl.h>
-#else
 #include <GL/gl.h>
-#endif
 #endif
 
 struct ImGui_ImplOpenGL2_Data

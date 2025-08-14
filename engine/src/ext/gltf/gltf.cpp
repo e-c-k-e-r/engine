@@ -566,6 +566,14 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	//	disable lightmap loading, 99.999% of the time a previously baked lightmap will not work due to changing STs
 		graph.metadata["lights"]["lightmapped"] = false;
 	}
+
+	// disable streaming
+	{
+		graph.settings.stream.enabled = false;
+		graph.settings.stream.radius = 0;
+		graph.settings.stream.every = 0;
+	}
+
 	return graph;
 }
 #endif

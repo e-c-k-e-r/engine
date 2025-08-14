@@ -378,7 +378,6 @@ if ( meshopt.should ) {
 	mesh.bindIndirect<pod::DrawCommand>();
 	mesh.bind<UF_GRAPH_MESH_FORMAT>(false); // default to de-interleaved regardless of requirement (makes things easier)
 	
-	UF_MSG_DEBUG("{}: {}", keyName, meshlets.size() );
 	for ( auto& meshlet : meshlets ) {
 		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
 			.indices = meshlet.indices.size(),

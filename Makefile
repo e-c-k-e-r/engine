@@ -313,7 +313,8 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 
 $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
 	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
-	$(KOS_STRIP) --strip-unneeded $(TARGET)	
+	cp $(TARGET) $(TARGET).unstripped
+	$(KOS_STRIP) --strip-unneeded $(TARGET)
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)

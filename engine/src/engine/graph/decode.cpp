@@ -16,6 +16,8 @@
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #endif
 
+#define UF_GRAPH_EXTENDED 1
+
 #if 0 && UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
@@ -238,6 +240,9 @@ namespace {
 			const uf::stl::string filename = value.as<uf::stl::string>();
 			const uf::stl::string directory = uf::io::directory( graph.name );
 			// uf::io::readAsBuffer( directory + "/" + filename )
+		#if !UF_GRAPH_EXTENDED
+			mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
+		#else
 			if ( graph.metadata["stream"]["enabled"].as<bool>() ) {
 				mesh.buffers.emplace_back();
 				mesh.buffer_paths.emplace_back(directory + "/" + filename );
@@ -245,6 +250,7 @@ namespace {
 				// to-do: make it work for interleaved meshes
 				mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 			}
+		#endif
 		});
 
 		// load non vertex/index buffers
@@ -261,7 +267,8 @@ namespace {
 
 	#if UF_ENV_DREAMCAST
 		// remove extraneous buffers
-		if ( graph.metadata["renderer"]["separate"].as<bool>() ) {
+		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
+		{
 			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
 			if ( !mesh.isInterleaved() ) {
 				uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
@@ -283,9 +290,8 @@ namespace {
 		}
 	#endif
 
-		mesh.updateDescriptor();
-	#if 0
-		if ( graph.metadata["renderer"]["separate"].as<bool>() ) {
+		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
+		{
 		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 			mesh.convert<float, uint16_t>();
 			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
@@ -306,7 +312,6 @@ namespace {
 		#endif
 			mesh.updateDescriptor();
 		}
-	#endif
 
 		return mesh;
 	}

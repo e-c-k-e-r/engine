@@ -317,6 +317,9 @@ namespace uf {
 				size_t bytes = elements * sizeof(To);
 				
 				auto& srcBuffer = this->buffers[attribute.buffer];
+
+				if ( srcBuffer.empty() ) continue;
+
 				uf::stl::vector<uint8_t> dstBuffer( srcBuffer.size() * scale );
 
 				attribute.pointer = (uint8_t*) dstBuffer.data();

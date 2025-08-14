@@ -17,13 +17,19 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
+	#define UF_GRAPH_SPARSE_READ_MESH 1
 #else
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
 	#define UF_DEBUG_TIMER_MULTITRACE(...)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
+	#if UF_USE_OPENGL
+		#define UF_GRAPH_SPARSE_READ_MESH 1
+	#else
+		#define UF_GRAPH_SPARSE_READ_MESH 0
+	#endif
 #endif
 
-#define UF_GRAPH_SPARSE_READ_MESH 1
+#define UF_GRAPH_EXTENDED 1
 
 namespace {
 	bool newGraphAdded = true;
@@ -1230,7 +1236,9 @@ void uf::graph::process( pod::Graph& graph ) {
 	}
 
 	UF_DEBUG_TIMER_MULTITRACE("Updating master graph");
+#if UF_GRAPH_EXTENDED
 	uf::graph::reload( graph );
+#endif
 	uf::graph::reload();
 	
 	storage.instanceAddresses.keys = storage.instances.keys;
@@ -1412,6 +1420,74 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	storage.entities[objectKeyName] = &entity;
 	
 	// 
+#if !UF_GRAPH_EXTENDED
+	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
+		auto model = uf::transform::model( transform );
+		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+
+		pod::Instance::Bounds bounds;
+		// setup instances
+		for ( auto i = 0; i < primitives.size(); ++i ) {
+			auto& primitive = primitives[i];
+
+			size_t instanceID = storage.instances.keys.size();
+			auto instanceKeyName = graph.instances.emplace_back(std::to_string(instanceID));
+
+			auto& instance = storage.instances[instanceKeyName];
+			instance = primitive.instance;
+
+			instance.model = model;
+			instance.previous = model;
+			instance.objectID = objectID;
+			instance.jointID = graph.metadata["renderer"]["skinned"].as<bool>() ? 0 : -1;
+
+			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
+			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
+
+			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
+				auto& attribute = mesh.indirect.attributes.front();
+				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
+				auto& drawCommand = drawCommands[i];
+				drawCommand.instanceID = instanceID;
+			}
+		}
+		if ( /*(graph.metadata["renderer"]["separate"].as<bool>()) &&*/ graph.metadata["renderer"]["render"].as<bool>() ) {
+			uf::graph::initializeGraphics( graph, entity, mesh );
+		}
+		
+		{
+			auto phyziks = tag["physics"];
+			if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
+			else metadataJson["physics"] = phyziks;
+			
+			if ( ext::json::isObject( phyziks ) ) {
+				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
+
+				if ( type == "mesh" ) {
+					auto& collider = entity.getComponent<pod::PhysicsState>();
+					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
+					collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
+					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
+					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
+					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
+				
+					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !phyziks["static"].as<bool>(true) );
+				} else {
+					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
+					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
+
+					pod::Vector3f center = (max + min) * 0.5f;
+					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
+					
+					metadataJson["physics"]["center"] = uf::vector::encode( center );
+					metadataJson["physics"]["corner"] = uf::vector::encode( corner );
+				}
+			}
+		}
+	}
+#else
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		auto model = uf::transform::model( transform );
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
@@ -1467,6 +1543,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 	}
+#endif
 
 	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
 }
@@ -1555,10 +1632,12 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
 	// get last update time
+#if UF_GRAPH_EXTENDED
 	if ( graph.settings.stream.enabled && graph.settings.stream.hash != 0 && uf::physics::time::current - graph.settings.stream.lastUpdate > graph.settings.stream.every ) {
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
 		uf::graph::reload( graph );
 	}
+#endif
 
 	// update our instances
 #if !UF_ENV_DREAMCAST
@@ -1702,14 +1781,14 @@ void uf::graph::tick( pod::Graph::Storage& storage ) {
 */
 	bool rebuild = false;
 	uf::stl::vector<pod::Instance> instances = storage.instances.flatten();
-	rebuild = rebuild || storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) );
+	rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;
 /*
 	uf::stl::vector<pod::Instance::Addresses> instanceAddresses; instanceAddresses.reserve(storage.instanceAddresses.map.size());
 	for ( auto& key : storage.instances.keys ) instanceAddresses.emplace_back( storage.instanceAddresses.map[key] );
-	if ( !instanceAddresses.empty() ) rebuild = rebuild || storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) );
+	if ( !instanceAddresses.empty() ) rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 */
 	uf::stl::vector<pod::Instance::Addresses> instanceAddresses = storage.instanceAddresses.flatten();
-	rebuild = rebuild || storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) );
+	rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 
 	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(storage.joints.map.size());
 	for ( auto& key : storage.joints.keys ) {
@@ -1717,7 +1796,7 @@ void uf::graph::tick( pod::Graph::Storage& storage ) {
 		joints.reserve( joints.size() + matrices.size() );
 		for ( auto& mat : matrices ) joints.emplace_back( mat );
 	}
-	/*if ( !joints.empty() )*/ rebuild = rebuild || storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) );
+	/*if ( !joints.empty() )*/ rebuild = storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) ) || rebuild;
 
 	if ( ::newGraphAdded ) {
 	#if 1
@@ -1735,9 +1814,9 @@ void uf::graph::tick( pod::Graph::Storage& storage ) {
 		for ( auto& key : storage.materials.keys ) materials.emplace_back( storage.materials.map[key] );
 		for ( auto& key : storage.textures.keys ) textures.emplace_back( storage.textures.map[key] );
 	#endif
-		rebuild = rebuild || storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) );
-		rebuild = rebuild || storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) );
-		rebuild = rebuild || storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) );
+		rebuild = storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) ) || rebuild;
+		rebuild = storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) ) || rebuild;
+		rebuild = storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) ) || rebuild;
 
 		::newGraphAdded = false;
 
@@ -1918,6 +1997,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		radius = 0;
 	}
 
+	if ( mesh.buffer_paths.empty() ) {
+		radius = 0;
+	}
+
 	if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
 		// deduce draw command (indirect) buffer to write to
 		auto& attribute = mesh.indirect.attributes.front();
@@ -2051,24 +2134,28 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	} else {
 		// load mesh data
 		for ( auto& attribute : mesh.index.attributes ) {
-			if ( mesh.buffers[attribute.buffer].empty() ) mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+			if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
 		}
 		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( mesh.buffers[attribute.buffer].empty() ) mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+			if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;
+			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
 		}
 	}
 
 	mesh.updateDescriptor();
 
+	// process textures
+
 	// update graphic
-#if 0
-	if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
-#endif
-	if ( graph.metadata["renderer"]["render"].as<bool>() ) {
+	if ( /*(graph.metadata["renderer"]["separate"].as<bool>()) &&*/ graph.metadata["renderer"]["render"].as<bool>() ) {
 		bool exists = entity.hasComponent<uf::renderer::Graphic>();
 		if ( exists ) {
 			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
-			graphic.updateMesh( mesh );
+			bool rebuild = graphic.updateMesh( mesh );
+			if ( rebuild ) {
+			//	uf::renderer::states::rebuild = true;
+			}
 		} else {
 			uf::graph::initializeGraphics( graph, entity, mesh );
 		}
