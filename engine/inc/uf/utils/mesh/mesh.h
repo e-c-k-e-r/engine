@@ -161,7 +161,6 @@ namespace uf {
 
 		// crunge, but it's better this way
 		uf::stl::vector<uf::stl::string> buffer_paths;
-		uf::stl::vector<ext::RENDERER::AttributeDescriptor> buffer_descriptors;
 	protected:
 		void _destroy( uf::Mesh::Input& input );
 		void _bind( bool interleaved = uf::Mesh::defaultInterleaved );
@@ -303,42 +302,44 @@ namespace uf {
 
 		template<typename From, typename To>
 		void convert() {
-			// if mesh data is interleaved, skip conversion
 			if ( this->isInterleaved() ) {
 				UF_MSG_DEBUG("Downcasting/upcasting requested yet mesh is interleaved, ignoring...");
 				return;
 			}
-
 			auto fromEnum = uf::renderer::typeToEnum<From>();
-			auto toEnum   = uf::renderer::typeToEnum<To>();
+			auto toEnum = uf::renderer::typeToEnum<To>();
 			if ( toEnum == fromEnum ) return;
 
 			for ( auto& attribute : this->vertex.attributes ) {
 				if ( attribute.descriptor.type == toEnum ) continue;
 				if ( attribute.descriptor.type != fromEnum ) continue;
 
-				size_t elementCount = this->vertex.count * attribute.descriptor.components;
+				size_t elements = this->vertex.count * attribute.descriptor.components;
+				size_t bytes = elements * sizeof(To);
+				
 				auto& srcBuffer = this->buffers[attribute.buffer];
+
 				if ( srcBuffer.empty() ) continue;
 
-				uf::stl::vector<uint8_t> dstBuffer( elementCount * sizeof(To) );
+				uf::stl::vector<uint8_t> dstBuffer( bytes );
 
-				const From* srcPtr = (const From*) (srcBuffer.data());
+				From* srcPtr = (From*) (srcBuffer.data());
 				To* dstPtr = (To*) (dstBuffer.data());
-
-				if ( toEnum == uf::renderer::enums::Type::USHORT )
-					for ( size_t i = 0; i < elementCount; ++i ) dstPtr[i] = uf::quant::quantize_f32u16(srcPtr[i]);
-				else if ( fromEnum == uf::renderer::enums::Type::USHORT )
-					for ( size_t i = 0; i < elementCount; ++i) dstPtr[i] = uf::quant::dequantize_u16f32(srcPtr[i]);
-				else
-					for ( size_t i = 0; i < elementCount; ++i ) dstPtr[i] = (To) srcPtr[i];
-
+				
+				if ( toEnum == uf::renderer::enums::Type::USHORT ) {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::quantize_f32u16(srcPtr[i]);
+				} else if ( fromEnum == uf::renderer::enums::Type::USHORT ) {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::dequantize_u16f32(srcPtr[i]);
+				} else {
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = srcPtr[i];
+				}
+				
 				srcBuffer.swap( dstBuffer );
 
 				attribute.pointer = (uint8_t*) ( srcBuffer.data() );
 				attribute.descriptor.type = toEnum;
 				attribute.descriptor.size = sizeof(To) * attribute.descriptor.components;
-				attribute.length = sizeof(To) * elementCount;
+				attribute.length = sizeof(To) * elements;
 
 				if ( toEnum == uf::renderer::enums::Type::FLOAT ) {
 					switch ( attribute.descriptor.components ) {
@@ -347,16 +348,14 @@ namespace uf {
 						case 3: attribute.descriptor.format = uf::renderer::enums::Format::R32G32B32_SFLOAT; break;
 						case 4: attribute.descriptor.format = uf::renderer::enums::Format::R32G32B32A32_SFLOAT; break;
 					}
-				}
-				else if ( toEnum == uf::renderer::enums::Type::FLOAT16 ) {
+				} else if ( toEnum == uf::renderer::enums::Type::FLOAT16 ) {
 					switch ( attribute.descriptor.components ) {
 						case 1: attribute.descriptor.format = uf::renderer::enums::Format::R16_SFLOAT; break;
 						case 2: attribute.descriptor.format = uf::renderer::enums::Format::R16G16_SFLOAT; break;
 						case 3: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16_SFLOAT; break;
 						case 4: attribute.descriptor.format = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; break;
 					}
-				}
-				else if ( toEnum == uf::renderer::enums::Type::USHORT ) {
+				} else if ( toEnum == uf::renderer::enums::Type::USHORT ) {
 					switch ( attribute.descriptor.components ) {
 						case 1: attribute.descriptor.format = uf::renderer::enums::Format::R16_UINT; break;
 						case 2: attribute.descriptor.format = uf::renderer::enums::Format::R16G16_UINT; break;

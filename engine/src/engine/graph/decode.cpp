@@ -231,7 +231,6 @@ namespace {
 				attribute.offset = value["offset"].as(attribute.offset);\
 				attribute.stride = value["stride"].as(attribute.stride);\
 				attribute.length = value["length"].as(attribute.length);\
-				mesh.buffer_descriptors.emplace_back(attribute.descriptor);\
 			});\
 		}
 
@@ -242,7 +241,6 @@ namespace {
 
 		mesh.buffers.reserve( json["buffers"].size() );
 		mesh.buffer_paths.reserve( json["buffers"].size() );
-		mesh.buffer_descriptors.reserve( json["buffers"].size() );
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			const uf::stl::string filename = value.as<uf::stl::string>();
 			const uf::stl::string directory = uf::io::directory( graph.name );

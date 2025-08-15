@@ -2127,6 +2127,28 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 		graph.settings.stream.hash = drawCommandHash;
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
+
+		// needs to be dequantized first, naively copying the descriptor settings just doesn't work
+		{
+		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
+			mesh.convert<uint16_t, float>();
+		#else
+			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
+			if ( conversion != "" ) {
+			#if UF_USE_FLOAT16
+				if ( conversion == "float16" ) mesh.convert<float16, float>();
+				else if ( conversion == "float" ) mesh.convert<float, float16>();
+			#endif
+			#if UF_USE_BFLOAT16
+				if ( conversion == "bfloat16" ) mesh.convert<bfloat16, float>();
+				else if ( conversion == "float" ) mesh.convert<float, bfloat16>();
+			#endif
+				if ( conversion == "uint16_t" ) mesh.convert<uint16_t, float>();
+				else if ( conversion == "float" ) mesh.convert<float, uint16_t>();
+			}
+		#endif
+		}
+
 	// read from disk
 	#if UF_GRAPH_SPARSE_READ_MESH
 		// reset counts
@@ -2178,7 +2200,6 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				if ( ranges.count(attribute.buffer) <= 0 ) { \
 					mesh.buffers[attribute.buffer].clear();\
 				} else {\
-					attribute.descriptor = mesh.buffer_descriptors[attribute.buffer];\
 					mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );\
 				}\
 			}
@@ -2204,7 +2225,6 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		#define STREAM_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
 				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
-				attribute.descriptor = mesh.buffer_descriptors[attribute.buffer];\
 				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );\
 			}
 
