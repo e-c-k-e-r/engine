@@ -24,7 +24,7 @@
 ********************************************************************************/
 
 #ifndef REACTPHYSICS3D_CONFIGURATION_H
-#define REACTPHYSICS3D_CONFIGURATION_H
+#define	REACTPHYSICS3D_CONFIGURATION_H
 
 // Libraries
 #include <limits>
@@ -56,15 +56,6 @@
     #define RP3D_FORCE_INLINE inline
 #endif
 
-#if defined(RP3D_DEFINE_TOSTRING)
-    namespace std {
-        template < typename T > std::string to_string( const T& n ) {
-            std::ostringstream stm ;
-            stm << n ;
-            return stm.str() ;
-        }
-    }
-#endif
 
 #if defined(RP3D_NO_EXCEPTIONS)
     #define THROW(...) abort()

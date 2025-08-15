@@ -7,7 +7,7 @@
 #include <uf/engine/graph/graph.h>
 
 
-#if UF_ENV_DREAMCAST
+#if 0 && UF_ENV_DREAMCAST
 	#define RP3D_OLD 1
 #endif
 
