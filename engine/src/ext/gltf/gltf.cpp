@@ -117,10 +117,10 @@ namespace {
 	}
 }
 
-pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
+void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension != "glb" && extension != "gltf" ) {
-		return uf::graph::load( filename, metadata );
+		return uf::graph::load( graph, filename, metadata );
 	}
 
 	tinygltf::Model model;
@@ -129,14 +129,13 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	uf::stl::string warn, err;
 	bool ret = extension == "glb" ? loader.LoadBinaryFromFile(&model, &err, &warn, filename) : loader.LoadASCIIFromFile(&model, &err, &warn, filename);
 
-	pod::Graph graph;
 	graph.name = filename;
 	graph.metadata = metadata;
 
 	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: {}", warn);
 	if ( !err.empty() ) UF_MSG_ERROR("glTF error: {}", err);
 	if ( !ret ) { UF_MSG_ERROR("glTF error: failed to parse file: {}", filename);
-		return graph;
+		return;
 	}
 
 #if 0
@@ -570,10 +569,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// disable streaming
 	{
 		graph.settings.stream.enabled = false;
+
+		graph.settings.stream.textures = false;
+		graph.settings.stream.animations = false;
+
 		graph.settings.stream.radius = 0;
 		graph.settings.stream.every = 0;
 	}
-
-	return graph;
 }
 #endif

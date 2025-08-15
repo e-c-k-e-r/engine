@@ -53,6 +53,7 @@ namespace ext {
 			enums::Format::type_t DefaultFormat = enums::Format::R8G8B8A8_UNORM;
 
 			Device* device = nullptr;
+			bool aliased = false;
 
 			GLuint image = GL_NULL_HANDLE;
 			enums::Image::type_t type = enums::Image::TYPE_2D;
@@ -81,7 +82,7 @@ namespace ext {
 			void initialize( Device& device, enums::Image::viewType_t, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
 		#endif
 			void updateDescriptors();
-			void destroy();
+			void destroy( bool = false );
 			bool generated() const;
 			void loadFromFile(
 				const uf::stl::string& filename, 

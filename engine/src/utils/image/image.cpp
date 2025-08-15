@@ -76,6 +76,9 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 uf::stl::string uf::Image::getFilename() const {
 	return this->m_filename;
 }
+void uf::Image::setFilename( const uf::stl::string& filename ) {
+	this->m_filename = filename;
+}
 
 #define _PACK4(v) ((v * 0xF) / 0xFF)
 #define PACK_ARGB4444(a,r,g,b) (_PACK4(a) << 12) | (_PACK4(r) << 8) | (_PACK4(g) << 4) | (_PACK4(b))

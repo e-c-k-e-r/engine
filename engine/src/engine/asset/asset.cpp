@@ -260,7 +260,8 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 		case uf::asset::Type::GRAPH: {
 			UF_ASSET_REGISTER(pod::Graph)
 
-			asset = uf::graph::load( filename, payload.metadata );
+		//	asset = uf::graph::load( filename, payload.metadata );
+			uf::graph::load( asset, filename, payload.metadata );
 			uf::graph::process( asset );
 
 		#if !UF_ENV_DREAMCAST

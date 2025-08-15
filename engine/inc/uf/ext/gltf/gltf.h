@@ -9,7 +9,13 @@
 
 namespace ext {
 	namespace gltf {		
-		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = {} );
+		void UF_API load( pod::Graph&, const uf::stl::string&, const uf::Serializer& = {} );
+		inline pod::Graph load( const uf::stl::string& filename, const uf::Serializer& metadata = ext::json::null() ) {
+			// do some deprecation warning or something because this actually is bad for doing a copy + dealloc
+			pod::Graph graph;
+			load( graph, filename, metadata );
+			return graph;
+		}
 		void UF_API save( const uf::stl::string&, const pod::Graph& );
 	}
 }

@@ -7,6 +7,7 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/memory/key_map.h>
+#include <uf/utils/memory/queue.h>
 
 #include <queue>
 
@@ -46,7 +47,11 @@ namespace pod {
 		uf::stl::vector<uf::stl::string> skins;
 		uf::stl::vector<uf::stl::string> animations;
 		// Animation queue
-		std::queue<uf::stl::string> sequence;
+		uf::stl::queue<uf::stl::string> sequence;
+
+		// Streaming stuff
+		uf::stl::unordered_map<uf::stl::string, uf::stl::string> buffer_paths; // probably will go unused since cramming it all in here is pain
+
 		struct {
 			struct {
 				bool loop = true;
@@ -59,10 +64,15 @@ namespace pod {
 
 				uf::stl::string target = "";
 			} animations;
+
 			struct {
 				bool enabled = false;
+
 				float radius = 64.0f;
 				float every = 4.0f;
+
+				bool textures = true;
+				bool animations = true;
 
 				uf::stl::string tag = "worldspawn";
 				uf::stl::string player = "info_player_spawn";
@@ -157,7 +167,14 @@ namespace uf {
 		void UF_API destroy( uf::Object&, bool soft = false );
 		void UF_API destroy( pod::Graph::Storage&, bool soft = false );
 
-		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
+		void UF_API load( pod::Graph&, const uf::stl::string&, const uf::Serializer& = ext::json::null() );
+		inline pod::Graph load( const uf::stl::string& filename, const uf::Serializer& metadata = ext::json::null() ) {
+			// do some deprecation warning or something because this actually is bad for doing a copy + dealloc
+			pod::Graph graph;
+			load( graph, filename, metadata );
+			return graph;
+		}
+
 		pod::Graph& UF_API convert( uf::Object&, bool = false );
 		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& );
 

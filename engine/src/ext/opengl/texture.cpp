@@ -70,8 +70,10 @@ bool ext::opengl::Texture::generated() const {
 //	return glIsTexture(image);
 #endif
 }
-void ext::opengl::Texture::destroy() {
+void ext::opengl::Texture::destroy( bool defer ) {
 //	if ( !device ) return;
+	if ( aliased ) return;
+
 	if ( generated() ) {
 		GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glDeleteTextures(1, &image));
@@ -264,6 +266,7 @@ ext::opengl::Texture ext::opengl::Texture::alias() const {
 	return texture;
 }
 void ext::opengl::Texture::aliasTexture( const Texture& texture ) {
+	aliased = true;
 	image = texture.image;
 	type = texture.type;
 	viewType = texture.viewType;

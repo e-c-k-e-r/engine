@@ -36,7 +36,11 @@ namespace {
 			const uf::stl::string directory = uf::io::directory( graph.name );
 			const uf::stl::string filename = uf::io::filename( json["filename"].as<uf::stl::string>() );
 			const uf::stl::string name = directory + "/" + filename;
-			image.open(name, false);
+			if ( graph.settings.stream.textures ) {
+				image.setFilename(name);
+			} else {
+				image.open(name, false);
+			}
 		} else {
 			auto size = uf::vector::decode( json["size"], pod::Vector2ui{} );
 			size_t bpp = json["bpp"].as<size_t>();
@@ -245,7 +249,7 @@ namespace {
 		#else
 			if ( graph.metadata["stream"]["enabled"].as<bool>() ) {
 				mesh.buffers.emplace_back();
-				mesh.buffer_paths.emplace_back(directory + "/" + filename );
+				mesh.buffer_paths.emplace_back(directory + "/" + filename);
 			} else {
 				// to-do: make it work for interleaved meshes
 				mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
@@ -335,13 +339,14 @@ namespace {
 	}
 }
 
-pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
+void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
 	const uf::stl::string extension = uf::io::extension( filename );
 #if UF_USE_GLTF
-	if ( extension == "glb" || extension == "gltf" ) return ext::gltf::load( filename, metadata );
+	if ( extension == "glb" || extension == "gltf" ) {
+		return ext::gltf::load( graph, filename, metadata );
+	}
 #endif
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
-	pod::Graph graph;
 	uf::Serializer serializer;
 	UF_DEBUG_TIMER_MULTITRACE_START("Reading {}", filename);
 	serializer.readFromFile( filename );
@@ -395,6 +400,10 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	// copy important settings
 	{
 		graph.settings.stream.enabled = graph.metadata["stream"]["enabled"].as(graph.settings.stream.enabled);
+		
+		graph.settings.stream.textures = graph.settings.stream.enabled && graph.metadata["stream"]["textures"].as(graph.settings.stream.textures);
+		graph.settings.stream.animations = graph.settings.stream.enabled && graph.metadata["stream"]["animations"].as(graph.settings.stream.animations);
+
 		graph.settings.stream.radius = graph.metadata["stream"]["radius"].as(graph.settings.stream.radius);
 		graph.settings.stream.every = graph.metadata["stream"]["every"].as(graph.settings.stream.every);
 
@@ -565,18 +574,29 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		/*graph.storage*/storage.animations.map.reserve( serializer["animations"].size() );
 		ext::json::forEach( serializer["animations"], [&]( ext::json::Value& value ){
 			if ( value.is<uf::stl::string>() ) {
+				auto path = directory + "/" + value.as<uf::stl::string>();
 				uf::Serializer json;
-				json.readFromFile( directory + "/" + value.as<uf::stl::string>() );
+				json.readFromFile( path );
 				auto name = key + json["name"].as<uf::stl::string>();
-				/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+				if ( graph.settings.stream.animations ) {
+					/*graph.storage*/storage.animations[name].path = path;
+				} else {
+					/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+				}
+				graph.animations.emplace_back(name);
 			} else {
 				// UF_MSG_DEBUG("{}", name);
 				if ( value["filename"].is<uf::stl::string>() ) {
+					auto path = directory + "/" + value.as<uf::stl::string>();
 					uf::Serializer json;
-					json.readFromFile( directory + "/" + value["filename"].as<uf::stl::string>() );
+					json.readFromFile( path );
 
 					auto name = key + json["name"].as<uf::stl::string>();
-					/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+					if ( graph.settings.stream.animations ) {
+						/*graph.storage*/storage.animations[name].path = path;
+					} else {
+						/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+					}
 					graph.animations.emplace_back(name);
 				} else {
 					auto name = key + value["name"].as<uf::stl::string>();
@@ -631,6 +651,4 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 #if UF_ENV_DREAMCAST
 	DC_STATS();
 #endif
-
-	return graph;
 }

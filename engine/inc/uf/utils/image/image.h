@@ -33,6 +33,7 @@ namespace uf {
 		void loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		
 		uf::stl::string getFilename() const;
+		void setFilename( const uf::stl::string& );
 
 		Image::container_t& getPixels();
 		const Image::container_t& getPixels() const;

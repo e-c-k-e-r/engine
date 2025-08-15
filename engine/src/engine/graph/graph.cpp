@@ -43,6 +43,59 @@ namespace {
 		}
 		return hash;
 	}
+
+	// lazy load animations if requested
+	void loadAnimation( const uf::stl::string& name ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+		
+		auto& animation = storage.animations.map[name];
+
+		UF_ASSERT( animation.path != "" );
+
+		uf::Serializer json;
+		json.readFromFile( animation.path );
+
+		animation.name = json["name"].as(animation.name);
+		animation.start = json["start"].as(animation.start);
+		animation.end = json["end"].as(animation.end);
+
+		if ( animation.samplers.empty() ) ext::json::forEach( json["samplers"], [&]( ext::json::Value& value ){
+			auto& sampler = animation.samplers.emplace_back();
+			sampler.interpolator = value["interpolator"].as(sampler.interpolator);
+
+			sampler.inputs.reserve( value["inputs"].size() );
+			ext::json::forEach( value["inputs"], [&]( ext::json::Value& input ){
+				sampler.inputs.emplace_back( input.as<float>() );
+			});
+			
+			sampler.outputs.reserve( value["outputs"].size() );
+			ext::json::forEach( value["outputs"], [&]( ext::json::Value& output ){
+				sampler.outputs.emplace_back( uf::vector::decode( output, pod::Vector4f{} ) );
+			});
+		});
+
+		if ( animation.channels.empty() ) ext::json::forEach( json["channels"], [&]( ext::json::Value& value ){
+			auto& channel = animation.channels.emplace_back();
+			channel.path = value["path"].as(channel.path);
+			channel.node = value["node"].as(channel.node);
+			channel.sampler = value["sampler"].as(channel.sampler);
+		});
+	}
+
+	void unloadAnimation( const uf::stl::string& name ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+		
+		auto& animation = storage.animations.map[name];
+
+		animation.samplers.clear();
+		animation.channels.clear();
+	#if UF_ENV_DREAMCAST
+		animation.samplers.shrink_to_fit();
+		animation.channels.shrink_to_fit();
+	#endif
+	}
 }
 
 #if UF_ENV_DREAMCAST
@@ -808,7 +861,6 @@ void uf::graph::process( pod::Graph& graph ) {
 	uf::stl::unordered_map<uf::stl::string, bool> isSrgb;
 
 	// process lightmap
-
 	UF_DEBUG_TIMER_MULTITRACE("Parsing lightmaps");
 	if ( true ) {
 		constexpr const char* UF_GRAPH_DEFAULT_LIGHTMAP = "./lightmap.%i.png";
@@ -880,7 +932,9 @@ void uf::graph::process( pod::Graph& graph ) {
 
 				auto& texture = /*graph.storage*/storage.textures[graph.textures.emplace_back(f)];
 				auto& image = /*graph.storage*/storage.images[graph.images.emplace_back(f)];
-				image.open( f, false );
+				if ( !graph.settings.stream.textures ) {
+					image.open( f, false );
+				}
 
 				texture.index = imageID;
 
@@ -934,6 +988,12 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& image = storage.images[key];
 		auto& texture = storage.texture2Ds[key];
 		if ( !texture.generated() ) {
+			// set as null
+			if ( graph.settings.stream.textures ) {
+				texture.aliasTexture(uf::renderer::Texture2D::empty);
+				continue;
+			}
+
 			auto filter = uf::renderer::enums::Filter::LINEAR;
 			auto tag = ext::json::find( key, graph.metadata["tags"] );
 			if ( !ext::json::isObject( tag ) ) {
@@ -948,7 +1008,7 @@ void uf::graph::process( pod::Graph& graph ) {
 
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
-			texture.srgb = isSrgb.count(key) == 0 ? false : isSrgb[key];
+			texture.srgb = isSrgb[key];
 
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
@@ -1570,6 +1630,9 @@ void uf::graph::override( pod::Graph& graph ) {
 	if ( !toNeutralPose ) {
 		uf::stl::string name = graph.sequence.front();
 		pod::Animation& animation = storage.animations.map[name]; // graph.animations[name];
+		// load animation data
+		if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( name );
+
 		for ( auto& channel : animation.channels ) {
 			auto& override = graph.settings.animations.override.map[channel.node];
 			auto& sampler = animation.samplers[channel.sampler];
@@ -1615,7 +1678,11 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
 		if ( immediate ) {
-			while ( !graph.sequence.empty() ) graph.sequence.pop();
+			while ( !graph.sequence.empty() ) {
+				// unload
+				if ( graph.settings.stream.animations ) ::unloadAnimation( graph.sequence.front() );
+				graph.sequence.pop();
+			}
 		}
 		bool empty = graph.sequence.empty();
 		graph.sequence.emplace(name);
@@ -1678,7 +1745,10 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
 			// go-to next animation
 			if ( !graph.settings.animations.loop ) {
+				// unload
+				if ( graph.settings.stream.animations ) ::unloadAnimation( graph.sequence.front() );
 				graph.sequence.pop();
+
 				// out of animations, set to neutral pose
 				if ( graph.sequence.empty() ) {
 					uf::graph::override( graph );
@@ -1688,6 +1758,10 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 				animation = &storage.animations.map[name]; // &graph.animations[name];
 			}
 		}
+
+		// load animation data
+		if ( animation->channels.empty() || animation->samplers.empty() ) ::loadAnimation( name );
+
 		for ( auto& channel : animation->channels ) {
 			auto& sampler = animation->samplers[channel.sampler];
 			if ( sampler.interpolator != "LINEAR" ) continue;
@@ -2131,7 +2205,87 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
 		}
 	#endif
-	} else {
+		
+		if ( graph.settings.stream.textures ) {
+			// cringe macro that ensures a texture ID is mapped properly, regardless if its visible or not
+			// lightmaps are not sRGB, while textures (usually) are
+			#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
+				auto& key = graph.textures[ID];\
+				textureReferences[key] += visible ? 1 : 0;\
+				isSrgb[key] = isSRGB;\
+			}
+
+			uf::stl::unordered_map<uf::stl::string, bool> isSrgb; // cringe
+			uf::stl::unordered_map<uf::stl::string, size_t> textureReferences;
+			// determine which textures are in use or not
+			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+				auto& primitive = primitives[drawID];
+				auto& instance = primitive.instance;
+				auto& drawCommand = drawCommands[drawID];
+
+				bool visible = drawCommand.instances > 0;
+				
+				INCREMENT_TEXTURE_REFCOUNT(instance.lightmapID, false);
+				// no material information bound
+				if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) {
+					continue;
+				}
+				auto& material = storage.materials[graph.materials[instance.materialID]];
+				INCREMENT_TEXTURE_REFCOUNT(material.indexAlbedo, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexNormal, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexEmissive, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexOcclusion, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexMetallicRoughness, true);
+			}
+
+			// iterate through our ref counts
+			// to-do: figure out why this doesn't work for OpenGL (texture ID handles might be wrong, might be better to store the old texture ID handle to use it and then update to that handle)
+			for ( auto& [ key, count ] : textureReferences ) {
+				auto& texture = storage.texture2Ds[key];
+				auto& image = storage.images[key];
+				bool visible = count > 0;
+
+				// load texture
+				if ( visible && (!texture.generated() || texture.aliased) ) {
+					// load image
+					if ( image.getPixels().empty() ) image.open(image.getFilename(), false);
+
+					auto filter = uf::renderer::enums::Filter::LINEAR;
+					auto tag = ext::json::find( key, graph.metadata["tags"] );
+					if ( !ext::json::isObject( tag ) ) {
+						tag["renderer"] = graph.metadata["renderer"];
+					}
+					if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
+						const auto mode = uf::string::lowercase( tag["renderer"]["filter"].as<uf::stl::string>("linear") );
+						if ( mode == "linear" ) filter = uf::renderer::enums::Filter::LINEAR;
+						else if ( mode == "nearest" ) filter = uf::renderer::enums::Filter::NEAREST;
+						else UF_MSG_WARNING("Invalid Filter enum string specified: {}", mode);
+					}
+
+					// avoids manipulating the aliased texture
+					if ( texture.aliased ) {
+						texture = {};
+					}
+
+					texture.sampler.descriptor.filter.min = filter;
+					texture.sampler.descriptor.filter.mag = filter;
+					texture.srgb = isSrgb[key];
+
+					texture.loadFromImage( image );
+				#if UF_ENV_DREAMCAST
+					image.clear();
+				#endif
+				} else if ( !visible && texture.generated() ) {
+					// unload image
+					image.clear();
+					// defer destruction of texture
+					texture.destroy( true );
+					// alias to null texture
+					texture.aliasTexture(uf::renderer::Texture2D::empty);
+				}
+			}
+		}
+	} else { // this shouldn't be reached
 		// load mesh data
 		for ( auto& attribute : mesh.index.attributes ) {
 			if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;
@@ -2144,8 +2298,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 
 	mesh.updateDescriptor();
-
-	// process textures
+	// may or may not be necessary (OpenGL might need a re-record, Vulkan seems fine for the main deferred pass but VXGI doesn't ever get to update since null textures get used sometimes)
+	uf::renderer::states::rebuild = true;
 
 	// update graphic
 	if ( /*(graph.metadata["renderer"]["separate"].as<bool>()) &&*/ graph.metadata["renderer"]["render"].as<bool>() ) {

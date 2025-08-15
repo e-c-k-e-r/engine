@@ -72,6 +72,7 @@ namespace pod {
 		};
 
 		uf::stl::string name = "";
+		uf::stl::string path = "";
 
 		uf::stl::vector<Sampler> samplers;
 		uf::stl::vector<Channel> channels;
