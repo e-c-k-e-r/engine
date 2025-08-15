@@ -25,7 +25,7 @@
 	#if UF_USE_OPENGL
 		#define UF_GRAPH_SPARSE_READ_MESH 1
 	#else
-		#define UF_GRAPH_SPARSE_READ_MESH 0
+		#define UF_GRAPH_SPARSE_READ_MESH 1
 	#endif
 #endif
 
@@ -42,6 +42,40 @@ namespace {
 			hash *= 1099511628211ULL;
 		}
 		return hash;
+	}
+
+	void bindTextures( uf::renderer::Graphic& graphic ) {
+		graphic.material.textures.clear();
+
+		auto& scene = uf::scene::getCurrentScene();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+	//	for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( storage.samplers.map[s] );
+	//	for ( auto pair : storage.samplers.map ) graphic.material.samplers.emplace_back( pair.second );
+	//	for ( auto& key : storage.samplers.keys ) graphic.material.samplers.emplace_back( storage.samplers.map[key] );
+
+	//	for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[i] );
+	//	for ( auto pair : storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
+
+		for ( auto& key : storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
+
+		// bind scene's voxel texture
+	#if UF_USE_VULKAN
+		if ( uf::renderer::settings::pipelines::vxgi ) {
+			auto& scene = uf::scene::getCurrentScene();
+			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+			for ( auto& t : sceneTextures.voxels.drawId ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.instanceId ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normalX ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normalY ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceR ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceG ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceB ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radianceA ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.count ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
+		}
+	#endif
 	}
 
 	// lazy load animations if requested
@@ -344,34 +378,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 #endif
 */
 
-	{
-	//	for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( storage.samplers.map[s] );
-	//	for ( auto pair : storage.samplers.map ) graphic.material.samplers.emplace_back( pair.second );
-	//	for ( auto& key : storage.samplers.keys ) graphic.material.samplers.emplace_back( storage.samplers.map[key] );
-
-	//	for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[i] );
-	//	for ( auto pair : storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
-
-		for ( auto& key : storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
-
-		// bind scene's voxel texture
-	#if UF_USE_VULKAN
-		if ( uf::renderer::settings::pipelines::vxgi ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-			for ( auto& t : sceneTextures.voxels.drawId ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.instanceId ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normalX ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normalY ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceR ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceG ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceB ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceA ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.count ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
-		}
-	#endif
-	}
+	::bindTextures( graphic );
 	
 	uf::stl::string root = uf::io::directory( graph.name );
 	size_t texture2Ds = 0;
@@ -2166,21 +2173,18 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			mesh.index.count  += drawCommand.indices;
 		}
 
-		// load mesh data
-		for ( auto& attribute : mesh.index.attributes ) {
-			if ( ranges.count(attribute.buffer) <= 0 ) { 
-				mesh.buffers[attribute.buffer].clear();
-			} else {
-				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );
+		#define STREAM_MESH_DATA( N ) \
+			for ( auto& attribute : mesh.N.attributes ) {\
+				if ( ranges.count(attribute.buffer) <= 0 ) { \
+					mesh.buffers[attribute.buffer].clear();\
+				} else {\
+					attribute.descriptor = mesh.buffer_descriptors[attribute.buffer];\
+					mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );\
+				}\
 			}
-		}
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( ranges.count(attribute.buffer) <= 0 ) {
-				mesh.buffers[attribute.buffer].clear();
-			} else {
-				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );
-			}
-		}
+
+		STREAM_MESH_DATA( index );
+		STREAM_MESH_DATA( vertex );
 	// keep the vertex data intact
 	#else
 		// disable remaining draw commands
@@ -2197,13 +2201,15 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			}
 		}
 
-		// load mesh data
-		for ( auto& attribute : mesh.index.attributes ) {
-			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
-		}
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
-		}
+		#define STREAM_MESH_DATA( N ) \
+			for ( auto& attribute : mesh.N.attributes ) {\
+				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
+				attribute.descriptor = mesh.buffer_descriptors[attribute.buffer];\
+				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );\
+			}
+
+		STREAM_MESH_DATA( index );
+		STREAM_MESH_DATA( vertex );
 	#endif
 		
 		if ( graph.settings.stream.textures ) {
@@ -2239,13 +2245,11 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			}
 
 			// iterate through our ref counts
-			// to-do: figure out why this doesn't work for OpenGL (texture ID handles might be wrong, might be better to store the old texture ID handle to use it and then update to that handle)
 			for ( auto& [ key, count ] : textureReferences ) {
 				auto& texture = storage.texture2Ds[key];
 				auto& image = storage.images[key];
 				bool visible = count > 0;
 
-				// load texture
 				if ( visible && (!texture.generated() || texture.aliased) ) {
 					// load image
 					if ( image.getPixels().empty() ) image.open(image.getFilename(), false);
@@ -2264,7 +2268,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 					// avoids manipulating the aliased texture
 					if ( texture.aliased ) {
-						texture = {};
+						texture.aliased = false;
+					#if UF_USE_OPENGL
+						texture.image = 0;
+					#else
+						texture.image = {};
+						texture.view = {};
+					#endif
 					}
 
 					texture.sampler.descriptor.filter.min = filter;
@@ -2275,7 +2285,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				#if UF_ENV_DREAMCAST
 					image.clear();
 				#endif
-				} else if ( !visible && texture.generated() ) {
+				} else if ( !visible && (texture.generated() && !texture.aliased) ) {
 					// unload image
 					image.clear();
 					// defer destruction of texture
@@ -2286,20 +2296,39 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			}
 		}
 	} else { // this shouldn't be reached
-		// load mesh data
-		for ( auto& attribute : mesh.index.attributes ) {
-			if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;
-			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
+		#define LOAD_MESH_DATA( N ) \
+			for ( auto& attribute : mesh.N.attributes ) {\
+				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
+				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );\
+			}
+
+		LOAD_MESH_DATA( index );
+		LOAD_MESH_DATA( vertex );
+	}
+
+	{
+	#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
+		mesh.convert<float, uint16_t>();
+	#else
+		auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
+		if ( conversion != "" ) {
+		#if UF_USE_FLOAT16
+			if ( conversion == "float16" ) mesh.convert<float, float16>();
+			else if ( conversion == "float" ) mesh.convert<float16, float>();
+		#endif
+		#if UF_USE_BFLOAT16
+			if ( conversion == "bfloat16" ) mesh.convert<float, bfloat16>();
+			else if ( conversion == "float" ) mesh.convert<bfloat16, float>();
+		#endif
+			if ( conversion == "uint16_t" ) mesh.convert<float, uint16_t>();
+			else if ( conversion == "float" ) mesh.convert<uint16_t, float>();
 		}
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;
-			mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );
-		}
+	#endif
 	}
 
 	mesh.updateDescriptor();
-	// may or may not be necessary (OpenGL might need a re-record, Vulkan seems fine for the main deferred pass but VXGI doesn't ever get to update since null textures get used sometimes)
-	uf::renderer::states::rebuild = true;
+	
+	// uf::renderer::states::rebuild = true;
 
 	// update graphic
 	if ( /*(graph.metadata["renderer"]["separate"].as<bool>()) &&*/ graph.metadata["renderer"]["render"].as<bool>() ) {
@@ -2310,11 +2339,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			if ( rebuild ) {
 			//	uf::renderer::states::rebuild = true;
 			}
+			::bindTextures( graphic );
 		} else {
 			uf::graph::initializeGraphics( graph, entity, mesh );
 		}
 	}
 	// bind mesh to physics state
+	// to-do: figure out why the mesh just suddenly breaks when re-streamed in dreamcast (could just be the version of reactphysics)
 	{
 		auto phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];

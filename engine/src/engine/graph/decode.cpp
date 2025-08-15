@@ -231,6 +231,7 @@ namespace {
 				attribute.offset = value["offset"].as(attribute.offset);\
 				attribute.stride = value["stride"].as(attribute.stride);\
 				attribute.length = value["length"].as(attribute.length);\
+				mesh.buffer_descriptors.emplace_back(attribute.descriptor);\
 			});\
 		}
 
@@ -240,6 +241,8 @@ namespace {
 		DESERIALIZE_MESH(indirect);
 
 		mesh.buffers.reserve( json["buffers"].size() );
+		mesh.buffer_paths.reserve( json["buffers"].size() );
+		mesh.buffer_descriptors.reserve( json["buffers"].size() );
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			const uf::stl::string filename = value.as<uf::stl::string>();
 			const uf::stl::string directory = uf::io::directory( graph.name );
@@ -298,7 +301,6 @@ namespace {
 		{
 		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 			mesh.convert<float, uint16_t>();
-			UF_MSG_DEBUG("Quantizing mesh to GL_QUANTIZED_SHORT");
 		#else
 			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
 			if ( conversion != "" ) {
@@ -314,8 +316,9 @@ namespace {
 				else if ( conversion == "float" ) mesh.convert<uint16_t, float>();
 			}
 		#endif
-			mesh.updateDescriptor();
 		}
+		
+		mesh.updateDescriptor();
 
 		return mesh;
 	}
