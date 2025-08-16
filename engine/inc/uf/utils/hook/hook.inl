@@ -34,8 +34,15 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const Function& lambda
 }
 template<typename T>
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const T& p ) {
+	// alias directly to save an allocation
+	pod::Hook::userdata_t payload;
+	payload.alias<T>(const_cast<T&>(p));
+	return call( name, payload );
+	/*
 	pod::Hook::userdata_t payload;
 	payload.create<T>(p);
-
-	return call( name, payload );
+	auto results = call( name, payload );
+	payload.destruct<T>();
+	return results;
+	*/
 }

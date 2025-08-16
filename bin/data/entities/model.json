@@ -76,10 +76,10 @@
 				"shadows": true
 			},
 			"stream": {
-				"tag": "", // worldspawn",
+				"tag": "worldspawn",
 				"player": "info_player_spawn",
-				"enabled": true, // "auto",
-				"radius": 16,
+				"enabled": "auto",
+				"radius": 32,
 				"every": 1
 			}
 		}

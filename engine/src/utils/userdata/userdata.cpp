@@ -7,9 +7,12 @@
 uf::MemoryPool uf::userdata::memoryPool;
 bool uf::userdata::autoDestruct = true;
 bool uf::userdata::autoValidate = true;
+
+uf::stl::unordered_map<UF_USERDATA_CTTI_TYPE, pod::UserdataTraits> uf::userdata::traits;
+
 // Constructs a pod::Userdata struct
-pod::Userdata* uf::userdata::create( std::size_t len, void* data ) {
-	return uf::userdata::create( uf::userdata::memoryPool, len, data );
+pod::Userdata* uf::userdata::create( std::size_t len, const void* data, UF_USERDATA_CTTI_TYPE type ) {
+	return uf::userdata::create( uf::userdata::memoryPool, len, data, type );
 }
 void uf::userdata::destroy( pod::Userdata* userdata ) {
 	return uf::userdata::destroy( uf::userdata::memoryPool, userdata );
@@ -23,7 +26,7 @@ size_t uf::userdata::size( size_t len, size_t padding ) {
 }
 
 //
-pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
+pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, const void* data, UF_USERDATA_CTTI_TYPE type ) {
 	if ( len <= 0 ) return NULL;
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
@@ -40,13 +43,19 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t
 		userdata = (pod::Userdata*) uf::allocator::malloc_m( requestedLen ); 	// allocate data for the userdata struct, and then some
 	}
 #endif
-	if ( data ) memcpy( userdata->data, data, len );
-	else memset( userdata->data, 0, len );
-	userdata->len = len;
-	userdata->type = UF_USERDATA_CTTI(void);
+	userdata->len = requestedLen;
+	userdata->type = type;
+	auto& trait = uf::userdata::getTrait( userdata->type );
+	if ( data && userdata->type != UF_USERDATA_CTTI(void) ) trait.constructor( userdata->data, data );
+	else if ( data ) memcpy( userdata->data, data, requestedLen );
+	else memset( userdata->data, 0, requestedLen );
+	//UF_MSG_DEBUG("Calling create: {}: {}", trait.name, (void*) userdata->data);
 	return userdata;
 }
 void uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Userdata* userdata ) {
+	auto& trait = uf::userdata::getTrait( userdata->type );
+	if ( userdata->type != UF_USERDATA_CTTI(void) ) trait.destructor( userdata->data );
+	//UF_MSG_DEBUG("Calling destroy: {}: {}", trait.name, (void*) userdata->data);
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	memoryPool.free( userdata, size(userdata->len) );
@@ -61,9 +70,12 @@ void uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Userdata* 
 }
 pod::Userdata* uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
 	if ( !userdata || userdata->len <= 0 ) return NULL;
-	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) &userdata->data[0]) );
-	copied->type = userdata->type;
+	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) &userdata->data[0]), userdata->type );
 	return copied;
+}
+
+const pod::UserdataTraits& uf::userdata::getTrait( UF_USERDATA_CTTI_TYPE type ) {
+	return uf::userdata::traits[type];
 }
 
 uf::stl::string uf::userdata::toBase64( pod::Userdata* userdata ) {
@@ -76,8 +88,8 @@ pod::Userdata* uf::userdata::fromBase64( const uf::stl::string& base64 ) {
 // 	C-tor
 
 // 	Initializes POD
-uf::Userdata::Userdata(std::size_t len, void* data) : m_pod(NULL), autoDestruct(uf::userdata::autoDestruct) {
-	if ( len && data ) this->create(len, data);
+uf::Userdata::Userdata(std::size_t len, const void* data, UF_USERDATA_CTTI_TYPE type) : m_pod(NULL), autoDestruct(uf::userdata::autoDestruct) {
+	if ( len && data ) this->create(len, data, type);
 }
 
 // Initializes from POD
@@ -87,8 +99,9 @@ uf::Userdata::Userdata( pod::Userdata* pointer ) : m_pod(pointer), autoDestruct(
 
 // Move c-tor
 uf::Userdata::Userdata( Userdata&& move ) noexcept :
-	m_pod(std::move(move.m_pod)),
+	m_pod(move.m_pod),
 	autoDestruct(move.autoDestruct) {
+	move.m_pod = {};
 }
 // Copy c-tor
 uf::Userdata::Userdata( const Userdata& userdata ) {
@@ -97,10 +110,10 @@ uf::Userdata::Userdata( const Userdata& userdata ) {
 }
 
 // 	Creates the POD
-pod::Userdata* uf::Userdata::create( std::size_t len, void* data ) {
+pod::Userdata* uf::Userdata::create( std::size_t len, const void* data, UF_USERDATA_CTTI_TYPE type ) {
 	if ( len <= 0 ) return NULL;
 	this->destroy();
-	return this->m_pod = uf::userdata::create( len, data );
+	return this->m_pod = uf::userdata::create( len, data, type );
 }
 void uf::Userdata::move( Userdata& moved ) {
 //	if ( this->m_pod && move.m_pod ) uf::userdata::move( *this->m_pod, *move.m_pod );
@@ -117,15 +130,7 @@ void uf::Userdata::move( Userdata&& moved ) {
 void uf::Userdata::copy( const Userdata& userdata ) {
 	if ( !userdata.m_pod || !userdata.m_pod->len ) return;
 	this->destroy();
-//	this->m_pod = uf::userdata::copy( userdata.m_pod );
-	this->create( userdata.m_pod->len, userdata.m_pod->data );
-//	this->m_pod->type = userdata.m_pod->type;
-/*
-//	if ( this->m_pod && copy.m_pod ) uf::userdata::copy( *this->m_pod, *copy.m_pod );
-	if ( !userdata ) return;
-	this->destroy();
-//	this->m_pod = uf::userdata::copy( userdata.m_pod );
-*/
+	this->create( userdata.m_pod->len, userdata.m_pod->data, userdata.m_pod->type );
 }
 // 	D-tor
 uf::Userdata::~Userdata() noexcept {
@@ -173,7 +178,10 @@ uf::Userdata& uf::Userdata::operator=( pod::Userdata* pointer ) {
 	return *this;
 }
 uf::Userdata& uf::Userdata::operator=( Userdata&& move ) {
-	if ( this->m_pod && move.m_pod ) this->m_pod = move.m_pod, move.m_pod = NULL;
+	if ( this->m_pod && move.m_pod ) {
+		this->m_pod = move.m_pod;
+		move.m_pod = NULL;
+	}
 	return *this;
 }
 uf::Userdata& uf::Userdata::operator=( const Userdata& copy ) {

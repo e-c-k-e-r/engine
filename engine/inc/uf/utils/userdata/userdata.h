@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <cstddef>
 #include <uf/utils/memory/string.h>
+#include <uf/utils/memory/unordered_map.h>
 #include <algorithm>
 #include <typeindex>
 
@@ -22,15 +23,23 @@ namespace pod {
 		UF_USERDATA_CTTI_TYPE type = UF_USERDATA_CTTI(void);
 		uint8_t data[1];
 	};
+
+	struct UF_API UserdataTraits {
+		uf::stl::string name = "";
+		void (*constructor)(void*, const void*) = NULL;
+		void (*destructor)(void*) = NULL;
+	};
 }
 
 namespace uf {
 	namespace userdata {
+		extern UF_API uf::stl::unordered_map<UF_USERDATA_CTTI_TYPE, pod::UserdataTraits> traits;
+
 		extern UF_API uf::MemoryPool memoryPool;
 		extern UF_API bool autoDestruct;
 		extern UF_API bool autoValidate;
 
-		pod::Userdata* UF_API create( size_t len, void* data = NULL );
+		pod::Userdata* UF_API create( size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		void UF_API destroy( pod::Userdata* userdata );
 		pod::Userdata* UF_API copy( const pod::Userdata* userdata );
 
@@ -46,12 +55,18 @@ namespace uf {
 	//	void copy( pod::Userdata& to, const pod::Userdata& from );
 
 		// usage with MemoryPool
-		pod::Userdata* UF_API create( uf::MemoryPool&, size_t len, void* data = NULL );
+		pod::Userdata* UF_API create( uf::MemoryPool&, size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		template<typename T> pod::Userdata* create( uf::MemoryPool&, const T& data = T() );
 		void UF_API destroy( uf::MemoryPool&, pod::Userdata* userdata );
 		pod::Userdata* UF_API copy( uf::MemoryPool&, const pod::Userdata* userdata );
 
 		size_t UF_API size( size_t size, size_t padding = 0 );
+
+		template<typename T> void construct( void* dst, const void* src );
+		template<typename T> void destruct( void* p );
+
+		const pod::UserdataTraits& UF_API getTrait( UF_USERDATA_CTTI_TYPE type );
+		template<typename T> const pod::UserdataTraits& registerTrait();
 	}
 }
 
@@ -68,12 +83,12 @@ namespace uf {
 	public:
 	// 	C-tor
 	
-		Userdata( size_t len = 0, void* data = NULL ); 	// initializes POD to default
+		Userdata( size_t len = 0, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) ); 	// initializes POD to default
 		Userdata( pod::Userdata* ); 						// initializes from POD
 		Userdata( Userdata&& move ) noexcept ; 				// Move c-tor
 		Userdata( const Userdata& copy ); 		// Copy c-tor
 	
-		pod::Userdata* create( size_t len, void* data = NULL );
+		pod::Userdata* create( size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		void move( Userdata& move );
 		void move( Userdata&& move );
 		void copy( const Userdata& copy );

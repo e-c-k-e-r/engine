@@ -95,13 +95,6 @@ namespace binds {
 		if ( type == "Metadata" ) {
 			auto encoded = ext::lua::encode( value.as<sol::table>() );
 			if ( encoded ) {
-			/*
-				self.callHook( "object:Serialize.%UID%" );
-				auto& metadata = self.getComponent<uf::Serializer>();
-				uf::stl::string str = encoded.value();
-				metadata.merge( str, false );
-				self.callHook( "object:Deserialize.%UID%" );
-			*/
 				uf::stl::string str = encoded.value();
 				ext::json::Value json;
 				ext::json::decode( json, str );

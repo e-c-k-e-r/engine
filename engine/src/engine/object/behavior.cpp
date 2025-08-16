@@ -288,7 +288,10 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 			else unprocessed.emplace_back(q);
 		}
 		for ( auto& q : executeQueue ) {
-			if ( q.type == 1 ) this->callHook( q.name, q.userdata );
+			if ( q.type == 1 ) {
+				this->callHook( q.name, q.userdata );
+				q.userdata.destroy();
+			}
 			else if ( q.type == -1 ) this->callHook( q.name, q.json );
 			else this->callHook( q.name );
 		}

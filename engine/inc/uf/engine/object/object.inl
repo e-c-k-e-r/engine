@@ -28,10 +28,7 @@ size_t uf::Object::addHook( const uf::stl::string& name, T callback ) {
 }
 template<typename T>
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const T& p ) {
-	pod::Hook::userdata_t payload;
-	payload.create<T>(p);
-
-	return uf::hooks.call( this->formatHookName( name ), payload );
+	return uf::hooks.call( this->formatHookName( name ), p );
 }
 
 template<typename T>

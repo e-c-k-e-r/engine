@@ -9,16 +9,9 @@ template<typename T>
 pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
 	// CTTI information of a T& != T
 //	if ( std::is_reference<T>() ) return uf::userdata::create<typename std::remove_reference<T>::type>( requestedMemoryPool, data );
-
-	pod::Userdata* userdata = uf::userdata::create( requestedMemoryPool, sizeof(data), nullptr );
-	userdata->type = UF_USERDATA_CTTI(T);
-	union {
-		void* from;
-		T* to;
-	} kludge;
-	kludge.from = userdata->data;
-	::new (kludge.to) T(data);
-	return userdata;
+	// Register trait
+	uf::userdata::registerTrait<T>();
+	return uf::userdata::create( requestedMemoryPool, sizeof(data), (const void*) &data, UF_USERDATA_CTTI(T) );
 }
 // Easy way to get the userdata as a reference
 #include <stdexcept>
@@ -55,6 +48,21 @@ bool uf::userdata::is( const pod::Userdata* userdata ) {
 	return userdata && userdata->len == sizeof(T);
 }
 
+template<typename T> void uf::userdata::construct( void* dst, const void* src ) {
+	::new (dst) T(*static_cast<const T*>(src));
+}
+template<typename T> void uf::userdata::destruct( void* p ) {
+	static_cast<T*>(p)->~T();
+}
+template<typename T> const pod::UserdataTraits& uf::userdata::registerTrait() {
+	auto& trait = uf::userdata::traits[UF_USERDATA_CTTI(T)];
+	trait.name = TYPE_NAME(T);
+	trait.constructor = &uf::userdata::construct<T>;
+	trait.destructor = &uf::userdata::destruct<T>;
+	return trait;
+}
+
+//
 // No need to cast data to a pointer AND get the data's size!
 template<typename T>
 pod::Userdata* uf::Userdata::create( const T& data ) {

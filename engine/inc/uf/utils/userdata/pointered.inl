@@ -8,7 +8,7 @@ namespace pod {
 
 namespace uf {
 	namespace pointeredUserdata {
-		pod::PointeredUserdata UF_API create( size_t len, void* data = NULL );
+		pod::PointeredUserdata UF_API create( size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		void UF_API destroy( pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API copy( const pod::PointeredUserdata& userdata );
 
@@ -17,14 +17,18 @@ namespace uf {
 		template<typename T> const T& get(const pod::PointeredUserdata& userdata, bool validate = uf::userdata::autoValidate );
 		template<typename T> bool is(const pod::PointeredUserdata& userdata);
 
+
 		uf::stl::string UF_API toBase64( pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API fromBase64( const uf::stl::string& base64 );
 
 		// usage with MemoryPool
-		pod::PointeredUserdata UF_API create( uf::MemoryPool&, size_t len, void* data = NULL );
+		pod::PointeredUserdata UF_API create( uf::MemoryPool&, size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		template<typename T> pod::PointeredUserdata create( uf::MemoryPool&, const T& data = T() );
 		void UF_API destroy( uf::MemoryPool&, pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API copy( uf::MemoryPool&, const pod::PointeredUserdata& userdata );
+
+		const pod::UserdataTraits& UF_API getTrait( UF_USERDATA_CTTI_TYPE type );
+		template<typename T> const pod::UserdataTraits& registerTrait();
 
 		size_t UF_API size( size_t size, size_t padding = 0 );
 	}
@@ -43,12 +47,12 @@ namespace uf {
 	public:
 	// 	C-tor
 	
-		PointeredUserdata( size_t len = 0, void* data = NULL); 	// initializes POD to default
+		PointeredUserdata( size_t len = 0, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void)); 	// initializes POD to default
 		PointeredUserdata( const pod::PointeredUserdata& ); 						// initializes from POD
 		PointeredUserdata( PointeredUserdata&& move ) noexcept; 					// Move c-tor
 		PointeredUserdata( const PointeredUserdata& copy ); 				// Copy c-tor
 	
-		pod::PointeredUserdata& create( size_t len, void* data = NULL );
+		pod::PointeredUserdata& create( size_t len, const void* data = NULL, UF_USERDATA_CTTI_TYPE = UF_USERDATA_CTTI(void) );
 		void move( PointeredUserdata& move );
 		void move( PointeredUserdata&& move );
 		void copy( const PointeredUserdata& copy );
@@ -70,13 +74,15 @@ namespace uf {
 		template<typename T> bool is() const;
 		template<typename T> inline T& as() { return get<T>(); }
 		template<typename T> inline const T& as() const { return get<T>(); }
+
+		template<typename T> void alias( T& );
 	// 	Overloaded ops
 		operator void*();
 		operator void*() const;
 		
 		operator bool() const;
 	
-		PointeredUserdata& operator=( pod::PointeredUserdata pointer );
+		PointeredUserdata& operator=( const pod::PointeredUserdata& pointer );
 		PointeredUserdata& operator=( PointeredUserdata&& move );
 		PointeredUserdata& operator=( const PointeredUserdata& copy );
 	};
@@ -90,15 +96,8 @@ pod::PointeredUserdata uf::pointeredUserdata::create( const T& data ) {
 template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
 //	if ( std::is_reference<T>() ) return uf::pointeredUserdata::create<typename std::remove_reference<T>::type>( requestedMemoryPool, data );
-	pod::PointeredUserdata userdata = uf::pointeredUserdata::create( requestedMemoryPool, sizeof(data), nullptr );
-	userdata.type = UF_USERDATA_CTTI(T);
-	union {
-		void* from;
-		T* to;
-	} kludge;
-	kludge.from = userdata.data;
-	::new (kludge.to) T(data);
-	return userdata;
+	uf::pointeredUserdata::registerTrait<T>();
+	return uf::pointeredUserdata::create( requestedMemoryPool, sizeof(data), (const void*) &data, UF_USERDATA_CTTI(T) );
 }
 // Easy way to get the userdata as a reference
 #include <stdexcept>
@@ -134,11 +133,16 @@ bool uf::pointeredUserdata::is( const pod::PointeredUserdata& userdata ) {
 	if ( userdata.type != UF_USERDATA_CTTI(void) ) return userdata.type == UF_USERDATA_CTTI(T) && userdata.len == sizeof(T);
 	return userdata.len == sizeof(T);
 }
-
+template<typename T> const pod::UserdataTraits& uf::pointeredUserdata::registerTrait() {
+	auto& trait = uf::userdata::traits[UF_USERDATA_CTTI(T)];
+	trait.name = TYPE_NAME(T);
+	trait.constructor = &uf::userdata::construct<T>;
+	trait.destructor = &uf::userdata::destruct<T>;
+	return trait;}
+//
 // No need to cast data to a pointer AND get the data's size!
 template<typename T>
 pod::PointeredUserdata& uf::PointeredUserdata::create( const T& data ) {
-	this->destroy();
 	return this->m_pod = uf::pointeredUserdata::create<T>(data);
 }
 // Easy way to get the userdata as a reference
@@ -155,4 +159,13 @@ const T& uf::PointeredUserdata::get(bool validate) const {
 template<typename T>
 bool uf::PointeredUserdata::is() const {
 	return uf::pointeredUserdata::is<T>( this->m_pod );
+}
+
+// I am not proud of having to do this
+template<typename T>
+void uf::PointeredUserdata::alias( T& data ) {
+	autoDestruct = false;
+	m_pod.len = sizeof(T);
+	m_pod.data = (void*) &data;
+	m_pod.type = UF_USERDATA_CTTI(T);
 }
