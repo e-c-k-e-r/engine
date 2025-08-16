@@ -290,7 +290,6 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		for ( auto& q : executeQueue ) {
 			if ( q.type == 1 ) {
 				this->callHook( q.name, q.userdata );
-				q.userdata.destroy();
 			}
 			else if ( q.type == -1 ) this->callHook( q.name, q.json );
 			else this->callHook( q.name );

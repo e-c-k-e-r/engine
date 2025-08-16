@@ -100,8 +100,8 @@ void ext::opengl::Shader::destroy() {
 	}
 #endif
 
-	for ( auto& userdata : uniforms ) userdata.destroy();
-	for ( auto& userdata : pushConstants ) userdata.destroy();
+//	for ( auto& userdata : uniforms ) userdata.destroy();
+//	for ( auto& userdata : pushConstants ) userdata.destroy();
 	uniforms.clear();
 	pushConstants.clear();
 }

@@ -835,8 +835,8 @@ void ext::vulkan::Shader::destroy() {
 		module = VK_NULL_HANDLE;
 		descriptor = {};
 	}
-	for ( auto& userdata : uniforms ) userdata.destroy();
-	for ( auto& userdata : pushConstants ) userdata.destroy();
+//	for ( auto& userdata : uniforms ) userdata.destroy();
+//	for ( auto& userdata : pushConstants ) userdata.destroy();
 	uniforms.clear();
 	pushConstants.clear();
 }

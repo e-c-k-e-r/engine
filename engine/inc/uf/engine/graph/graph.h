@@ -77,7 +77,7 @@ namespace pod {
 				uf::stl::string tag = "worldspawn";
 				uf::stl::string player = "info_player_spawn";
 				
-				size_t hash = 0;
+				uint64_t hash = 0;
 				float lastUpdate = 0;
 			} stream;
 		} settings;

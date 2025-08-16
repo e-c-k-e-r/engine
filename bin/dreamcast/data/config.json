@@ -83,7 +83,7 @@
 		"memory pool": {
 			"enabled": false,
 			"subPools": true,
-			"alignment": 32,
+			"alignment": 4,
 			"override": false,
 			"size": "512 KiB",
 			"pools": {

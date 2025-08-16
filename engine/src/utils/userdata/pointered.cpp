@@ -69,8 +69,7 @@ void uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::P
 }
 pod::PointeredUserdata uf::pointeredUserdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::PointeredUserdata& userdata ) {
 	if ( !userdata.data || userdata.len <= 0 ) return {};
-	pod::PointeredUserdata copied = uf::pointeredUserdata::create( userdata.len, const_cast<void*>(userdata.data) );
-	copied.type = userdata.type;
+	pod::PointeredUserdata copied = uf::pointeredUserdata::create( userdata.len, const_cast<void*>(userdata.data), userdata.type );
 	return copied;
 }
 

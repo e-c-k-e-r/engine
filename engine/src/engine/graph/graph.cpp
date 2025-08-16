@@ -2120,7 +2120,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 
 		// bail if no update is detected
-		uint64_t drawCommandHash = ::fnv1aHash(queuedDrawIDs);
+		auto drawCommandHash = ::fnv1aHash(queuedDrawIDs);
 		if ( drawCommandHash == graph.settings.stream.hash ) {
 			return;
 		}
@@ -2346,8 +2346,12 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 
 	mesh.updateDescriptor();
-	
-	// uf::renderer::states::rebuild = true;
+
+	// necessary for OpenGL because recorded descriptors have invalidated pointers
+	// Vulkan doesn't care about the CPU-side mesh data
+#if UF_USE_OPENGL
+	uf::renderer::states::rebuild = true;
+#endif
 
 	// update graphic
 	if ( /*(graph.metadata["renderer"]["separate"].as<bool>()) &&*/ graph.metadata["renderer"]["render"].as<bool>() ) {

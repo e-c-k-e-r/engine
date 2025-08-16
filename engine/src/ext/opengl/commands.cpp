@@ -41,44 +41,41 @@ void ext::opengl::CommandBuffer::end() {
 }
 void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 	if ( state != 1 ) return;
+	
 	switch ( header.type ) {
 		case ext::opengl::enums::Command::CLEAR: {
 			InfoClear* info = (InfoClear*) &header;
-			info->next = NULL;
 			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
 			userdata.create<InfoClear>( *info );
 			info = &userdata.get<InfoClear>();
 			info->type = enums::Command::CLEAR;
+			info->next = NULL;
 		} break;
 		case ext::opengl::enums::Command::VIEWPORT: {
 			InfoViewport* info = (InfoViewport*) &header;
-			info->next = NULL;
 			if ( info->size.x == 0 ) info->size.x = ext::opengl::settings::width;
 			if ( info->size.y == 0 ) info->size.y = ext::opengl::settings::height;
 			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
 			userdata.create<InfoViewport>( *info );
+			info->next = NULL;
 			info = &userdata.get<InfoViewport>();
 			info->type = enums::Command::VIEWPORT;
 		} break;
 		case ext::opengl::enums::Command::VARIANT: {
 			InfoVariant* info = (InfoVariant*) &header;
-			info->next = NULL;
 			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
 			userdata.create<InfoVariant>( *info );
 			info = &userdata.get<InfoVariant>();
 			info->type = enums::Command::VARIANT;
+			info->next = NULL;
 		} break;
 		case ext::opengl::enums::Command::DRAW: {
 			InfoDraw* info = (InfoDraw*) &header;
-			info->next = NULL;
 			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
 			userdata.create<InfoDraw>( *info );
 			info = &userdata.get<InfoDraw>();
 			info->type = enums::Command::DRAW;
+			info->next = NULL;
 		} break;
 		default: {
 		} break;
@@ -131,33 +128,6 @@ void ext::opengl::CommandBuffer::submit() {
 }
 void ext::opengl::CommandBuffer::flush() {
 	mutex->lock();
-	for ( auto& info : infos ) {
-		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
-		switch ( header->type ) {
-			case ext::opengl::enums::Command::CLEAR: {
-				InfoClear* info = (InfoClear*) header;
-				info->~InfoClear();
-			} break;
-			case ext::opengl::enums::Command::VIEWPORT: {
-				InfoViewport* info = (InfoViewport*) header;
-				info->~InfoViewport();
-			} break;
-			case ext::opengl::enums::Command::VARIANT: {
-				InfoVariant* info = (InfoVariant*) header;
-				info->~InfoVariant();
-			} break;
-			case ext::opengl::enums::Command::DRAW: {
-				InfoDraw* info = (InfoDraw*) header;
-				info->~InfoDraw();
-			} break;
-			default: {
-			} break;
-		}
-	}
-	for ( auto& userdata : infos ) {
-		userdata.autoDestruct = true;
-		userdata.destroy();
-	}
 	infos.clear();
 	state = 0;
 	mutex->unlock();

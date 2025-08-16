@@ -78,40 +78,7 @@ namespace ext {
 					const pod::Vector4f* pointer = NULL;
 				} color;
 			};
-		/*
-			struct UF_API InfoBuffer : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				ext::opengl::Buffer::Descriptor descriptor = { GL_NULL_HANDLE, 0, 0 };
-				enums::Buffer::type_t usage = 0;
-			};
-			struct UF_API InfoTexture : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				ext::opengl::Texture::Descriptor descriptor = {};
-			};
-			struct UF_API InfoPipeline : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				struct Descriptor {
-					GLuint pipeline = GL_NULL_HANDLE;
-					GLuint vertexArray = GL_NULL_HANDLE;
-				} descriptor = { GL_NULL_HANDLE, GL_NULL_HANDLE };
-			};
-			struct UF_API InfoGraphicBuffer : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				ext::opengl::Graphic* graphic = NULL;
-				size_t bufferIndex = 0;
-			};
-			struct UF_API InfoDraw : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				size_t length = 0;
-				GraphicDescriptor descriptor = {};
-			};
-			struct UF_API InfoGenerateTexture : public Info {
-			//	ext::opengl::enums::Command::type_t type = 0;
-				Texture::Descriptor descriptor;
-				void* data = NULL;
-				size_t size = 0;
-			};
-		*/
+
 			#if UF_COMMAND_BUFFER_POINTERED_USERDATA
 				typedef uf::PointeredUserdata userdata_t;
 			#else
