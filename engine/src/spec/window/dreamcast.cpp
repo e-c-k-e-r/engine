@@ -323,6 +323,8 @@ uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
 
 spec::dreamcast::Window::Window() : m_context(NULL) {}
 void spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
+	// gdb_init(); // i guess this is specifically when using dcload and not an emulator with gdb support......
+
 	::keyboard.device = maple_enum_type(1, MAPLE_FUNC_KEYBOARD);
 
 	this->setSize(_size);

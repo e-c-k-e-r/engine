@@ -4,16 +4,16 @@
 	//	{ "filename": "./models/ss2_medsci1.glb" }
 	//	{ "filename": "./models/ss2_medsci1/graph.json" }
 	//	{ "filename": "./models/ss2_medsci1_small.glb" }
-		{ "filename": "./models/ss2_medsci1_small/graph.json" }
+	//	{ "filename": "./models/ss2_medsci1_small/graph.json" }
 	//	{ "filename": "./models/ss2_medsci1_smallish.glb" }
-	//	{ "filename": "./models/ss2_medsci1_smallish/graph.json" }
+		{ "filename": "./models/ss2_medsci1_smallish/graph.json" }
 	],
 	"metadata": {
 		"graph": {
 			"bgm": "./audio/music/medsci1.ogg",
 			"tags": {
-				"/^prop_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
-				"/^func_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } }
+				"/^prop_/": { "ignore": true, "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
+				"/^func_/": { "ignore": true, "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } }
 			}
 		}
 	}

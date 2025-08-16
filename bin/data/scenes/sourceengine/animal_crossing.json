@@ -2,12 +2,12 @@
 	"import": "./base_sourceengine.json",
 	"assets": [	
 	//	{ "filename": "./models/animal_crossing.glb" },
-		{ "filename": "./models/animal_crossing/graph.json" },
+		{ "filename": "./models/animal_crossing/graph.json" }/*,
 	//	{ "filename": "./models/animal_crossing_small.glb" },
 	//	{ "filename": "./models/animal_crossing_small/graph.json" },
 
 		{ "filename": "/craeture.json", "delay": 2.0 },
-		{ "filename": "/craeture2.json", "delay": 2.0 }
+		{ "filename": "/craeture2.json", "delay": 2.0 }*/
 	],
 	"metadata": {
 		"graph": {

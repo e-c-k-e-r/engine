@@ -12,13 +12,15 @@
 	},
 	"metadata": {
 		"clickable": true,
+		"hoverable": true,
 		
 		"events": {
 			"click": {
 				"name": "system:Quit",
 				"payload": {
 					"scene": "StartMenu"
-				}
+				},
+				"delay": 0.125
 			}
 		},
 

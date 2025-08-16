@@ -17,7 +17,7 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 128
+			"initial buffer elements": 256
 		},
 		"ext": {
 			"opengl": {

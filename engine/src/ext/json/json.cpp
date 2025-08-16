@@ -42,7 +42,7 @@ ext::json::Value ext::json::find( const uf::stl::string& needle, const ext::json
 		if ( needle == key ) {
 			exact = value;
 			breaks = true;
-		} else if ( uf::string::isRegex( key ) && uf::string::matched( needle, key ) ) {
+		} else if ( uf::string::isRegex( key ) && uf::string::matched( needle, key ) && ext::json::isNull( regexed ) ) {
 			regexed = value;
 		}
 	});

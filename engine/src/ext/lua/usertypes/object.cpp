@@ -196,13 +196,24 @@ namespace binds {
 	uf::Object& getParent( uf::Object& self ){
 		return self.getParent().as<uf::Object>();
 	}
-	void addHook( uf::Object& self, const uf::stl::string& name, sol::function function ) {
-		self.addHook( name, [function](ext::json::Value& json){
+	void addHook( uf::Object& self, const uf::stl::string& name, sol::protected_function fun ) {
+		self.addHook( name, [fun](ext::json::Value& json){
+			// cringe
+			if ( ext::json::isNull( json ) ) {
+				auto result = fun();
+				if ( !result.valid() ) {
+					sol::error err = result;
+					uf::iostream << err.what() << "\n";
+					return;
+				}
+				return;
+			}
+
 			uf::stl::string payload = json.dump();
 			auto decoded = ext::lua::decode( payload );
 			if ( !decoded ) return;
 			sol::table table = decoded.value();
-			auto result = function( table );
+			auto result = fun( table );
 			if ( !result.valid() ) {
 				sol::error err = result;
 				uf::iostream << err.what() << "\n";

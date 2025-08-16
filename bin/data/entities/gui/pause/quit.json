@@ -12,6 +12,7 @@
 	},
 	"metadata": {
 		"clickable": true,
+		"hoverable": true,
 		"events": {
 			"click": [
 				{
@@ -25,7 +26,8 @@
 							"scope": "scene",
 							"delay": 0
 						}
-					}
+					},
+					"delay": 0.125
 				}
 			]
 		},

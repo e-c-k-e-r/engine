@@ -12,10 +12,12 @@
 	},
 	"metadata": {
 		"clickable": true,		
+		"hoverable": true,		
 		"events": {
 			"click": {
 				"name": "game:Scene.Load",
-				"payload": { "scene": "SourceEngine" }
+				"payload": { "scene": "SourceEngine" },
+				"delay": 0.125
 			}
 		},
 

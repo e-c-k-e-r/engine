@@ -132,11 +132,8 @@ namespace {
 	}
 }
 
-#if UF_ENV_DREAMCAST
-	size_t uf::graph::initialBufferElements = 256;
-#else
-	size_t uf::graph::initialBufferElements = 1024;
-#endif
+size_t uf::graph::initialBufferElements = 1024;
+
 bool uf::graph::globalStorage;
 pod::Graph::Storage uf::graph::storage;
 
@@ -1834,18 +1831,19 @@ void uf::graph::initialize() {
 	if ( uf::graph::globalStorage ) return uf::graph::initialize( uf::graph::storage );
 	return uf::graph::initialize( uf::scene::getCurrentScene() );
 }
-void uf::graph::initialize( uf::Object& object ) {
-	return uf::graph::initialize( object.getComponent<pod::Graph::Storage>() );
+void uf::graph::initialize( uf::Object& object, size_t initialElements ) {
+	return uf::graph::initialize( object.getComponent<pod::Graph::Storage>(), initialElements );
 }
-void uf::graph::initialize( pod::Graph::Storage& storage ) {
+void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements ) {
 	storage.buffers.camera.initialize( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
-	storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand)  * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
-	storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * uf::graph::initialBufferElements, uf::renderer::enums::Buffer::STORAGE );
+	// to-do: check if opengl really needs these
+	storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand)  * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 }
 void uf::graph::tick() {
 	if ( uf::graph::globalStorage ) return uf::graph::tick( uf::graph::storage );
@@ -2037,6 +2035,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 }
 void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) return;
+	if ( !node.entity ) return;
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
@@ -2074,7 +2073,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	// disable if not tagged for streaming
 	// to-do: check tag
-	if ( node.name != graph.settings.stream.tag ) {
+	if ( graph.settings.stream.tag != "" && node.name != graph.settings.stream.tag ) {
 		radius = 0;
 	}
 

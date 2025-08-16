@@ -15,6 +15,8 @@ local camera = controller:getComponent("Camera")
 local metadata = ent:getComponent("Metadata")
 local masterdata = scene:getComponent("Metadata")
 
+local soundEmitter = ent:loadChild("./sound.json",true)
+
 local children = {
 	mainText = ent:loadChild("./main-text.json",true),
 	circleOut = ent:loadChild("./circle-out.json",true),
@@ -28,6 +30,7 @@ if not timer:running() then timer:start() end
 
 local playSound = function( key )
 	local url = "/ui/" .. key .. ".ogg"
+	soundEmitter:callHook("sound:Emit.%UID%", { filename = url })
 --	local assetLoader = scene:getComponent("Asset")
 --	assetLoader:cache(ent:formatHookName("asset:Load.%UID%"), string.resolveURI(url))
 end
@@ -66,105 +69,172 @@ ent:addHook("asset:Load.%UID%", function( json )
 
 	return true
 end )
-if os.arch() == "Dreamcast" then
-	ent:bind( "tick", function(self)
-		-- circle in
-		if children.circleIn:uid() > 0 then
-			local transform = children.circleIn:getComponent("Transform")
-			transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), time.current() * -0.0125 )
-		end
-		-- circle out
-		if children.circleIn:uid() > 0 then
-			local transform = children.circleIn:getComponent("Transform")
-			transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), time.current() * 0.0125 )
-		end
 
-		if (window.keyPressed("Enter") or inputs.key("START")) and timer:elapsed() >= 1 then
-			timer:reset()
-			children.start:callHook("gui:Clicked.%UID%", {})
-		end
-	end )
-else
-	ent:bind( "tick", function(self)
-		--if (window.keyPressed("Enter") or inputs.key("START")) and timer:elapsed() >= 1 then
-		if inputs.key("START") and timer:elapsed() >= 1 then
-			timer:reset()
-			children.start:callHook("gui:Clicked.%UID%", {})
-		end
+local selectableElements = {
+	children.start,
+	children.quit,
+}
+local selectableElementColors = {}
+local selectedElement = 0
+local selectionColor = { 1, 0, 1, 1 }
+local INPUT_DELAY = 0.2
 
-		local static = Static.get(self)
-		if not static.alpha then
-			static.alpha = 0
+local function array_index_of( haystack, needle )
+	for i, v in ipairs(haystack) do
+		if v == needle then
+			return i
 		end
+	end
+	return 0
+end
+local function onHover( payload )
+	playSound( "buttonrollover" )
+	selectedElement = 0
+end
+local function onClick( payload )
+	playSound( "buttonclickrelease" )
+end
 
-		metadata["initialized"] = true;
-		if  static.alpha >= 1.0 then
-			static.alpha = 1.0
+for i, v in ipairs( selectableElements ) do
+	selectableElementColors[i] = nil
+	v:addHook("gui:HoverStart.%UID%", onHover )
+	v:addHook("gui:ClickStart.%UID%", onClick )
+end
+
+local function handleSelectionIndex()
+	if (inputs.key("L_DPAD_UP") or inputs.key("Up")) and timer:elapsed() >= INPUT_DELAY then
+		timer:reset()
+		-- nothing is selected
+		if selectedElement == 0 then
+			-- set to bottom
+			selectedElement = #selectableElements
 		else
-			static.alpha = static.alpha + time.delta() * 1.5
+			selectedElement = selectedElement - 1
+			-- wrap to bottom
+			if selectedElement <= 0 then
+				selectedElement = #selectableElements
+			end
+		end
+		playSound( "buttonrollover" )
+	end
+	if (inputs.key("L_DPAD_DOWN") or inputs.key("Down")) and timer:elapsed() >= INPUT_DELAY then
+		timer:reset()
+		-- nothing is selected
+		if selectedElement == 0 then
+			-- set to top
+			selectedElement = 1
+		else
+			selectedElement = selectedElement + 1
+			-- wrap to top
+			if selectedElement > #selectableElements then
+				selectedElement = 1
+			end
+		end
+		playSound( "buttonrollover" )
+	end
+end
+
+ent:bind( "tick", function(self)
+	handleSelectionIndex()
+
+	local static = Static.get(self)
+	if not static.alpha then
+		static.alpha = 0
+	end
+
+	metadata["initialized"] = true;
+
+	if  static.alpha >= 1.0 then
+		static.alpha = 1.0
+	else
+		static.alpha = static.alpha + time.delta() * 1.5
+	end
+
+	-- make background glow
+	local glow = 1 + math.sin(1.25 * time.current()) * 0.125
+	metadata["color"] = { glow, glow, glow, static.alpha }
+	self:setComponent("Metadata", metadata)
+
+	camera:update(true);
+
+	-- iterate children in batch
+	for k, v in pairs(children) do
+		if v:uid() <= 0 then goto continue end
+
+		-- set alpha
+		local metadata = v:getComponent("Metadata")
+		local index = array_index_of( selectableElements, v )
+		-- mark element as hovered if selected
+		if 0 < selectedElement and selectedElement <= #selectableElements then
+			if 0 < index and index <= #selectableElements then
+				metadata["hovered"] = index == selectedElement
+			end
 		end
 
-		-- make background glow
-		local glow = 1 + math.sin(1.25 * time.current()) * 0.125
-		metadata["color"][1] = glow
-		metadata["color"][2] = glow
-		metadata["color"][3] = glow
-		metadata["alpha"] = static.alpha;
-		self:setComponent("Metadata", metadata)
-
-		camera:update(true);
-
-		-- iterate children in batch
-		for k, v in pairs(children) do
-			if v:uid() <= 0 then goto continue end
-
-			-- set alpha
-			local metadata = v:getComponent("Metadata")
-			metadata["alpha"] = static.alpha
-			v:setComponent("Metadata", metadata)
-
-			local transform = v:getComponent("Transform")
-			local static = Static.get(v)
-			-- translation
-			if not static.from then goto continue end
-			if not static.to then static.to = Vector3f(transform.position) end
-			if not static.delta then static.delta = 0 end
-
-			if static.delta >= 1 then
-				static.delta = 1
-			else
-				static.delta = static.delta + time.delta() * 1.5
-				transform.position = Vector3f.lerp( static.from, static.to, static.delta )
+		if metadata["clickable"] then
+			-- backup color
+			if selectableElementColors[index] == nil then
+				selectableElementColors[index] = metadata["color"]
 			end
 
-			::continue::
-		end	
-
-		-- circle in
-		child = children.circleIn
-		if child:uid() > 0 then
-			local static = Static.get( child )
-
-			local transform = child:getComponent("Transform")
-			local metadata = child:getComponent("Metadata")
-
-			-- rotation
-			local speed = metadata["hovered"] and 0.25 or 0.0125
-			static.time = (static.time or 0) + time.delta() * -speed
-			transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
+			-- color for selection
+			if metadata["hovered"] then
+				metadata["color"] = selectionColor
+				-- simulate click on input press
+				if (inputs.key("A") or inputs.key("START") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
+					timer:reset()
+					v:callHook("gui:Clicked.%UID%", {})
+				end
+			else
+				metadata["color"] = selectableElementColors[index]
+			end
 		end
-		-- circle out
-		child = children.circleOut
-		if child:uid() > 0 then
-			local static = Static.get( child )
 
-			local transform = child:getComponent("Transform")
-			local metadata = child:getComponent("Metadata")
+		metadata["color"][4] = static.alpha
+		v:setComponent("Metadata", metadata)
 
-			-- rotation
-			local speed = metadata["hovered"] and 0.25 or 0.0125
-			static.time = (static.time or 0) + time.delta() * speed
-			transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
+		local transform = v:getComponent("Transform")
+		local static = Static.get(v)
+		-- translation
+		if not static.from then goto continue end
+		if not static.to then static.to = Vector3f(transform.position) end
+		if not static.delta then static.delta = 0 end
+
+		if static.delta >= 1 then
+			static.delta = 1
+		else
+			static.delta = static.delta + time.delta() * 1.5
+			transform.position = Vector3f.lerp( static.from, static.to, static.delta )
 		end
-	end )
-end
+
+
+		::continue::
+	end	
+
+	-- circle in
+	child = children.circleIn
+	if child:uid() > 0 then
+		local static = Static.get( child )
+
+		local transform = child:getComponent("Transform")
+		local metadata = child:getComponent("Metadata")
+
+		-- rotation
+		local speed = metadata["hovered"] and 0.25 or 0.0125
+		static.time = (static.time or 0) + time.delta() * -speed
+		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
+	end
+	-- circle out
+	child = children.circleOut
+	if child:uid() > 0 then
+		local static = Static.get( child )
+
+		local transform = child:getComponent("Transform")
+		local metadata = child:getComponent("Metadata")
+
+		-- rotation
+		local speed = metadata["hovered"] and 0.25 or 0.0125
+		static.time = (static.time or 0) + time.delta() * speed
+		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
+	end
+end )

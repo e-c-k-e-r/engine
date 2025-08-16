@@ -513,7 +513,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 						uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
 				} else metadata.camera.limit.current.y -= lookDelta.y;
 			}
-		} else {
+		} else if ( metadata.system.control ) {
 			if ( keys.lookRight ^ keys.lookLeft ) {
 				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
 				uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );

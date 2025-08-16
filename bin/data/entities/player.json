@@ -20,7 +20,7 @@
 		{ "filename": "./playerModel.json", "delay": 1 },
 	//	"./playerModel.json",
 		"./playerLight.json",
-		"./playerHands.json",
+	//	"./playerHands.json",
 		"./scripts/player.lua"
 	],
 	"system": {

@@ -327,22 +327,41 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				int mouseX = payload.mouse.position.x;
 				int mouseY = payload.mouse.position.y;
 			}
+
+			if ( !metadata.ui.click.ed && clicked ) {
+				this->callHook("gui:ClickStart.%UID%", payload);
+			} else if ( metadata.ui.click.ed && !clicked ) {
+				this->callHook("gui:ClickEnd.%UID%", payload);
+			}
 			
 			metadata.ui.click.ed = clicked;
-
 
 			if ( clicked ) {
 				this->callHook("gui:Clicked.%UID%", payload);
 			}
+
 			this->callHook("gui:Mouse.Clicked.%UID%", payload);
 		} );
 
 
-		this->addHook( "gui:Clicked.%UID%", [&]( ext::json::Value& json ){
+		this->addHook( "gui:ClickStart.%UID%", [&]( pod::payloads::windowMouseClick& payload ){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:ClickStart.%UID%", jsonPayload);
+		});
+		this->addHook( "gui:ClickEnd.%UID%", [&]( pod::payloads::windowMouseClick& payload ){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:ClickEnd.%UID%", jsonPayload);
+		});
+		this->addHook( "gui:Clicked.%UID%", [&](ext::json::Value& json){
+			if ( ext::json::isNull( json ) ) return;
+
 			pod::payloads::windowMouseClick payload;
 			this->callHook("gui:Clicked.%UID%", payload);
 		});
 		this->addHook( "gui:Clicked.%UID%", [&](pod::payloads::windowMouseClick& payload){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:Clicked.%UID%", jsonPayload);
+
 			if ( ext::json::isObject( metadataJson["events"]["click"] ) ) {
 				ext::json::Value event = metadataJson["events"]["click"];
 				metadataJson["events"]["click"] = ext::json::array();
@@ -398,36 +417,58 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				int mouseX = payload.mouse.position.x;
 				int mouseY = payload.mouse.position.y;
 			}
-			
-			metadata.ui.hover.ed = hovered;
 
-			if ( hovered && hoverTimer.elapsed().asDouble() >= 1 ) {
-				hoverTimer.reset();
+			uf::Serializer jsonPayload = ext::json::null();
+
+			// to-do: do something about trying to trigger json-bound hooks
+			if ( !metadata.ui.hover.ed && hovered ) {
+				this->callHook("gui:HoverStart.%UID%", payload);
+			} else if ( metadata.ui.hover.ed && !hovered ) {
+				this->callHook("gui:HoverEnd.%UID%", payload);
+			} else if ( hovered ) { /*&& hoverTimer.elapsed().asDouble() >= 1 ) {
+				hoverTimer.reset();*/
 				this->callHook("gui:Hovered.%UID%", payload);
 			}
+
+			metadata.ui.hover.ed = hovered;
 			this->callHook("gui:Mouse.Moved.%UID%", payload);
 		});
 
+		this->addHook( "gui:HoverStart.%UID%", [&]( pod::payloads::windowMouseMoved& payload ){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:HoverStart.%UID%", jsonPayload);
+		});
+		this->addHook( "gui:HoverEnd.%UID%", [&]( pod::payloads::windowMouseMoved& payload ){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:HoverEnd.%UID%", jsonPayload);
+		});
 		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
+			if ( ext::json::isNull( json ) ) return;
+
+			pod::payloads::windowMouseMoved payload;
+			this->callHook("gui:Hovered.%UID%", payload);
+		});
+		this->addHook( "gui:Hovered.%UID%", [&](pod::payloads::windowMouseMoved& payload){
+			uf::Serializer jsonPayload;
+			this->callHook("gui:Hovered.%UID%", jsonPayload);
+
 			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
 				ext::json::Value event = metadataJson["events"]["hover"];
-				metadataJson["events"]["hover"] = ext::json::array(); //Json::arrayValue;
+				metadataJson["events"]["hover"] = ext::json::array();
 				metadataJson["events"]["hover"][0] = event;
 			} else if ( !ext::json::isArray( metadataJson["events"]["hover"] ) ) {
-				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
+				this->getParent().as<uf::Object>().callHook("gui:Hovered.%UID%", payload);
 				return;
 			}
 			for ( int i = 0; i < metadataJson["events"]["hover"].size(); ++i ) {
 				ext::json::Value event = metadataJson["events"]["hover"][i];
 				ext::json::Value payload = event["payload"];
-				float delay = event["delay"].as<float>();
-				if ( event["delay"].is<double>() ) {
+				if ( event["delay"].is<float>() ) {
 					this->queueHook(event["name"].as<uf::stl::string>(), payload, event["delay"].as<float>());
 				} else {
 					this->callHook(event["name"].as<uf::stl::string>(), payload );
 				}
 			}
-			return;
 		});
 	}
 }

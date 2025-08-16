@@ -158,8 +158,8 @@ namespace uf {
 		void UF_API render();
 		void UF_API destroy( bool soft = false );
 
-		void UF_API initialize( uf::Object& );
-		void UF_API initialize( pod::Graph::Storage& );
+		void UF_API initialize( uf::Object&, size_t = uf::graph::initialBufferElements );
+		void UF_API initialize( pod::Graph::Storage&, size_t = uf::graph::initialBufferElements );
 		void UF_API tick( uf::Object& );
 		void UF_API tick( pod::Graph::Storage& );
 		void UF_API render( uf::Object& );
