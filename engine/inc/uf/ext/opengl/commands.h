@@ -75,6 +75,7 @@ namespace ext {
 				struct {
 					bool enabled = false;
 					pod::Vector4f value = { 1, 1, 1, 1 };
+					const pod::Vector4f* pointer = NULL;
 				} color;
 			};
 		/*

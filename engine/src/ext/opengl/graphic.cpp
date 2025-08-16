@@ -389,8 +389,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		drawCommandInfoBase.matrices.model = &uniforms->modelView;
 		drawCommandInfoBase.matrices.projection = &uniforms->projection;
 
+		drawCommandInfoBase.color.pointer = &uniforms->color;
 		drawCommandInfoBase.color.value = uniforms->color;
-		drawCommandInfoBase.color.enabled = drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+		drawCommandInfoBase.color.enabled = true; // drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 	}
 
 	struct {

@@ -434,18 +434,19 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
 	}
 
-	if ( drawInfo.attributes.color.pointer ) {
+	// prioritize uniform color for now
+	if ( drawInfo.color.enabled ) {
+		const auto& color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+		colors = uf::stl::vector<pod::Vector4f>( drawInfo.descriptor.inputs.vertex.count, color );
+		GL_ERROR_CHECK(glColorPointer(4, GL_FLOAT, sizeof(pod::Vector4f), colors.data()));
+	//	GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
+	} else if ( drawInfo.attributes.color.pointer ) {
 		GLenum colorType = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
 			case sizeof(uint8_t): colorType = GL_UNSIGNED_BYTE; break;
 			case sizeof(float): colorType = GL_FLOAT; break;
 		}
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
-	} else if ( drawInfo.color.enabled ) {
-		colors = uf::stl::vector<pod::Vector4f>( drawInfo.descriptor.inputs.vertex.count, drawInfo.color.value );
-		GL_ERROR_CHECK(glColorPointer(4, GL_FLOAT, sizeof(pod::Vector4f), &(colors[0][0])));
-
-	//	GL_ERROR_CHECK(glColor4f( drawInfo.color.value[0], drawInfo.color.value[1], drawInfo.color.value[2], drawInfo.color.value[3] ));
 	}
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
