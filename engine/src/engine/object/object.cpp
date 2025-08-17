@@ -524,7 +524,6 @@ uf::asset::Payload uf::Object::resolveToPayload( const uf::stl::string& filename
 
 
 /*
-#include <uf/utils/string/ext.h>
 uf::stl::string uf::string::toString( const uf::Object& object ) {
 	return ::fmt::format("{} ({}): {}", object.getName(), object.getUid(), (void*) &object);
 }

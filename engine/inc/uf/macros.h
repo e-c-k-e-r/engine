@@ -15,11 +15,6 @@
 	}\
 	if ( time >= x && timerState.should && (timer.reset(), true) )
 
-#define UF_DEBUG 1
-#if UF_DEBUG
-	#include <uf/utils/io/fmt.h>
-#endif
-
 #if UF_USE_FMT
 	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, ::fmt::format(__VA_ARGS__));
 #else
@@ -129,4 +124,21 @@
 
 	using float16 = float16_t;
 	using bfloat16 = bfloat16_t;
+#endif
+
+#if UF_LEAN_AND_MEAN
+	#define UF_DEBUG 0
+	#undef TYPE_NAME
+	#define TYPE_NAME(T) std::to_string(TYPE_HASH(T))
+
+	#undef UF_MSG
+	#define UF_MSG(...) {}
+#endif
+
+#ifndef UF_DEBUG
+	#define UF_DEBUG 1
+#endif
+
+#if UF_DEBUG
+	#include <uf/utils/io/fmt.h>
 #endif

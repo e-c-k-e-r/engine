@@ -16,6 +16,7 @@ uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 #include <uf/utils/window/window.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/io/inputs.h>
+#include <uf/utils/io/fmt.h>
 
 sol::table ext::lua::createTable() {
 	return sol::table(ext::lua::state, sol::create);
@@ -119,10 +120,10 @@ namespace binds {
 			size_t count = va.size();
 			for ( auto value : va ) {
 				uf::stl::string str = ext::lua::state["tostring"]( value );
-				fmt::print("{}", str);
-				if ( --count != 0 ) fmt::print("\t");
+				::fmt::print("{}", str);
+				if ( --count != 0 ) ::fmt::print("\t");
 			}
-			fmt::print("\n");
+			::fmt::print("\n");
 			std::cout.flush();
 		#else
 			size_t count = va.size();

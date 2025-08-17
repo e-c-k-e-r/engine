@@ -7,6 +7,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/rendertarget.h>
 #include <uf/utils/graphic/graphic.h>
+#include <uf/utils/io/fmt.h>
 
 namespace {
 	uf::stl::vector<VkImage> images;

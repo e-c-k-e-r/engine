@@ -63,8 +63,8 @@ ifneq (,$(findstring win64,$(ARCH)))
 	LINKS 				+= #-Wl,-subsystem,windows
 	INCS 				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua reactphysics simd ctti imgui fmt freetype openal aldc ogg wav png
+	FLAGS 				+= -DUF_ENV_DREAMCAST # -DUF_LEAN_AND_MEAN # this apparently crashes
+	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua reactphysics simd ctti fmt freetype openal aldc ogg wav png # imgui
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
 

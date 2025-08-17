@@ -2,6 +2,7 @@
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/memory/allocator.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/io/fmt.h>
 
 pod::Checkpoint* uf::checkpoint::allocate( const pod::Checkpoint& checkpoint ) {
 	pod::Checkpoint* pointer = new pod::Checkpoint;// (pod::Checkpoint*) uf::allocator::allocate( sizeof(pod::Checkpoint) );

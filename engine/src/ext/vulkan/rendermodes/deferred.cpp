@@ -10,6 +10,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/transform.h>
+#include <uf/utils/io/fmt.h>
 
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>

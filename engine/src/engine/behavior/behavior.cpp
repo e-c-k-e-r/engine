@@ -98,7 +98,7 @@ void uf::Behaviors::tick() {
 //	if ( !m_graph.tickMT.empty() ) uf::thread::queue(m_graph.tickMT);
 	if ( m_graph.tick.serial.empty() && m_graph.tick.parallel.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
-	UF_TIMER_MULTITRACE_START("Starting tick " << self.getName() << ": " << self.getUid());
+	UF_TIMER_MULTITRACE_START("Starting tick: {}", uf::string::toString( self ));
 //	for ( auto& behavior : m_behaviors ) if ( behavior.traits.ticks ) UF_MSG_DEBUG( behavior.type.name() );
 	for ( auto& fun : m_graph.tick.serial ) {
 		fun(self);
@@ -108,7 +108,7 @@ void uf::Behaviors::tick() {
 		fun(self);
 		UF_TIMER_MULTITRACE("");
 	}
-	UF_TIMER_MULTITRACE_END("Finished tick " << self.getName() << ": " << self.getUid())
+	UF_TIMER_MULTITRACE_END("Finished tick: {}", uf::string::toString( self ))
 #else
 	UF_BEHAVIOR_POLYFILL(tick.serial)
 	UF_BEHAVIOR_POLYFILL(tick.parallel)
@@ -119,12 +119,12 @@ void uf::Behaviors::render() {
 	if ( !self.isValid() ) return;
 	if ( m_graph.render.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
-	UF_TIMER_MULTITRACE_START("Starting render " << self.getName() << ": " << self.getUid());
+	UF_TIMER_MULTITRACE_START("Starting render: {}", uf::string::toString( self ));
 	for ( auto& fun : m_graph.render ) {
 		fun(self);
 		UF_TIMER_MULTITRACE("");
 	}
-	UF_TIMER_MULTITRACE_END("Finished render " << self.getName() << ": " << self.getUid())
+	UF_TIMER_MULTITRACE_END("Finished render: {}", uf::string::toString( self ))
 #else
 	UF_BEHAVIOR_POLYFILL(render)
 #endif

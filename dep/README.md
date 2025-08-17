@@ -17,3 +17,6 @@ Some dependencies of mine rely on some modifications of the original dependencie
 	* Dreamcast requires some edits due to `sizeof(int) != sizeof(int32)` / `sizeof(uint) != sizeof(uint32)`, extra compile flags, and disabling exceptions
 * [simulant/GLdc](https://git.ecker.tech/ecker/GLdc/): Dreamcast only; adds in support for `float16`/`bfloat16`/quantized `uint16_t` vertex data
 * [GPUOpen-Effects/FidelityFX-FSR2](https://git.ecker.tech/ecker/FidelityFX-FSR2): modifications required for compiling under GCC (despite being a soft-dependency that I'm not making use of anyways)
+* [KallistiOS/KallistiOS](https://github.com/KallistiOS/KallistiOS/tree/e4171afbdaf20574a554d8d40f08552e0680db14): Dreamcast only; specifically commit `e4171afb` .
+	* this version requires commenting out this line at [kernel/arch/dreamcast/hardware/cdrom.c#L839](https://github.com/KallistiOS/KallistiOS/blob/e4171afbdaf20574a554d8d40f08552e0680db14/kernel/arch/dreamcast/hardware/cdrom.c#L839) to boot under emulators (I've yet to test )
+	* later version require compiling with `kos-c++` instead of `$(KOS_CCPLUS)` and removing the `-T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc` line when compiling the `.elf`, but crashes later during some `maple` initialization.

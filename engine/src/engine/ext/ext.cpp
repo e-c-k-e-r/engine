@@ -761,8 +761,6 @@ void UF_API uf::tick() {
 	#endif
 		uf::renderer::synchronize();
 
-		UF_MSG_DEBUG("STARTING SCENE TRANSITION: {}: {}", phase, target);
-
 		if ( uf::renderer::settings::experimental::dedicatedThread ) {
 			::requestDedicatedRenderThread = true;
 			uf::renderer::settings::experimental::dedicatedThread = !uf::renderer::settings::experimental::dedicatedThread;
@@ -778,7 +776,6 @@ void UF_API uf::tick() {
 		uf::scene::loadScene( target );
 
 		::sceneTransition.phase = -1;
-		UF_MSG_DEBUG("FINISHED SCENE TRANSITION: {}: {}", phase, target);
 	
 	#if UF_USE_VULKAN
 		uf::renderer::flushCommandBuffers();

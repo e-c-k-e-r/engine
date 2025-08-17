@@ -4,6 +4,8 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/instantiator/instantiator.h>
 #include <uf/utils/io/iostream.h>
+#include <uf/utils/io/fmt.h>
+#include <uf/utils/string/ext.h>
 
 uf::Entity uf::Entity::null;
 std::size_t uf::Entity::uids = 0;
@@ -168,7 +170,6 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 	return NULL;
 }
 
-#include <uf/utils/string/ext.h>
 uf::stl::string uf::string::toString( const uf::Entity& entity ) {
 #if UF_USE_FMT
 	return ::fmt::format("{} ({}): {}", entity.getName(), entity.getUid(), (void*) &entity);

@@ -10,6 +10,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/engine/ext.h>
+#include <uf/utils/io/fmt.h>
 
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";

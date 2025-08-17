@@ -4,6 +4,7 @@
 
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/io/console.h>
+#include <uf/utils/io/fmt.h>
 
 #include <iostream>
 #include <sstream>

@@ -5,6 +5,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/io/fmt.h>
 #include <regex>
 
 UF_OBJECT_REGISTER_BEGIN(uf::Scene)
@@ -166,13 +167,13 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 				if ( behavior.traits.multithread )
 			#endif
 				metadata.tasks.parallel.queue([=]{
-					UF_MSG_DEBUG("Parallel {} task executing: {}: {}", name, self->getName(), self->getUid());
+					auto start = uf::time::time();
 					behavior.tick(*self);
-					UF_MSG_DEBUG("Parallel {} task exectued: {}: {}", name, self->getName(), self->getUid());
+					UF_MSG_DEBUG("[{}us] Parallel {} task exectued: {}: {}", uf::time::time() - start, name, self->getName(), self->getUid());
 				}); else metadata.tasks.serial.queue([=]{
-					UF_MSG_DEBUG("Serial {} task executing: {}: {}", name, self->getName(), self->getUid());
+					auto start = uf::time::time();
 					behavior.tick(*self);
-					UF_MSG_DEBUG("Serial {} task exectued: {}: {}", name, self->getName(), self->getUid());
+					UF_MSG_DEBUG("[{}us] Serial {} task exectued: {}: {}", uf::time::time() - start, name, self->getName(), self->getUid());
 				});
 			}
 		} else {

@@ -1,5 +1,7 @@
 #if UF_USE_FFX_FSR
 
+#include <cfloat>
+
 #include <uf/ext/ffx/fsr.h>
 
 #include <ffx_fsr2/ffx_fsr2.h>
@@ -7,7 +9,7 @@
 
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/camera/camera.h>
-#include <cfloat>
+#include <uf/utils/io/fmt.h>
 
 namespace {
 	pod::Matrix4f jitterMatrix = uf::matrix::identity();

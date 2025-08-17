@@ -7,6 +7,7 @@
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/math/transform.h>
+#include <uf/utils/io/fmt.h>
 
 uf::stl::unordered_map<uf::stl::string, uf::console::Command> uf::console::commands;
 uf::stl::vector<uf::stl::string> uf::console::log;

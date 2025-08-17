@@ -305,7 +305,7 @@
 				"timescale": 0.01666666666,
 				"interpolate": true,
 				"gravity": {
-					"mode": "universal", // default / per-object / universal
+					"mode": "default", // default / per-object / universal
 					"constant": 6.67408e-11
 				},
 				"debug draw": {

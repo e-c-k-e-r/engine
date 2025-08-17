@@ -4,7 +4,7 @@
 			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
-			"lights": { "enabled": true,
+			"lights": { "enabled": false,
 				"useLightmaps": true,
 				"max": 1
 			},
@@ -53,10 +53,10 @@
 				"enabled": false
 			},
 			"reactphysics": {
-				"timescale": 0.01666666666,
+				"timescale": 0.03333333333,
 				"interpolate": false,
 				"gravity": {
-					"mode": "universal",
+					"mode": "default",
 					"constant": 6.67408e-11
 				},
 				"debug draw": {
@@ -68,15 +68,15 @@
 			}
 		},
 		"audio": {
-			"mute": false,
+			"mute": true,
 			"buffers": {
 				"size": 24576,
 				"count": 6
 			},
 			"volumes": {
-				"sfx": 2.0,
-				"bgm": 2.0,
-				"voice": 2.0
+				"sfx": 1.0,
+				"bgm": 1.0,
+				"voice": 1.0
 			},
 			"streams by default": true
 		},
@@ -99,7 +99,7 @@
 		},
 		"threads": {
 			"workers" : 1,
-			"frame limiter": 0 // "auto"
+			"frame limiter": 15 // "auto"
 		},
 		"debug": {
 			"framerate": {

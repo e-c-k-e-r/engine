@@ -6,6 +6,7 @@
 #include <uf/ext/vulkan/rendermode.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/io/fmt.h>
 
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/ffx/fsr.h>

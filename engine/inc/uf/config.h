@@ -56,7 +56,9 @@
 	#define UF_ENV_HEADER "dreamcast.h"
 	#include UF_ENV_HEADER
 
-	#define _arch_dreamcast
+	#ifndef _arch_dreamcast
+		#define _arch_dreamcast
+	#endif
 
 	#define UF_IO_ROOT "/cd/"
 #else

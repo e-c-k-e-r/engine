@@ -17,6 +17,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/graph/graph.h>
 
+#include <uf/utils/io/fmt.h>
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/noise/noise.h>
