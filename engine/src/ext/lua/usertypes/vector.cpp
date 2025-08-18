@@ -99,7 +99,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Vector3f,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Vector3f& self ) {
 			return self = pod::Vector3f{};
@@ -132,8 +133,7 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, UF_LUA_C_FUN(::binds::v3f::dot) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::v3f::toString) )
 )
-/*
-UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Vector4f,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Vector4f& self ) {
 			return self = pod::Vector4f{};
@@ -165,5 +165,4 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, UF_LUA_C_FUN(::binds::v4f::dot) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::v4f::toString) )
 )
-*/
 #endif

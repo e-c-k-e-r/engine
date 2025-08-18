@@ -285,15 +285,15 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	});
 
 
-	if ( metadata.ui.click.able ) {
+	if ( metadata.clickable ) {
 		uf::Timer<long long> clickTimer(false);
 		clickTimer.start( uf::Time<>(-1000000) );
 		if ( !clickTimer.running() ) clickTimer.start();
 
 		this->addHook( "window:Mouse.Click", [&](pod::payloads::windowMouseClick& payload){
 			if ( metadata.world ) return;
-			//if ( !metadata.box.min && !metadata.box.max ) return;
-			if ((metadata.box.min.x > metadata.box.max.x)||(metadata.box.min.y > metadata.box.max.y)) return;
+			//if ( !metadata.boxMin && !metadata.boxMax ) return;
+			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
 		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
@@ -316,25 +316,25 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					x = payload.mouse.position.x;
 					y = payload.mouse.position.y;
 				}
-				clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
+				clicked = ( metadata.boxMin.x <= x && metadata.boxMin.y <= y && metadata.boxMax.x >= x && metadata.boxMax.y >= y );
 			
-				int minX = (metadata.box.min.x * 0.5f + 0.5f) * guiSize.x;
-				int minY = (metadata.box.min.y * 0.5f + 0.5f) * guiSize.y;
+				int minX = (metadata.boxMin.x * 0.5f + 0.5f) * guiSize.x;
+				int minY = (metadata.boxMin.y * 0.5f + 0.5f) * guiSize.y;
 
-				int maxX = (metadata.box.max.x * 0.5f + 0.5f) * guiSize.x;
-				int maxY = (metadata.box.max.y * 0.5f + 0.5f) * guiSize.y;
+				int maxX = (metadata.boxMax.x * 0.5f + 0.5f) * guiSize.x;
+				int maxY = (metadata.boxMax.y * 0.5f + 0.5f) * guiSize.y;
 
 				int mouseX = payload.mouse.position.x;
 				int mouseY = payload.mouse.position.y;
 			}
 
-			if ( !metadata.ui.click.ed && clicked ) {
+			if ( !metadata.clicked && clicked ) {
 				this->callHook("gui:ClickStart.%UID%", payload);
-			} else if ( metadata.ui.click.ed && !clicked ) {
+			} else if ( metadata.clicked && !clicked ) {
 				this->callHook("gui:ClickEnd.%UID%", payload);
 			}
 			
-			metadata.ui.click.ed = clicked;
+			metadata.clicked = clicked;
 
 			if ( clicked ) {
 				this->callHook("gui:Clicked.%UID%", payload);
@@ -381,14 +381,14 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 		});
 	}
-	if ( metadata.ui.hover.able ) {
+	if ( metadata.hoverable ) {
 		uf::Timer<long long> hoverTimer(false);
 		hoverTimer.start( uf::Time<>(-1000000) );
 
 		this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 			if ( metadata.world ) return;
-			//if ( !metadata.box.min && !metadata.box.max ) return;
-			if ((metadata.box.min.x > metadata.box.max.x)||(metadata.box.min.y > metadata.box.max.y)) return;
+			//if ( !metadata.boxMin && !metadata.boxMax ) return;
+			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
 		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
@@ -405,14 +405,14 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			float x = click.x;
 			float y = click.y;
 
-			hovered = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
+			hovered = ( metadata.boxMin.x <= x && metadata.boxMin.y <= y && metadata.boxMax.x >= x && metadata.boxMax.y >= y );
 
 			if ( hovered ) {
-				int minX = (metadata.box.min.x * 0.5f + 0.5f) * guiSize.x;
-				int minY = (metadata.box.min.y * 0.5f + 0.5f) * guiSize.y;
+				int minX = (metadata.boxMin.x * 0.5f + 0.5f) * guiSize.x;
+				int minY = (metadata.boxMin.y * 0.5f + 0.5f) * guiSize.y;
 
-				int maxX = (metadata.box.max.x * 0.5f + 0.5f) * guiSize.x;
-				int maxY = (metadata.box.max.y * 0.5f + 0.5f) * guiSize.y;
+				int maxX = (metadata.boxMax.x * 0.5f + 0.5f) * guiSize.x;
+				int maxY = (metadata.boxMax.y * 0.5f + 0.5f) * guiSize.y;
 
 				int mouseX = payload.mouse.position.x;
 				int mouseY = payload.mouse.position.y;
@@ -421,16 +421,16 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			uf::Serializer jsonPayload = ext::json::null();
 
 			// to-do: do something about trying to trigger json-bound hooks
-			if ( !metadata.ui.hover.ed && hovered ) {
+			if ( !metadata.hovered && hovered ) {
 				this->callHook("gui:HoverStart.%UID%", payload);
-			} else if ( metadata.ui.hover.ed && !hovered ) {
+			} else if ( metadata.hovered && !hovered ) {
 				this->callHook("gui:HoverEnd.%UID%", payload);
 			} else if ( hovered ) { /*&& hoverTimer.elapsed().asDouble() >= 1 ) {
 				hoverTimer.reset();*/
 				this->callHook("gui:Hovered.%UID%", payload);
 			}
 
-			metadata.ui.hover.ed = hovered;
+			metadata.hovered = hovered;
 			this->callHook("gui:Mouse.Moved.%UID%", payload);
 		});
 
@@ -610,10 +610,10 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			max.y = std::max( max.y, translated.y );
 		}
 		
-		metadata.box.min.x = min.x;
-		metadata.box.min.y = min.y;
-		metadata.box.max.x = max.x;
-		metadata.box.max.y = max.y;
+		metadata.boxMin.x = min.x;
+		metadata.boxMin.y = min.y;
+		metadata.boxMax.x = max.x;
+		metadata.boxMax.y = max.y;
 	}
 }
 void ext::GuiBehavior::render( uf::Object& self ){}
@@ -628,11 +628,11 @@ void ext::GuiBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& se
 	serializer["renderMode"] = /*this->*/renderMode;
 	serializer["scaling"] = /*this->*/scaleMode;
 
-	serializer["clickable"] = /*this->*/ui.click.able;
-	serializer["clicked"] = /*this->*/ui.click.ed;
+	serializer["clickable"] = /*this->*/clickable;
+	serializer["clicked"] = /*this->*/clicked;
 	
-	serializer["hoverable"] = /*this->*/ui.hover.able;
-	serializer["hovered"] = /*this->*/ui.hover.ed;
+	serializer["hoverable"] = /*this->*/hoverable;
+	serializer["hovered"] = /*this->*/hovered;
 }
 void ext::GuiBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
 	/*this->*/color = uf::vector::decode( serializer["color"], /*this->*/color );
@@ -644,7 +644,28 @@ void ext::GuiBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& 
 	/*this->*/renderMode = serializer["renderMode"].as( /*this->*/renderMode );
 	/*this->*/scaleMode = serializer["scaling"].as( /*this->*/scaleMode );
 	
-	/*this->*/ui.click.able = serializer["clickable"].as( /*this->*/ui.click.able );
-	/*this->*/ui.hover.able = serializer["hoverable"].as( /*this->*/ui.hover.able );
+	/*this->*/clickable = serializer["clickable"].as( /*this->*/clickable );
+	/*this->*/hoverable = serializer["hoverable"].as( /*this->*/hoverable );
 }
 #undef this
+
+// yikes
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(ext::GuiBehavior::Metadata,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::initialized),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::world),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::depth),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::mode),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::clickable),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::clicked),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::hoverable),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::hovered),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::size),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::scale),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::uv),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::color),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::renderMode),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::scaleMode),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::boxMin),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::boxMax)
+)

@@ -58,16 +58,6 @@ uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, 
 	} while (pos < str.length() && prev < str.length());
 	if ( tokens.empty() ) tokens.emplace_back(str);
 	return tokens;
-/*
-	uf::stl::vector<uf::stl::string> cont;
-	size_t last = 0, next = 0;
-	while ((next = str.find(needle, last)) != uf::stl::string::npos) {
-		cont.push_back(str.substr(last, next-last));
-		last = next + 1;
-	}
-	cont.push_back( str.substr(last) );
-	return cont;
-*/
 }
 /*
 uf::stl::string uf::string::join( const uf::stl::vector<uf::stl::string>& strings, const uf::stl::string& delim, bool trailing ) {
@@ -142,4 +132,13 @@ uf::stl::string uf::string::si( double value, const uf::stl::string& unit, size_
 	uf::stl::stringstream ss;
 	ss << std::fixed << std::setprecision(precision) << scaled << prefix << unit;
 	return ss.str();
+}
+
+uf::stl::string uf::string::namespaceGetLast( const uf::stl::string& name ) {
+	return uf::string::replace( uf::string::split( name, "::" ).back(), "<>", "" );
+}
+uf::stl::string uf::string::namespaceRemoveFirst( const uf::stl::string& name ) {
+	auto split = uf::string::split( name, "::" );
+	split.erase(split.begin());
+	return uf::string::replace( uf::string::join( split, "::" ), "<>", "" );
 }

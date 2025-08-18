@@ -25,6 +25,11 @@ namespace ext {
 			float depth = 0;
 			size_t mode = 0;
 
+			bool clickable = false;
+			bool clicked = false;
+			bool hoverable = false;
+			bool hovered = false;
+
 			pod::Vector2ui size = {};
 			pod::Vector2f scale = { 1, 1 };
 			pod::Vector4f uv = { 0, 0, 1, 1 };
@@ -33,17 +38,8 @@ namespace ext {
 			uf::stl::string renderMode = "Gui";
 			uf::stl::string scaleMode = "fixed";
 
-			struct {
-				struct {
-					bool able = false;
-					bool ed = false;
-				} click, hover;
-			} ui;
-
-			struct {
-				pod::Vector2f min = {  1,  1 };
-				pod::Vector2f max = { -1, -1 };
-			} box;
+			pod::Vector2f boxMin = { 1, 1 };
+			pod::Vector2f boxMax = { 1, 1 };
 		);
 	}
 }

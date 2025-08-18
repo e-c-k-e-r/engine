@@ -45,7 +45,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(uf::Camera,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(uf::Camera,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, UF_LUA_C_FUN(::binds::getTransform) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getView, UF_LUA_C_FUN(::binds::getView) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setView, UF_LUA_C_FUN(::binds::setView) ),

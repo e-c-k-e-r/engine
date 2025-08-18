@@ -3,6 +3,7 @@
 #include <uf/config.h>
 
 #include <uf/utils/userdata/userdata.h>
+#define UF_LUA_SKIP_COMPONENTS
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/json/json.h>
 

@@ -2,7 +2,7 @@
 
 #include <uf/config.h>
 #include <uf/engine/behavior/behavior.h>
-#include <uf/utils/serialize/serializer.h>
+//#include <uf/utils/serialize/serializer.h>
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/resolvable/resolvable.h>
 #include <uf/engine/asset/payload.h>
@@ -15,7 +15,10 @@
 
 #define UF_ENTITY_OBJECT_UNIFIED 1
 
+
 namespace uf {
+	class Serializer;
+
 	class UF_API Entity : public uf::Behaviors {
 	public:
 		typedef uf::stl::vector<uf::Entity*> container_t;

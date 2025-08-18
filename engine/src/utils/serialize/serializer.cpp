@@ -4,6 +4,7 @@
 
 #include <uf/utils/io/iostream.h>
 #include <uf/ext/zlib/zlib.h>
+#include <uf/ext/lua/lua.h>
 
 #include <sstream>
 #include <fstream>

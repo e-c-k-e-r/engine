@@ -27,7 +27,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(pod::Physics,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Physics,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( hasBody, UF_LUA_C_FUN(::binds::hasBody) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( linearVelocity, UF_LUA_C_FUN(::binds::linearVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rotationalVelocity, UF_LUA_C_FUN(::binds::rotationalVelocity) ),

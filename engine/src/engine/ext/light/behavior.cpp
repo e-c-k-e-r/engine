@@ -286,3 +286,14 @@ void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer
 	if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 }
 #undef this
+
+// yikes
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(ext::LightBehavior::Metadata,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::color),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::power),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::bias),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::shadows),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::type),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::LightBehavior::Metadata::global)
+)

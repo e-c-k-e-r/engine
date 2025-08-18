@@ -45,7 +45,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(uf::asset,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(uf::asset,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( load, UF_LUA_C_FUN(::binds::load) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( cache, UF_LUA_C_FUN(::binds::cache) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getOriginal, UF_LUA_C_FUN(::binds::getOriginal) )

@@ -1,10 +1,12 @@
 local ent = ent
 local scene = entities.currentScene()
-local metadata = ent:getComponent("Metadata")
+local metadataJson = ent:getComponent("Metadata")
 local transform = ent:getComponent("Transform")
-local physicsState = ent:getComponent("PhysicsState")
+local physicsState = ent:getComponent("Physics")
 local camera = ent:getComponent("Camera")
 local cameraTransform = camera:getTransform()
+
+local fixedCamera = metadataJson["camera"]["settings"]["fixed"]
 
 -- setup all timers
 local timers = {
@@ -29,7 +31,7 @@ local heldObject = {
 }
 -- setup light locals
 local light = {
-	entity = nil
+	entity = nil,
 }
 for k, v in pairs(ent:getChildren()) do
 	if type(v) == "number" then
@@ -44,18 +46,19 @@ end
 if light.entity == nil then
 	light.entity = ent:loadChild("./playerLight.json",true)
 end
-light.metadata = light.entity:getComponent("Metadata")
+light.metadata = light.entity:getComponent("LightBehavior::Metadata")
 light.transform = light.entity:getComponent("Transform")
-light.power = light.metadata["light"]["power"]
+light.power = light.metadata.power
 light.origin = Vector3f(light.transform.position)
-light.entity:setComponent("Metadata", { light = { power = 0 } })
+light.metadata.power = 0
+--light.entity:setComponent("Metadata", { light = { power = 0 } })
 
 -- sound emitter
 local playSound = function( key, loop )
 	if not loop then loop = false end
 	local url = "/ui/" .. key .. ".ogg"
 	ent:callHook("sound:Emit.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"]),
+		filename = string.resolveURI(url, metadataJson["system"]["root"]),
 		spatial = true,
 		streamed = true,
 		volume = "sfx",
@@ -65,7 +68,7 @@ end
 local stopSound = function( key )
 	local url = "/ui/" .. key .. ".ogg"
 	ent:callHook("sound:Stop.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"])
+		filename = string.resolveURI(url, metadataJson["system"]["root"])
 	}, 0)
 end
 
@@ -95,7 +98,7 @@ ent:bind( "tick", function(self)
 	-- eye transform
 	local flattenedTransform = nil
 
-	if metadata["camera"]["settings"]["fixed"] then
+	if fixedCamera then
 		flattenedTransform = transform:flatten()
 	--	flattenedTransform.position.y = flattenedTransform.position.y
 	else
@@ -121,15 +124,13 @@ ent:bind( "tick", function(self)
 	if timers.flashlight:elapsed() > 0.5 and keyF then
 		timers.flashlight:reset()
 
-		local metadata = { light = { power = light.power } }
-		if light.entity:getComponent("Metadata")["light"]["power"] ~= light.power then
-			metadata["light"]["power"] = light.power
+		if light.metadata.power ~= light.power then
+			light.metadata.power = light.power
 			light.enabled = true
 		else
-			metadata["light"]["power"] = 0
+			light.metadata.power = 0
 			light.enabled = false
 		end
-		light.entity:setComponent("Metadata", metadata)
 
 		playSound("flashlight")
 	end
@@ -166,7 +167,7 @@ ent:bind( "tick", function(self)
 			local prop, depth = physicsState:rayCast( center, direction )
 			if depth >= 0 and prop and not string.matched( prop:name(), "/^worldspawn/" ) then
 				local heldObjectTransform = prop:getComponent("Transform")
-				local heldObjectPhysicsState = prop:getComponent("PhysicsState")
+				local heldObjectPhysicsState = prop:getComponent("Physics")
 
 				local strength = 500
 				local distanceSquared = (heldObjectTransform.position - flattenedTransform.position):magnitude()
@@ -190,7 +191,7 @@ ent:bind( "tick", function(self)
 
 		local prop = entities.get( heldObject.uid )
 		local heldObjectTransform = prop:getComponent("Transform")
-		local heldObjectPhysicsState = prop:getComponent("PhysicsState")
+		local heldObjectPhysicsState = prop:getComponent("Physics")
 
 		if mouse1 and timers.physcannon:elapsed() > 0.5 then
 			timers.physcannon:reset()
@@ -242,14 +243,14 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 			heldObject.uid = payload.uid
 			heldObject.distance = offset:norm()
 		
-			prop:getComponent("PhysicsState"):enableGravity(false)
+			prop:getComponent("Physics"):enableGravity(false)
 		else
 			validUse = not string.matched( prop:name(), "/^worldspawn/" )
 		end
 	elseif heldObject.uid ~= 0 then
 		validUse = true
 		local prop = entities.get( heldObject.uid )
-		local heldObjectPhysicsState = prop:getComponent("PhysicsState")
+		local heldObjectPhysicsState = prop:getComponent("Physics")
 		heldObjectPhysicsState:enableGravity(true)
 		heldObjectPhysicsState:applyImpulse( heldObject.momentum )
 		

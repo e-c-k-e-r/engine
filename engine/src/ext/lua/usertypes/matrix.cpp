@@ -23,7 +23,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(pod::Matrix4f,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Matrix4f,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Matrix4f& self ) {
 			return self = uf::matrix::identity();

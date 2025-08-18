@@ -1,4 +1,5 @@
 #include <uf/ext/lua/lua.h>
+#include <uf/ext/lua/component.h>
 #if UF_USE_LUA
 #include <uf/utils/math/transform.h>
 #include <uf/utils/audio/audio.h>
@@ -8,7 +9,10 @@
 #include <uf/utils/math/physics.h>
 #include <uf/engine/object/behaviors/lua.h>
 
+uf::stl::unordered_map<uf::stl::string, ext::lua::GetComponent> ext::lua::componentGetters;
+
 namespace binds {
+	/*
 	namespace enums {
 		enum Components {
 			Metadata,
@@ -35,10 +39,12 @@ namespace binds {
 			});
 		});
 	}
+	*/
 
 	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
 		return self.formatHookName(n);
 	}
+	/*
 	sol::object getComponentFromEnum( uf::Object& self, binds::enums::Components type ) {
 	#define UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( E, T )\
 		case enums::Components::E: return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
@@ -107,9 +113,28 @@ namespace binds {
 		UF_LUA_UPDATE_COMPONENT(uf::Camera)
 		UF_LUA_UPDATE_COMPONENT(pod::Physics)
 		UF_LUA_UPDATE_COMPONENT(pod::PhysicsState)
+
+
 	}
-	bool bind(uf::Object& self, const uf::stl::string& type, sol::protected_function fun ) {
-	//	if ( !self.hasBehavior({.type = uf::LuaBehavior::type}) ) uf::instantiator::bind( "LuaBehavior", self );
+	*/
+	sol::object getComponent( uf::Object& self, const uf::stl::string& type ) {
+		if ( type == "Metadata" ) {
+			self.callHook( "object:Serialize.%UID%" );
+			auto& metadata = self.getComponent<uf::Serializer>();
+			auto decoded = ext::lua::decode( metadata );
+			if ( decoded ) {
+				sol::table table = decoded.value();
+				return sol::make_object( ext::lua::state, table );
+			}
+			UF_MSG_ERROR("Failed to deserialize metadata for {}: {}", self.getName(), self.getUid());
+		}
+		
+		auto it = ext::lua::componentGetters.find(type);
+		if ( it != ext::lua::componentGetters.end() ) return it->second(self);
+		UF_MSG_ERROR("Invalid component of {} requested for {}", type, uf::string::toString(self));
+		return sol::make_object(ext::lua::state, sol::lua_nil);
+	}
+	bool bind(uf::Object& self, const uf::stl::string& type, LUA_FUN fun ) {
 		if ( !self.hasBehavior({.type = TYPE(uf::LuaBehavior::Metadata)}) ) uf::instantiator::bind( "LuaBehavior", self );
 		pod::Behavior* behaviorPointer = NULL;
 		auto& behaviors = self.getBehaviors();
@@ -131,13 +156,17 @@ namespace binds {
 		if ( !functionPointer ) return false;
 		pod::Behavior::function_t& function = *functionPointer;
 
+	#if !UF_LUA_PCALLS
+		function = fun;
+	#else
 		function = [fun]( uf::Object& s ) {
 			auto result = fun(s);
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 			}
 		};
+	#endif
 		self.generateGraph();
 		return true;
 	}
@@ -189,16 +218,18 @@ namespace binds {
 	uf::Object& getParent( uf::Object& self ){
 		return self.getParent().as<uf::Object>();
 	}
-	void addHook( uf::Object& self, const uf::stl::string& name, sol::protected_function fun ) {
+	void addHook( uf::Object& self, const uf::stl::string& name, LUA_FUN fun ) {
 		self.addHook( name, [fun](ext::json::Value& json){
 			// cringe
 			if ( ext::json::isNull( json ) ) {
 				auto result = fun();
+			#if UF_LUA_PCALLS
 				if ( !result.valid() ) {
 					sol::error err = result;
 					uf::iostream << err.what() << "\n";
 					return;
 				}
+			#endif
 				return;
 			}
 
@@ -207,11 +238,13 @@ namespace binds {
 			if ( !decoded ) return;
 			sol::table table = decoded.value();
 			auto result = fun( table );
+		#if UF_LUA_PCALLS
 			if ( !result.valid() ) {
 				sol::error err = result;
 				uf::iostream << err.what() << "\n";
 				return;
 			}
+		#endif
 		});
 	}
 	void callHook( uf::Object& self, const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
@@ -253,9 +286,10 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( uid, UF_LUA_C_FUN(::binds::getUid) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( name, UF_LUA_C_FUN(::binds::getName) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( formatHookName, UF_LUA_C_FUN(::binds::formatHookName) ), 
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromEnum) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromString) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setComponent, UF_LUA_C_FUN(::binds::setComponent) ),
+	//UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromEnum) ),
+	//UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromString) ),
+	//UF_LUA_REGISTER_USERTYPE_DEFINE( setComponent, UF_LUA_C_FUN(::binds::setComponent) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponent) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( bind, UF_LUA_C_FUN(::binds::bind) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByUid, UF_LUA_C_FUN(::binds::findByUid) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByName, UF_LUA_C_FUN(::binds::findByName) ),
@@ -272,4 +306,5 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( queueHook, UF_LUA_C_FUN(::binds::queueHook) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::toString) )
 )
+
 #endif

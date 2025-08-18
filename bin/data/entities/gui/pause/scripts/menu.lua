@@ -1,7 +1,8 @@
 local ent = ent
 local scene = entities.currentScene()
 local controller = entities.controller()
-local metadata = ent:getComponent("Metadata")
+local metadataJson = ent:getComponent("Metadata")
+local metadata = ent:getComponent("GuiBehavior::Metadata")
 local masterdata = scene:getComponent("Metadata")
 
 local children = {
@@ -51,12 +52,13 @@ local playSound = function( key )
 --	assetLoader:cache(soundEmitter:formatHookName("asset:Load.%UID%"), string.resolveURI(url), "")
 end
 
+local closing = false
+local closed = false
+local onClose = nil
 ent:addHook("menu:Close.%UID%", function( json )
 	--playSound("menu close")
-	if metadata["system"]["hooks"] == nil then metadata["system"]["hooks"] = {} end
-	metadata["system"]["hooks"]["onClose"] = json["callback"];
-	metadata["system"]["closing"] = true;
-	ent:setComponent("Metadata", metadata)
+	closing = true
+	onClose = json["callback"];
 end )
 
 --playSound("menu open")
@@ -67,7 +69,7 @@ local selectableElements = {
 }
 local selectableElementColors = {}
 local selectedElement = 0
-local selectionColor = { 1, 0, 1, 1 }
+local selectionColor = Vector4f( 1, 0, 1, 1 )
 local INPUT_DELAY = 0.2
 
 local function array_index_of( haystack, needle )
@@ -140,30 +142,29 @@ ent:bind( "tick", function(self)
 	end
 
 	-- handle closing
-	if metadata["system"]["closing"] then
+	if closing then
 		if static.alpha <= 0 then
 			static.alpha = 0
-			metadata["system"]["closing"] = false
-			metadata["system"]["closed"] = true
+			closing = false
+			closed = true
 		else
 			static.alpha = static.alpha - time.delta()
 		end
-	elseif metadata["system"]["closed"] then
+	elseif closed then
 		timer:stop()
-		local callback = metadata["system"]["hooks"]["onClose"]
-		if callback then
-			local payload = callback["payload"]
+		if onClose then
+			local payload = onClose["payload"]
 			local target = self
-			if callback["scope"] == "parent" then
+			if onClose["scope"] == "parent" then
 				target = ent:getParent()
-			elseif callback["scope"] == "scene" then
+			elseif onClose["scope"] == "scene" then
 				target = scene
 			end
 
-			if type(callback["delay"]) == "number" and target:uid() ~= self:uid() then
-				target:queueHook( callback["name"], payload, callback["delay"] );
+			if type(onClose["delay"]) == "number" and target:uid() ~= self:uid() then
+				target:queueHook( onClose["name"], payload, onClose["delay"] );
 			else
-				target:callHook( callback["name"], payload );
+				target:callHook( onClose["name"], payload );
 			end
 		end
 
@@ -171,10 +172,10 @@ ent:bind( "tick", function(self)
 		-- scene:queueHook("system:Destroy", { uid = self:uid() }, 0)
 		return
 	else
-		if not metadata["initialized"] then
+		if not metadata.initialized then
 			static.alpha = 0
 		end
-		metadata["initialized"] = true;
+		metadata.initialized = true;
 		if  static.alpha >= 1.0 then
 			static.alpha = 1.0
 		else
@@ -182,42 +183,41 @@ ent:bind( "tick", function(self)
 		end
 	end
 
-	metadata["color"][4] = static.alpha;
+	metadata.color.w = static.alpha
 
 	-- set alphas
 	for k, v in pairs(children) do
 		if v:uid() <= 0 then goto continue end
 
-		-- set alpha
-		local metadata = v:getComponent("Metadata")
+		local metadata = v:getComponent("GuiBehavior::Metadata")
 		local index = array_index_of( selectableElements, v )
 		-- mark element as hovered if selected
 		if 0 < selectedElement and selectedElement <= #selectableElements then
 			if 0 < index and index <= #selectableElements then
-				metadata["hovered"] = index == selectedElement
+				metadata.hovered = index == selectedElement
 			end
 		end
 
-		if metadata["clickable"] then
+		if metadata.clickable then
 			-- backup color
 			if selectableElementColors[index] == nil then
-				selectableElementColors[index] = metadata["color"]
+				selectableElementColors[index] = Vector4f(metadata.color)
 			end
 
 			-- color for selection
-			if metadata["hovered"] then
-				metadata["color"] = selectionColor
+			if metadata.hovered then
+				metadata.color = selectionColor
 				-- simulate click on input press
-				if (inputs.key("A") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
+				if (inputs.key("A") or inputs.key("START") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
 					timer:reset()
 					v:callHook("gui:Clicked.%UID%", {})
 				end
 			else
-				metadata["color"] = selectableElementColors[index]
+				metadata.color = selectableElementColors[index]
 			end
 		end
-		metadata["color"][4] = static.alpha
-		v:setComponent("Metadata", metadata)
+		-- set alpha
+		metadata.color.w = static.alpha
 
 		local transform = v:getComponent("Transform")
 		local static = Static.get(v)
@@ -237,26 +237,24 @@ ent:bind( "tick", function(self)
 	end
 
 	-- circle in
-	if children.circleIn:uid() > 0 then
-		local static = Static.get( children.circleIn )
+	child = children.circleIn
+	if child:uid() > 0 then
+		local static = Static.get( child )
 
-		local transform = children.circleIn:getComponent("Transform")
-		local metadata = children.circleIn:getComponent("Metadata")
-
-		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local transform = child:getComponent("Transform")
+		local metadata = child:getComponent("GuiBehavior::Metadata")
+		local speed = metadata.hovered and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * -speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end
 	-- circle out
-	if children.circleOut:uid() > 0 then
-		local static = Static.get( children.circleOut )
+	child = children.circleOut
+	if child:uid() > 0 then
+		local static = Static.get( child )
 
-		local transform = children.circleOut:getComponent("Transform")
-		local metadata = children.circleOut:getComponent("Metadata")
-
-		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local transform = child:getComponent("Transform")
+		local metadata = child:getComponent("GuiBehavior::Metadata")
+		local speed = metadata.hovered and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end

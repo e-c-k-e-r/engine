@@ -1,7 +1,8 @@
 #define TOKEN__PASTE(x, y) x ## y
 #define TOKEN_PASTE(x, y) TOKEN__PASTE(x, y)
 
-#define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
+#define UF_NS_GET_LAST(name) uf::string::namespaceGetLast(#name)
+#define UF_NS_REMOVE_FIRST(name) uf::string::namespaceRemoveFirst(#name)
 
 #define TIMER(x, ...)\
 	static bool first = true;\

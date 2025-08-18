@@ -12,7 +12,8 @@ local ent = ent
 local scene = entities.currentScene()
 local controller = entities.controller()
 local camera = controller:getComponent("Camera")
-local metadata = ent:getComponent("Metadata")
+local metadataJson = ent:getComponent("Metadata")
+local metadata = ent:getComponent("GuiBehavior::Metadata")
 local masterdata = scene:getComponent("Metadata")
 
 local soundEmitter = ent:loadChild("./sound.json",true)
@@ -76,7 +77,7 @@ local selectableElements = {
 }
 local selectableElementColors = {}
 local selectedElement = 0
-local selectionColor = { 1, 0, 1, 1 }
+local selectionColor = Vector4f( 1, 0, 1, 1 )
 local INPUT_DELAY = 0.2
 
 local function array_index_of( haystack, needle )
@@ -87,6 +88,8 @@ local function array_index_of( haystack, needle )
 	end
 	return 0
 end
+
+
 local function onHover( payload )
 	playSound( "buttonrollover" )
 	selectedElement = 0
@@ -142,18 +145,20 @@ ent:bind( "tick", function(self)
 		static.alpha = 0
 	end
 
-	metadata["initialized"] = true;
-
 	if  static.alpha >= 1.0 then
 		static.alpha = 1.0
 	else
 		static.alpha = static.alpha + time.delta() * 1.5
 	end
 
+	metadata.initialized = true
+
 	-- make background glow
 	local glow = 1 + math.sin(1.25 * time.current()) * 0.125
-	metadata["color"] = { glow, glow, glow, static.alpha }
-	self:setComponent("Metadata", metadata)
+	metadata.color.x = glow
+	metadata.color.y = glow
+	metadata.color.z = glow
+	metadata.color.w = static.alpha
 
 	camera:update(true);
 
@@ -161,37 +166,35 @@ ent:bind( "tick", function(self)
 	for k, v in pairs(children) do
 		if v:uid() <= 0 then goto continue end
 
-		-- set alpha
-		local metadata = v:getComponent("Metadata")
+		local metadata = v:getComponent("GuiBehavior::Metadata")
 		local index = array_index_of( selectableElements, v )
 		-- mark element as hovered if selected
 		if 0 < selectedElement and selectedElement <= #selectableElements then
 			if 0 < index and index <= #selectableElements then
-				metadata["hovered"] = index == selectedElement
+				metadata.hovered = index == selectedElement
 			end
 		end
 
-		if metadata["clickable"] then
+		if metadata.clickable then
 			-- backup color
 			if selectableElementColors[index] == nil then
-				selectableElementColors[index] = metadata["color"]
+				selectableElementColors[index] = Vector4f(metadata.color)
 			end
 
 			-- color for selection
-			if metadata["hovered"] then
-				metadata["color"] = selectionColor
+			if metadata.hovered then
+				metadata.color = selectionColor
 				-- simulate click on input press
 				if (inputs.key("A") or inputs.key("START") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
 					timer:reset()
 					v:callHook("gui:Clicked.%UID%", {})
 				end
 			else
-				metadata["color"] = selectableElementColors[index]
+				metadata.color = selectableElementColors[index]
 			end
 		end
-
-		metadata["color"][4] = static.alpha
-		v:setComponent("Metadata", metadata)
+		-- set alpha
+		metadata.color.w = static.alpha
 
 		local transform = v:getComponent("Transform")
 		local static = Static.get(v)
@@ -207,7 +210,6 @@ ent:bind( "tick", function(self)
 			transform.position = Vector3f.lerp( static.from, static.to, static.delta )
 		end
 
-
 		::continue::
 	end	
 
@@ -217,10 +219,8 @@ ent:bind( "tick", function(self)
 		local static = Static.get( child )
 
 		local transform = child:getComponent("Transform")
-		local metadata = child:getComponent("Metadata")
-
-		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local metadata = child:getComponent("GuiBehavior::Metadata")
+		local speed = metadata.hovered and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * -speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end
@@ -230,10 +230,8 @@ ent:bind( "tick", function(self)
 		local static = Static.get( child )
 
 		local transform = child:getComponent("Transform")
-		local metadata = child:getComponent("Metadata")
-
-		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local metadata = child:getComponent("GuiBehavior::Metadata")
+		local speed = metadata.hovered and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end

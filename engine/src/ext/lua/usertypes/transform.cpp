@@ -49,7 +49,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Transform<>,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::position),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::scale),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::up),

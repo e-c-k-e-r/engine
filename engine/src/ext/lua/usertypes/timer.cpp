@@ -11,7 +11,8 @@ namespace binds {
 	bool running( uf::Timer<>& self ) { return self.running(); }
 }
 
-UF_LUA_REGISTER_USERTYPE(uf::Timer<>,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(uf::Timer<>,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( elapsed, UF_LUA_C_FUN(::binds::elapsed) ),
 	UF_LUA_REGISTER_USERTYPE_MEMBER_FUN( uf::Timer<>::start ),
 	UF_LUA_REGISTER_USERTYPE_MEMBER_FUN( uf::Timer<>::stop ),

@@ -6,12 +6,23 @@
 #if UF_USE_LUAJIT
 	#define SOL_LUAJIT 1
 #endif
+
 #define SOL_NO_EXCEPTIONS 1
+
 #if UF_ENV_DREAMCAST
 	#define SOL_NO_THREAD_LOCAL 1
+	#define UF_LUA_PCALLS 0
 #else
 	#define SOL_ALL_SAFETIES_ON 1
+	#define UF_LUA_PCALLS 1
 #endif
+
+#if UF_LUA_PCALLS
+	#define LUA_FUN sol::protected_function
+#else
+	#define LUA_FUN sol::function
+#endif
+
 
 #include <sol/sol.hpp>
 #include <uf/utils/memory/unordered_map.h>
@@ -37,12 +48,12 @@ namespace ext {
 		void UF_API terminate();
 		void UF_API onInitialization( const std::function<void()>& );
 		
-		bool UF_API run( const uf::stl::string&, bool = true );
+		bool UF_API run( const uf::stl::string&, bool = UF_LUA_PCALLS );
 		
 		pod::LuaScript UF_API script( const uf::stl::string& );
 		void UF_API script( const uf::stl::string&, pod::LuaScript& );
 		
-		bool UF_API run( const pod::LuaScript&, bool = true );
+		bool UF_API run( const pod::LuaScript&, bool = UF_LUA_PCALLS );
 
 		sol::table createTable();
 		uf::stl::string sanitize( const uf::stl::string& dirty, int index = -1 );
@@ -52,4 +63,5 @@ namespace ext {
 }
 
 #include "lua.inl"
+
 #endif

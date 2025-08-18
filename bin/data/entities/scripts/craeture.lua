@@ -12,55 +12,6 @@ local timers = {
 }
 if not timers.lookat:running() then timers.lookat:start(); end
 
---[[
--- setup held object locals
-local heldObject = {
-	uid = 0,
-	distance = 0,
-	smoothSpeed = 4,
-	scrollSpeed = 16,
-	momentum = Vector3f(0,0,0),
-	rotate = false,
-}
--- setup light locals
-local light = {
-	entity = nil
-}
-for k, v in pairs(ent:getChildren()) do
-	if v:name() == "Light" then
-		light.entity = v
-	end
-end
-
-if light.entity == nil then
-	light.entity = ent:loadChild("./playerLight.json",true)
-end
-light.metadata = light.entity:getComponent("Metadata")
-light.transform = light.entity:getComponent("Transform")
-light.power = light.metadata["light"]["power"]
-light.origin = Vector3f(light.transform.position)
-light.entity:setComponent("Metadata", { light = { power = 0 } })
-
--- sound emitter
-local playSound = function( key, loop )
-	if not loop then loop = false end
-	local url = "/ui/" .. key .. ".ogg"
-	ent:callHook("sound:Emit.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"]),
-		spatial = true,
-		streamed = true,
-		volume = "sfx",
-		loop = loop
-	}, 0)
-end
-local stopSound = function( key )
-	local url = "/ui/" .. key .. ".ogg"
-	ent:callHook("sound:Stop.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"])
-	}, 0)
-end
-]]
-
 local collider = ent:getComponent("PhysicsState")
 local target_transform = nil
 local soundEmitter = ent

@@ -1,5 +1,7 @@
 #include <uf/ext/lua/lua.h>
+
 #if UF_USE_LUA
+
 bool ext::lua::enabled = true;
 sol::state ext::lua::state;
 uf::stl::string ext::lua::main = uf::io::root + "/scripts/main.lua";
@@ -29,23 +31,27 @@ uf::stl::string ext::lua::sanitize( const uf::stl::string& dirty, int index  ) {
 	return part;
 }
 std::optional<uf::stl::string> ext::lua::encode( sol::table table ) {
-	sol::protected_function fun = ext::lua::state["json"]["encode"];
+	LUA_FUN fun = ext::lua::state["json"]["encode"];
 	auto result = fun( table );
+#if UF_LUA_PCALLS
 	if ( !result.valid() ) {
 		sol::error err = result;
 		UF_MSG_ERROR("{}", err.what())
 		return "{}";
 	}
+#endif
 	return result;
 }
 std::optional<sol::table> ext::lua::decode( const uf::stl::string& string ) {
-	sol::protected_function fun = ext::lua::state["json"]["decode"];
+	LUA_FUN fun = ext::lua::state["json"]["decode"];
 	auto result = fun( string );
+#if UF_LUA_PCALLS
 	if ( !result.valid() ) {
 		sol::error err = result;
 		UF_MSG_ERROR("{}", err.what())
 		return createTable();
 	}
+#endif
 	return result;
 }
 
@@ -61,14 +67,17 @@ void ext::lua::onInitialization( const std::function<void()>& function ) {
 
 namespace binds {
 	namespace hook {
-		void add( const uf::stl::string& name, sol::function function ) {
+		void add( const uf::stl::string& name, LUA_FUN function ) {
 			uf::hooks.addHook( name, [function](ext::json::Value& json){
 				sol::table table = ext::lua::state["json"]["decode"]( json.dump() );
 				auto result = function( table );
+				// ???
+			#if UF_LUA_PCALLS
 				if ( !result.valid() ) {
 					sol::error err = result;
 					UF_MSG_ERROR("{}", err.what())
 				}
+			#endif
 			});
 		};
 		void call( const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
@@ -180,7 +189,11 @@ namespace binds {
 void ext::lua::initialize() {
 	if ( !ext::lua::enabled ) return;
 
+#if UF_USE_LUAJIT
 	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string, sol::lib::ffi, sol::lib::jit);
+#else
+	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string);
+#endif
 
 	// load modules
 	for ( auto pair : modules ) {
@@ -203,36 +216,36 @@ void ext::lua::initialize() {
 	{
 
 		auto hooks = state["hooks"].get_or_create<sol::table>();
-		hooks["add"] = UF_LUA_C_FUN(::binds::hook::add);
-		hooks["call"] = UF_LUA_C_FUN(::binds::hook::call);
+		hooks.set("add", UF_LUA_C_FUN(::binds::hook::add));
+		hooks.set("call", UF_LUA_C_FUN(::binds::hook::call));
 	}
 	// `entities` table
 	{
 		auto entities = state["entities"].get_or_create<sol::table>();
-		entities["get"] = UF_LUA_C_FUN(::binds::entities::get);
-		entities["currentScene"] = UF_LUA_C_FUN(::binds::entities::currentScene);
-		entities["controller"] = UF_LUA_C_FUN(::binds::entities::controller);
-		entities["destroy"] = UF_LUA_C_FUN(::binds::entities::destroy);
+		entities.set("get", UF_LUA_C_FUN(::binds::entities::get));
+		entities.set("currentScene", UF_LUA_C_FUN(::binds::entities::currentScene));
+		entities.set("controller", UF_LUA_C_FUN(::binds::entities::controller));
+		entities.set("destroy", UF_LUA_C_FUN(::binds::entities::destroy));
 	}
 	// `string` table
 	{
 		auto string = state["string"].get_or_create<sol::table>();
-		string["extension"] = UF_LUA_C_FUN(::binds::string::extension);
-		string["resolveURI"] = UF_LUA_C_FUN(::binds::string::resolveURI);
-		string["si"] = UF_LUA_C_FUN(::binds::string::si);
+		string.set("extension", UF_LUA_C_FUN(::binds::string::extension));
+		string.set("resolveURI", UF_LUA_C_FUN(::binds::string::resolveURI));
+		string.set("si", UF_LUA_C_FUN(::binds::string::si));
 		
-		string["match"] = UF_LUA_C_FUN(uf::string::match);
-		string["matched"] = UF_LUA_C_FUN(uf::string::matched);
+		string.set("match", UF_LUA_C_FUN(uf::string::match));
+		string.set("matched", UF_LUA_C_FUN(uf::string::matched));
 	}
 	// `io` table
 	{
 		auto io = state["io"].get_or_create<sol::table>();
-		io["print"] = UF_LUA_C_FUN(::binds::io::print);
+		io.set("print", UF_LUA_C_FUN(::binds::io::print));
 	}
 	// `math` table
 	{
 		auto math = state["math"].get_or_create<sol::table>();
-		math["clamp"] = UF_LUA_C_FUN(::binds::math::clamp);
+		math.set("clamp", UF_LUA_C_FUN(::binds::math::clamp));
 	}
 	// `time` table
 	{
@@ -243,26 +256,27 @@ void ext::lua::initialize() {
 	}
 	// `json` table
 	{
-		state["json"]["pretty"] = UF_LUA_C_FUN(::binds::json::pretty);
-		state["json"]["readFromFile"] = UF_LUA_C_FUN(::binds::json::readFromFile);
-		state["json"]["writeToFile"] = UF_LUA_C_FUN(::binds::json::writeToFile);
+		auto json = state["json"].get_or_create<sol::table>();
+		json.set("pretty", UF_LUA_C_FUN(::binds::json::pretty));
+		json.set("readFromFile", UF_LUA_C_FUN(::binds::json::readFromFile));
+		json.set("writeToFile", UF_LUA_C_FUN(::binds::json::writeToFile));
 	}
 	// `window` table
 	{
 		auto window = state["window"].get_or_create<sol::table>();
-		window["keyPressed"] = UF_LUA_C_FUN(uf::Window::isKeyPressed);
+		window.set("keyPressed", UF_LUA_C_FUN(uf::Window::isKeyPressed));
 	}
 	// `os` table
 	{
 		auto os = state["os"].get_or_create<sol::table>();
-		os["arch"] = UF_LUA_C_FUN(::binds::os::arch);
+		os.set("arch", UF_LUA_C_FUN(::binds::os::arch));
 	}
 	// `inputs` table
 	{
 		auto inputs = state["inputs"].get_or_create<sol::table>();
-		inputs["key"] = UF_LUA_C_FUN(uf::inputs::key);
-		inputs["analog"] = UF_LUA_C_FUN(uf::inputs::analog);
-		inputs["analog2"] = UF_LUA_C_FUN(uf::inputs::analog2);
+		inputs.set("key", UF_LUA_C_FUN(uf::inputs::key));
+		inputs.set("analog", UF_LUA_C_FUN(uf::inputs::analog));
+		inputs.set("analog2", UF_LUA_C_FUN(uf::inputs::analog2));
 	}
 	run(main);
 }

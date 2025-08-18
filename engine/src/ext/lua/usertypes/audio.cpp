@@ -1,8 +1,9 @@
-#include <uf/ext/lua/lua.h>
 #if 0
+#include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 #include <uf/utils/audio/audio.h>
-UF_LUA_REGISTER_USERTYPE(uf::Audio,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(uf::Audio,
 	sol::call_constructor, sol::initializers( []( uf::Audio& self ){},
 	[]( uf::Audio& self, const uf::stl::string& filename = "", double volume = 1 ){
 		if ( filename != "" ) self.load(filename);

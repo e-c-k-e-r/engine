@@ -60,7 +60,8 @@ namespace binds {
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(::Quaternion,
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(::Quaternion,
 	sol::call_constructor, sol::initializers( 
 		[]( ::Quaternion& self ) {
 			return self = {0,0,0,1};
