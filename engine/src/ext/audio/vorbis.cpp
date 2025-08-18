@@ -2,7 +2,7 @@
 #if UF_USE_VORBIS
 
 #if UF_USE_OPENAL
-#include <uf/ext/oal/oal.h>
+#include <uf/ext/openal/openal.h>
 #endif
 
 #include <uf/ext/audio/vorbis.h>

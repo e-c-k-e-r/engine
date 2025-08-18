@@ -332,7 +332,7 @@ bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 				return false;
 			}
 		} else {
-			state.script_file( s.file );
+			state.script_file( s.file, s.env );
 		}
 	// is string with lua
 	} else {
@@ -344,7 +344,7 @@ bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 				return false;
 			}
 		} else {
-			state.script( s.file );
+			state.script( s.file, s.env );
 		}
 	}
 	return true;

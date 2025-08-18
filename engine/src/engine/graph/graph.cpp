@@ -2199,7 +2199,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				if ( ranges.count(attribute.buffer) <= 0 ) { \
 					mesh.buffers[attribute.buffer].clear();\
 				} else {\
-					mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );\
+					uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );\
 				}\
 			}
 
@@ -2224,7 +2224,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		#define STREAM_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
 				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
-				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );\
+				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer] );\
 			}
 
 		STREAM_MESH_DATA( index );
@@ -2318,7 +2318,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		#define LOAD_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
 				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
-				mesh.buffers[attribute.buffer] = uf::io::readAsBuffer( mesh.buffer_paths[attribute.buffer] );\
+				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer] );\
 			}
 
 		LOAD_MESH_DATA( index );

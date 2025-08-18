@@ -1,7 +1,7 @@
 #include <uf/config.h>
 
 #if UF_USE_OPENAL
-#include <uf/ext/oal/oal.h>
+#include <uf/ext/openal/openal.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
 

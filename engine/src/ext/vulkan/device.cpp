@@ -1412,7 +1412,7 @@ void ext::vulkan::Device::initialize() {
 		uf::stl::vector<uint8_t> buffer;
 		// read from cache on disk
 		if ( uf::io::exists( uf::io::root + "/cache/vulkan/cache.bin" ) ) {
-			buffer = uf::io::readAsBuffer( uf::io::root + "/cache/vulkan/cache.bin" );
+			uf::io::readAsBuffer( buffer, uf::io::root + "/cache/vulkan/cache.bin" );
 			pipelineCacheCreateInfo.initialDataSize = buffer.size();
 			pipelineCacheCreateInfo.pInitialData    = buffer.data();
 		}

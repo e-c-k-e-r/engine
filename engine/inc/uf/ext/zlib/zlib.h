@@ -28,9 +28,26 @@ namespace ext {
 		}
 	*/
 		
-		uf::stl::vector<uint8_t> UF_API decompressFromFile( const uf::stl::string& );
-		uf::stl::vector<uint8_t> UF_API decompressFromFile( const uf::stl::string& filename, size_t start, size_t len );
-		uf::stl::vector<uint8_t> UF_API decompressFromFile( const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
+		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& );
+		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len );
+		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
+		
+		inline uf::stl::vector<uint8_t> decompressFromFile( const uf::stl::string& filename ) {
+			uf::stl::vector<uint8_t> buffer;
+			decompressFromFile( buffer, filename );
+			return buffer;
+		}
+		inline uf::stl::vector<uint8_t> decompressFromFile( const uf::stl::string& filename, size_t start, size_t len ) {
+			uf::stl::vector<uint8_t> buffer;
+			decompressFromFile( buffer, filename, start, len );
+			return buffer;
+		}
+		inline uf::stl::vector<uint8_t> decompressFromFile( const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
+			uf::stl::vector<uint8_t> buffer;
+			decompressFromFile( buffer, filename, ranges );
+			return buffer;
+		}
+
 
 		size_t UF_API compressToFile( const uf::stl::string&, const void*, size_t );
 	}

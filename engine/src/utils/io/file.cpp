@@ -93,13 +93,13 @@ uf::stl::string uf::io::sanitize( const uf::stl::string& str, const uf::stl::str
 	return path;
 }
 // would just use readAsBuffer and convert to string, but that's double the memory cost
-uf::stl::string uf::io::readAsString( const uf::stl::string& _filename, const uf::stl::string& hash ) {
-	uf::stl::string buffer;
+uf::stl::string& uf::io::readAsString( uf::stl::string& buffer, const uf::stl::string& _filename, const uf::stl::string& hash ) {
+	buffer.clear();
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) {
 		auto decompressed = uf::io::decompress( filename );
-		buffer.reserve(decompressed.size());
+		buffer.resize(decompressed.size());
 		buffer.assign(decompressed.begin(), decompressed.end());
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
@@ -107,46 +107,46 @@ uf::stl::string uf::io::readAsString( const uf::stl::string& _filename, const uf
 			UF_MSG_ERROR("Error: Could not open file: {}", filename);
 			return buffer;
 		}
-		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
+		is.seekg(0, std::ios::end); buffer.resize(is.tellg()); is.seekg(0, std::ios::beg);
 		buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	}
 	uf::stl::string expected = "";
 	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
-		return "";
+		// should probably clear
 	}
 	return buffer;
 }
-uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::string& hash ) {
-	uf::stl::vector<uint8_t> buffer;
+uf::stl::vector<uint8_t>& uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& _filename, const uf::stl::string& hash ) {
+	buffer.clear();
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" || extension == "lz4" ) {
-		buffer = uf::io::decompress( filename );
+		uf::io::decompress( buffer, filename );
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
 			UF_MSG_ERROR("Error: Could not open file: {}", filename);
 			return buffer;
 		}
-		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
+		is.seekg(0, std::ios::end); buffer.resize(is.tellg()); is.seekg(0, std::ios::beg);
 		buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	}
 	uf::stl::string expected = "";
 	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
-		return uf::stl::vector<uint8_t>();
+		// should probably clear
 	}
 	return buffer;
 }
 
-uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, size_t start, size_t len, const uf::stl::string& hash ) {
-	uf::stl::vector<uint8_t> buffer;
+uf::stl::vector<uint8_t>& uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& _filename, size_t start, size_t len, const uf::stl::string& hash ) {
+	buffer.clear();
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension(filename);
 
 	if ( extension == "gz" || extension == "lz4" ) {
-		buffer = uf::io::decompress( filename, start, len );
+		uf::io::decompress( buffer, filename, start, len );
 	} else {
 		std::ifstream is(filename, std::ios::binary);
 		if (!is.is_open()) {
@@ -162,18 +162,18 @@ uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename,
 	uf::stl::string expected;
 	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
-		return uf::stl::vector<uint8_t>();
+		// should probably clear
 	}
 	return buffer;
 }
 
-uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::vector<pod::Range>& ranges, const uf::stl::string& hash ) {
-	uf::stl::vector<uint8_t> buffer;
+uf::stl::vector<uint8_t>& uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer,  const uf::stl::string& _filename, const uf::stl::vector<pod::Range>& ranges, const uf::stl::string& hash ) {
+	buffer.clear();
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension(filename);
 
 	if ( extension == "gz" || extension == "lz4" ) {
-		buffer = uf::io::decompress( filename, ranges );
+		uf::io::decompress( buffer, filename, ranges );
 	} else {
 		std::ifstream is(filename, std::ios::binary);
 		if (!is.is_open()) {
@@ -186,7 +186,7 @@ uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename,
 		for (const auto& r : ranges) {
 			totalBytes += r.len;
 		}
-		buffer.reserve(totalBytes);
+		buffer.resize(totalBytes);
 
 		// Read each range
 		for (const auto& r : ranges) {
@@ -201,7 +201,7 @@ uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename,
 	uf::stl::string expected;
 	if ( !hash.empty() && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
-		return uf::stl::vector<uint8_t>();
+		// should probably clear
 	}
 	return buffer;
 }
@@ -218,26 +218,26 @@ size_t uf::io::write( const uf::stl::string& filename, const void* buffer, size_
 }
 
 // indirection for different compression formats, currently only using zlib's gzFile shit
-uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename ) {
+uf::stl::vector<uint8_t>& uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
-	return {};
+	return buffer;
 }
-uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename, size_t start, size_t len ) {
+uf::stl::vector<uint8_t>& uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, size_t start, size_t len ) {
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename, start, len );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename, start, len );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename, start, len );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, start, len );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
-	return {};
+	return buffer;
 }
-uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
+uf::stl::vector<uint8_t>& uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename, ranges );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename, ranges );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename, ranges );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, ranges );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
-	return {};
+	return buffer;
 }
 size_t uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );

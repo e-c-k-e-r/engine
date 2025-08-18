@@ -1,5 +1,12 @@
 #pragma once
 
+namespace pod {
+	struct CachedCamera {
+		uf::Camera camera;
+		size_t lastFrame = 0;
+	};
+}
+
 namespace uf {
 	namespace SceneBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE();
@@ -8,19 +15,12 @@ namespace uf {
 		UF_BEHAVIOR_DEFINE_METADATA(
 			uf::stl::vector<uf::Entity*> graph;
 			bool invalidationQueued = false;
-		#if 0
-			struct {
-				uf::Entity* controller = NULL;
-				void* renderMode = NULL;
-			} cached;
-		#else
+
 		// 	we could keep a cache of controllers for each rendermode, but we have to invalidate the cache every time the graph regenerates
 			struct {
 				uf::stl::unordered_map<uf::stl::string, uf::Entity*> controllers;
-				uf::stl::unordered_map<size_t, uf::Camera> cameras;
-				uf::stl::unordered_map<size_t, size_t> frameNumbers;
+				uf::stl::unordered_map<size_t, pod::CachedCamera> cameras;
 			} cache;
-		#endif
 
 			struct {
 				pod::Thread::Tasks serial;

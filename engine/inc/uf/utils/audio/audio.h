@@ -3,7 +3,7 @@
 #include <uf/config.h>
 
 #if UF_USE_OPENAL
-#include <uf/ext/oal/oal.h>
+#include <uf/ext/openal/openal.h>
 #else
 	namespace ext {
 		namespace al {

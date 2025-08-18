@@ -5,8 +5,8 @@
 #include <uf/utils/memory/string.h>
 #include <uf/utils/memory/vector.h>
 
-#include <uf/ext/oal/source.h>
-#include <uf/ext/oal/buffer.h>
+#include <uf/ext/openal/source.h>
+#include <uf/ext/openal/buffer.h>
 #include <uf/utils/time/time.h>
 
 // shoved here because dependencies

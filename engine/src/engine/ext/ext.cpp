@@ -37,7 +37,7 @@
 #include <uf/utils/math/physics.h>
 
 #include <uf/ext/ext.h>
-#include <uf/ext/oal/oal.h>
+#include <uf/ext/openal/openal.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>

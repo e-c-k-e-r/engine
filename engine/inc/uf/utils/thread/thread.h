@@ -57,6 +57,7 @@ namespace pod {
 			inline void add( const pod::Thread::function_t& fun ) { container.emplace(fun); }
 			inline void emplace( const pod::Thread::function_t& fun ) { container.emplace(fun); }
 			inline void queue( const pod::Thread::function_t& fun ) { container.emplace(fun); }
+			inline bool empty() { return container.empty(); }
 			inline void clear() { container = {}; }
 		};
 	};

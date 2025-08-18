@@ -98,6 +98,7 @@ void uf::Behaviors::tick() {
 //	if ( !m_graph.tickMT.empty() ) uf::thread::queue(m_graph.tickMT);
 	if ( m_graph.tick.serial.empty() && m_graph.tick.parallel.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
+#if 0
 	UF_TIMER_MULTITRACE_START("Starting tick: {}", uf::string::toString( self ));
 //	for ( auto& behavior : m_behaviors ) if ( behavior.traits.ticks ) UF_MSG_DEBUG( behavior.type.name() );
 	for ( auto& fun : m_graph.tick.serial ) {
@@ -109,6 +110,17 @@ void uf::Behaviors::tick() {
 		UF_TIMER_MULTITRACE("");
 	}
 	UF_TIMER_MULTITRACE_END("Finished tick: {}", uf::string::toString( self ))
+#else
+	UF_TIMER_MULTITRACE_START("Starting tick: {}", uf::string::toString( self ));
+	for ( auto& behavior : m_behaviors ) {
+		if ( behavior.traits.ticks ) {
+			auto& fun = behavior.tick;
+			UF_MSG_DEBUG("{}: {}", uf::string::toString(self), behavior.type.name().str() );
+			fun(self);
+		}
+	}
+	UF_TIMER_MULTITRACE_END("Finished tick: {}", uf::string::toString( self ))
+#endif
 #else
 	UF_BEHAVIOR_POLYFILL(tick.serial)
 	UF_BEHAVIOR_POLYFILL(tick.parallel)
