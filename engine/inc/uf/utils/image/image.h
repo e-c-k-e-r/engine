@@ -21,7 +21,20 @@ namespace uf {
 		std::size_t m_format;
 	public:
 	// 	C-tor
-		bool open( const uf::stl::string& filename, bool = true ); 									// from file
+		Image();
+		explicit Image(const vec2_t& size);
+		Image(container_t&& move, const vec2_t& size);
+		Image(const container_t& copy, const vec2_t& size);
+		Image(const Image& copy);
+		Image(Image&& move) noexcept;
+
+		~Image() = default;
+
+		// Assignment
+		Image& operator=(const Image& copy);
+		Image& operator=(Image&& move) noexcept;
+
+		bool open( const uf::stl::string& filename, bool = true ); 								// from file
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels
 		void copy( const Image::container_t& copy,  const Image::vec2_t& size );				// copy from vector of pixels
@@ -54,16 +67,16 @@ namespace uf {
 		size_t getFormat() const;
 
 		Image::pixel_t at( const Image::vec2_t& at );
+
 	// 	Modifiers
 		void flip();
 		void padToPowerOfTwo();
-		bool save( const uf::stl::string& filename, bool flip = false ) const; 				// to file
+		bool save( const uf::stl::string& filename, bool flip = false ) const; 			// to file
 		void save( std::ostream& stream ) const; 										// to stream
 		void convert( const uf::stl::string&, const uf::stl::string& = "rgba" );
 		Image overlay(const Image& top, const Image::vec2_t& corner = {} ) const; 		// Merges one image on top of another
 		Image replace(const Image::pixel_t& from, const Image::pixel_t& to ) const; 	// Changes all pixel from one color (from), to another (to)
 		Image subImage( const Image::vec2_t& start, const Image::vec2_t& end) const; 	// Crops an image
-	//	Operators
-		uf::Image& operator=(const uf::Image&);
+		Image scale( const Image::vec2_t& size, bool nearest );
 	};
 }

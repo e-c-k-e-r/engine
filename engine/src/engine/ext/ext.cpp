@@ -885,6 +885,8 @@ void UF_API uf::tick() {
 	
 	auto& controller = uf::scene::getCurrentScene().getController();
 	
+	// to-do: handle when the memory pool is disabled, because entities are NOT cleaned up at all
+	// should also handle entity deletion when GC is disabled
 	if ( ::config.engine.gc.enabled ) {
 		TIMER( ::config.engine.gc.every ) {
 			size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );

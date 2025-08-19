@@ -35,7 +35,7 @@ namespace uf {
 		// wrapper in case this gets called without feeding into a buffer directly to avoid additional memory allocations
 		inline uf::stl::string readAsString( const uf::stl::string& filename, const uf::stl::string& hash = "" ) {
 			uf::stl::string string;
-			readAsString( filename, hash );
+			readAsString( string, filename, hash );
 			return string;
 		}
 		inline uf::stl::vector<uint8_t> readAsBuffer( const uf::stl::string& _filename, const uf::stl::string& hash = "" ) {

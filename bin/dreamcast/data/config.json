@@ -81,8 +81,8 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": false,
-			"subPools": true,
+			"enabled": true, // probably should be enabled
+			"subPools": false,
 			"alignment": 4,
 			"override": false,
 			"size": "512 KiB",

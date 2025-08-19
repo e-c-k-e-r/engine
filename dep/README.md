@@ -20,3 +20,6 @@ Some dependencies of mine rely on some modifications of the original dependencie
 * [KallistiOS/KallistiOS](https://github.com/KallistiOS/KallistiOS/tree/e4171afbdaf20574a554d8d40f08552e0680db14): Dreamcast only; specifically commit `e4171afb` .
 	* this version requires commenting out this line at [kernel/arch/dreamcast/hardware/cdrom.c#L839](https://github.com/KallistiOS/KallistiOS/blob/e4171afbdaf20574a554d8d40f08552e0680db14/kernel/arch/dreamcast/hardware/cdrom.c#L839) to boot under emulators (I've yet to test )
 	* later version require compiling with `kos-c++` instead of `$(KOS_CCPLUS)` and removing the `-T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc` line when compiling the `.elf`, but crashes later during some `maple` initialization.
+* [tvspelsfreak/texconv](https://github.com/e-c-k-e-r/texconv): For converting images to `.dtex` for the Dreamcast.
+	* this *is* actually included to allow scene processing to automatically output processed `.dtex` textures...
+	* ...*or* allow files to be converted on the fly on the Dreamcast (although this is a *bad* idea for large image files)

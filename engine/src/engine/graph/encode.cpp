@@ -229,7 +229,7 @@ namespace {
 
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
-			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compression != "" ? settings.compression : "bin" );
+			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compression == "none" ? "bin" : settings.compression );
 			uf::io::write( filename, mesh.buffers[i] );
 			json["buffers"].emplace_back(uf::io::filename( filename ));
 		}
@@ -270,6 +270,10 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		/*.filename = */directory + "/graph.json",
 		/*.conversion = */graph.metadata["exporter"]["conversion"].as<uf::stl::string>(),
 	};
+
+	if ( graph.metadata["exporter"]["compression"].is<bool>() ) {
+		settings.compression = graph.metadata["exporter"]["compression"].as<bool>() ? "auto" : "none";
+	}
 	
 	if ( settings.encoding == "auto" ) settings.encoding = ext::json::PREFERRED_ENCODING;
 	if ( settings.compression == "auto" ) settings.compression = ext::json::PREFERRED_COMPRESSION;

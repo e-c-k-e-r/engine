@@ -54,7 +54,7 @@ FLAGS 					+= -DUF_DEV_ENV
 
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
-		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e dc:texconv # ncurses openvr draco discord bullet ultralight-ux
 		FLAGS 				+= -march=native -g # -flto # -g
 	endif
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
@@ -130,6 +130,10 @@ ifneq (,$(findstring json,$(REQ_DEPS)))
 endif
 ifneq (,$(findstring gltf,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_GLTF
+	INCS 				+= -I./dep/include/stb/ # saves having to edit the file
+endif
+ifneq (,$(findstring dc:texconv,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_DC_TEXCONV
 endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENAL -DUF_USE_ALUT

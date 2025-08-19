@@ -8,71 +8,60 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <gltf/stb_image.h>
-#include <gltf/stb_image_write.h>
+#include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/string/ext.h>
 
-// 	C-tor
-// Default
-/*
-uf::Image::Image() :
-	m_bpp(8),
-	m_channels(4),
-	m_format(0) {
+uf::Image::Image() : m_bpp(8), m_channels(4), m_format(0) {
+	m_dimensions = {0,0};
+}
 
+uf::Image::Image(const vec2_t& size) : m_dimensions(size), m_bpp(8), m_channels(4), m_format(0) {
+	m_pixels.resize(size.x * size.y * m_channels);
 }
-// Just Size
-uf::Image::Image( const Image::vec2_t& size ) :
-	m_dimensions(size),
-	m_bpp(8),
-	m_channels(4),
-	m_format(0)
-{
-	this->m_pixels.reserve(size.x*size.y*this->m_channels);
-}
-// Move pixels
-uf::Image::Image( Image&& move ) : 
-	m_pixels(std::move(move.m_pixels)),
-	m_dimensions(std::move(move.m_dimensions)),
-	m_bpp(move.m_bpp),
-	m_channels(move.m_channels),
-	m_filename(move.m_filename),
-	m_format(move.m_format)
-{
 
-}
-// Copy pixels
-uf::Image::Image( const Image& copy ) :
-	m_pixels(copy.m_pixels),
-	m_dimensions(copy.m_dimensions),
-	m_bpp(copy.m_bpp),
-	m_channels(copy.m_channels),
-	m_filename(copy.m_filename),
-	m_format(copy.m_format)
-{
+uf::Image::Image(container_t&& move, const vec2_t& size) : m_pixels(std::move(move)), m_dimensions(size),
+	  m_bpp(8), m_channels(4), m_format(0) {}
 
-}
-// Move from vector of pixels
-uf::Image::Image( Image::container_t&& move, const Image::vec2_t& size ) :
-	m_pixels(std::move(move)),
-	m_dimensions(size),
-	m_bpp(8),
-	m_channels(4),
-	m_format(0)
-{
+uf::Image::Image(const container_t& copy, const vec2_t& size) : m_pixels(copy), m_dimensions(size),
+	  m_bpp(8), m_channels(4), m_format(0) {}
 
-}
-// Copy from vector of pixels
-uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
-	m_pixels(copy),
-	m_dimensions(size),
-	m_bpp(8),
-	m_channels(4),
-	m_format(0)
-{
+uf::Image::Image(const Image& copy) : m_pixels(copy.m_pixels),
+	  m_dimensions(copy.m_dimensions),
+	  m_bpp(copy.m_bpp), m_channels(copy.m_channels),
+	  m_filename(copy.m_filename), m_format(copy.m_format) {}
 
+uf::Image::Image(Image&& move) noexcept : m_pixels(std::move(move.m_pixels)),
+	  m_dimensions(move.m_dimensions),
+	  m_bpp(move.m_bpp), m_channels(move.m_channels),
+	  m_filename(std::move(move.m_filename)),
+	  m_format(move.m_format) {}
+
+uf::Image& uf::Image::operator=(const Image& copy) {
+	if ( this != &copy ) {
+		m_pixels   = copy.m_pixels;
+		m_dimensions = copy.m_dimensions;
+		m_bpp	   = copy.m_bpp;
+		m_channels = copy.m_channels;
+		m_filename = copy.m_filename;
+		m_format   = copy.m_format;
+	}
+	return *this;
 }
-*/
+
+uf::Image& uf::Image::operator=(Image&& move) noexcept {
+	if ( this != &move ) {
+		m_pixels   = std::move(move.m_pixels);
+		m_dimensions = move.m_dimensions;
+		m_bpp	   = move.m_bpp;
+		m_channels = move.m_channels;
+		m_filename = std::move(move.m_filename);
+		m_format   = move.m_format;
+	}
+	return *this;
+}
+
 uf::stl::string uf::Image::getFilename() const {
 	return this->m_filename;
 }
@@ -328,6 +317,7 @@ uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 		this->m_pixels[i++],
 	};
 }
+
 // 	Modifiers
 // to file
 bool uf::Image::save( const uf::stl::string& filename, bool flip ) const {
@@ -349,7 +339,6 @@ bool uf::Image::save( const uf::stl::string& filename, bool flip ) const {
 void uf::Image::save( std::ostream& stream ) const {
 
 }
-#include <uf/utils/string/ext.h>
 void uf::Image::convert( const uf::stl::string& from, const uf::stl::string& to ) {
 	uf::Image::container_t pixels = std::move(this->m_pixels);
 	if ( uf::string::lowercase(to) != "rgba" ) {
@@ -383,60 +372,92 @@ void uf::Image::convert( const uf::stl::string& from, const uf::stl::string& to 
 }
 // Merges one image on top of another
 uf::Image uf::Image::overlay(const Image& top, const Image::vec2_t& corner) const {
-	return *this;
+	Image out(*this);
+	for (size_t y = 0; y < top.m_dimensions.y; ++y) {
+		for (size_t x = 0; x < top.m_dimensions.x; ++x) {
+			size_t dstX = corner.x + x;
+			size_t dstY = corner.y + y;
+			if (dstX >= m_dimensions.x || dstY >= m_dimensions.y) continue;
+			size_t dstIdx = (dstY*m_dimensions.x + dstX) * m_channels;
+			size_t srcIdx = (y*top.m_dimensions.x + x) * top.m_channels;
+
+			float alpha = top.m_pixels[srcIdx+3] / 255.0f;
+			for (size_t c = 0; c < 3; ++c) {
+				out.m_pixels[dstIdx+c] =
+					static_cast<uint8_t>( (1-alpha)*out.m_pixels[dstIdx+c] +
+										   alpha*top.m_pixels[srcIdx+c] );
+			}
+			out.m_pixels[dstIdx+3] = 255;
+		}
+	}
+	return out;
 }
 // Changes all pixel from one color (from), to another (to)
 uf::Image uf::Image::replace(const Image::pixel_t& from, const Image::pixel_t& to ) const {
-	return *this;
+	Image out(*this);
+	for (size_t i = 0; i < out.m_pixels.size(); i+=out.m_channels) {
+		if (out.m_pixels[i]   == from[0] &&
+			out.m_pixels[i+1] == from[1] &&
+			out.m_pixels[i+2] == from[2] &&
+			out.m_pixels[i+3] == from[3]) {
+			out.m_pixels[i]   = to[0];
+			out.m_pixels[i+1] = to[1];
+			out.m_pixels[i+2] = to[2];
+			out.m_pixels[i+3] = to[3];
+		}
+	}
+	return out;
 }
 // Crops an image
 uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& end) const {
-	return *this;
-/*
-	pod::Vector2ui size = parameter;
-	if ( mode == uf::Image::CropMode::START_SPAN_SIZE ) size = parameter;
-	if ( mode == uf::Image::CropMode::START_TO_END ) size = parameter - start;
-	if ( size > this->size ) return uf::Image(*this);
-
-
-	uint len = size.product() * this->bpp / 8;
-	uint8_t* src = (uint8_t*) this->raw;
-	uint8_t* dst = new uint8_t[len];
-
-	uint minX = start.x();
-	uint minY = start.y();
-	uint dstWidth = size.x();
-	uint dstHeight = size.x();
-	uint srcWidth = this->size.x();
-	uint srcHeight = this->size.y();
-
-	for(uint x = minX; x < dstWidth + minX; x++) {
-		for(uint y = minY; y < dstHeight + minY; y++) {
-			uint srcOffset = y * srcWidth + x;
-			uint dstOffset = (y - minY) * dstWidth + (x - minX);
-			srcOffset *= this->bpp / 8;
-			dstOffset *= this->bpp / 8;
-
-			for ( uint i = 0; i < this->bpp/4; i++ ) dst[dstOffset+i] = src[srcOffset+i];
+	vec2_t size = { end.x - start.x, end.y - start.y };
+	container_t outPixels(size.x * size.y * m_channels);
+	for (size_t y = 0; y < size.y; ++y) {
+		for (size_t x = 0; x < size.x; ++x) {
+			size_t dstIdx = (y*size.x + x) * m_channels;
+			size_t srcIdx = ((start.y+y)*m_dimensions.x + (start.x+x)) * m_channels;
+			for (size_t c = 0; c < m_channels; ++c)
+				outPixels[dstIdx+c] = m_pixels[srcIdx+c];
 		}
 	}
-
-	uf::Image image;
-	image.raw = (uint8_t*) dst;
-	image.len = len;
-	image.bpp = this->bpp;
-	image.size = size;
-	image.format = this->format;
-	return image;
-*/
+	return Image(std::move(outPixels), size);
 }
+// Scales an image, nearest = true does nearest neighbor, nearest = false does bilinear interpolation
+uf::Image uf::Image::scale( const uf::Image::vec2_t& newSize, bool nearest ) {
+	container_t outPixels(newSize.x * newSize.y * m_channels);
+	float xRatio = static_cast<float>(m_dimensions.x) / newSize.x;
+	float yRatio = static_cast<float>(m_dimensions.y) / newSize.y;
 
-uf::Image& uf::Image::operator=( const uf::Image& copy ) {
-	this->m_pixels = copy.m_pixels;
-	this->m_dimensions = copy.m_dimensions;
-	this->m_bpp = copy.m_bpp;
-	this->m_channels = copy.m_channels;
-	this->m_filename = copy.m_filename;
-	this->m_format = copy.m_format;
-	return *this;
+	for (size_t j = 0; j < newSize.y; ++j) {
+		for (size_t i = 0; i < newSize.x; ++i) {
+			if (nearest) {
+				size_t srcX = static_cast<size_t>(i * xRatio);
+				size_t srcY = static_cast<size_t>(j * yRatio);
+				size_t srcIdx = (srcY*m_dimensions.x + srcX) * m_channels;
+				size_t dstIdx = (j*newSize.x + i) * m_channels;
+				for (size_t c = 0; c < m_channels; ++c)
+					outPixels[dstIdx+c] = m_pixels[srcIdx+c];
+			} else {
+				float gx = i * xRatio;
+				float gy = j * yRatio;
+				size_t x0 = static_cast<size_t>(gx);
+				size_t y0 = static_cast<size_t>(gy);
+				size_t x1 = std::min(x0+1, (size_t)m_dimensions.x-1);
+				size_t y1 = std::min(y0+1, (size_t)m_dimensions.y-1);
+				float u = gx - x0;
+				float v = gy - y0;
+				size_t dstIdx = (j*newSize.x + i) * m_channels;
+
+				for (size_t c=0; c<m_channels; ++c) {
+					auto p00 = m_pixels[(y0*m_dimensions.x + x0)*m_channels + c];
+					auto p10 = m_pixels[(y0*m_dimensions.x + x1)*m_channels + c];
+					auto p01 = m_pixels[(y1*m_dimensions.x + x0)*m_channels + c];
+					auto p11 = m_pixels[(y1*m_dimensions.x + x1)*m_channels + c];
+					float val = (1-u)*(1-v)*p00 + u*(1-v)*p10 + (1-u)*v*p01 + u*v*p11;
+					outPixels[dstIdx+c] = static_cast<uint8_t>(val);
+				}
+			}
+		}
+	}
+	return Image(std::move(outPixels), newSize);
 }
