@@ -131,6 +131,7 @@ endif
 ifneq (,$(findstring gltf,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_GLTF
 	INCS 				+= -I./dep/include/stb/ # saves having to edit the file
+	INCS 				+= -I./dep/include/nlohmann/ # saves having to edit the file
 endif
 ifneq (,$(findstring dc:texconv,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_DC_TEXCONV
