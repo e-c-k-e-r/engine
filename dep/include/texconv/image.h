@@ -5,15 +5,18 @@
 class Image {
 public:
 	Image();
-	Image(int width, int height);
+	Image(int width, int height, const uf::stl::vector<RGBA>& = {} );
 
+	bool loadFromBuffer(const uf::stl::vector<RGBA>& buffer, int width, int height);
 	bool loadFromFile(const uf::stl::string& path);
 	bool saveToFile(const uf::stl::string& path) const;
 
 	int width() const;
 	int height() const;
+	const uf::stl::vector<RGBA>& pixels() const;
 
 	RGBA pixel(int x,int y) const;
+
 	void setPixel(int x,int y, RGBA pixel);
 
 	Image scaled(int newW,int newH,bool nearest) const;
@@ -25,8 +28,8 @@ public:
 	bool isIndexed() const { return indexedMode; }
 
 private:
-	int w,h;
+	int w, h;
 	bool indexedMode;
-	uf::stl::vector<RGBA> pixels;
+	uf::stl::vector<RGBA> p;
 	uf::stl::vector<uint8_t> indexed;
 };

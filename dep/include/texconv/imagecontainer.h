@@ -5,7 +5,8 @@
 class ImageContainer {
 public:
 	
-	bool load(const uf::stl::vector<uf::stl::string>& filenames, int textureType, int mipmapFilter);
+	bool load( const uf::stl::vector<Image>& images, int textureType, int mipmapFilter );
+	bool load( const uf::stl::vector<uf::stl::string>& filenames, int textureType, int mipmapFilter );
 
 	void unloadAll();
 

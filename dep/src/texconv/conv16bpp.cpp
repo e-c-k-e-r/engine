@@ -8,10 +8,10 @@
 #include <texconv/vqtools.h>
 #include <texconv/common.h>
 
-static void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelFormat, bool twiddled);
-static void writeStrideData(std::ostream& stream, const Image& img, int pixelFormat);
-static void writeUncompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat);
-static void writeCompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat);
+void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelFormat, bool twiddled);
+void writeStrideData(std::ostream& stream, const Image& img, int pixelFormat);
+void writeUncompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat);
+void writeCompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat);
 
 void convert16BPP(std::ostream& stream, const ImageContainer& images, int textureType) {
 	const int pixelFormat = (textureType >> PIXELFORMAT_SHIFT) & PIXELFORMAT_MASK;
@@ -25,7 +25,7 @@ void convert16BPP(std::ostream& stream, const ImageContainer& images, int textur
 	}
 }
 
-static void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelFormat, bool twiddled) {
+void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelFormat, bool twiddled) {
 	if (pixelFormat == PIXELFORMAT_YUV422) {
 		static int index = 0;
 		static RGBA savedTexel[3];
@@ -55,225 +55,296 @@ static void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pi
 	}
 }
 
-
-
-
-
-static void writeStrideData(std::ostream& stream, const Image& img, int pixelFormat) {
-	for (int y=0; y<img.height(); y++) {
-		for (int x=0; x<img.width(); x++) {
-			convertAndWriteTexel(stream, img.pixel(x,y), pixelFormat, false);
-		}
-	}
+void writeStrideData(std::ostream& stream, const Image& img, int pixelFormat) {
+	for (int y=0; y<img.height(); y++)
+		for (int x=0; x<img.width(); x++)
+			convertAndWriteTexel(stream, img.pixel(x, y), pixelFormat, false);
 }
 
-
-
-
-
-static void writeUncompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat) {
-	
+void writeUncompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat) {
+	// Mipmap offset
 	if (images.hasMipmaps()) {
 		writeZeroes(stream, MIPMAP_OFFSET_16BPP);
 	}
 
-	
+	// Texture data, from smallest to largest mipmap
 	for (int i=0; i<images.imageCount(); i++) {
 		const Image& img = images.getByIndex(i);
 
-		
-		if (img.width()==1 && img.height()==1 && pixelFormat == PIXELFORMAT_YUV422) {
-			convertAndWriteTexel(stream, img.pixel(0,0), PIXELFORMAT_RGB565, true);
+		// The 1x1 mipmap level is a bit special for YUV textures. Since there's only
+		// one pixel, it can't be saved as YUV422, so save it as RGB565 instead.
+		if (img.width() == 1 && img.height() == 1 && pixelFormat == PIXELFORMAT_YUV422) {
+			convertAndWriteTexel(stream, img.pixel(0, 0), PIXELFORMAT_RGB565, true);
 			continue;
 		}
 
-		Twiddler twiddler(img.width(), img.height());
-		int pixels = img.width() * img.height();
+		const Twiddler twiddler(img.width(), img.height());
+		const int pixels = img.width() * img.height();
 
-		
-		for (int j=0;j<pixels;j++) {
-			int index = twiddler.index(j);
-			int x = index % img.width();
-			int y = index / img.width();
-			convertAndWriteTexel(stream, img.pixel(x,y), pixelFormat, true);
+		// Write all texels for this mipmap level in twiddled order
+		for (int j=0; j<pixels; j++) {
+			const int index = twiddler.index(j);
+			const int x = index % img.width();
+			const int y = index / img.width();
+			convertAndWriteTexel(stream, img.pixel(x, y), pixelFormat, true);
 		}
 	}
 }
 
-
-
-
-
-
-
-static uint64_t packQuad(const RGBA& tl, const RGBA& tr,
-						 const RGBA& bl, const RGBA& br, int pixelFormat) {
-	uint64_t a,b,c,d;
+// Packs a quad (2x2 16BPP texels) into a single uint64_t
+uint64_t packQuad(RGBA topLeft, RGBA topRight, RGBA bottomLeft, RGBA bottomRight, int pixelFormat) {
+	uint64_t a, b, c, d;
 	if (pixelFormat == PIXELFORMAT_YUV422) {
 		uint16_t yuv[4];
-		RGBtoYUV422(tl,tr,yuv[0],yuv[1]);
-		RGBtoYUV422(bl,br,yuv[2],yuv[3]);
-		a=yuv[0]; b=yuv[1]; c=yuv[2]; d=yuv[3];
+		RGBtoYUV422(topLeft,    topRight,    yuv[0], yuv[1]);
+		RGBtoYUV422(bottomLeft, bottomRight, yuv[2], yuv[3]);
+		a = yuv[0];
+		b = yuv[1];
+		c = yuv[2];
+		d = yuv[3];
 	} else {
-		a=to16BPP(tl,pixelFormat);
-		b=to16BPP(tr,pixelFormat);
-		c=to16BPP(bl,pixelFormat);
-		d=to16BPP(br,pixelFormat);
+		a = to16BPP(topLeft,     pixelFormat);
+		b = to16BPP(topRight,    pixelFormat);
+		c = to16BPP(bottomLeft,  pixelFormat);
+		d = to16BPP(bottomRight, pixelFormat);
 	}
-	return (a<<48)|(b<<32)|(c<<16)|d;
+	return (a << 48) | (b << 32) | (c << 16) | d;
 }
 
 
-static int encodeLossless(const ImageContainer& images,
-						  int pixelFormat,
-						  uf::stl::vector<Image>& indexedImages,
-						  uf::stl::vector<uint64_t>& codebook,
-						  int maxCodes) {
-	uf::stl::unordered_map<uint64_t,int> uniqueQuads;
+// This function counts how many unique 2x2 16BPP pixel blocks there are in the image.
+// If there are <= maxCodes, it puts the unique blocks in 'codebook' and 'indexedImages'
+// will contain images that index the 'codebook' vector, resulting in quick "lossless"
+// compression, if possible.
+// It will keep counting blocks even if the block count exceeds maxCodes for the sole
+// purpose of reporting it back to the user.
+// Returns number of unique 2x2 16BPP pixel blocks in all images.
+int encodeLossless(const ImageContainer& images, int pixelFormat, uf::stl::vector<Image>& indexedImages, uf::stl::vector<uint64_t>& codebook, int maxCodes) {
+	uf::stl::unordered_map<uint64_t, int> uniqueQuads; // Quad <=> index
 
-	for (int i=0;i<images.imageCount();i++) {
-		const Image& img=images.getByIndex(i);
+	for (int i=0; i<images.imageCount(); i++) {
+		const Image& img = images.getByIndex(i);
 
-		if (img.width()<MIN_MIPMAP_VQ || img.height()<MIN_MIPMAP_VQ)
+		// Ignore images smaller than this
+		if (img.width() < MIN_MIPMAP_VQ || img.height() < MIN_MIPMAP_VQ)
 			continue;
 
-		Image indexed(img.width()/2, img.height()/2); 
-		indexed.allocateIndexed(256); 
+		Image indexedImage(img.width() / 2, img.height() / 2/*, Image::Format_Indexed8*/);
+		indexedImage.allocateIndexed(256);
 
 		for (int y=0;y<img.height();y+=2) {
 			for (int x=0;x<img.width();x+=2) {
-				uint64_t quad = packQuad(img.pixel(x,y),
-										 img.pixel(x+1,y),
-										 img.pixel(x,y+1),
-										 img.pixel(x+1,y+1),
-										 pixelFormat);
-				if (uniqueQuads.find(quad)==uniqueQuads.end())
-					uniqueQuads[quad]=(int)uniqueQuads.size();
+				RGBA tl = img.pixel(x + 0, y + 0);
+				RGBA tr = img.pixel(x + 1, y + 0);
+				RGBA bl = img.pixel(x + 0, y + 1);
+				RGBA br = img.pixel(x + 1, y + 1);
+				uint64_t quad = packQuad(tl, tr, bl, br, pixelFormat);
 
-				if ((int)uniqueQuads.size()<=maxCodes)
-					indexed.setIndexedPixel(x/2,y/2,uniqueQuads[quad]);
+				if ( uniqueQuads.find(quad) == uniqueQuads.end() )
+					uniqueQuads[quad] = (int) uniqueQuads.size();
+
+				if ( (int) uniqueQuads.size() <= maxCodes )
+					indexedImage.setIndexedPixel( x/2, y/2, uniqueQuads[quad] );
 			}
 		}
 
-		if ((int)uniqueQuads.size()<=maxCodes)
-			indexedImages.push_back(indexed);
+		// Only add the image if we haven't hit the code limit
+		if (uniqueQuads.size() <= maxCodes) {
+			indexedImages.push_back(indexedImage);
+		}
 	}
 
-	if ((int)uniqueQuads.size()<=maxCodes) {
+	if (uniqueQuads.size() <= maxCodes) {
+		// This texture can be losslessly compressed.
+		// Copy the unique quads over to the codebook.
+		// indexedImages is already done.
 		codebook.resize(uniqueQuads.size());
-		for (auto& kv:uniqueQuads) codebook[kv.second]=kv.first;
+		for ( auto& kv : uniqueQuads ) codebook[kv.second] = kv.first;
 	} else {
+		// This texture needs lossy compression
 		indexedImages.clear();
 	}
 
-	return (int)uniqueQuads.size();
+	return uniqueQuads.size();
 }
 
+// Divides the image into 2x2 pixel blocks and stores them as 12-dimensional
+// vectors, (R, G, B) * 4.
+void vectorizeRGB(const ImageContainer& images, uf::stl::vector<Vec<12>>& vectors) {
+	for (int i=0; i<images.imageCount(); i++) {
+		const Image& img = images.getByIndex(i);
 
+		// Ignore images smaller than this
+		if (img.width() < MIN_MIPMAP_VQ || img.height() < MIN_MIPMAP_VQ)
+			continue;
 
-static void writeCompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat) {
+		for (int y=0; y<img.height(); y+=2) {
+			for (int x=0; x<img.width(); x+=2) {
+				Vec<12> vec;
+				uint hash = 0;
+				int offset = 0;
+				for (int yy=y; yy<(y+2); yy++) {
+					for (int xx=x; xx<(x+2); xx++) {
+						RGBA pixel = img.pixel(xx, yy);
+						rgb2vec(packColor(pixel), vec, offset);
+						hash = combineHash(pixel, hash);
+						offset += 3;
+					}
+				}
+				vec.setHash(hash);
+				vectors.push_back(vec);
+			}
+		}
+	}
+}
+
+// Divides the image into 2x2 pixel blocks and stores them as 16-dimensional
+// vectors, (A, R, G, B) * 4.
+static void vectorizeARGB(const ImageContainer& images, uf::stl::vector<Vec<16>>& vectors) {
+	for (int i=0; i<images.imageCount(); i++) {
+		const Image& img = images.getByIndex(i);
+
+		// Ignore images smaller than this
+		if (img.width() < MIN_MIPMAP_VQ || img.height() < MIN_MIPMAP_VQ)
+			continue;
+
+		for (int y=0; y<img.height(); y+=2) {
+			for (int x=0; x<img.width(); x+=2) {
+				Vec<16> vec;
+				uint hash = 0;
+				int offset = 0;
+				for (int yy=y; yy<(y+2); yy++) {
+					for (int xx=x; xx<(x+2); xx++) {
+						RGBA pixel = img.pixel(xx, yy);
+						argb2vec(packColor(pixel), vec, offset);
+						hash = combineHash(pixel, hash);
+						offset += 4;
+					}
+				}
+				vec.setHash(hash);
+				vectors.push_back(vec);
+			}
+		}
+	}
+}
+
+static void devectorizeRGB(const ImageContainer& srcImages, const uf::stl::vector<Vec<12>>& vectors, const VectorQuantizer<12>& vq, int pixelFormat, uf::stl::vector<Image>& indexedImages, uf::stl::vector<uint64_t>& codebook) {
+	int vindex = 0;
+
+	for (int i=0; i<srcImages.imageCount(); i++) {
+		const auto& srcImage = srcImages.getByIndex(i);
+		if (srcImage.width() == 1 || srcImage.height() == 1)
+			continue;
+		Image img(srcImage.width()/2, srcImage.height()/2/*, Image::Format_Indexed8*/);
+		img.allocateIndexed(256);
+		for (int y=0; y<img.height(); y++) {
+			for (int x=0; x<img.width(); x++) {
+				const Vec<12>& vec = vectors[vindex];
+				int codeIndex = vq.findClosest(vec);
+				img.setIndexedPixel(x, y, codeIndex);
+				vindex++;
+			}
+		}
+		indexedImages.push_back(img);
+	}
+
+	for (int i=0; i<vq.codeCount(); i++) {
+		const Vec<12>& vec = vq.codeVector(i);
+		RGBA tl = {vec[0], vec[1], vec[2]};
+		RGBA tr = {vec[3], vec[4], vec[5]};
+		RGBA bl = {vec[6], vec[7], vec[8]};
+		RGBA br = {vec[9], vec[10], vec[11]};
+		uint64_t quad = packQuad(tl, tr, bl, br, pixelFormat);
+		codebook.push_back(quad);
+	}
+}
+
+static void devectorizeARGB(const ImageContainer& srcImages, const uf::stl::vector<Vec<16>>& vectors, const VectorQuantizer<16>& vq, int format, uf::stl::vector<Image>& indexedImages, uf::stl::vector<uint64_t>& codebook) {
+	int vindex = 0;
+
+	for (int i=0; i<srcImages.imageCount(); i++) {
+		const auto& srcImage = srcImages.getByIndex(i);
+		if (srcImage.width() == 1 || srcImage.height() == 1)
+			continue;
+		Image img(srcImage.width()/2, srcImage.height()/2/*, Image::Format_Indexed8*/);
+		img.allocateIndexed(256);
+		for (int y=0; y<img.height(); y++) {
+			for (int x=0; x<img.width(); x++) {
+				const Vec<16>& vec = vectors[vindex];
+				int codeIndex = vq.findClosest(vec);
+				img.setIndexedPixel(x, y, codeIndex);
+				vindex++;
+			}
+		}
+		indexedImages.push_back(img);
+	}
+
+	for (int i=0; i<vq.codeCount(); i++) {
+		const Vec<16>& vec = vq.codeVector(i);
+		RGBA tl = {vec[1], vec[2], vec[3], vec[0]};
+		RGBA tr = {vec[5], vec[6], vec[7], vec[4]};
+		RGBA bl = {vec[9], vec[10], vec[11], vec[8]};
+		RGBA br = {vec[13], vec[14], vec[15], vec[12]};
+		uint64_t quad = packQuad(tl, tr, bl, br, format);
+		codebook.push_back(quad);
+	}
+}
+
+void writeCompressedData(std::ostream& stream, const ImageContainer& images, int pixelFormat) {
 	uf::stl::vector<Image> indexedImages;
 	uf::stl::vector<uint64_t> codebook;
 
-	int numQuads = encodeLossless(images, pixelFormat, indexedImages, codebook, 256);
-	std::cout << "Source images contain " << numQuads << " unique quads\n";
+	const int numQuads = encodeLossless(images, pixelFormat, indexedImages, codebook, 256);
+
+	//UF_MSG_DEBUG("Source images contain {} unique quads", numQuads);
 
 	if (numQuads > 256) {
 		if ((pixelFormat != PIXELFORMAT_ARGB1555) && (pixelFormat != PIXELFORMAT_ARGB4444)) {
-			
 			uf::stl::vector<Vec<12>> vectors;
 			VectorQuantizer<12> vq;
-			
-			for (int i=0; i<images.imageCount(); i++) {
-				const Image& img=images.getByIndex(i);
-				if (img.width()<MIN_MIPMAP_VQ || img.height()<MIN_MIPMAP_VQ) continue;
-
-				for (int y=0;y<img.height();y+=2) {
-					for(int x=0;x<img.width();x+=2) {
-						Vec<12> vec;
-						int offset=0;
-						for(int yy=0;yy<2;yy++){
-							for(int xx=0;xx<2;xx++){
-								RGBA px=img.pixel(x+xx,y+yy);
-								vec[offset+0]=px.r/255.0f;
-								vec[offset+1]=px.g/255.0f;
-								vec[offset+2]=px.b/255.0f;
-								offset+=3;
-							}
-						}
-						vectors.push_back(vec);
-					}
-				}
-			}
-			vq.compress(vectors,256);
-
-			
-			for (int i=0;i<vq.codeCount();i++) {
-				const Vec<12>& vec=vq.codeVector(i);
-				RGBA tl{(uint8_t)(vec[0]*255),(uint8_t)(vec[1]*255),(uint8_t)(vec[2]*255),255};
-				RGBA tr{(uint8_t)(vec[3]*255),(uint8_t)(vec[4]*255),(uint8_t)(vec[5]*255),255};
-				RGBA bl{(uint8_t)(vec[6]*255),(uint8_t)(vec[7]*255),(uint8_t)(vec[8]*255),255};
-				RGBA br{(uint8_t)(vec[9]*255),(uint8_t)(vec[10]*255),(uint8_t)(vec[11]*255),255};
-				codebook.push_back(packQuad(tl,tr,bl,br,pixelFormat));
-			}
-
-			
-			for (int i=0; i<images.imageCount(); i++) {
-				const Image& src=images.getByIndex(i);
-				if (src.width()<MIN_MIPMAP_VQ || src.height()<MIN_MIPMAP_VQ) continue;
-				Image idx(src.width()/2, src.height()/2);
-				idx.allocateIndexed(256);
-				for(int y=0;y<src.height();y+=2){
-					for(int x=0;x<src.width();x+=2){
-						Vec<12> v;
-						int off=0;
-						for(int yy=0;yy<2;yy++)for(int xx=0;xx<2;xx++){
-							RGBA p=src.pixel(x+xx,y+yy);
-							v[off+0]=p.r/255.0f;
-							v[off+1]=p.g/255.0f;
-							v[off+2]=p.b/255.0f;
-							off+=3;
-						}
-						int codeIdx=vq.findClosest(v);
-						idx.setIndexedPixel(x/2,y/2,(uint8_t)codeIdx);
-					}
-				}
-				indexedImages.push_back(idx);
-			}
+			vectorizeRGB(images, vectors);
+			vq.compress(vectors, 256);
+			devectorizeRGB(images, vectors, vq, pixelFormat, indexedImages, codebook);
 		} else {
-			
-			std::cerr<<"ARGB VQ compression not yet implemented!\n";
+			uf::stl::vector<Vec<16>> vectors;
+			VectorQuantizer<16> vq;
+			vectorizeARGB(images, vectors);
+			vq.compress(vectors, 256);
+			devectorizeARGB(images, vectors, vq, pixelFormat, indexedImages, codebook);
 		}
 	}
 
-	
-	uint16_t codes[256*4];
-	memset(codes,0,sizeof(codes));
-	for (int i=0;i<(int)codebook.size();i++) {
-		uint64_t quad=codebook[i];
-		codes[i*4+0]=(uint16_t)((quad>>48)&0xFFFF);
-		codes[i*4+1]=(uint16_t)((quad>>32)&0xFFFF);
-		codes[i*4+2]=(uint16_t)((quad>>16)&0xFFFF);
-		codes[i*4+3]=(uint16_t)((quad>> 0)&0xFFFF);
+	// Build the codebook
+	uint16_t codes[256 * 4];
+	memset(codes, 0, 2048);
+	for (int i=0; i<codebook.size(); i++) {
+		const uint64_t& quad = codebook[i];
+		codes[i * 4 + 0] = (uint16_t)((quad >> 48) & 0xFFFF);
+		codes[i * 4 + 1] = (uint16_t)((quad >> 16) & 0xFFFF);
+		codes[i * 4 + 2] = (uint16_t)((quad >> 32) & 0xFFFF);
+		codes[i * 4 + 3] = (uint16_t)((quad >>  0) & 0xFFFF);
 	}
 
-	
-	for(int i=0;i<1024;i++){
-		stream.write((char*)&codes[i],2);
-	}
+	// Write the codebook
+	for (int i=0; i<1024; i++)
+		stream.write( (char*) &codes[i], 2 );
 
-	
-	if(images.imageCount()>1)
-		writeZeroes(stream,1);
+	// Write the 1x1 mipmap level
+	if (images.imageCount() > 1)
+		writeZeroes(stream, 1);
 
-	
-	for(const auto& img:indexedImages){
-		Twiddler twiddler(img.width(),img.height());
-		int pixels=img.width()*img.height();
-		for(int j=0;j<pixels;j++){
-			int idx=twiddler.index(j);
-			uint8_t val=img.indexedPixelAt(idx%img.width(),idx/img.width());
-			stream.write((char*)&val,1);
+	// Write all mipmap levels
+	for (int i=0; i<indexedImages.size(); i++) {
+		const Image& img = indexedImages[i];
+		const Twiddler twiddler(img.width(), img.height());
+		const int pixels = img.width() * img.height();
+
+		for (int j=0; j<pixels; j++) {
+			const int index = twiddler.index(j);
+			const int x = index % img.width();
+			const int y = index / img.width();
+			uint8_t val = img.indexedPixelAt(x, y);
+			stream.write( (char*) &val, 1 );
 		}
 	}
 }

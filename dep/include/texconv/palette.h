@@ -19,7 +19,7 @@ public:
 
 	bool load(const uf::stl::string& filename);
 	bool save(const uf::stl::string& filename) const;
-
+	uf::stl::vector<uint8_t> encode() const;
 private:
 	uf::stl::unordered_map<uint32_t,int> colorsMap;
 	uf::stl::vector<uint32_t> colorsVec;

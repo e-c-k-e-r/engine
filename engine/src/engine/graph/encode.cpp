@@ -8,6 +8,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/physics.h>
 #include <uf/ext/xatlas/xatlas.h>
+#include <uf/ext/texconv/texconv.h>
 
 #if !UF_ENV_DREAMCAST
 namespace {
@@ -378,8 +379,16 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				auto& name = graph.images[i];
 				auto& image = /*graph.storage*/storage.images.map.at(name);
 				uf::stl::string f = "image."+std::to_string(i)+".png";
-
 				image.save(directory + "/" + f);
+
+				// export DC's .dtex
+			#if UF_USE_DC_TEXCONV
+				// to-do: properly scale per my script
+				auto converted = image.scale( {32, 32}, true );
+				auto dtex = ext::texconv::convert( converted );
+				ext::texconv::save( dtex, directory + "/image."+std::to_string(i) );
+			#endif
+
 				uf::Serializer json;
 				json["name"] = name;
 				json["filename"] = f;

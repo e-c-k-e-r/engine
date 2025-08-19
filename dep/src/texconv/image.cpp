@@ -9,48 +9,60 @@
 #include <texconv/image.h>
 
 Image::Image() : w(0), h(0), indexedMode(false) {}
-Image::Image(int width, int height) : w(width), h(height), indexedMode(false) {
-	pixels.resize(w*h);
+Image::Image(int width, int height, const uf::stl::vector<RGBA>& pixels) : w(width), h(height), p(pixels), indexedMode(false) {
+	p.resize(w*h);
 }
 
+bool Image::loadFromBuffer(const uf::stl::vector<RGBA>& pixels, int width, int height) {
+	w = width;
+	h = height;
+	p = pixels;
+
+	return true;
+}
 bool Image::loadFromFile(const uf::stl::string& path ) {
 	int channels;
-	uint8_t* buffer = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
-	if (!buffer) {
+	uint8_t* pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+
+	if ( !pixels ) {
 		std::cerr<<"[ERROR] Failed to load image: "<<path<<"\n";
 		return false;
 	}
+
 	indexedMode=false;
-	pixels.resize(w*h);
-	std::memcpy(pixels.data(), buffer, w*h*4);
-	stbi_image_free(buffer);
+	p.resize(w*h);
+	std::memcpy(p.data(), pixels, w*h*4);
+	stbi_image_free(pixels);
+
 	return true;
 }
 
 
 bool Image::saveToFile(const uf::stl::string& path) const {
-	uf::stl::vector<uint8_t> buffer(w*h*4);
+	uf::stl::vector<uint8_t> pixels(w*h*4);
 	for(int y=0;y<h;y++) for(int x=0;x<w;x++) {
 		RGBA c=pixel(x,y);
 		int idx=(y*w+x)*4;
-		buffer[idx+0]=c.r;
-		buffer[idx+1]=c.g;
-		buffer[idx+2]=c.b;
-		buffer[idx+3]=c.a;
+		pixels[idx+0]=c.r;
+		pixels[idx+1]=c.g;
+		pixels[idx+2]=c.b;
+		pixels[idx+3]=c.a;
 	}
-	return stbi_write_png(path.c_str(),w,h,4,buffer.data(),w*4)!=0;
+	return stbi_write_png(path.c_str(),w,h,4,pixels.data(),w*4)!=0;
 }
 
 int Image::width() const { return w; }
 int Image::height() const { return h; }
+const uf::stl::vector<RGBA>& Image::pixels() const { return p; }
 
 RGBA Image::pixel(int x,int y) const {
-	return pixels[y*w+x];
+	return p[y*w+x];
 }
+
 
 void Image::setPixel(int x,int y, RGBA pixel) {
 	if (!indexedMode) {
-		pixels[y*w+x] = pixel;
+		p[y*w+x] = pixel;
 	}
 }
 
@@ -61,7 +73,7 @@ Image Image::scaled(int newW,int newH,bool nearest) const {
 			for (int x=0;x<newW;x++) {
 				int srcX = x * w / newW;
 				int srcY = y * h / newH;
-				out.pixels[y*newW+x] = pixel(srcX,srcY);
+				out.p[y*newW+x] = pixel(srcX,srcY);
 			}
 		}
 	} else {
@@ -90,7 +102,7 @@ Image Image::scaled(int newW,int newH,bool nearest) const {
 					lerp(c01.g,c11.g,dx),
 					lerp(c01.b,c11.b,dx),
 					lerp(c01.a,c11.a,dx)};
-				out.pixels[y*newW+x]=RGBA{
+				out.p[y*newW+x]=RGBA{
 					lerp(top.r,bottom.r,dy),
 					lerp(top.g,bottom.g,dy),
 					lerp(top.b,bottom.b,dy),

@@ -56,7 +56,11 @@ int writeTextureHeader(std::ostream& stream, int width, int height, int textureT
 uint32_t combineHash(const RGBA& rgba, uint32_t seed);
 
 class ImageContainer;
+class Palette;
 
 void convert16BPP(std::ostream& stream, const ImageContainer& images, int textureType);
+Palette convertPaletted(std::ostream& stream, const ImageContainer& images, int textureType);
+
 void convertPaletted(std::ostream& stream, const ImageContainer& images, int textureType, const uf::stl::string& palFilename);
+
 bool generatePreview(const uf::stl::string& textureFilename, const uf::stl::string& paletteFilename, const uf::stl::string& previewFilename, const uf::stl::string& codeUsageFilename);

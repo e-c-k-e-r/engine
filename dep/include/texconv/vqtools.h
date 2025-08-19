@@ -58,7 +58,6 @@ public:
     float   length() const;
     void    setLength(float len);
     void    normalize();
-    void    print() const;
     static float distanceSquared(const Vec<N>& a, const Vec<N>& b);
     uint    hash() const;
     void    setHash(uint h) { hashVal = h; }
@@ -175,17 +174,6 @@ inline void Vec<N>::normalize() {
     const float invlen = 1.0f / length();
     for (uint i=0; i<N; ++i)
         v[i] *= invlen;
-}
-
-template<uint N>
-void Vec<N>::print() const {
-    uf::stl::string str = "{ ";
-    for (uint i=0; i<N; ++i) {
-        str += std::to_string(v[i]);
-        str += ' ';
-    }
-    str += '}';
-    std::cout << str;
 }
 
 template<uint N>
@@ -332,7 +320,7 @@ void VectorQuantizer<N>::removeUnusedCodes() {
         codes.end()
     );
     if(codes.size()<oldSize){
-        std::cout<<"Removed "<<(oldSize-codes.size())<<" unused codes\n";
+        UF_MSG_DEBUG("Removed {} unused codes", (oldSize-codes.size()));
     }
 }
 
@@ -399,7 +387,7 @@ void VectorQuantizer<N>::compress(const uf::stl::vector<Vec<N>>& vectors,int num
     uf::stl::unordered_map<Vec<N>,int> rle;
     for(const auto& v:vectors) rle[v]++;
 
-    std::cout<<"RLE result: "<<vectors.size()<<" => "<<rle.size()<<"\n";
+    // UF_MSG_DEBUG("RLE result: {} => {}", vectors.size(), rle.size());
 
     codes.clear();
     codes.resize(1);
@@ -414,11 +402,11 @@ void VectorQuantizer<N>::compress(const uf::stl::vector<Vec<N>>& vectors,int num
         removeUnusedCodes();
 
         if(codes.size()==before){
-            std::cout<<"No further improvement by splitting\n";
+            //UF_MSG_DEBUG("No further improvement by splitting");
             break;
         }
         splits++;
-        std::cout<<"Split "<<splits<<" done. Codes: "<<codes.size()<<"\n";
+        //UF_MSG_DEBUG("Split {} done. COdes: {}", splits, codes.size());
     }
 
     while((int)codes.size()<numCodes){
@@ -431,23 +419,23 @@ void VectorQuantizer<N>::compress(const uf::stl::vector<Vec<N>>& vectors,int num
             codes[idx].maxDistance=0;
         }
         if(codes.size()==before){
-            std::cout<<"No further improvement by repairing\n";
+            //UF_MSG_DEBUG("No further improvement by repairing");
             break;
         }
         place(rle); place(rle); place(rle);
         removeUnusedCodes();
         repairs++;
-        std::cout<<"Repair "<<repairs<<" done. Codes: "<<codes.size()<<"\n";
+        //UF_MSG_DEBUG("Repair {} done. Codes: {}", repairs, codes.size());
     }
     auto ms=std::chrono::duration_cast<std::chrono::milliseconds>(clock::now()-start).count();
-    std::cout<<"Compression completed in "<<ms<<" ms\n";
+    //UF_MSG_DEBUG("Compression completed in {} ms", ms);
 }
 
 template<uint N>
 bool VectorQuantizer<N>::writeReportToFile(const uf::stl::string& fname){
     std::ofstream f(fname);
     if(!f.is_open()){
-        std::cerr<<"Failed to open "<<fname<<"\n";
+        UF_MSG_ERROR("Failed to open: {}", fname);
         return false;
     }
     for(int i=0;i<(int)codes.size();i++){

@@ -109,7 +109,7 @@ uint16_t to16BPP(const RGBA& argb, int pixelFormat) {
 	case PIXELFORMAT_BUMPMAP:
 		return toSpherical(argb);
 	default:
-		std::cerr << "Unsupported format " << pixelFormat << " in to16BPP\n";
+		UF_MSG_ERROR("Unsupported format {} in to16BPP", pixelFormat);
 		return 0xFFFF;
 	}
 }

@@ -11,6 +11,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/xatlas/xatlas.h>
+#include <uf/ext/texconv/texconv.h>
 
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
@@ -174,6 +175,13 @@ SAVE: {
 			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
 			bool status = image.save(filename);
 			UF_MSG_DEBUG("Writing to {}: {}", filename, status);
+
+		// export DC's .dtex
+		#if UF_USE_DC_TEXCONV
+			auto converted = image.scale( {128, 128}, true );
+			auto dtex = ext::texconv::convert( converted, "ARGB4444" );
+			ext::texconv::save( dtex, uf::string::replace( filename, ".png", "" ), false );
+		#endif
 		});
 	}
 	uf::thread::execute( tasks );

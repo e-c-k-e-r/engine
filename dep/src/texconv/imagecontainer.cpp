@@ -7,32 +7,23 @@
 #include <texconv/imagecontainer.h>
 #include <texconv/common.h>
 
-bool ImageContainer::load(const uf::stl::vector<uf::stl::string>& filenames, int textureType, int mipmapFilter) {
+bool ImageContainer::load(const uf::stl::vector<Image>& _images, int textureType, int mipmapFilter) {
 	bool mipmapped = (textureType & FLAG_MIPMAPPED);
 
-	if ((filenames.size() > 1) && !mipmapped) {
-		std::cerr << "[ERROR] Only one input file may be specified if no mipmap flag is set.\n";
+	if ((_images.size() > 1) && !mipmapped) {
+		UF_MSG_ERROR("Only one input file may be specified if no mipmap flag is set.");
 		return false;
 	}
 
 	
-	for (const auto& filename : filenames) {
-		Image img;
-		if (!img.loadFromFile(filename)) { 
-			std::cerr << "[ERROR] Failed to load image: " << filename << "\n";
-			return false;
-		}
-
+	for (const auto& img : _images) {
 		if (!isValidSize(img.width(), img.height(), textureType)) {
-			std::cerr << "[ERROR] Image " << filename
-					  << " has invalid texture size "
-					  << img.width() << "x" << img.height() << "\n";
+			UF_MSG_ERROR("Image has invalid texture size {}x{}", img.width(), img.height());
 			return false;
 		}
 
 		if (mipmapped && img.width() != img.height()) {
-			std::cerr << "[ERROR] Image " << filename
-					  << " is not square. Mipmapped textures require square images.\n";
+			UF_MSG_ERROR("Image is not square. Mipmapped textures require square images.");
 			return false;
 		}
 
@@ -40,14 +31,14 @@ bool ImageContainer::load(const uf::stl::vector<uf::stl::string>& filenames, int
 		textureHeight = std::max(textureHeight, img.height());
 
 		images[img.width()] = img;  
-		std::cout << "[INFO] Loaded image " << filename << "\n";
+		//UF_MSG_DEBUG("[INFO] Loaded image");
 	}
 
 	if (mipmapped) {
 		if (mipmapFilter == 0) { 
-			std::cout << "[INFO] Using nearest-neighbor filtering for mipmaps\n";
+			//UF_MSG_DEBUG("[INFO] Using nearest-neighbor filtering for mipmaps");
 		} else {
-			std::cout << "[INFO] Using bilinear filtering for mipmaps\n";
+			//UF_MSG_DEBUG("[INFO] Using bilinear filtering for mipmaps");
 		}
 
 		
@@ -56,13 +47,13 @@ bool ImageContainer::load(const uf::stl::vector<uf::stl::string>& filenames, int
 				Image mipmap = images[size*2].scaled(size, size,
 														 mipmapFilter == 0); 
 				images[size] = mipmap;
-				std::cout << "[INFO] Generated " << size << "x" << size << " mipmap\n";
+				//UF_MSG_DEBUG("[INFO] Generated {}x{} mipmap", size, size);
 			}
 		}
 	}
 
 	if (textureWidth < TEXTURE_SIZE_MIN || textureHeight < TEXTURE_SIZE_MIN) {
-		std::cerr << "[ERROR] At least one input image must be 8x8 or larger.\n";
+		UF_MSG_ERROR("At least one input image must be 8x8 or larger.");
 		return false;
 	}
 
@@ -72,6 +63,19 @@ bool ImageContainer::load(const uf::stl::vector<uf::stl::string>& filenames, int
 	std::sort(keys.begin(), keys.end());
 
 	return true;
+}
+bool ImageContainer::load(const uf::stl::vector<uf::stl::string>& filenames, int textureType, int mipmapFilter) {
+	uf::stl::vector<Image> images;
+
+	for ( const auto& filename : filenames ) {
+		Image& img = images.emplace_back();
+		if (!img.loadFromFile(filename)) { 
+			UF_MSG_ERROR("Failed to load image: {}", filename);
+			return false;
+		}
+	}
+
+	return load( images, textureType, mipmapFilter );
 }
 
 void ImageContainer::unloadAll() {

@@ -84,14 +84,17 @@ bool generatePreview(const uf::stl::string& texFile,
 	bool genUsage=!codeUsageFile.empty();
 
 	std::ifstream in(texFile,std::ios::binary);
-	if(!in.is_open()) {std::cerr<<"[ERROR] Cannot open "<<texFile<<"\n";return false;}
+	if(!in.is_open()) {
+		UF_MSG_ERROR("Cannot open {}", texFile);
+		return false;
+	}
 	in.read(magic,4);
 	in.read((char*)&width,2);
 	in.read((char*)&height,2);
 	in.read((char*)&textureType,4);
 	in.read((char*)&textureSize,4);
 	if(std::memcmp(magic,TEXTURE_MAGIC,4)!=0) {
-		std::cerr<<"Bad texture magic\n"; return false;
+		UF_MSG_ERROR("Bad texture magic");
 	}
 	uf::stl::vector<uint8_t> data(textureSize);
 	in.read((char*)data.data(),textureSize);
