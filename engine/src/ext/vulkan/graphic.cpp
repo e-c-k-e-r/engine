@@ -532,32 +532,32 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			if ( !buffer ) continue;
 
 			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer->descriptor);
-			if ( buffer->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer->descriptor);
+			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer->descriptor);
 		}
 	#if 0
 		// add per-rendermode buffers
 		for ( auto& buffer : renderMode.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
 		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 	#endif
 		// add per-shader buffers
 		for ( auto& buffer : shader->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
 		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-pipeline buffers
 		for ( auto& buffer : this->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
 		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-graphics buffers
 		for ( auto& buffer : graphic.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
 		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 
@@ -1133,10 +1133,10 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		// allocate buffers
 		auto previousRequestedAlignment = this->requestedAlignment;
 		this->requestedAlignment = 16;
-		PARSE_INPUT_INITIALIZE(vertex, uf::renderer::enums::Buffer::VERTEX | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
+		PARSE_INPUT_INITIALIZE(vertex, uf::renderer::enums::Buffer::VERTEX | uf::renderer::enums::Buffer::STORAGE )
 		PARSE_INPUT_INITIALIZE(index, uf::renderer::enums::Buffer::INDEX )
 		PARSE_INPUT_INITIALIZE(instance, uf::renderer::enums::Buffer::VERTEX )
-		PARSE_INPUT_INITIALIZE(indirect, uf::renderer::enums::Buffer::INDIRECT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
+		PARSE_INPUT_INITIALIZE(indirect, uf::renderer::enums::Buffer::INDIRECT | uf::renderer::enums::Buffer::STORAGE )
 		this->requestedAlignment = previousRequestedAlignment;
 	}
 
@@ -1745,7 +1745,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (float) (oldSize - compactedSize) / (float) (oldSize), oldSize, compactedSize, oldSize - compactedSize);
 
 		ext::vulkan::Buffer oldBuffer;
-		oldBuffer.initialize( NULL, tlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
+		oldBuffer.initialize( NULL, tlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | uf::renderer::enums::Buffer::STORAGE );
 		this->buffers[tlasBufferIndex].swap(oldBuffer);
 		
 		tlas.buffer = this->buffers[tlasBufferIndex].alias();

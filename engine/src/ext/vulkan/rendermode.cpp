@@ -64,7 +64,7 @@ const ext::vulkan::Buffer& ext::vulkan::RenderMode::getBuffer( const uf::stl::st
 	return this->buffers[metadata.buffers.at(name)];
 }
 size_t ext::vulkan::RenderMode::getBufferIndex( const uf::stl::string& name ) const {
-	return hasAttachment( name ) ? metadata.buffers.at(name) : SIZE_MAX;
+	return hasBuffer( name ) ? metadata.buffers.at(name) : SIZE_MAX;
 }
 
 uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layerID ) {

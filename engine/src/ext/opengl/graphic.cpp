@@ -357,10 +357,43 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	auto shaders = pipeline.getShaders( material.shaders );
 
 	for ( auto shader : shaders ) {
+		// bind aliased buffers
+		for ( auto& descriptor : shader->metadata.aliases.buffers ) {
+			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
+			auto name = matches.size() == 2 ? matches[0] : descriptor.name;
+			auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+			const ext::opengl::Buffer* buffer = &descriptor.fallback;
+			if ( descriptor.renderMode ) {
+				if ( descriptor.renderMode->hasBuffer(name) ) 
+					buffer = &descriptor.renderMode->getBuffer(name);
+			}/* else if ( renderMode.hasBuffer(name) ) {
+				buffer = &renderMode.getBuffer(name);
+			}*/
+
+			if ( !buffer ) continue;
+
+			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) uniformBuffers.emplace_back(buffer->descriptor);
+			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) storageBuffers.emplace_back(buffer->descriptor);
+		}
+		// bind shader
 		for ( auto& buffer : shader->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffers.emplace_back(buffer.descriptor); }
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) { storageBuffers.emplace_back(buffer.descriptor); }
 		}
+		/*
+		// add per-pipeline buffers
+		for ( auto& buffer : this->buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		}
+		// add per-graphics buffers
+		for ( auto& buffer : graphic.buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		}
+		*/
 	}
 
 	auto uniformBufferIt = uniformBuffers.begin();

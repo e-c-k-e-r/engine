@@ -7,7 +7,7 @@
 
 namespace ext {
 	namespace opengl {		
-		struct UF_API RenderMode {
+		struct UF_API RenderMode : public Buffers {
 			bool execute = false;
 			bool executed = false;
 			bool rebuild = false;

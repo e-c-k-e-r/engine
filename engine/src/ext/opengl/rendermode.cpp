@@ -83,6 +83,18 @@ ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands( std::thread::i
 void ext::opengl::RenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 
 }
+
+bool ext::opengl::RenderMode::hasBuffer( const uf::stl::string& name ) const {
+	return metadata.buffers.count(name) > 0;
+}
+const ext::opengl::Buffer& ext::opengl::RenderMode::getBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT_MSG( hasBuffer( name ), "attachment in `{}`: {} not found: {}", this->getName(), this->getType(), name );
+	return this->buffers[metadata.buffers.at(name)];
+}
+size_t ext::opengl::RenderMode::getBufferIndex( const uf::stl::string& name ) const {
+	return hasBuffer( name ) ? metadata.buffers.at(name) : SIZE_MAX;
+}
+
 void ext::opengl::RenderMode::bindPipelines() {
 	this->execute = true;
 
@@ -172,6 +184,12 @@ void ext::opengl::RenderMode::initialize( Device& device ) {
 		if ( this->width > 0 ) renderTarget.width = this->width;
 		if ( this->height > 0 ) renderTarget.height = this->height;
 	}
+
+/*
+	if ( !this->hasBuffer("camera") ) {
+		this->metadata.buffers["camera"] = this->initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+	}
+*/
 }
 
 void ext::opengl::RenderMode::tick() {

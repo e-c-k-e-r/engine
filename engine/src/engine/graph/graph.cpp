@@ -119,9 +119,11 @@ namespace {
 			graphic.material.metadata.autoInitializeUniformBuffers = false;
 			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
 			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
+		#if UF_USE_VULKAN
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) { // to-do: should cram in the attachShader itself
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
 			}
+		#endif
 			graphic.material.metadata.autoInitializeUniformBuffers = true;
 			// vertex shader
 			{
