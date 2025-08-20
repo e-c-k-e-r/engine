@@ -44,6 +44,11 @@ namespace {
 		return hash;
 	}
 
+	// removes non-uniform aliased buffers
+	void resetBuffers( uf::renderer::Shader& shader ) {
+		shader.metadata.aliases.buffers.clear();
+	}
+
 	void bindTextures( uf::renderer::Graphic& graphic ) {
 		graphic.material.textures.clear();
 
@@ -76,6 +81,488 @@ namespace {
 			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
 		}
 	#endif
+	}
+
+	void bindShaders( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+		auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+
+		uf::stl::string root = uf::io::directory( graph.name );
+		size_t texture2Ds = 0;
+		size_t texture3Ds = 0;
+		for ( auto& texture : graphic.material.textures ) {
+			if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 1 ) ++texture2Ds;
+			else if ( texture.width > 1 && texture.height > 1 && texture.depth > 1 && texture.layers == 1 ) ++texture3Ds;
+		}
+
+		// standard pipeline
+		{
+			uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base/vert.spv"); {
+				std::pair<bool, uf::stl::string> settings[] = {
+					{ graph.metadata["renderer"]["skinned"].as<bool>(), "skinned.vert" },
+					{ !graph.metadata["renderer"]["separate"].as<bool>(), "instanced.vert" },
+				};
+				FOR_ARRAY(settings) if ( settings[i].first ) vertexShaderFilename = uf::string::replace( vertexShaderFilename, "vert", settings[i].second );
+				vertexShaderFilename = entity.resolveURI( vertexShaderFilename, root );
+			}
+			uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>(""); if ( geometryShaderFilename != "" ) {
+				geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
+			}
+			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base/frag.spv"); {
+				fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
+			}
+
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
+			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
+			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) { // to-do: should cram in the attachShader itself
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
+			}
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
+			// vertex shader
+			{
+				auto& shader = graphic.material.getShader("vertex");
+			#if UF_USE_VULKAN
+				uint32_t maxPasses = 6;
+				shader.setSpecializationConstants({
+					{ "PASSES", maxPasses }
+				});
+			#endif
+			}
+			// fragment shader
+			{
+				auto& shader = graphic.material.getShader("fragment");
+			#if UF_USE_VULKAN
+				uint32_t maxTextures = graph.textures.size();
+				shader.setSpecializationConstants({
+					{ "TEXTURES", maxTextures },
+				});
+				shader.setDescriptorCounts({
+					{ "samplerTextures", maxTextures },
+				});
+			#endif
+			}
+		}
+
+		#if UF_USE_VULKAN
+		// depth only pipeline
+		{
+			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["depth"]["fragmment"].as<uf::stl::string>("/graph/depth/frag.spv");
+			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
+			
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
+			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
+
+			// fragment shader
+			auto& shader = graphic.material.getShader("fragment", "depth");
+
+			uint32_t maxTextures = graph.textures.size();
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures },
+			});
+		}
+		// culling pipeline
+		if ( uf::renderer::settings::pipelines::culling && graphic.descriptor.inputs.indirect.count ) {
+			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::culling]["compute"].as<uf::stl::string>("/graph/cull/comp.spv");
+			compShaderFilename = entity.resolveURI( compShaderFilename, root );
+
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
+			graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, uf::renderer::settings::pipelines::names::culling);
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
+
+			graphic.descriptor.bind.width = graphic.descriptor.inputs.indirect.count;
+			graphic.descriptor.bind.height = 1;
+			graphic.descriptor.bind.depth = 1;
+
+			// compute shader
+			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
+			shader.aliasAttachment("depthPyramid");
+		}
+		// vxgi pipeline
+		if ( uf::renderer::settings::pipelines::vxgi ) {
+			uf::stl::string geometryShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["geometry"].as<uf::stl::string>("/graph/voxelize/geom.spv"); {
+				geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
+			}
+			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["fragment"].as<uf::stl::string>("/graph/voxelize/frag.spv"); if ( geometryShaderFilename != "" ) {
+				fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
+			}
+
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
+			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, uf::renderer::settings::pipelines::names::vxgi);
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) { // to-do: should cram in the attachShader itself
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, uf::renderer::settings::pipelines::names::vxgi);
+			}
+
+			uint32_t voxelTypes = 0;
+			if ( !sceneTextures.voxels.drawId.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.instanceId.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.normalX.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.normalY.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceR.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceG.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceB.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.radianceA.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.count.empty() ) ++voxelTypes;
+			if ( !sceneTextures.voxels.output.empty() ) ++voxelTypes;
+
+			uint32_t maxTextures = texture2Ds;
+			uint32_t maxCascades = texture3Ds / voxelTypes;
+			
+			// fragment shader
+			{
+				auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
+				shader.setSpecializationConstants({
+					{ "TEXTURES", maxTextures },
+					{ "CASCADES", maxCascades },
+				});
+				shader.setDescriptorCounts({
+					{ "samplerTextures", maxTextures },
+					{ "voxelDrawId", maxCascades },
+					{ "voxelInstanceId", maxCascades },
+					{ "voxelNormalX", maxCascades },
+					{ "voxelNormalY", maxCascades },
+					{ "voxelRadianceR", maxCascades },
+					{ "voxelRadianceG", maxCascades },
+					{ "voxelRadianceB", maxCascades },
+					{ "voxelRadianceA", maxCascades },
+					{ "voxelCount", maxCascades },
+					{ "voxelOutput", maxCascades },
+				});
+			}
+		}
+		// baking pipeline
+		if ( graph.metadata["baking"]["enabled"].as<bool>() ) {
+			uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/vert.spv");
+			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/frag.spv");
+			std::pair<bool, uf::stl::string> settings[] = {
+				{ uf::renderer::settings::pipelines::rt, "rt.frag" },
+			};
+			FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
+			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
+			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
+
+			// vertex shader
+			{
+				uint32_t maxPasses = 6;
+
+				auto& shader = graphic.material.getShader("vertex", "baking");
+				shader.setSpecializationConstants({
+					{ "PASSES", maxPasses },
+				});
+			}
+
+			// fragment shader
+			{
+				size_t maxTextures = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+				size_t maxCubemaps = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+
+				auto& shader = graphic.material.getShader("fragment", "baking");
+				shader.setSpecializationConstants({
+					{ "TEXTURES", maxTextures },
+					{ "CUBEMAPS", maxCubemaps },
+				});
+				shader.setDescriptorCounts({
+					{ "samplerTextures", maxTextures },
+					{ "samplerCubemaps", maxCubemaps },
+				});
+			}
+		}
+
+		// rt pipeline
+		// to-do: segregate out buffer updating code
+		if ( uf::renderer::settings::pipelines::rt && mesh.vertex.count && graph.metadata["renderer"]["skinned"].as<bool>() ) {
+			struct PushConstant {
+				uint32_t jointID;
+			};
+
+			if ( mesh.isInterleaved( mesh.vertex ) ) {
+				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv"); {
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
+				}
+				graphic.material.metadata.autoInitializeUniformBuffers = false;
+				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+				graphic.material.metadata.autoInitializeUniformBuffers = true;
+				
+				graphic.descriptor.bind.width = mesh.vertex.count;
+				graphic.descriptor.bind.height = 1;
+				graphic.descriptor.bind.depth = 1;
+
+				// compute shader
+				auto& shader = graphic.material.getShader("compute", "skinning");
+
+				// bind buffers
+				struct {
+					uint32_t jointID;
+				} uniforms = {
+					.jointID = 0
+				};
+
+				auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
+				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+
+				auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
+				auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
+				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+				::resetBuffers( shader );
+				shader.aliasBuffer( storage.buffers.joint );
+				shader.aliasBuffer( vertexIn );
+				shader.aliasBuffer( vertexOut );
+			} else {
+				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
+				}
+			
+			//	graphic.material.metadata.autoInitializeUniformBuffers = false;
+				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+			//	graphic.material.metadata.autoInitializeUniformBuffers = true;
+			
+				graphic.descriptor.bind.width = mesh.vertex.count;
+				graphic.descriptor.bind.height = 1;
+				graphic.descriptor.bind.depth = 1;
+
+				uf::Mesh::Attribute vertexPos;
+				uf::Mesh::Attribute vertexJoints;
+				uf::Mesh::Attribute vertexWeights;
+
+				size_t vertexPosIndex = 0;
+				size_t vertexJointsIndex = 0;
+				size_t vertexWeightsIndex = 0;
+
+				for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
+					auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
+
+					if ( attribute.buffer < 0 ) continue;
+					if ( attribute.descriptor.name == "position" ) {
+						vertexPos = attribute; 
+						vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
+					}
+					else if ( attribute.descriptor.name == "joints" ) {
+						vertexJoints = attribute;
+						vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
+					}
+					else if ( attribute.descriptor.name == "weights" ) {
+						vertexWeights = attribute;
+						vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
+					}
+				}
+
+				auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
+				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+
+				auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
+				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
+				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
+
+				auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
+				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+				auto& shader = graphic.material.getShader("compute", "skinning");
+
+				struct {
+					uint32_t jointID;
+				} uniforms = {
+					.jointID = 0
+				};
+
+				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+				// bind buffers
+				::resetBuffers( shader );
+				shader.aliasBuffer( storage.buffers.joint );
+				shader.aliasBuffer( vertexPositionBuffer );
+				shader.aliasBuffer( vertexJointsBuffer );
+				shader.aliasBuffer( vertexWeightsBuffer );
+				shader.aliasBuffer( vertexOutPosition );
+			}
+			graphic.generateBottomAccelerationStructures();
+		}
+		#endif
+	}
+
+	void bindBuffers( uf::renderer::Graphic& graphic, uf::Mesh& mesh ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+		// draw command buffer for binding
+		uf::renderer::Buffer* indirect = NULL;
+		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
+
+		// standard pipeline
+		{
+			// vertex shader
+			{
+				auto& shader = graphic.material.getShader("vertex");
+
+				// bind buffers
+				::resetBuffers( shader );
+			#if UF_USE_VULKAN
+				shader.aliasBuffer( "camera", storage.buffers.camera );
+			#else
+				shader.aliasBuffer( storage.buffers.camera );
+			#endif
+
+			#if UF_USE_VULKAN
+				shader.aliasBuffer( *indirect );
+			#endif
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.joint );
+			}
+			// fragment shader
+			{
+				auto& shader = graphic.material.getShader("fragment");
+
+				// bind buffers
+				::resetBuffers( shader );
+				shader.aliasBuffer( storage.buffers.drawCommands );
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.instanceAddresses );
+				shader.aliasBuffer( storage.buffers.material );
+				shader.aliasBuffer( storage.buffers.texture );
+				shader.aliasBuffer( storage.buffers.light );
+			}
+		}
+
+
+		#if UF_USE_VULKAN
+		// depth only pipeline
+		{
+			// fragment shader
+			auto& shader = graphic.material.getShader("fragment", "depth");
+
+			// bind buffers
+			::resetBuffers( shader );
+			shader.aliasBuffer( storage.buffers.drawCommands );
+			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.material );
+			shader.aliasBuffer( storage.buffers.texture );
+			shader.aliasBuffer( storage.buffers.light );
+		}
+		// culling pipeline
+		if ( uf::renderer::settings::pipelines::culling && indirect ) {
+			// compute shader
+			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
+
+			// bind buffers
+			::resetBuffers( shader );
+			shader.aliasBuffer( "camera", storage.buffers.camera );
+			shader.aliasBuffer( *indirect );
+			shader.aliasBuffer( storage.buffers.instance );
+		}
+
+		// vxgi pipeline
+		if ( uf::renderer::settings::pipelines::vxgi ) {	
+			// fragment shader
+			{
+				auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
+				
+				// bind buffers
+				::resetBuffers( shader );
+				shader.aliasBuffer( storage.buffers.drawCommands );
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.instanceAddresses );
+				shader.aliasBuffer( storage.buffers.material );
+				shader.aliasBuffer( storage.buffers.texture );
+				shader.aliasBuffer( storage.buffers.light );
+			}
+		}
+		// baking pipeline
+		if ( graphic.material.hasShader("vertex", "baking") /*graph.metadata["baking"]["enabled"].as<bool>()*/ ) {
+			// vertex shader
+			{
+				auto& shader = graphic.material.getShader("vertex", "baking");
+
+				// bind buffers
+				::resetBuffers( shader );
+			#if UF_USE_VULKAN
+				shader.aliasBuffer( *indirect );
+			#endif
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.joint );
+			}
+
+			// fragment shader
+			{
+				auto& shader = graphic.material.getShader("fragment", "baking");
+
+				// bind buffers
+				::resetBuffers( shader );
+				shader.aliasBuffer( "camera", storage.buffers.camera );
+				shader.aliasBuffer( storage.buffers.drawCommands );
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.instanceAddresses );
+				shader.aliasBuffer( storage.buffers.material );
+				shader.aliasBuffer( storage.buffers.texture );
+				shader.aliasBuffer( storage.buffers.light );
+			}
+		}
+
+		// rt pipeline
+		// to-do: segregate out buffer updating code
+
+		// grab addresses
+		if ( uf::renderer::settings::invariant::deviceAddressing ) {
+			pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
+			for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
+				auto& drawCommand = drawCommands[drawID];
+				auto instanceID = drawCommand.instanceID;
+				auto instanceKeyName = std::to_string(instanceID);
+
+				if ( storage.instanceAddresses.map.count(instanceKeyName) > 0 ) {
+				//	UF_MSG_ERROR("DUPLICATE INSTANCE ID: {}", instanceKeyName);
+				}
+
+				auto& instanceAddresses = storage.instanceAddresses.map[instanceKeyName];
+				if ( mesh.vertex.count ) {
+					if ( mesh.isInterleaved( mesh.vertex ) ) {
+						instanceAddresses.vertex = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved).getAddress()/* + (drawCommand.vertexID * mesh.vertex.size)*/;
+					} else {
+						for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
+							if ( attribute.buffer < 0 ) continue;
+							if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+						}
+					}
+				}
+				if ( mesh.index.count ) {
+					if ( mesh.isInterleaved( mesh.index ) ) instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.interleaved).getAddress();
+					else instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
+				}
+
+				if ( mesh.indirect.count ) {
+					if ( mesh.isInterleaved( mesh.indirect ) ) instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.interleaved).getAddress();
+					else instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
+
+					instanceAddresses.drawID = drawID;
+				}
+			}
+		}
+		#endif
 	}
 
 	// lazy load animations if requested
@@ -328,7 +815,6 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 	
-	
 	auto& graphic = entity.getComponent<uf::renderer::Graphic>();
 	graphic.initialize();
 	graphic.initializeMesh( mesh );
@@ -376,436 +862,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 */
 
 	::bindTextures( graphic );
-	
-	uf::stl::string root = uf::io::directory( graph.name );
-	size_t texture2Ds = 0;
-	size_t texture3Ds = 0;
-	for ( auto& texture : graphic.material.textures ) {
-		if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 1 ) ++texture2Ds;
-		else if ( texture.width > 1 && texture.height > 1 && texture.depth > 1 && texture.layers == 1 ) ++texture3Ds;
-	}
-
-	// standard pipeline
-	uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base/vert.spv"); {
-		std::pair<bool, uf::stl::string> settings[] = {
-			{ graph.metadata["renderer"]["skinned"].as<bool>(), "skinned.vert" },
-			{ !graph.metadata["renderer"]["separate"].as<bool>(), "instanced.vert" },
-		};
-		FOR_ARRAY(settings) if ( settings[i].first ) vertexShaderFilename = uf::string::replace( vertexShaderFilename, "vert", settings[i].second );
-		vertexShaderFilename = entity.resolveURI( vertexShaderFilename, root );
-	}
-	uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
-	uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base/frag.spv"); {
-	#if 0
-		std::pair<bool, uf::stl::string> settings[] = {
-			{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
-		};
-		FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
-	#endif
-		fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
-	}
-	{
-		graphic.material.metadata.autoInitializeUniformBuffers = false;
-		graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
-		graphic.material.metadata.autoInitializeUniformBuffers = true;
-	}
-
-	uf::renderer::Buffer* indirect = NULL;
-	for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
-
-/*
-	{
-		auto& renderMode = uf::renderer::getRenderMode("", true);
-		if ( !renderMode.hasBuffer("camera") ) {
-			renderMode.metadata.buffers["camera"] = renderMode.initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
-		}
-	}
-*/
-	{
-		auto& shader = graphic.material.getShader("vertex");
-	#if UF_USE_VULKAN
-		shader.aliasBuffer( "camera", storage.buffers.camera );
-	#else
-		shader.buffers.emplace_back( storage.buffers.camera.alias() );
-	#endif
-//	//	shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-	#if UF_USE_VULKAN
-		shader.buffers.emplace_back( indirect->alias() );
-	#endif
-		shader.buffers.emplace_back( storage.buffers.instance.alias() );
-		shader.buffers.emplace_back( storage.buffers.joint.alias() );
-	#if UF_USE_VULKAN
-		uint32_t maxPasses = 6;
-		shader.setSpecializationConstants({
-			{ "PASSES", maxPasses }
-		});
-	#endif
-	}
-	{
-		auto& shader = graphic.material.getShader("fragment");
-
-		shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-		shader.buffers.emplace_back( storage.buffers.instance.alias() );
-		shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-		shader.buffers.emplace_back( storage.buffers.material.alias() );
-		shader.buffers.emplace_back( storage.buffers.texture.alias() );
-		shader.buffers.emplace_back( storage.buffers.light.alias() );
-	
-	#if UF_USE_VULKAN
-		uint32_t maxTextures = graph.textures.size(); // texture2Ds;
-		shader.setSpecializationConstants({
-			{ "TEXTURES", maxTextures },
-		});
-		shader.setDescriptorCounts({
-			{ "samplerTextures", maxTextures },
-		});
-	#endif
-	}
-#if UF_USE_VULKAN
-	// culling pipeline
-	if ( uf::renderer::settings::pipelines::culling ) {
-		uf::renderer::Buffer* indirect = NULL;
-		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
-		UF_ASSERT( indirect );
-		if ( indirect ) {
-			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::culling]["compute"].as<uf::stl::string>("/graph/cull/comp.spv");
-			{
-				graphic.material.metadata.autoInitializeUniformBuffers = false;
-				compShaderFilename = entity.resolveURI( compShaderFilename, root );
-				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, uf::renderer::settings::pipelines::names::culling);
-				graphic.material.metadata.autoInitializeUniformBuffers = true;
-			}
-			graphic.descriptor.bind.width = graphic.descriptor.inputs.indirect.count;
-			graphic.descriptor.bind.height = 1;
-			graphic.descriptor.bind.depth = 1;
-
-			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
-
-		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
-			shader.aliasBuffer( "camera", storage.buffers.camera );
-			shader.buffers.emplace_back( indirect->alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-
-			shader.aliasAttachment("depthPyramid");
-		}
-	}
-	if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-		geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
-		graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
-	}
-	// depth only pipeline
-	{
-		graphic.material.metadata.autoInitializeUniformBuffers = false;
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["depth"]["fragmment"].as<uf::stl::string>("/graph/depth/frag.spv");
-		fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
-		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
-		graphic.material.metadata.autoInitializeUniformBuffers = true;
-		{
-			auto& shader = graphic.material.getShader("fragment", "depth");
-
-			uint32_t maxTextures = graph.textures.size(); // texture2Ds;
-			shader.setSpecializationConstants({
-				{ "TEXTURES", maxTextures },
-			});
-			shader.setDescriptorCounts({
-				{ "samplerTextures", maxTextures },
-			});
-
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
-		}
-	}
-	// vxgi pipeline
-	if ( uf::renderer::settings::pipelines::vxgi ) {
-		uf::stl::string vertexShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["vertex"].as<uf::stl::string>("/graph/base/vert.spv");
-		uf::stl::string geometryShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["geometry"].as<uf::stl::string>("/graph/voxelize/geom.spv");
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["fragment"].as<uf::stl::string>("/graph/voxelize/frag.spv");
-
-		{
-			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
-			graphic.material.metadata.autoInitializeUniformBuffers = false;
-			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, uf::renderer::settings::pipelines::names::vxgi);
-			graphic.material.metadata.autoInitializeUniformBuffers = true;
-		}
-		if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-			geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
-			graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, uf::renderer::settings::pipelines::names::vxgi);
-		}
-		{
-			uint32_t voxelTypes = 0;
-			if ( !sceneTextures.voxels.drawId.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.instanceId.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.normalX.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.normalY.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceR.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceG.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceB.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceA.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.count.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.output.empty() ) ++voxelTypes;
-
-			uint32_t maxTextures = texture2Ds;
-			uint32_t maxCascades = texture3Ds / voxelTypes;
-
-			auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
-			shader.setSpecializationConstants({
-				{ "TEXTURES", maxTextures },
-				{ "CASCADES", maxCascades },
-			});
-			shader.setDescriptorCounts({
-				{ "samplerTextures", maxTextures },
-				{ "voxelDrawId", maxCascades },
-				{ "voxelInstanceId", maxCascades },
-				{ "voxelNormalX", maxCascades },
-				{ "voxelNormalY", maxCascades },
-				{ "voxelRadianceR", maxCascades },
-				{ "voxelRadianceG", maxCascades },
-				{ "voxelRadianceB", maxCascades },
-				{ "voxelRadianceA", maxCascades },
-				{ "voxelCount", maxCascades },
-				{ "voxelOutput", maxCascades },
-			});
-			
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
-		}
-	}
-	// baking pipeline
-	if ( graph.metadata["baking"]["enabled"].as<bool>() ) {
-		{
-			graphic.material.metadata.autoInitializeUniformBuffers = false;
-			uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/vert.spv");
-			uf::stl::string geometryShaderFilename = uf::io::resolveURI("/graph/baking/geom.spv");
-			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/frag.spv");
-			std::pair<bool, uf::stl::string> settings[] = {
-				{ uf::renderer::settings::pipelines::rt, "rt.frag" },
-			};
-			FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
-
-			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
-		//	graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "baking");
-			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
-			graphic.material.metadata.autoInitializeUniformBuffers = true;
-		}
-		{
-			uint32_t maxPasses = 6;
-
-			auto& shader = graphic.material.getShader("vertex", "baking");
-			shader.setSpecializationConstants({
-				{ "PASSES", maxPasses },
-			});
-
-		#if UF_USE_VULKAN
-			shader.buffers.emplace_back( indirect->alias() );
-		#endif
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.joint.alias() );
-		}
-
-		{
-			size_t maxTextures = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxCubemaps = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
-
-			auto& shader = graphic.material.getShader("fragment", "baking");
-			shader.setSpecializationConstants({
-				{ "TEXTURES", maxTextures },
-				{ "CUBEMAPS", maxCubemaps },
-			});
-			shader.setDescriptorCounts({
-				{ "samplerTextures", maxTextures },
-				{ "samplerCubemaps", maxCubemaps },
-			});
-
-		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
-			shader.aliasBuffer( "camera", storage.buffers.camera );
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
-		}
-	}
-	if ( uf::renderer::settings::pipelines::rt ) {
-		// rt pipeline
-		if ( mesh.vertex.count && graph.metadata["renderer"]["skinned"].as<bool>() ) {
-
-			struct PushConstant {
-				uint32_t jointID;
-			};
-
-			if ( mesh.isInterleaved( mesh.vertex ) ) {
-				auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
-				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
-				
-			/*
-				auto& vertexIn = graphic.buffers.at(vertexSourceDataIndex);
-				auto& vertexOut = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
-			*/
-				auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
-				auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
-				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
-
-				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv");
-				{
-					graphic.material.metadata.autoInitializeUniformBuffers = false;
-					compShaderFilename = entity.resolveURI( compShaderFilename, root );
-					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-					graphic.material.metadata.autoInitializeUniformBuffers = true;
-				}
-				graphic.descriptor.bind.width = mesh.vertex.count;
-				graphic.descriptor.bind.height = 1;
-				graphic.descriptor.bind.depth = 1;
-
-				auto& shader = graphic.material.getShader("compute", "skinning");
-
-				struct {
-					uint32_t jointID;
-				} uniforms = {
-					.jointID = 0
-				};
-
-				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-
-				shader.buffers.emplace_back( storage.buffers.joint.alias() );
-				shader.buffers.emplace_back( vertexIn.alias() );
-				shader.buffers.emplace_back( vertexOut.alias() );
-			} else {
-				uf::Mesh::Attribute vertexPos;
-				uf::Mesh::Attribute vertexJoints;
-				uf::Mesh::Attribute vertexWeights;
-
-				size_t vertexPosIndex = 0;
-				size_t vertexJointsIndex = 0;
-				size_t vertexWeightsIndex = 0;
-
-				for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
-					auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
-
-					if ( attribute.buffer < 0 ) continue;
-					if ( attribute.descriptor.name == "position" ) {
-						vertexPos = attribute; 
-						vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
-					}
-					else if ( attribute.descriptor.name == "joints" ) {
-						vertexJoints = attribute;
-						vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
-					}
-					else if ( attribute.descriptor.name == "weights" ) {
-						vertexWeights = attribute;
-						vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
-					}
-				}
-
-				auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
-				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
-
-			/*
-				auto& vertexPositionBuffer = graphic.buffers.at(vertexSourceDataIndex);
-				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
-				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
-
-				auto& vertexOutPosition = graphic.buffers.at(vertexPosIndex);
-			*/
-				auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
-				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
-				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
-
-				auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
-				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
-
-				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv");
-				{
-				//	graphic.material.metadata.autoInitializeUniformBuffers = false;
-					compShaderFilename = entity.resolveURI( compShaderFilename, root );
-					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-				//	graphic.material.metadata.autoInitializeUniformBuffers = true;
-				}
-				graphic.descriptor.bind.width = mesh.vertex.count;
-				graphic.descriptor.bind.height = 1;
-				graphic.descriptor.bind.depth = 1;
-
-				auto& shader = graphic.material.getShader("compute", "skinning");
-
-				struct {
-					uint32_t jointID;
-				} uniforms = {
-					.jointID = 0
-				};
-
-				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-
-				shader.buffers.emplace_back( storage.buffers.joint.alias() );
-				shader.buffers.emplace_back( vertexPositionBuffer.alias() );
-				shader.buffers.emplace_back( vertexJointsBuffer.alias() );
-				shader.buffers.emplace_back( vertexWeightsBuffer.alias() );
-				shader.buffers.emplace_back( vertexOutPosition.alias() );
-			}
-		}
-		graphic.generateBottomAccelerationStructures();
-	}
-
-	// grab addresses
-	if ( uf::renderer::settings::invariant::deviceAddressing ) {
-		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
-		for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
-			auto& drawCommand = drawCommands[drawID];
-			auto instanceID = drawCommand.instanceID;
-			auto instanceKeyName = std::to_string(instanceID);
-
-		/*
-			if ( storage.instanceAddresses.map.count(instanceKeyName) > 0 ) {
-				auto objectKeyName = std::to_string(objectID);
-				instanceKeyName = objectKeyName + "+" + instanceKeyName;
-			}
-		*/
-			if ( storage.instanceAddresses.map.count(instanceKeyName) > 0 ) {
-			//	UF_MSG_ERROR("DUPLICATE INSTANCE ID: {}", instanceKeyName);
-			}
-
-			auto& instanceAddresses = storage.instanceAddresses.map[instanceKeyName];
-			if ( mesh.vertex.count ) {
-				if ( mesh.isInterleaved( mesh.vertex ) ) {
-					instanceAddresses.vertex = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved).getAddress()/* + (drawCommand.vertexID * mesh.vertex.size)*/;
-				} else {
-					for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
-						if ( attribute.buffer < 0 ) continue;
-						if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-						else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
-					}
-				}
-			}
-			if ( mesh.index.count ) {
-				if ( mesh.isInterleaved( mesh.index ) ) instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.interleaved).getAddress();
-				else instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
-			}
-
-			if ( mesh.indirect.count ) {
-				if ( mesh.isInterleaved( mesh.indirect ) ) instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.interleaved).getAddress();
-				else instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
-
-				instanceAddresses.drawID = drawID;
-			}
-		}
-	}
-#endif
+	::bindShaders( graph, entity, mesh );
+	::bindBuffers( graphic, mesh );
 
 	graphic.process = true;
 }
@@ -1846,13 +1904,33 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 }
 void uf::graph::tick() {
-	if ( uf::graph::globalStorage ) return uf::graph::tick( uf::graph::storage );
-	return uf::graph::tick( uf::scene::getCurrentScene() );
+	if ( uf::graph::globalStorage ) uf::graph::tick( uf::graph::storage );
+	else uf::graph::tick( uf::scene::getCurrentScene() );
 }
 void uf::graph::tick( uf::Object& object ) {
-	return uf::graph::tick( object.getComponent<pod::Graph::Storage>() );
+	auto& storage = object.getComponent<pod::Graph::Storage>();
+	
+	bool rebuild = uf::graph::tick( storage );
+	
+	// rebind buffers
+	if ( rebuild ) {
+		auto& graph = object.getComponent<pod::Graph>();
+		for ( auto& node : graph.nodes ) {
+			if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+			if ( !node.entity ) continue;
+
+			auto& entity = node.entity->as<uf::Object>();
+
+			if ( !entity.hasComponent<uf::renderer::Graphic>() ) continue;
+
+			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+			auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+
+			::bindBuffers( graphic, mesh );
+		}
+	}
 }
-void uf::graph::tick( pod::Graph::Storage& storage ) {
+bool uf::graph::tick( pod::Graph::Storage& storage ) {
 /*
 	uf::stl::vector<pod::Instance> instances; instances.reserve(storage.instances.map.size());
 	for ( auto& key : storage.instances.keys ) instances.emplace_back( storage.instances.map[key] );
@@ -1898,8 +1976,8 @@ void uf::graph::tick( pod::Graph::Storage& storage ) {
 		rebuild = storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) ) || rebuild;
 
 		::newGraphAdded = false;
-
 	}
+
 	if ( rebuild ) {
 		UF_MSG_DEBUG("Graph buffers requesting renderer update");
 		uf::renderer::states::rebuild = true;
@@ -1915,19 +1993,21 @@ void uf::graph::tick( pod::Graph::Storage& storage ) {
 			auto moved = std::move( shader.buffers );
 			for ( auto& buffer : moved ) {
 				if ( buffer.aliased ) continue;
-				shader.buffers.emplace_back( buffer );
+				shader.aliasBuffer( buffer );
 				buffer.aliased = true;
 			}
 
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
+			shader.aliasBuffer( storage.buffers.drawCommands );
+			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.material );
+			shader.aliasBuffer( storage.buffers.texture );
+			shader.aliasBuffer( storage.buffers.light );
 		}
 	*/
 	}
+
+	return rebuild;
 }
 void uf::graph::render() {
 	if ( uf::graph::globalStorage ) return uf::graph::render( uf::graph::storage );
@@ -2359,10 +2439,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		if ( exists ) {
 			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
 			bool rebuild = graphic.updateMesh( mesh );
-			if ( rebuild ) {
-			//	uf::renderer::states::rebuild = true;
-			}
+			// update texture descriptors
 			::bindTextures( graphic );
+			// update buffers if any of them were resized (because my aliasing system is weak)
+			if ( rebuild ) {
+				::bindBuffers( graphic, mesh );
+				uf::renderer::states::rebuild = true;
+			}
 		} else {
 			uf::graph::initializeGraphics( graph, entity, mesh );
 		}

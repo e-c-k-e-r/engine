@@ -13,6 +13,7 @@ namespace ext {
 		struct Device;
 
 		struct UF_API Buffer {
+			bool aliased = false;
 			Device* device;
 			GLuint buffer = 0;
 			

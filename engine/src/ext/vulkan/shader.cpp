@@ -881,8 +881,13 @@ bool ext::vulkan::Shader::hasBuffer( const uf::stl::string& name ) {
 void ext::vulkan::Shader::aliasBuffer( const ext::vulkan::Shader::Metadata::BufferDescriptor& descriptor ) {
 	metadata.aliases.buffers.emplace_back(descriptor);
 }
+// aliases by name
 void ext::vulkan::Shader::aliasBuffer( const uf::stl::string& name, const ext::vulkan::Buffer& fallback, const ext::vulkan::RenderMode* renderMode, VkBufferUsageFlags flags ) {
 	return aliasBuffer({ name, fallback.alias(), renderMode, flags });
+}
+// aliases directly
+void ext::vulkan::Shader::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
+	return aliasBuffer({ "", buffer.alias(), NULL, buffer.usage });
 }
 
 bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) const {

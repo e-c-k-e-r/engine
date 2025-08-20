@@ -144,6 +144,7 @@ namespace ext {
 
 			bool hasBuffer( const uf::stl::string& name );
 			void aliasBuffer( const Metadata::BufferDescriptor& descriptor );
+			void aliasBuffer( const ext::vulkan::Buffer& buffer );
 			void aliasBuffer( const uf::stl::string& name, const ext::vulkan::Buffer& = {}, const ext::vulkan::RenderMode* renderMode = NULL, VkBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT );
 
 			bool hasUniform( const uf::stl::string& name ) const;

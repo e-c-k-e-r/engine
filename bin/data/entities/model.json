@@ -78,8 +78,8 @@
 			"stream": {
 				"tag": "worldspawn",
 				"player": "info_player_spawn",
-				"enabled": "auto",
-				"radius": 32,
+				"enabled": true, // "auto",
+				"radius": 16,
 				"every": 1
 			}
 		}

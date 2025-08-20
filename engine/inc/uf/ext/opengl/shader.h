@@ -110,6 +110,11 @@ namespace ext {
 			void destroy();
 			bool validate();
 
+			bool hasBuffer( const uf::stl::string& name );
+			void aliasBuffer( const Metadata::BufferDescriptor& descriptor );
+			void aliasBuffer( const ext::opengl::Buffer& buffer );
+			void aliasBuffer( const uf::stl::string& name, const ext::opengl::Buffer& = {}, const ext::opengl::RenderMode* renderMode = NULL, GLenum = 0 );
+
 			bool hasUniform( const uf::stl::string& name ) const;
 
 			Buffer& getUniformBuffer( const uf::stl::string& name );

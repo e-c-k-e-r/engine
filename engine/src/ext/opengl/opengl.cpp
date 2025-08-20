@@ -410,6 +410,7 @@ void ext::opengl::render(){
 #if !UF_ENV_DREAMCAST
 	ext::opengl::device.activateContext();
 #endif
+	auto transient = std::move(ext::opengl::device.transient);
 
 	{
 		auto& scene = uf::scene::getCurrentScene();
@@ -470,6 +471,11 @@ void ext::opengl::render(){
 #if UF_USE_OPENVR
 	// if ( ext::openvr::context ) ext::openvr::postSubmit();
 #endif
+
+	// cleanup in-flight buffers
+	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
+	transient.buffers.clear();
+	
 	ext::opengl::mutex.unlock();
 }
 void ext::opengl::destroy() {

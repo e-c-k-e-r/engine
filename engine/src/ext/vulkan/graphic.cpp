@@ -516,6 +516,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		auto& infos = INFOS.emplace_back();
 		uf::stl::vector<ext::vulkan::enums::Image::viewType_t> types;
 
+		// add aliased-by-name buffers
 		for ( auto& descriptor : shader->metadata.aliases.buffers ) {
 			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
 			auto name = matches.size() == 2 ? matches[0] : descriptor.name;

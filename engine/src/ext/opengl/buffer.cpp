@@ -12,15 +12,14 @@ ext::opengl::Buffer ext::opengl::Buffer::alias() const {
 	return buffer;
 }
 void ext::opengl::Buffer::aliasBuffer( const ext::opengl::Buffer& buffer ) {
-	*this = {
-		.device = NULL,
-		.buffer = buffer.buffer,
-		.descriptor = buffer.descriptor,
-		.size = buffer.size,
-		.alignment = buffer.alignment,
-		.usage = buffer.usage,
-		.allocationInfo = buffer.allocationInfo,
-	};
+	this->aliased = true;
+	this->device = NULL;
+	this->buffer = buffer.buffer;
+	this->descriptor = buffer.descriptor;
+	this->size = buffer.size;
+	this->alignment = buffer.alignment;
+	this->usage = buffer.usage;
+	this->allocationInfo = buffer.allocationInfo;
 }
 
 void* ext::opengl::Buffer::map( GLsizeiptr size, GLsizeiptr offset ) {
@@ -52,9 +51,18 @@ void ext::opengl::Buffer::initialize( const void* data, GLsizeiptr length, GLenu
 	} );
 	if ( !alias ) this->update( data, length );
 }
-bool ext::opengl::Buffer::update( const void* data, GLsizeiptr len ) const {
+bool ext::opengl::Buffer::update( const void* data, GLsizeiptr length ) const {
 	if ( !buffer || !data ) return false;
-	if ( len >= size ) len = size;
+	if ( length > allocationInfo.size ) {
+		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size);
+
+		auto savedUsage = usage;
+		Buffer& self = const_cast<Buffer&>(*this);
+		self.destroy(true);
+		self.initialize(data, length, savedUsage);
+		
+		return true;
+	}
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 // GPU-bound buffer
 	GLenum usage;
@@ -74,12 +82,12 @@ bool ext::opengl::Buffer::update( const void* data, GLsizeiptr len ) const {
 		if ( usage & enums::Buffer::COPY ) usage = GL_DYNAMIC_COPY;
 	}
 	GL_ERROR_CHECK(glBindBuffer(GL_COPY_WRITE_BUFFER, buffer));
-	GL_ERROR_CHECK(glBufferData(GL_COPY_WRITE_BUFFER, len, data, usage));
+	GL_ERROR_CHECK(glBufferData(GL_COPY_WRITE_BUFFER, length, data, usage));
 	GL_ERROR_CHECK(glBindBuffer(GL_COPY_WRITE_BUFFER, 0));
 #else
 // CPU-bound buffer
 	void* pointer = device->getBuffer( buffer );
-	if ( pointer && pointer != data ) memcpy( pointer, data, len );
+	if ( pointer && pointer != data ) memcpy( pointer, data, length );
 #endif
 	return false;
 }
@@ -113,7 +121,15 @@ void ext::opengl::Buffer::initialize( Device& device ) {
 	this->device = &device;
 }
 void ext::opengl::Buffer::destroy( bool defer ) {
-	if ( device && buffer ) device->destroyBuffer( buffer );
+	if ( !device || aliased ) return;
+
+	if ( defer ) {
+		ext::opengl::mutex.lock();
+		device->transient.buffers.emplace_back(*this);
+		ext::opengl::mutex.unlock();
+	} else if ( buffer ) {
+		device->destroyBuffer( buffer );
+	}
 	device = NULL;
 	buffer = NULL;
 }

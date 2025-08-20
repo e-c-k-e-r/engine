@@ -38,6 +38,10 @@ namespace ext {
 
 			} textures, buffers;
 
+			struct {
+				uf::stl::vector<Buffer> buffers;
+			} transient;
+
 			void initialize();
 			void destroy();
 

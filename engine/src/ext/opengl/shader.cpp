@@ -116,6 +116,19 @@ bool ext::opengl::Shader::hasUniform( const uf::stl::string& name ) const {
 //	return metadata.definitions.uniforms.count(name) > 0;
 	return true;
 }
+
+void ext::opengl::Shader::aliasBuffer( const ext::opengl::Shader::Metadata::BufferDescriptor& descriptor ) {
+	metadata.aliases.buffers.emplace_back(descriptor);
+}
+// aliases by name
+void ext::opengl::Shader::aliasBuffer( const uf::stl::string& name, const ext::opengl::Buffer& fallback, const ext::opengl::RenderMode* renderMode, GLenum flags ) {
+	return aliasBuffer({ name, fallback.alias(), renderMode, flags });
+}
+// aliases directly
+void ext::opengl::Shader::aliasBuffer( const ext::opengl::Buffer& buffer ) {
+	return aliasBuffer({ "", buffer.alias(), NULL, buffer.usage });
+}
+
 ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
 	size_t uniformIndex = 0; // metadata.definitions.uniforms[name].index;

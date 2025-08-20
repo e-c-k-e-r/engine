@@ -195,14 +195,11 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 		auto savedMemProps = memoryProperties;
 		auto savedAlignment = alignment;
 
-		Buffer& oldBuffer = *const_cast<Buffer*>(this);
-		Buffer newBuffer = {};
+		Buffer& self = const_cast<Buffer&>(*this);
 
-		oldBuffer.swap(newBuffer);
-		newBuffer.destroy(true);
-
-		oldBuffer.initialize(*device, savedAlignment);
-		oldBuffer.initialize(data, length, savedUsage, savedMemProps, stage);
+		self.destroy(true);
+		self.initialize(*device, savedAlignment);
+		self.initialize(data, length, savedUsage, savedMemProps, stage);
 
 		return true;
 	}
