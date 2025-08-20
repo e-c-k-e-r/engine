@@ -356,6 +356,8 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	auto& pipeline = this->getPipeline( descriptor );
 	auto shaders = pipeline.getShaders( material.shaders );
 
+	uf::stl::unordered_map<uf::stl::string, ext::opengl::Buffer::Descriptor> bufferMap;
+
 	for ( auto shader : shaders ) {
 		// bind aliased buffers
 		for ( auto& descriptor : shader->metadata.aliases.buffers ) {
@@ -374,6 +376,8 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) uniformBuffers.emplace_back(buffer->descriptor);
 			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) storageBuffers.emplace_back(buffer->descriptor);
+
+			// if ( descriptor.name != "" ) bufferMap[descriptor.name] = buffer->descriptor;
 		}
 		// bind shader
 		for ( auto& buffer : shader->buffers ) {
@@ -437,15 +441,27 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 		auto storageBufferIt = storageBuffers.begin();
 
-		storageBufferIt++;
-		storageBufferIt++;
-		
+		auto _instanceBuffer = (*storageBufferIt++).buffer;
+		auto jointBuffer = (*storageBufferIt++).buffer;
+
 		auto drawCommandsBuffer = (*storageBufferIt++).buffer;
 		auto instanceBuffer = (*storageBufferIt++).buffer;
 		auto instanceAddressBuffer = (*storageBufferIt++).buffer;
 		auto materialBuffer = (*storageBufferIt++).buffer;
 		auto textureBuffer = (*storageBufferIt++).buffer;
 
+	/*
+		auto _instanceBuffer = bufferMap["instance"].buffer;
+		auto jointBuffer = bufferMap["joint"].buffer;
+
+		auto drawCommandsBuffer = bufferMap["drawCommands"].buffer;
+		auto instanceBuffer = bufferMap["instance"].buffer;
+		auto instanceAddressBuffer = bufferMap["instanceAddress"].buffer;
+		auto materialBuffer = bufferMap["material"].buffer;
+		auto textureBuffer = bufferMap["texture"].buffer;
+	*/
+
+		
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) indirectAttribute.pointer;
 		pod::Instance* instances = (pod::Instance*) device->getBuffer( instanceBuffer );
 		pod::Material* materials = (pod::Material*) device->getBuffer( materialBuffer );

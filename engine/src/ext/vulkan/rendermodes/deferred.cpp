@@ -297,14 +297,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{ "voxelOutput", maxCascades },
 			});
 
-		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
-		//	shader.buffers.emplace_back( storage.buffers.joint.alias() );
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
+		//	shader.aliasBuffer( storage.buffers.camera );
+		//	shader.aliasBuffer( storage.buffers.joint );
+			shader.aliasBuffer( storage.buffers.drawCommands );
+			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.material );
+			shader.aliasBuffer( storage.buffers.texture );
+			shader.aliasBuffer( storage.buffers.light );
 
 			shader.aliasAttachment("id", this);
 		#if BARYCENTRIC
@@ -521,19 +521,15 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		if ( blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
 			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
-			auto moved = std::move( shader.buffers );
-			for ( auto& buffer : moved ) {
-				if ( buffer.aliased ) continue;
-				shader.buffers.emplace_back( buffer );
-				buffer.aliased = true;
-			}
-
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
+			shader.metadata.aliases.buffers.clear();
+		//	shader.aliasBuffer( storage.buffers.camera );
+		//	shader.aliasBuffer( storage.buffers.joint );
+			shader.aliasBuffer( storage.buffers.drawCommands );
+			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.material );
+			shader.aliasBuffer( storage.buffers.texture );
+			shader.aliasBuffer( storage.buffers.light );
 		}
 		
 		if ( blitter.hasPipeline( blitter.descriptor ) ){

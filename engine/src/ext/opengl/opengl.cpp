@@ -56,7 +56,11 @@ bool ext::opengl::settings::experimental::registerRenderMode = true;
 bool ext::opengl::settings::invariant::waitOnRenderEnd = false;
 bool ext::opengl::settings::invariant::individualPipelines = true;
 
+#if UF_ENV_DREAMCAST
+bool ext::opengl::settings::invariant::multithreadedRecording = false;
+#else
 bool ext::opengl::settings::invariant::multithreadedRecording = true;
+#endif
 
 uf::stl::string ext::opengl::settings::invariant::deferredMode = "";
 
@@ -475,7 +479,7 @@ void ext::opengl::render(){
 	// cleanup in-flight buffers
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
-	
+
 	ext::opengl::mutex.unlock();
 }
 void ext::opengl::destroy() {

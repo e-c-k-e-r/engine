@@ -59,7 +59,7 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 2048,
+			"initial buffer elements": 128,
 			"global storage": false
 		},
 		"ext": {

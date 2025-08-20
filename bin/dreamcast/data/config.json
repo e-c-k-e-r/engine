@@ -17,7 +17,8 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 128
+			"initial buffer elements": 128,
+			"global storage": false
 		},
 		"ext": {
 			"opengl": {
@@ -85,7 +86,7 @@
 			"subPools": false,
 			"alignment": 4,
 			"override": false,
-			"size": "512 KiB",
+			"size": "1024 KiB",
 			"pools": {
 				"entity": "128 KiB",
 				"userdata": "128 KiB",

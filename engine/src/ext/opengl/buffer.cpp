@@ -60,7 +60,7 @@ bool ext::opengl::Buffer::update( const void* data, GLsizeiptr length ) const {
 		Buffer& self = const_cast<Buffer&>(*this);
 		self.destroy(true);
 		self.initialize(data, length, savedUsage);
-		
+
 		return true;
 	}
 #if !UF_USE_OPENGL_FIXED_FUNCTION

@@ -33,6 +33,7 @@
 
 namespace {
 	bool newGraphAdded = true;
+	bool shouldRebind = false;
 
 	// todo: shove it into the "std"lib
 	inline uint64_t fnv1aHash(const uf::stl::vector<bool>& bits) {
@@ -415,17 +416,13 @@ namespace {
 
 				// bind buffers
 				::resetBuffers( shader );
-			#if UF_USE_VULKAN
 				shader.aliasBuffer( "camera", storage.buffers.camera );
-			#else
-				shader.aliasBuffer( storage.buffers.camera );
-			#endif
 
 			#if UF_USE_VULKAN
-				shader.aliasBuffer( *indirect );
+				shader.aliasBuffer( "indirect", *indirect );
 			#endif
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.joint );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "joint", storage.buffers.joint );
 			}
 			// fragment shader
 			{
@@ -433,12 +430,12 @@ namespace {
 
 				// bind buffers
 				::resetBuffers( shader );
-				shader.aliasBuffer( storage.buffers.drawCommands );
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.instanceAddresses );
-				shader.aliasBuffer( storage.buffers.material );
-				shader.aliasBuffer( storage.buffers.texture );
-				shader.aliasBuffer( storage.buffers.light );
+				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "material", storage.buffers.material );
+				shader.aliasBuffer( "texture", storage.buffers.texture );
+				shader.aliasBuffer( "light", storage.buffers.light );
 			}
 		}
 
@@ -451,12 +448,12 @@ namespace {
 
 			// bind buffers
 			::resetBuffers( shader );
-			shader.aliasBuffer( storage.buffers.drawCommands );
-			shader.aliasBuffer( storage.buffers.instance );
-			shader.aliasBuffer( storage.buffers.instanceAddresses );
-			shader.aliasBuffer( storage.buffers.material );
-			shader.aliasBuffer( storage.buffers.texture );
-			shader.aliasBuffer( storage.buffers.light );
+			shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+			shader.aliasBuffer( "instance", storage.buffers.instance );
+			shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+			shader.aliasBuffer( "material", storage.buffers.material );
+			shader.aliasBuffer( "texture", storage.buffers.texture );
+			shader.aliasBuffer( "light", storage.buffers.light );
 		}
 		// culling pipeline
 		if ( uf::renderer::settings::pipelines::culling && indirect ) {
@@ -466,8 +463,8 @@ namespace {
 			// bind buffers
 			::resetBuffers( shader );
 			shader.aliasBuffer( "camera", storage.buffers.camera );
-			shader.aliasBuffer( *indirect );
-			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( "indirect", *indirect );
+			shader.aliasBuffer( "instance", storage.buffers.instance );
 		}
 
 		// vxgi pipeline
@@ -478,12 +475,12 @@ namespace {
 				
 				// bind buffers
 				::resetBuffers( shader );
-				shader.aliasBuffer( storage.buffers.drawCommands );
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.instanceAddresses );
-				shader.aliasBuffer( storage.buffers.material );
-				shader.aliasBuffer( storage.buffers.texture );
-				shader.aliasBuffer( storage.buffers.light );
+				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "material", storage.buffers.material );
+				shader.aliasBuffer( "texture", storage.buffers.texture );
+				shader.aliasBuffer( "light", storage.buffers.light );
 			}
 		}
 		// baking pipeline
@@ -495,10 +492,10 @@ namespace {
 				// bind buffers
 				::resetBuffers( shader );
 			#if UF_USE_VULKAN
-				shader.aliasBuffer( *indirect );
+				shader.aliasBuffer( "indirect", *indirect );
 			#endif
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.joint );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "joint", storage.buffers.joint );
 			}
 
 			// fragment shader
@@ -508,12 +505,12 @@ namespace {
 				// bind buffers
 				::resetBuffers( shader );
 				shader.aliasBuffer( "camera", storage.buffers.camera );
-				shader.aliasBuffer( storage.buffers.drawCommands );
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.instanceAddresses );
-				shader.aliasBuffer( storage.buffers.material );
-				shader.aliasBuffer( storage.buffers.texture );
-				shader.aliasBuffer( storage.buffers.light );
+				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "material", storage.buffers.material );
+				shader.aliasBuffer( "texture", storage.buffers.texture );
+				shader.aliasBuffer( "light", storage.buffers.light );
 			}
 		}
 
@@ -623,7 +620,7 @@ namespace {
 
 size_t uf::graph::initialBufferElements = 1024;
 
-bool uf::graph::globalStorage;
+bool uf::graph::globalStorage = false;
 pod::Graph::Storage uf::graph::storage;
 
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
@@ -1762,6 +1759,23 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
+	// rebuild
+	if ( ::shouldRebind ) {
+		for ( auto& node : graph.nodes ) {
+			if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+			if ( !node.entity ) continue;
+
+			auto& entity = node.entity->as<uf::Object>();
+
+			if ( !entity.hasComponent<uf::renderer::Graphic>() ) continue;
+
+			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+			auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+
+			::bindBuffers( graphic, mesh );
+		}
+	}
+
 	// get last update time
 #if UF_GRAPH_EXTENDED
 	if ( graph.settings.stream.enabled && graph.settings.stream.hash != 0 && uf::physics::time::current - graph.settings.stream.lastUpdate > graph.settings.stream.every ) {
@@ -1888,11 +1902,10 @@ void uf::graph::destroy( pod::Graph& graph ) {
 }
 
 void uf::graph::initialize() {
-	if ( uf::graph::globalStorage ) return uf::graph::initialize( uf::graph::storage );
-	return uf::graph::initialize( uf::scene::getCurrentScene() );
+	uf::graph::initialize( uf::scene::getCurrentScene() );
 }
 void uf::graph::initialize( uf::Object& object, size_t initialElements ) {
-	return uf::graph::initialize( object.getComponent<pod::Graph::Storage>(), initialElements );
+	return uf::graph::initialize( uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>(), initialElements );
 }
 void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements ) {
 	storage.buffers.camera.initialize( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
@@ -1906,31 +1919,13 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 }
 void uf::graph::tick() {
-	if ( uf::graph::globalStorage ) uf::graph::tick( uf::graph::storage );
-	else uf::graph::tick( uf::scene::getCurrentScene() );
+	uf::graph::tick( uf::scene::getCurrentScene() );
 }
 void uf::graph::tick( uf::Object& object ) {
-	auto& storage = object.getComponent<pod::Graph::Storage>();
-	
-	bool rebuild = uf::graph::tick( storage );
-	
-	// rebind buffers
-	if ( rebuild ) {
-		auto& graph = object.getComponent<pod::Graph>();
-		for ( auto& node : graph.nodes ) {
-			if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
-			if ( !node.entity ) continue;
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>();
+	auto& graph = object.getComponent<pod::Graph>();
 
-			auto& entity = node.entity->as<uf::Object>();
-
-			if ( !entity.hasComponent<uf::renderer::Graphic>() ) continue;
-
-			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
-			auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
-
-			::bindBuffers( graphic, mesh );
-		}
-	}
+	::shouldRebind = uf::graph::tick( storage );
 }
 bool uf::graph::tick( pod::Graph::Storage& storage ) {
 /*
@@ -1984,39 +1979,43 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		UF_MSG_DEBUG("Graph buffers requesting renderer update");
 		uf::renderer::states::rebuild = true;
 
-	/*
 		if ( uf::renderer::hasRenderMode("", true) ) {
 			auto& renderMode = uf::renderer::getRenderMode("", true);
+			
+		/*
+			renderMode.metadata.buffers["camera"] = storage.buffers.camera;
+			renderMode.metadata.buffers["drawCommands"] = storage.buffers.drawCommands;
+			renderMode.metadata.buffers["instance"] = storage.buffers.instance;
+			renderMode.metadata.buffers["instanceAddresses"] = storage.buffers.instanceAddresses;
+			renderMode.metadata.buffers["joint"] = storage.buffers.joint;
+			renderMode.metadata.buffers["material"] = storage.buffers.material;
+			renderMode.metadata.buffers["texture"] = storage.buffers.texture;
+			renderMode.metadata.buffers["light"] = storage.buffers.light;
+		*/
+
+		#if UF_USE_VULKAN
 			auto& blitter = renderMode.getBlitter();
 			auto& shader = blitter.material.getShader(blitter.material.hasShader("compute", "deferred") ? "compute" : "fragment", "deferred");
 
-			blitter.material.textures.clear();
+			shader.metadata.aliases.buffers.clear();
 
-			auto moved = std::move( shader.buffers );
-			for ( auto& buffer : moved ) {
-				if ( buffer.aliased ) continue;
-				shader.aliasBuffer( buffer );
-				buffer.aliased = true;
-			}
-
-			shader.aliasBuffer( storage.buffers.drawCommands );
-			shader.aliasBuffer( storage.buffers.instance );
-			shader.aliasBuffer( storage.buffers.instanceAddresses );
-			shader.aliasBuffer( storage.buffers.material );
-			shader.aliasBuffer( storage.buffers.texture );
-			shader.aliasBuffer( storage.buffers.light );
+			shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+			shader.aliasBuffer( "instance", storage.buffers.instance );
+			shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+			shader.aliasBuffer( "material", storage.buffers.material );
+			shader.aliasBuffer( "texture", storage.buffers.texture );
+			shader.aliasBuffer( "light", storage.buffers.light );
+		#endif
 		}
-	*/
 	}
 
 	return rebuild;
 }
 void uf::graph::render() {
-	if ( uf::graph::globalStorage ) return uf::graph::render( uf::graph::storage );
-	return uf::graph::render( uf::scene::getCurrentScene() );
+	uf::graph::render( uf::scene::getCurrentScene() );
 }
 void uf::graph::render( uf::Object& object ) {
-	return uf::graph::render( object.getComponent<pod::Graph::Storage>() );
+	return uf::graph::render( uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>() );
 }
 void uf::graph::render( pod::Graph::Storage& storage ) {	
 	auto* renderMode = uf::renderer::getCurrentRenderMode();
@@ -2057,12 +2056,11 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 }
 void uf::graph::destroy( bool soft ) {
 	soft = false;
-	if ( uf::graph::globalStorage ) return uf::graph::destroy( uf::graph::storage, soft );
 	return uf::graph::destroy( uf::scene::getCurrentScene(), soft );
 }
 void uf::graph::destroy( uf::Object& object, bool soft ) {
 	soft = false;
-	return uf::graph::destroy( object.getComponent<pod::Graph::Storage>(), soft );
+	return uf::graph::destroy( uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>(), soft );
 }
 void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	soft = false;
