@@ -35,6 +35,7 @@ namespace ext {
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool batchQueueSubmissions;
 				extern UF_API bool registerRenderMode;
+				extern UF_API bool skipRenderOnRebuild;
 			}
 
 			namespace validation {

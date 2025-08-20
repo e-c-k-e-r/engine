@@ -120,6 +120,7 @@ namespace ext {
 				extern UF_API bool enableMultiGPU;
 				extern UF_API bool memoryBudgetBit;
 				extern UF_API bool registerRenderMode;
+				extern UF_API bool skipRenderOnRebuild;
 			}
 
 			namespace validation {

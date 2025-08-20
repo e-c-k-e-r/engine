@@ -501,6 +501,7 @@ void UF_API uf::initialize() {
 	#endif
 
 		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
+		uf::renderer::settings::experimental::skipRenderOnRebuild = configRenderExperimentalJson["skip render on rebuild"].as( uf::renderer::settings::experimental::skipRenderOnRebuild );
 
 		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
 	

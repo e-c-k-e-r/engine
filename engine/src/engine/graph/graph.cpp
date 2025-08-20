@@ -17,18 +17,17 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
-	#define UF_GRAPH_SPARSE_READ_MESH 1
 #else
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
 	#define UF_DEBUG_TIMER_MULTITRACE(...)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
-	#if UF_USE_OPENGL
-		#define UF_GRAPH_SPARSE_READ_MESH 1
-	#else
-		#define UF_GRAPH_SPARSE_READ_MESH 1
-	#endif
 #endif
 
+#if UF_USE_OPENGL
+	#define UF_GRAPH_SPARSE_READ_MESH 1
+#else
+	#define UF_GRAPH_SPARSE_READ_MESH 1
+#endif
 #define UF_GRAPH_EXTENDED 1
 
 namespace {
@@ -1045,6 +1044,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		isSrgb[texName] = true;
 	}
 
+	UF_DEBUG_TIMER_MULTITRACE("Processing images...");
 	for ( auto& key : graph.images ) {
 		auto& image = storage.images[key];
 		auto& texture = storage.texture2Ds[key];
@@ -1071,6 +1071,8 @@ void uf::graph::process( pod::Graph& graph ) {
 			texture.sampler.descriptor.filter.mag = filter;
 			texture.srgb = isSrgb[key];
 
+			// to-do: figure out why I need to skip rendering the next frame to avoid a crash here if the storage buffers need to be resized on the GPU side
+			// i suppose timing is consistent enough to where this is loaded asynchronously and rendering throws a device lost error
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
 			image.clear();

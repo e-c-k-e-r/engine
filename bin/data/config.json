@@ -103,7 +103,8 @@
 					"batch queue submissions": true,
 					"dedicated thread": false,
 					"memory budget": false,
-					"register render modes": true
+					"register render modes": true,
+					"skip render on rebuild": true
 				},
 				"invariant": {
 					"default stage buffers": true,
@@ -114,7 +115,7 @@
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
-					"vsync": false,
+					"vsync": false, // vsync on vulkan side rather than engine-side
 					"hdr": true,
 					"vxgi": true,
 					"culling": true,

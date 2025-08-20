@@ -67,6 +67,7 @@ bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::enableMultiGPU = false;
 bool ext::vulkan::settings::experimental::memoryBudgetBit = true;
 bool ext::vulkan::settings::experimental::registerRenderMode = true;
+bool ext::vulkan::settings::experimental::skipRenderOnRebuild = false;
 
 // not so experimental
 bool ext::vulkan::settings::invariant::waitOnRenderEnd = false;
@@ -539,6 +540,8 @@ void ext::vulkan::tick() {
 	}
 	ext::vulkan::gc::textures.clear();
 */
+
+	if ( ext::vulkan::states::rebuild && ext::vulkan::settings::experimental::skipRenderOnRebuild ) ::skip = true;
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
