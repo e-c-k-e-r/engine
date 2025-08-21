@@ -28,9 +28,7 @@ namespace pod {
 		uf::stl::vector<pod::Node> nodes; //
 
 		// Render information
-		uf::stl::vector<uf::stl::string> instances; //
 		uf::stl::vector<uf::stl::string> primitives; //
-		uf::stl::vector<uf::stl::string> drawCommands; //
 		uf::stl::vector<uf::stl::string> meshes; //
 
 		uf::stl::vector<uf::stl::string> images; //
@@ -48,9 +46,6 @@ namespace pod {
 		uf::stl::vector<uf::stl::string> animations;
 		// Animation queue
 		uf::stl::queue<uf::stl::string> sequence;
-
-		// Streaming stuff
-		uf::stl::unordered_map<uf::stl::string, uf::stl::string> buffer_paths; // probably will go unused since cramming it all in here is pain
 
 		struct {
 			struct {
@@ -84,10 +79,8 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
-			uf::stl::KeyMap<pod::Instance> instances;
 			uf::stl::KeyMap<pod::Instance::Addresses> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
-			uf::stl::KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands;
 			uf::stl::KeyMap<uf::Mesh> meshes;
 
 			uf::stl::KeyMap<uf::Image> images;
@@ -141,13 +134,12 @@ namespace uf {
 		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh );
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
-		void UF_API cleanup( pod::Graph& graph );
 		void UF_API reload( pod::Graph& );
 		void UF_API initialize( pod::Graph& graph );
 
 		void UF_API update( pod::Graph& );
 		void UF_API update( pod::Graph&, float );
-		
+
 		void UF_API updateAnimation( pod::Graph&, float );
 		void UF_API updateAnimation( pod::Graph&, pod::Node& );
 		void UF_API override( pod::Graph& );

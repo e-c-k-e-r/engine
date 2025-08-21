@@ -422,21 +422,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 	tasks.queue([&]{
 		// load images
-		UF_DEBUG_TIMER_MULTITRACE("Reading instances...");
-		graph.instances.reserve( serializer["instances"].size() );
-		ext::json::forEach( serializer["instances"], [&]( ext::json::Value& value ){
-			auto name = key + value["name"].as<uf::stl::string>();
-			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.instances[name] = decodeInstance( value, graph );
-			graph.instances.emplace_back(name);
-		});
-		UF_DEBUG_TIMER_MULTITRACE("Read instances");
-	#if UF_ENV_DREAMCAST
-		DC_STATS();
-	#endif
-	});
-	tasks.queue([&]{
-		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading primitives...");
 		graph.primitives.reserve( serializer["primitives"].size() );
 		ext::json::forEach( serializer["primitives"], [&]( ext::json::Value& value ){
@@ -446,21 +431,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			graph.primitives.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read primitives.");
-	#if UF_ENV_DREAMCAST
-		DC_STATS();
-	#endif
-	});
-	tasks.queue([&]{
-		// load images
-		UF_DEBUG_TIMER_MULTITRACE("Reading drawCommands...");
-		graph.drawCommands.reserve( serializer["drawCommands"].size() );
-		ext::json::forEach( serializer["drawCommands"], [&]( ext::json::Value& value ){
-			auto name = key + value["name"].as<uf::stl::string>();
-			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.drawCommands[name] = decodeDrawCommands( value, graph );
-			graph.drawCommands.emplace_back(name);
-		});
-		UF_DEBUG_TIMER_MULTITRACE("Read drawCommands");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif

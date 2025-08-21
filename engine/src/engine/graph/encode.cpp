@@ -291,16 +291,6 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
 	tasks.queue([&]{
-		ext::json::reserve( serializer["instances"], graph.instances.size() );
-		for ( size_t i = 0; i < graph.instances.size(); ++i ) {
-			auto& name = graph.instances[i];
-			auto& instance = /*graph.storage*/storage.instances.map.at(name);
-			uf::Serializer json = encode( instance, settings, graph );
-			json["name"] = name;
-			serializer["instances"].emplace_back( json );
-		}
-	});
-	tasks.queue([&]{
 		ext::json::reserve( serializer["primitives"], graph.primitives.size() );
 		for ( size_t i = 0; i < graph.primitives.size(); ++i ) {
 			auto& name = graph.primitives[i];
@@ -310,19 +300,6 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		//	ext::json::reserve( json["primitives"], primitives.size() );
 			for ( auto& primitive : primitives ) {
 				json["primitives"].emplace_back( encode( primitive, settings, graph ) );
-			}
-		}
-	});
-	tasks.queue([&]{
-		ext::json::reserve( serializer["drawCommands"], graph.drawCommands.size() );
-		for ( size_t i = 0; i < graph.drawCommands.size(); ++i ) {
-			auto& name = graph.drawCommands[i];
-			auto& drawCommands = /*graph.storage*/storage.drawCommands.map.at(name);
-			auto& json = serializer["drawCommands"].emplace_back();
-			json["name"] = name;
-		//	ext::json::reserve( json["drawCommands"], drawCommands.size() );
-			for ( auto& drawCommand : drawCommands ) {
-				json["drawCommands"].emplace_back( encode( drawCommand, settings, graph ) );
 			}
 		}
 	});

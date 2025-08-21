@@ -126,7 +126,7 @@ void main() {
 	const Instance instance = instances[instanceID];
 	const Material material = materials[instance.materialID];
 
-	const uint mapID = instance.auxID;
+	const uint mapID = instance.lightmapID; // was auxID
 
 	vec4 A = material.colorBase;
 	surface.material.metallic = material.factorMetallic;

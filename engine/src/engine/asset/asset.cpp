@@ -263,7 +263,7 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			if ( asset.metadata["debug"]["print"]["stats"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::stats( asset ));
 			if ( asset.metadata["debug"]["print"]["tree"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::print( asset ));
 		#endif
-			if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
+			//if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		} break;
 		default: {
 			UF_MSG_ERROR("Failed to parse {}: unimplemented extension: {}", filename, extension );

@@ -90,7 +90,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
 		for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
-		::totalIDs = storage.instances.keys.size();
+		::totalIDs = storage.primitives.keys.size();
 
 		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 

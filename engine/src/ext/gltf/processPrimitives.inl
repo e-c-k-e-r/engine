@@ -378,13 +378,18 @@ if ( meshopt.should ) {
 	mesh.bindIndirect<pod::DrawCommand>();
 	mesh.bind<UF_GRAPH_MESH_FORMAT>(false); // default to de-interleaved regardless of requirement (makes things easier)
 	
+	uf::stl::vector<pod::DrawCommand> drawCommands;
+	drawCommands.reserve( meshlets.size() );
+	primitives.reserve( meshlets.size() );
+
 	for ( auto& meshlet : meshlets ) {
+		// to-do: check against the meshlet's actual primitive information
 		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
 			.indices = meshlet.indices.size(),
 			.instances = 1,
 			.indexID = indexID,
 			.vertexID = vertexID,
-			.instanceID = 0,
+			.instanceID = meshlet.primitive.drawCommand.instanceID,
 			.auxID = meshlet.primitive.drawCommand.auxID,
 			.materialID = meshlet.primitive.drawCommand.materialID,
 			.vertices = meshlet.vertices.size(),

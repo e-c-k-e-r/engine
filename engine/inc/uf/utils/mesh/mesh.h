@@ -59,35 +59,42 @@ namespace ext {
 }
 
 namespace pod {
+	// stores information for a draw call
+	// used for GPU-driven indirection
+	// to-do: probably repurpose auxID and materialIDs
 	struct UF_API DrawCommand {
 		alignas(4) uint32_t indices = 0; // triangle count
 		alignas(4) uint32_t instances = 0; // instance count
 		alignas(4) uint32_t indexID = 0; // starting triangle position
 		alignas(4)  int32_t vertexID = 0; // starting vertex position
 		alignas(4) uint32_t instanceID = 0; // starting instance position
-		// extra data
-		alignas(4) uint32_t auxID = 0; //
-		alignas(4) uint32_t materialID = 0; // 
-		alignas(4) uint32_t vertices = 0; //
+		// extra data for padding
+		alignas(4) uint32_t auxID = 0; // used for storing which grid this belongs to when slicing, otherwise unused
+		alignas(4) uint32_t materialID = 0; // unused
+		alignas(4) uint32_t vertices = 0; // stores vertex count, should be unused
 	};
 
+	// stores information about how to transform a draw call
+	// to-do: clean up this mess
+	struct UF_API Instance {
+		// these could easily be tied to objectID
+		pod::Matrix4f model; // current model matrix
+		pod::Matrix4f previous; // previous model matrix, used for the "motion" output
 
-	struct UF_API Instance {		
-		pod::Matrix4f model;
-		pod::Matrix4f previous;
+		pod::Vector4f color = {1,1,1,1}; // additional color information
 
-		pod::Vector4f color = {1,1,1,1};
+		alignas(4) uint32_t materialID = 0; // index for material information
+		alignas(4) uint32_t primitiveID = 0; // index to reference the primitive(?)
+		alignas(4) uint32_t meshID = 0; // unused
+		alignas(4) uint32_t objectID = 0; // unused
 
-		alignas(4) uint32_t materialID = 0;
-		alignas(4) uint32_t primitiveID = 0;
-		alignas(4) uint32_t meshID = 0;
-		alignas(4) uint32_t objectID = 0;
+		alignas(4)  int32_t jointID = -1; // offset for skins(?)
+		alignas(4)  int32_t lightmapID = -1; // index for lightmap to use
+		alignas(4) uint32_t imageID = 0; // unused?
+		alignas(4) uint32_t auxID = 0; // also the lightmap ID?
 
-		alignas(4)  int32_t jointID = -1;
-		alignas(4)  int32_t lightmapID = -1;
-		alignas(4) uint32_t imageID = 0;
-		alignas(4) uint32_t auxID = 0;
-
+		// AABB for this primitive
+		// should be for the specific draw call itself, rather than the mesh(let) entirely
 		struct Bounds {
 			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
 			alignas(4) float padding1 = 0;
@@ -95,6 +102,7 @@ namespace pod {
 			alignas(4) float padding2 = 0;
 		} bounds;
 
+		// stores "pointers" on the GPU side for buffer locations, used for RT / recalculating barycentrics
 		struct UF_API Addresses {
 			alignas(8) uint64_t vertex{};
 			alignas(8) uint64_t index{};

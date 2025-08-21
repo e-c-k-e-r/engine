@@ -95,7 +95,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	static uf::stl::vector<pod::Instance> previousInstances;
-	uf::stl::vector<pod::Instance> instances = storage.instances.flatten();
+	uf::stl::vector<pod::Instance> instances; instances.reserve(storage.primitives.map.size());
+	for ( auto& key : storage.primitives.keys ) {
+		for ( auto& primitive : storage.primitives.map[key] ) {
+			instances.emplace_back( primitive.instance );
+		}
+	}
 	if ( instances.empty() ) return;
 
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
