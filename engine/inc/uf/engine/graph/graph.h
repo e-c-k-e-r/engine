@@ -145,11 +145,13 @@ namespace uf {
 		void UF_API reload( pod::Graph& );
 		void UF_API initialize( pod::Graph& graph );
 
-		void UF_API override( pod::Graph& );
-		void UF_API animate( pod::Graph&, const uf::stl::string&, float = 1, bool = true );
 		void UF_API update( pod::Graph& );
 		void UF_API update( pod::Graph&, float );
-		void UF_API update( pod::Graph&, pod::Node& );
+		
+		void UF_API updateAnimation( pod::Graph&, float );
+		void UF_API updateAnimation( pod::Graph&, pod::Node& );
+		void UF_API override( pod::Graph& );
+		void UF_API animate( pod::Graph&, const uf::stl::string&, float = 1, bool = true );
 		
 		void UF_API destroy( pod::Graph& );
 		

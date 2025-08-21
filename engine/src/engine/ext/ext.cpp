@@ -142,6 +142,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 
 	uf::Object::assertionLoad = json["engine"]["debug"]["loader"]["assert"].as( uf::Object::assertionLoad );
 	uf::asset::assertionLoad = json["engine"]["debug"]["loader"]["assert"].as( uf::asset::assertionLoad );
+	uf::asset::asyncQueue = json["engine"]["debug"]["loader"]["async"].as( uf::asset::asyncQueue );
 	
 	uf::userdata::autoDestruct = json["engine"]["debug"]["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
 	uf::userdata::autoValidate = json["engine"]["debug"]["userdata"]["auto validate"].as( uf::userdata::autoValidate );

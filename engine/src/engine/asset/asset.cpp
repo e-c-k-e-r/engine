@@ -50,18 +50,13 @@ namespace {
 
 // uf::asset uf::asset::masterAssetLoader;
 bool uf::asset::assertionLoad = true;
+bool uf::asset::asyncQueue = true;
 uf::asset::Job::container_t uf::asset::jobs;
 uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> uf::asset::map;
 uf::Serializer uf::asset::metadata;
 
-#define UF_ASSET_MULTITHREAD 1
-
 void uf::asset::processQueue() {
-#if UF_ASSET_MULTITHREAD
-	auto tasks = uf::thread::schedule(true, false);
-#else
-	auto tasks = uf::thread::schedule(false);
-#endif
+	auto tasks = uf::asset::asyncQueue ? uf::thread::schedule(false) : uf::thread::schedule(true, false);
 
 	mutex.lock();
 	auto jobs = std::move(uf::asset::jobs);

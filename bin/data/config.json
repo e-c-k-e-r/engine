@@ -104,7 +104,7 @@
 					"dedicated thread": false,
 					"memory budget": false,
 					"register render modes": true,
-					"skip render on rebuild": true
+					"skip render on rebuild": false
 				},
 				"invariant": {
 					"default stage buffers": true,
@@ -380,7 +380,8 @@
 				"auto validate": false
 			},
 			"loader": {
-				"assert": true
+				"assert": true,
+				"async": true
 			},
 			"hooks": {
 				"defer lazy calls": true

@@ -27,6 +27,8 @@ namespace uf {
 	#endif
 
 		extern UF_API bool assertionLoad;
+		extern UF_API bool asyncQueue;
+		
 		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> map;
 		extern UF_API Job::container_t jobs;
 		extern UF_API uf::Serializer metadata;
