@@ -88,6 +88,7 @@ namespace pod {
 		int32_t parent = -1;
 		int32_t mesh = -1;
 		int32_t skin = -1;
+		int32_t object = -1;
 		uf::stl::vector<int32_t> children;
 
 		uf::Object* entity = NULL;

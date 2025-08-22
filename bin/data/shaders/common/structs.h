@@ -100,11 +100,6 @@ struct Bounds {
 };
 
 struct Instance {
-	mat4 model;
-	mat4 previous;
-
-	vec4 color;
-
 	uint materialID;
 	uint primitiveID;
 	uint meshID;
@@ -143,6 +138,13 @@ struct InstanceAddresses {
 	uint64_t padding1;
 };
 
+struct Object {
+	mat4 model;
+	mat4 previous;
+
+	vec4 color;
+};
+
 struct SurfaceMaterial {
 	vec4 albedo;
 	vec4 indirect;
@@ -170,6 +172,7 @@ struct Surface {
 	
 	SurfaceMaterial material;
 	Instance instance;
+	Object object;
 
 	vec4 light;
 	vec4 fragment;

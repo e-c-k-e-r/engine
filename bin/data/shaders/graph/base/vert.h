@@ -32,9 +32,12 @@ layout (std140, binding = 1) readonly buffer DrawCommands {
 layout (std140, binding = 2) readonly buffer Instances {
 	Instance instances[];
 };
+layout (std140, binding = 3) readonly buffer Objects {
+	Object objects[];
+};
 
 #if SKINNED
-	layout (std140, binding = 3) readonly buffer Joints {
+	layout (std140, binding = 4) readonly buffer Joints {
 		mat4 joints[];
 	};
 #endif
@@ -63,6 +66,7 @@ void main() {
 	const DrawCommand drawCommand = drawCommands[drawID];
 	const uint instanceID = drawCommand.instanceID; // gl_InstanceIndex;
 	const Instance instance = instances[instanceID];
+	const Object object = objects[instance.objectID];
 	const uint jointID = instance.jointID;
 
 #if BAKING
@@ -77,8 +81,8 @@ void main() {
 #else
 	const mat4 skinned = mat4(1.0);
 #endif
-	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
-//	const mat4 model = instance.model * skinned;
+	const mat4 model = instances.length() <= 0 ? skinned : (object.model * skinned);
+//	const mat4 model = object.model * skinned;
 
 
 #if BAKING
@@ -94,7 +98,7 @@ void main() {
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outUv = inUv;
 	outSt = inSt;
-	outColor = inColor * instance.color;
+	outColor = inColor * object.color;
 	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
 	outTangent = normalize(vec3(view * model * vec4(inTangent.xyz, 0.0)));
 }

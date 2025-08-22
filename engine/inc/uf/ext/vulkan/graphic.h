@@ -100,7 +100,7 @@ namespace ext {
 			bool updateMesh( uf::Mesh& mesh );
 			// raytrace
 			void generateBottomAccelerationStructures();
-			void generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>&, const uf::stl::vector<pod::Instance>& );
+			void generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>&, const uf::stl::vector<pod::Instance>&, const uf::stl::vector<pod::Matrix4f>&  );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();

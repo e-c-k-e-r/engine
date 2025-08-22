@@ -94,8 +94,9 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		} else return;
 	}
 
-	static uf::stl::vector<pod::Instance> previousInstances;
 	uf::stl::vector<pod::Instance> instances; instances.reserve(storage.primitives.map.size());
+	uf::stl::vector<pod::Matrix4f> models; models.reserve(storage.objects.map.size());
+	
 	for ( auto& key : storage.primitives.keys ) {
 		for ( auto& primitive : storage.primitives.map[key] ) {
 			instances.emplace_back( primitive.instance );
@@ -103,6 +104,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	}
 	if ( instances.empty() ) return;
 
+	for ( auto& key : storage.objects.keys ) {
+		models.emplace_back( storage.objects.map[key].model );
+	}
+	if ( models.empty() ) return;
+
+	static uf::stl::vector<pod::Matrix4f> previousModels;
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
 	static uf::stl::vector<uf::renderer::AccelerationStructure> previousBlases;
 
@@ -130,28 +137,30 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		}
 		update = true;
 	} else if ( !update ) {
-		if ( previousInstances.size() != instances.size() ) update = true;
+		if ( previousModels.size() != models.size() ) update = true;
 		else if ( previousGraphics.size() != graphics.size() ) update = true;
 		else if ( previousBlases.size() != blases.size() ) update = true;
-	//	else if ( memcmp( previousInstances.data(), instances.data(), instances.size() * sizeof(decltype(instances)::value_type) ) != 0 ) update = true;
+		else if ( memcmp( previousModels.data(), models.data(), models.size() * sizeof(pod::Instance::Object) ) != 0 ) update = true;
 		else if ( memcmp( previousGraphics.data(), graphics.data(), graphics.size() * sizeof(decltype(graphics)::value_type) ) != 0 ) update = true;
 		else if ( memcmp( previousBlases.data(), blases.data(), blases.size() * sizeof(decltype(blases)::value_type) ) != 0 ) update = true;
-		else for ( size_t i = 0; i < instances.size() && !update; ++i ) {
-			if ( !uf::matrix::equals( instances[i].model, previousInstances[i].model, 0.0001f ) )
+		/*
+		else for ( size_t i = 0; i < models.size() && !update; ++i ) {
+			if ( !uf::matrix::equals( models[i], previousModels[i], 0.0001f ) )
 				update = true;
 		}
+		*/
 	}
 	if ( update ) {
 		for ( auto* graphic : graphics ) {
 			if ( graphic->metadata.buffers.count("vertexSkinned") > 0 ) graphic->generateBottomAccelerationStructures();
 		}
-		graphic.generateTopAccelerationStructure( graphics, instances );
+		graphic.generateTopAccelerationStructure( graphics, instances, models );
 
 		auto& sceneMetadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 		sceneMetadata.shader.frameAccumulateReset = true;
 		uf::renderer::states::frameAccumulateReset = true;
 
-		previousInstances = instances;
+		previousModels = models;
 		previousGraphics = graphics;
 		previousBlases = blases;
 	}
@@ -201,11 +210,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
 				size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
-				shader.buffers.emplace_back( storage.buffers.instance.alias() );
-				shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-				shader.buffers.emplace_back( storage.buffers.material.alias() );
-				shader.buffers.emplace_back( storage.buffers.texture.alias() );
-				shader.buffers.emplace_back( storage.buffers.light.alias() );
+				shader.aliasBuffer( storage.buffers.instance );
+				shader.aliasBuffer( storage.buffers.instanceAddresses );
+				shader.aliasBuffer( storage.buffers.object );
+				shader.aliasBuffer( storage.buffers.material );
+				shader.aliasBuffer( storage.buffers.texture );
+				shader.aliasBuffer( storage.buffers.light );
 
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures2D },

@@ -302,6 +302,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasBuffer( storage.buffers.drawCommands );
 			shader.aliasBuffer( storage.buffers.instance );
 			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.object );
 			shader.aliasBuffer( storage.buffers.material );
 			shader.aliasBuffer( storage.buffers.texture );
 			shader.aliasBuffer( storage.buffers.light );
@@ -527,6 +528,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			shader.aliasBuffer( storage.buffers.drawCommands );
 			shader.aliasBuffer( storage.buffers.instance );
 			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.object );
 			shader.aliasBuffer( storage.buffers.material );
 			shader.aliasBuffer( storage.buffers.texture );
 			shader.aliasBuffer( storage.buffers.light );

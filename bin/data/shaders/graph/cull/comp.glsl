@@ -67,7 +67,11 @@ layout (std140, binding = 2) buffer Instances {
 	Instance instances[];
 };
 
-layout (binding = 3) uniform sampler2D samplerDepth;
+layout (std140, binding = 3) buffer Objects {
+	Object objects[];
+};
+
+layout (binding = 4) uniform sampler2D samplerDepth;
 
 struct Frustum {
 	vec4 planes[6];
@@ -82,6 +86,7 @@ bool frustumCull( uint id ) {
 	
 	const DrawCommand drawCommand = drawCommands[id];
 	const Instance instance = instances[drawCommand.instanceID];
+	const Object object = objects[instance.objectID];
 
 	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return false;
 
@@ -89,9 +94,9 @@ bool frustumCull( uint id ) {
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 #if 0
 		vec4 sphere = aabbToSphere( instance.bounds );
-		vec3 center = vec3( camera.viewport[pass].view * instance.model * vec4(  ) );
+		vec3 center = vec3( camera.viewport[pass].view * object.model * vec4(  ) );
 #else
-		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
+		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
 	#if 1
 		vec4 planes[6]; {
 			for (int i = 0; i < 3; ++i)
@@ -154,14 +159,15 @@ bool occlusionCull( uint id ) {
 	
 	const DrawCommand drawCommand = drawCommands[id];
 	const Instance instance = instances[drawCommand.instanceID];
+	const Object object = objects[instance.objectID];
 
 	bool visible = true;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 #if 1
 		vec4 aabb;
 		vec4 sphere = aabbToSphere( instance.bounds );
-		vec3 center = (camera.viewport[pass].view * instance.model * vec4(sphere.xyz, 1)).xyz;
-		float radius = (instance.model * vec4(sphere.w, 0, 0, 0)).x;
+		vec3 center = (camera.viewport[pass].view * object.model * vec4(sphere.xyz, 1)).xyz;
+		float radius = (object.model * vec4(sphere.w, 0, 0, 0)).x;
 	//	center.y *= -1;
 		mat4 proj = camera.viewport[pass].projection;
 		float znear = proj[3][2];
@@ -193,7 +199,7 @@ bool occlusionCull( uint id ) {
 		}
 
 #else
-		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
+		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
 		vec3 boundsSize = instance.bounds.max - instance.bounds.min;
 		vec3 points[8] = {
 			instance.bounds.min.xyz,

@@ -77,16 +77,10 @@ namespace pod {
 	// stores information about how to transform a draw call
 	// to-do: clean up this mess
 	struct UF_API Instance {
-		// these could easily be tied to objectID
-		pod::Matrix4f model; // current model matrix
-		pod::Matrix4f previous; // previous model matrix, used for the "motion" output
-
-		pod::Vector4f color = {1,1,1,1}; // additional color information
-
 		alignas(4) uint32_t materialID = 0; // index for material information
 		alignas(4) uint32_t primitiveID = 0; // index to reference the primitive(?)
 		alignas(4) uint32_t meshID = 0; // unused
-		alignas(4) uint32_t objectID = 0; // unused
+		alignas(4) uint32_t objectID = 0; // index for the object buffer
 
 		alignas(4)  int32_t jointID = -1; // offset for skins(?)
 		alignas(4)  int32_t lightmapID = -1; // index for lightmap to use
@@ -125,6 +119,13 @@ namespace pod {
 
 			alignas(8) uint64_t id{};
 			alignas(8) uint64_t padding1{};
+		};
+
+		struct UF_API Object {
+			pod::Matrix4f model;
+			pod::Matrix4f previous;
+
+			pod::Vector4f color = { 1, 1, 1, 1 };
 		};
 	//	Addresses addresses = {};
 	};

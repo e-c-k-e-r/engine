@@ -8,8 +8,8 @@ layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
 layout (constant_id = 2) const uint LAYERS = 32;
 
-layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 7) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
 #define FRAGMENT 1
@@ -22,40 +22,40 @@ layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (binding = 7) uniform Camera {
+layout (binding = 8) uniform Camera {
 	Viewport viewport[6];
 } camera;
 
-layout (binding = 8) uniform UBO {
+layout (binding = 9) uniform UBO {
 	uint lights;
 	uint currentID;
 	uint padding1;
 	uint padding2;
 } ubo;
 
-layout (std140, binding = 9) readonly buffer DrawCommands {
+layout (std140, binding = 10) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 10) readonly buffer Instances {
+layout (std140, binding = 11) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 11) readonly buffer InstanceAddresseses {
+layout (std140, binding = 12) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 12) readonly buffer Materials {
+layout (std140, binding = 13) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 13) readonly buffer Textures {
+layout (std140, binding = 14) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 14) readonly buffer Lights {
+layout (std140, binding = 15) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 15, rgba8) uniform volatile coherent image3D outAlbedos;
+layout (binding = 16, rgba8) uniform volatile coherent image3D outAlbedos;
 
 #if RT
-	layout (binding = 16) uniform accelerationStructureEXT tlas;
+	layout (binding = 17) uniform accelerationStructureEXT tlas;
 #endif
 
 #include "../../common/functions.h"

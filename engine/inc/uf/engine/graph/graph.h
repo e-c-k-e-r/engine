@@ -93,6 +93,7 @@ namespace pod {
 
 			// maps without direct analogues
 			uf::stl::KeyMap<uf::Atlas> atlases;
+			uf::stl::KeyMap<pod::Instance::Object> objects;
 			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
 			uf::stl::KeyMap<uf::renderer::Texture2D> texture2Ds;
 			uf::stl::KeyMap<uf::Entity*> entities;
@@ -106,6 +107,7 @@ namespace pod {
 				uf::renderer::Buffer instance;
 				uf::renderer::Buffer instanceAddresses;
 				uf::renderer::Buffer joint;
+				uf::renderer::Buffer object;
 				uf::renderer::Buffer material;
 				uf::renderer::Buffer texture;
 				uf::renderer::Buffer light;

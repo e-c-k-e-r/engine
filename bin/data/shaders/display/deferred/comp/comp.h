@@ -77,33 +77,36 @@ layout (std140, binding = 12) readonly buffer Instances {
 layout (std140, binding = 13) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 14) readonly buffer Materials {
+layout (std140, binding = 14) readonly buffer Objects {
+	Object objects[];
+};
+layout (std140, binding = 15) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 15) readonly buffer Textures {
+layout (std140, binding = 16) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 16) readonly buffer Lights {
+layout (std140, binding = 17) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 17) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 18) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 19) uniform sampler3D samplerNoise;
+layout (binding = 18) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 19) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 20) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 20) uniform usampler3D voxelDrawId[CASCADES];
-	layout (binding = 21) uniform usampler3D voxelInstanceId[CASCADES];
-	layout (binding = 22) uniform sampler3D voxelNormalX[CASCADES];
-	layout (binding = 23) uniform sampler3D voxelNormalY[CASCADES];
-	layout (binding = 24) uniform sampler3D voxelRadianceR[CASCADES];
-	layout (binding = 25) uniform sampler3D voxelRadianceG[CASCADES];
-	layout (binding = 26) uniform sampler3D voxelRadianceB[CASCADES];
-	layout (binding = 27) uniform sampler3D voxelRadianceA[CASCADES];
-	layout (binding = 28) uniform sampler3D voxelCount[CASCADES];
-	layout (binding = 29) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 21) uniform usampler3D voxelDrawId[CASCADES];
+	layout (binding = 22) uniform usampler3D voxelInstanceId[CASCADES];
+	layout (binding = 23) uniform sampler3D voxelNormalX[CASCADES];
+	layout (binding = 24) uniform sampler3D voxelNormalY[CASCADES];
+	layout (binding = 25) uniform sampler3D voxelRadianceR[CASCADES];
+	layout (binding = 26) uniform sampler3D voxelRadianceG[CASCADES];
+	layout (binding = 27) uniform sampler3D voxelRadianceB[CASCADES];
+	layout (binding = 28) uniform sampler3D voxelRadianceA[CASCADES];
+	layout (binding = 29) uniform sampler3D voxelCount[CASCADES];
+	layout (binding = 30) uniform sampler3D voxelOutput[CASCADES];
 #endif
 #if RT
-	layout (binding = 30) uniform accelerationStructureEXT tlas;
+	layout (binding = 31) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -262,14 +265,15 @@ void populateSurface() {
 	//	surface.tangent.world = decodeNormals(normaltangent.zw);
 
 		surface.instance = instances[instanceID >= instances.length() ? 0 : instanceID];
+		surface.object = objects[surface.instance.objectID];
 
 		populateSurfaceMaterial();
 	#endif
 	}
 
 	{
-		vec4 pNDC = ubo.eyes[surface.pass].previous * surface.instance.previous * vec4(surface.position.world, 1);
-		vec4 cNDC = ubo.eyes[surface.pass].model * surface.instance.model * vec4(surface.position.world, 1);
+		vec4 pNDC = ubo.eyes[surface.pass].previous * surface.object.previous * vec4(surface.position.world, 1);
+		vec4 cNDC = ubo.eyes[surface.pass].model * surface.object.model * vec4(surface.position.world, 1);
 		pNDC /= pNDC.w;
 		cNDC /= cNDC.w;
 

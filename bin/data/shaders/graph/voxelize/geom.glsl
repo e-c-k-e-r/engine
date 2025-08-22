@@ -24,7 +24,7 @@ layout (location = 6) out vec2 outSt;
 layout (location = 7) out vec3 outNormal;
 layout (location = 8) out vec3 outTangent;
 
-layout (binding = 4) uniform UBO {
+layout (binding = 5) uniform UBO {
 	mat4 voxel;
 
 	float cascadePower;

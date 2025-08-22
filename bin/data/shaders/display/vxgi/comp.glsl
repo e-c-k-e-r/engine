@@ -35,30 +35,33 @@ layout (std140, binding = 2) readonly buffer Instances {
 layout (std140, binding = 3) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 4) readonly buffer Materials {
+layout (std140, binding = 4) readonly buffer Objects {
+	Object objects[];
+};
+layout (std140, binding = 5) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 5) readonly buffer Textures {
+layout (std140, binding = 6) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 6) readonly buffer Lights {
+layout (std140, binding = 7) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 8) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 9) uniform sampler3D samplerNoise;
+layout (binding = 8) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 9) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 10) uniform sampler3D samplerNoise;
 
-layout (binding = 10, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
-layout (binding = 11, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
-layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
-layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
-layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
-layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
-layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
-layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
-layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
-layout (binding = 19, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
+layout (binding = 11, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
+layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
+layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
+layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
+layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
+layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
+layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
+layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
+layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
+layout (binding = 20, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
 
 #include "../../common/functions.h"
 #include "../../common/light.h"
@@ -127,6 +130,7 @@ void main() {
 	
 		const DrawCommand drawCommand = drawCommands[drawID];
 		surface.instance = instances[instanceID];
+		surface.object = objects[surface.instance.objectID];
 		const Material material = materials[surface.instance.materialID];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;

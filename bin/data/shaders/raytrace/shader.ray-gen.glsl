@@ -46,23 +46,26 @@ layout (std140, binding = 3) readonly buffer Instances {
 layout (std140, binding = 4) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 5) readonly buffer Materials {
+layout (std140, binding = 5) readonly buffer Objects {
+	Object objects[];
+};
+layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 6) readonly buffer Textures {
+layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 7) readonly buffer Lights {
+layout (std140, binding = 8) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 8) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 9) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 10) uniform sampler3D samplerNoise;
+layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 10) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 11) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 11) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 12) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 13) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 12) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 13) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 14) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) rayPayloadEXT RayTracePayload payload;

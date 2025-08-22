@@ -44,6 +44,13 @@ namespace {
 		return hash;
 	}
 
+	uf::stl::string objectKey( pod::Node& node ){
+		return std::to_string(node.object);
+	}
+	uf::stl::string instanceKey( uint32_t instanceID ) {
+		return std::to_string( instanceID );
+	}
+
 	pod::Graph::Storage& getGraphStorage( uf::Object& object ) {
 		return uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>();
 	}
@@ -283,113 +290,116 @@ namespace {
 
 		// rt pipeline
 		// to-do: segregate out buffer updating code
-		if ( uf::renderer::settings::pipelines::rt && mesh.vertex.count && graphMetadataJson["renderer"]["skinned"].as<bool>() ) {
-			struct PushConstant {
-				uint32_t jointID;
-			};
+		if ( uf::renderer::settings::pipelines::rt && mesh.vertex.count ) {
+			if ( graphMetadataJson["renderer"]["skinned"].as<bool>() ) {
+				struct PushConstant {
+					uint32_t jointID;
+				};
 
-			if ( mesh.isInterleaved( mesh.vertex ) ) {
-				uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv"); {
-					compShaderFilename = entity.resolveURI( compShaderFilename, root );
-				}
-				graphic.material.metadata.autoInitializeUniformBuffers = false;
-				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-				graphic.material.metadata.autoInitializeUniformBuffers = true;
+				if ( mesh.isInterleaved( mesh.vertex ) ) {
+					uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv"); {
+						compShaderFilename = entity.resolveURI( compShaderFilename, root );
+					}
+					graphic.material.metadata.autoInitializeUniformBuffers = false;
+					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+					graphic.material.metadata.autoInitializeUniformBuffers = true;
+					
+					graphic.descriptor.bind.width = mesh.vertex.count;
+					graphic.descriptor.bind.height = 1;
+					graphic.descriptor.bind.depth = 1;
+
+					// compute shader
+					auto& shader = graphic.material.getShader("compute", "skinning");
+
+					// bind buffers
+					struct {
+						uint32_t jointID;
+					} uniforms = {
+						.jointID = 0
+					};
+
+					auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
+					size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+
+					auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
+					auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
+					graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+					::resetBuffers( shader );
+					shader.aliasBuffer( storage.buffers.joint );
+					shader.aliasBuffer( vertexIn );
+					shader.aliasBuffer( vertexOut );
+				} else {
+					uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
+						compShaderFilename = entity.resolveURI( compShaderFilename, root );
+					}
 				
-				graphic.descriptor.bind.width = mesh.vertex.count;
-				graphic.descriptor.bind.height = 1;
-				graphic.descriptor.bind.depth = 1;
+				//	graphic.material.metadata.autoInitializeUniformBuffers = false;
+					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+				//	graphic.material.metadata.autoInitializeUniformBuffers = true;
+				
+					graphic.descriptor.bind.width = mesh.vertex.count;
+					graphic.descriptor.bind.height = 1;
+					graphic.descriptor.bind.depth = 1;
 
-				// compute shader
-				auto& shader = graphic.material.getShader("compute", "skinning");
+					uf::Mesh::Attribute vertexPos;
+					uf::Mesh::Attribute vertexJoints;
+					uf::Mesh::Attribute vertexWeights;
 
-				// bind buffers
-				struct {
-					uint32_t jointID;
-				} uniforms = {
-					.jointID = 0
-				};
+					size_t vertexPosIndex = 0;
+					size_t vertexJointsIndex = 0;
+					size_t vertexWeightsIndex = 0;
 
-				auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
-				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+					for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
+						auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
 
-				auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
-				auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
-				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+						if ( attribute.buffer < 0 ) continue;
+						if ( attribute.descriptor.name == "position" ) {
+							vertexPos = attribute; 
+							vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
+						}
+						else if ( attribute.descriptor.name == "joints" ) {
+							vertexJoints = attribute;
+							vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
+						}
+						else if ( attribute.descriptor.name == "weights" ) {
+							vertexWeights = attribute;
+							vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
+						}
+					}
 
-				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+					auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
+					size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
 
-				::resetBuffers( shader );
-				shader.aliasBuffer( storage.buffers.joint );
-				shader.aliasBuffer( vertexIn );
-				shader.aliasBuffer( vertexOut );
-			} else {
-				uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
-					compShaderFilename = entity.resolveURI( compShaderFilename, root );
+					auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
+					auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
+					auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
+
+					auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
+					graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+					auto& shader = graphic.material.getShader("compute", "skinning");
+
+					struct {
+						uint32_t jointID;
+					} uniforms = {
+						.jointID = 0
+					};
+
+					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+					// bind buffers
+					::resetBuffers( shader );
+					shader.aliasBuffer( storage.buffers.joint );
+					shader.aliasBuffer( vertexPositionBuffer );
+					shader.aliasBuffer( vertexJointsBuffer );
+					shader.aliasBuffer( vertexWeightsBuffer );
+					shader.aliasBuffer( vertexOutPosition );
 				}
-			
-			//	graphic.material.metadata.autoInitializeUniformBuffers = false;
-				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-			//	graphic.material.metadata.autoInitializeUniformBuffers = true;
-			
-				graphic.descriptor.bind.width = mesh.vertex.count;
-				graphic.descriptor.bind.height = 1;
-				graphic.descriptor.bind.depth = 1;
-
-				uf::Mesh::Attribute vertexPos;
-				uf::Mesh::Attribute vertexJoints;
-				uf::Mesh::Attribute vertexWeights;
-
-				size_t vertexPosIndex = 0;
-				size_t vertexJointsIndex = 0;
-				size_t vertexWeightsIndex = 0;
-
-				for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
-					auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
-
-					if ( attribute.buffer < 0 ) continue;
-					if ( attribute.descriptor.name == "position" ) {
-						vertexPos = attribute; 
-						vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
-					}
-					else if ( attribute.descriptor.name == "joints" ) {
-						vertexJoints = attribute;
-						vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
-					}
-					else if ( attribute.descriptor.name == "weights" ) {
-						vertexWeights = attribute;
-						vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
-					}
-				}
-
-				auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
-				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
-
-				auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
-				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
-				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
-
-				auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
-				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
-
-				auto& shader = graphic.material.getShader("compute", "skinning");
-
-				struct {
-					uint32_t jointID;
-				} uniforms = {
-					.jointID = 0
-				};
-
-				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-
-				// bind buffers
-				::resetBuffers( shader );
-				shader.aliasBuffer( storage.buffers.joint );
-				shader.aliasBuffer( vertexPositionBuffer );
-				shader.aliasBuffer( vertexJointsBuffer );
-				shader.aliasBuffer( vertexWeightsBuffer );
-				shader.aliasBuffer( vertexOutPosition );
 			}
+
 			graphic.generateBottomAccelerationStructures();
 		}
 		#endif
@@ -419,6 +429,7 @@ namespace {
 				shader.aliasBuffer( "indirect", *indirect );
 			#endif
 				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "object", storage.buffers.object );
 				shader.aliasBuffer( "joint", storage.buffers.joint );
 			}
 			// fragment shader
@@ -462,6 +473,7 @@ namespace {
 			shader.aliasBuffer( "camera", storage.buffers.camera );
 			shader.aliasBuffer( "indirect", *indirect );
 			shader.aliasBuffer( "instance", storage.buffers.instance );
+			shader.aliasBuffer( "object", storage.buffers.object );
 		}
 
 		// vxgi pipeline
@@ -492,6 +504,7 @@ namespace {
 				shader.aliasBuffer( "indirect", *indirect );
 			#endif
 				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "object", storage.buffers.object );
 				shader.aliasBuffer( "joint", storage.buffers.joint );
 			}
 
@@ -520,7 +533,7 @@ namespace {
 			for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
 				auto& drawCommand = drawCommands[drawID];
 				auto instanceID = drawCommand.instanceID;
-				auto instanceKeyName = std::to_string(instanceID); // it *should* be fine as the instance IDs are already objective to the scene graph
+				auto instanceKeyName = ::instanceKey( instanceID ); // it *should* be fine as the instance IDs are already objective to the scene graph
 
 				auto& instanceAddresses = storage.instanceAddresses[instanceKeyName];
 				if ( mesh.vertex.count ) {
@@ -1277,16 +1290,20 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 	}
-
-	size_t objectID = storage.entities.keys.size();
-	auto objectKeyName = std::to_string(objectID);
-	storage.entities[objectKeyName] = &entity;
 	
+	// what a mess
 	// 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		auto model = uf::transform::model( transform );
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+
+		node.object = storage.entities.keys.size();
+		auto objectKeyName = ::objectKey( node );
+		storage.entities[objectKeyName] = &entity;
+		auto& objectData = storage.objects[objectKeyName];	
+		auto model = uf::transform::model( transform );
+		objectData.model = model;
+		objectData.previous = model;
 
 		pod::Instance::Bounds bounds;
 		pod::DrawCommand* drawCommands = NULL;
@@ -1296,23 +1313,20 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			drawCommands = (pod::DrawCommand*) buffer.data();
 		}
 		// setup instances
-		for ( auto i = 0; i < primitives.size(); ++i ) {
-			auto& primitive = primitives[i];
+		for ( auto primitiveID = 0; primitiveID < primitives.size(); ++primitiveID ) {
+			auto& primitive = primitives[primitiveID];
 			auto& instance = primitive.instance;
 			auto& drawCommand = primitive.drawCommand;
+			auto instanceID = primitiveID;
 
-			auto instanceID = i;
-
-			instance.model = model;
-			instance.previous = model;
-			instance.objectID = objectID;
+			instance.objectID = node.object;
 			instance.jointID = graphMetadataJson["renderer"]["skinned"].as<bool>() ? 0 : -1;
 
 			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
 
 			drawCommand.instanceID = instanceID;
-			if ( drawCommands ) drawCommands[i].instanceID = instanceID;
+			if ( drawCommands ) drawCommands[primitiveID].instanceID = instanceID;
 		}
 	#if !UF_GRAPH_EXTENDED
 		if ( graphMetadataJson["renderer"]["render"].as<bool>() ) {
@@ -1373,6 +1387,7 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.object.initialize( (const void*) nullptr, sizeof(pod::Instance::Object) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * initialElements, uf::renderer::enums::Buffer::STORAGE );
@@ -1407,6 +1422,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	uf::stl::vector<pod::Instance> instances; instances.reserve(storage.primitives.map.size());
 	uf::stl::vector<pod::Instance::Addresses> instanceAddresses = storage.instanceAddresses.flatten();
 	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(storage.joints.map.size());
+	uf::stl::vector<pod::Instance::Object> objects = storage.objects.flatten();
 
 	for ( auto& key : storage.primitives.keys ) {
 		for ( auto& primitive : storage.primitives.map[key] ) {
@@ -1423,6 +1439,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;
 	rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 	rebuild = storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) ) || rebuild;
+	rebuild = storage.buffers.object.update( (const void*) objects.data(), objects.size() * sizeof(pod::Instance::Object) ) || rebuild;
 
 	if ( ::newGraphAdded ) {
 		uf::stl::vector<pod::Material> materials = storage.materials.flatten();
@@ -1548,6 +1565,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 		storage.buffers.instance.destroy(true);
 		storage.buffers.instanceAddresses.destroy(true);
 		storage.buffers.joint.destroy(true);
+		storage.buffers.object.destroy(true);
 		storage.buffers.material.destroy(true);
 		storage.buffers.texture.destroy(true);
 		storage.buffers.light.destroy(true);
@@ -1968,7 +1986,25 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 #if !UF_ENV_DREAMCAST
 	// update instance model
 	
-	uf::stl::unordered_map<size_t, pod::Matrix4f> instanceCache;
+	uf::stl::unordered_map<size_t, pod::Matrix4f> matrixCache;
+	for ( auto& node : graph.nodes ) {
+		if ( !( 0 <= node.object && node.object < storage.objects.keys.size() ) ) continue;
+		auto objectKeyName = ::objectKey( node );
+
+		auto& entity = *storage.entities[objectKeyName];
+		auto& object = storage.objects[objectKeyName];
+		
+		if ( !entity.isValid() ) continue;
+		auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
+		if ( metadata.system.ignoreGraph ) continue;
+			
+		auto& transform = entity.getComponent<pod::Transform<>>();
+
+		object.previous = object.model;
+		object.model = uf::transform::model( transform );
+
+	}
+	/*
 	for ( auto& name : graph.primitives ) {
 		auto& primitives = storage.primitives[name];
 		for ( auto& primitive : primitives ) {
@@ -1989,6 +2025,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 			instance.model = (instanceCache[instance.objectID] = uf::transform::model( transform ));
 		}
 	}
+	*/
 #endif
 
 	uf::graph::updateAnimation( graph, delta );

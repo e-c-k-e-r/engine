@@ -349,14 +349,15 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{ "voxelOutput", maxCascades },
 			});
 
-		//	shader.buffers.emplace_back( storage.buffers.camera.alias() );
-		//	shader.buffers.emplace_back( storage.buffers.joint.alias() );
-			shader.buffers.emplace_back( storage.buffers.drawCommands.alias() );
-			shader.buffers.emplace_back( storage.buffers.instance.alias() );
-			shader.buffers.emplace_back( storage.buffers.instanceAddresses.alias() );
-			shader.buffers.emplace_back( storage.buffers.material.alias() );
-			shader.buffers.emplace_back( storage.buffers.texture.alias() );
-			shader.buffers.emplace_back( storage.buffers.light.alias() );
+		//	shader.aliasBuffer( storage.buffers.camera );
+		//	shader.aliasBuffer( storage.buffers.joint );
+			shader.aliasBuffer( storage.buffers.drawCommands );
+			shader.aliasBuffer( storage.buffers.instance );
+			shader.aliasBuffer( storage.buffers.instanceAddresses );
+			shader.aliasBuffer( storage.buffers.object );
+			shader.aliasBuffer( storage.buffers.material );
+			shader.aliasBuffer( storage.buffers.texture );
+			shader.aliasBuffer( storage.buffers.light );
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
 		#if 0
 			auto& shader = blitter.material.getShader("fragment");

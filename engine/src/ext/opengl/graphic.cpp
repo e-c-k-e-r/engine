@@ -442,6 +442,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		auto storageBufferIt = storageBuffers.begin();
 
 		auto _instanceBuffer = (*storageBufferIt++).buffer;
+		auto objectBuffer = (*storageBufferIt++).buffer;
 		auto jointBuffer = (*storageBufferIt++).buffer;
 
 		auto drawCommandsBuffer = (*storageBufferIt++).buffer;
@@ -453,6 +454,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	/*
 		auto _instanceBuffer = bufferMap["instance"].buffer;
 		auto jointBuffer = bufferMap["joint"].buffer;
+		auto objectBuffer = bufferMap["object"].buffer;
 
 		auto drawCommandsBuffer = bufferMap["drawCommands"].buffer;
 		auto instanceBuffer = bufferMap["instance"].buffer;
@@ -464,6 +466,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) indirectAttribute.pointer;
 		pod::Instance* instances = (pod::Instance*) device->getBuffer( instanceBuffer );
+		pod::Instance::Object* objects = (pod::Instance::Object*) device->getBuffer( objectBuffer );
 		pod::Material* materials = (pod::Material*) device->getBuffer( materialBuffer );
 		pod::Texture* textures = (pod::Texture*) device->getBuffer( textureBuffer );
 
@@ -474,8 +477,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			auto instanceID = drawCommand.instanceID;
 
 			auto& instance = instances[instanceID];
+
+			auto objectID = instance.objectID;
 			auto materialID = instance.materialID;
 			auto lightmapID = instance.lightmapID;
+
+			auto& object = objects[objectID];
 
 			auto& material = materials[materialID];
 			auto textureID = material.indexAlbedo;
@@ -496,12 +503,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.attributes.indirect.pointer = (uint8_t*) (void*) &drawCommand;
 			drawCommandInfo.attributes.indirect.length = sizeof(drawCommand);
 
-			drawCommandInfo.matrices.model = &instance.model;
+			drawCommandInfo.matrices.model = &object.model;
 
 			drawCommandInfo.blend.modeAlpha = material.modeAlpha;
 			drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
 
-			drawCommandInfo.color.value = instance.color * material.colorBase;
+			drawCommandInfo.color.value = object.color * material.colorBase;
 			drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 
 			if ( 0 <= textureID ) {

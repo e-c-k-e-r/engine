@@ -9,23 +9,23 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 6) readonly buffer DrawCommands {
+layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 7) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 7) readonly buffer Instances {
+layout (std140, binding = 8) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 8) readonly buffer InstanceAddresseses {
+layout (std140, binding = 9) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 9) readonly buffer Materials {
+layout (std140, binding = 10) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 10) readonly buffer Textures {
+layout (std140, binding = 11) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 11) readonly buffer Lights {
+layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 

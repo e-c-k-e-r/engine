@@ -16,37 +16,37 @@ layout (constant_id = 1) const uint CASCADES = 16;
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 6) readonly buffer DrawCommands {
+layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 7) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 7) readonly buffer Instances {
+layout (std140, binding = 8) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 8) readonly buffer InstanceAddresseses {
+layout (std140, binding = 9) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
 
-layout (std140, binding = 9) readonly buffer Materials {
+layout (std140, binding = 10) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 10) readonly buffer Textures {
+layout (std140, binding = 11) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 11) readonly buffer Lights {
+layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
-layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
-layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
-layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
-layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
-layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
-layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
-layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
-layout (binding = 20, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
-layout (binding = 21, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
+layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
+layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
+layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
+layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
+layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
+layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
+layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
+layout (binding = 20, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
+layout (binding = 21, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
+layout (binding = 22, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;

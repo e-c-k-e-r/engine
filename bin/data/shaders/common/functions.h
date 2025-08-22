@@ -376,7 +376,7 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 
 #if BARYCENTRIC_CALCULATE
 	{
-		const vec3 p = vec3(inverse( surface.instance.model ) * vec4(surface.position.world, 1));
+		const vec3 p = vec3(inverse( surface.object.model ) * vec4(surface.position.world, 1));
 	
 		const vec3 a = points[0].position;
 		const vec3 b = points[1].position;
@@ -410,21 +410,21 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	// triangle.point.normal = triangle.geomNormal;
 	
 	if ( triangle.point.tangent != vec3(0) ) {
-		surface.tangent.world = normalize(vec3( surface.instance.model * vec4(triangle.point.tangent, 0.0) ));
-		vec3 bitangent = normalize(vec3( surface.instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
+		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
 		surface.tbn = mat3(surface.tangent.world, bitangent, triangle.point.normal);
 	}
 
 	// bind position (seems to muck with the skybox + fog)
 #if 0 && BARYCENTRIC_CALCULATE
 	{
-		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
+		surface.position.world = vec3( surface.object.model * vec4(triangle.point.position, 1.0 ) );
 		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
 	}
 #endif
 	// bind normals
 	{
-		surface.normal.world = normalize(vec3( surface.instance.model * vec4(triangle.point.normal, 0.0 ) ));
+		surface.normal.world = normalize(vec3( surface.object.model * vec4(triangle.point.normal, 0.0 ) ));
 	//	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 	}
 	// bind UVs
@@ -441,6 +441,7 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
 	surface.instance = instances[instanceID];
+	surface.object = objects[surface.instance.objectID];
 
 	const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
 	if ( !isValidAddress(instanceAddresses.index) ) return;
@@ -464,6 +465,7 @@ void populateSurface( RayTracePayload payload ) {
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
 	surface.instance = instances[payload.instanceID];
+	surface.object = objects[surface.instance.objectID];
 
 	if ( !payload.hit ) return;
 	surface.barycentric = decodeBarycentrics(payload.attributes);

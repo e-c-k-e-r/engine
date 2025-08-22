@@ -110,8 +110,8 @@ namespace {
 	}
 	uf::Serializer encode( const pod::Instance& instance, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
-		json["model"] = uf::matrix::encode( instance.model, settings );
-		json["color"] = uf::vector::encode( instance.color, settings );
+	//	json["model"] = uf::matrix::encode( instance.model, settings );
+	//	json["color"] = uf::vector::encode( instance.color, settings );
 		json["materialID"] = instance.materialID;
 		json["primitiveID"] = instance.primitiveID;
 		json["meshID"] = instance.meshID;

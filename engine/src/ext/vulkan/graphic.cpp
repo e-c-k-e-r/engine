@@ -1550,7 +1550,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		VK_UNREGISTER_HANDLE( queryPool );
 	}
 }
-void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>& graphics, const uf::stl::vector<pod::Instance>& instances ) {
+void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>& graphics, const uf::stl::vector<pod::Instance>& instances, const uf::stl::vector<pod::Matrix4f>& modelMatrices ) {
 	auto& device = *this->device;
 
 	bool rebuild = false;
@@ -1586,10 +1586,8 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	uf::stl::vector<VkAccelerationStructureInstanceKHR> instancesVK; instancesVK.reserve( instances.size() );
 	for ( auto& graphic : graphics ) {
 		for ( auto& blas : graphic->accelerationStructures.bottoms ) {
-			size_t instanceID = blas.instanceID;
-			auto instanceKeyName = std::to_string(instanceID);
-
-			auto mat = instances[instanceID].model;
+			auto& instance = instances[blas.instanceID];
+			auto mat = modelMatrices[instance.objectID];
 			mat = uf::matrix::transpose(mat);
 
 			auto& instanceVK = instancesVK.emplace_back();

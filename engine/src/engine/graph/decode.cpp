@@ -159,8 +159,8 @@ namespace {
 
 	pod::Instance decodeInstance( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Instance instance;
-		instance.model = uf::matrix::decode( json["model"], instance.model );
-		instance.color = uf::vector::decode( json["color"], instance.color );
+		//instance.model = uf::matrix::decode( json["model"], instance.model );
+		//instance.color = uf::vector::decode( json["color"], instance.color );
 		instance.materialID = json["materialID"].as( instance.materialID );
 		instance.primitiveID = json["primitiveID"].as( instance.primitiveID );
 		instance.meshID = json["meshID"].as( instance.meshID );
