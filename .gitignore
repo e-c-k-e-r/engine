@@ -45,6 +45,9 @@
 *.cdi
 *.gdi
 
+# Other stuff that's a pain when doing cross-arch stuff
+default/
+
 # Assets
 *.gz
 *.png
@@ -55,6 +58,7 @@
 *.ttf
 *.otf
 *.bin
+
 models/
 llm/
 tmp/

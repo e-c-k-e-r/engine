@@ -81,11 +81,13 @@ namespace ext {
 			size_t initializeBuffer( const void*, GLsizeiptr, GLenum, bool = false );
 			bool updateBuffer( const void*, GLsizeiptr, const Buffer&, bool = false ) const;
 
+		/*
 			inline size_t initializeBuffer( void* data, GLsizeiptr length, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) data, length, usage, alias ); }
 			template<typename T> inline size_t initializeBuffer( const T& data, GLsizeiptr length, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) &data, length, usage, alias ); }
 			template<typename T> inline size_t initializeBuffer( const T& data, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), usage, alias ); }
 
 			inline bool updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( data, length, buffers.at(index), alias ); }
+		*/
 		/*
 			inline bool updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( data, length, buffers.at(index), alias ); }
 			inline bool updateBuffer( void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) data, length, index, alias ); }

@@ -649,7 +649,7 @@ template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, pod::Matrix<T,R,C>& m ) {
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < R*C; ++i )
+		for ( uint_fast8_t i = 0; i < R*C && i < json.size(); ++i )
 			m[i] = json[i].as<T>(m[i]);
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;
@@ -667,7 +667,7 @@ pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, 
 	ALIGN16 pod::Matrix<T,R,C> m = _m;
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < R*C; ++i )
+		for ( uint_fast8_t i = 0; i < R*C && i < json.size(); ++i )
 			m[i] = json[i].as<T>(_m[i]);
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;

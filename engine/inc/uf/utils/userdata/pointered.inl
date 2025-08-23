@@ -135,11 +135,13 @@ bool uf::pointeredUserdata::is( const pod::PointeredUserdata& userdata ) {
 }
 template<typename T> const pod::UserdataTraits& uf::pointeredUserdata::registerTrait() {
 	auto& trait = uf::userdata::traits[UF_USERDATA_CTTI(T)];
-	trait.name = TYPE_NAME(T);
+#if UF_DEBUG
+	trait.name = TYPE_NAME(T); // this sometimes causes a crash but this is only needed for debugging anywys
+#endif
 	trait.constructor = &uf::userdata::construct<T>;
 	trait.destructor = &uf::userdata::destruct<T>;
-	return trait;}
-//
+	return trait;
+}
 // No need to cast data to a pointer AND get the data's size!
 template<typename T>
 pod::PointeredUserdata& uf::PointeredUserdata::create( const T& data ) {

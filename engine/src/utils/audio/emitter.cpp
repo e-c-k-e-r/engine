@@ -105,11 +105,15 @@ void uf::MappedAudioEmitter::update() {
 	}
 }
 void uf::MappedAudioEmitter::cleanup( bool purge ) {
-	for ( auto& pair : this->m_container ) {
-		if ( purge || !pair.second.playing() ) {
+	for ( auto it = this->m_container.begin(); it != this->m_container.end(); ) {
+		auto& pair = *it;
+		if (purge || !pair.second.playing()) {
 			pair.second.stop();
 			pair.second.destroy();
-			this->m_container.erase(pair.first);
+			// because cleanup might only happen on nonplaying audio (for some reason) we're erasing here instead of just clearing the container
+			it = this->m_container.erase(it);
+		} else {
+			++it;
 		}
 	}
 }

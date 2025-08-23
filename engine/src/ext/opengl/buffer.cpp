@@ -103,7 +103,7 @@ void ext::opengl::Buffer::allocate( const CreateInfo& bufferCreateInfo ) {
 	this->destroy();
 	if ( !device ) device = &ext::opengl::device;
 
-	this->buffer = device->createBuffer( bufferCreateInfo.usage, bufferCreateInfo.size, nullptr, bufferCreateInfo.aliased );
+	this->buffer = device->createBuffer( bufferCreateInfo.usage, bufferCreateInfo.size, NULL, bufferCreateInfo.aliased );
 	this->usage = bufferCreateInfo.usage;
 
 	this->size = bufferCreateInfo.size;

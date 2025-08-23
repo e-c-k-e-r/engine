@@ -19,7 +19,7 @@ spec::x11::Context::Context( uni::Context* shared, const Context::Settings& sett
 {
 	m_display = XOpenDisplay(NULL);
 	if (!m_display) {
-		std::cerr << "Failed to open X display\n";
+		UF_MSG_ERROR("Failed to open X display");
 		return;
 	}
 
@@ -29,7 +29,7 @@ spec::x11::Context::Context( uni::Context* shared, const Context::Settings& sett
 	XSetWindowAttributes swa;
 	swa.event_mask = StructureNotifyMask;
 	m_window = XCreateSimpleWindow(m_display, RootWindow(m_display, scr), 0, 0, 1, 1, 0, 0, 0);
-	
+
 	//XMapWindow(m_display, m_window);
 
 	this->create(shared);
@@ -66,7 +66,7 @@ void spec::x11::Context::create( uni::Context* shared ) {
 	int scr = DefaultScreen(m_display);
 	XVisualInfo* vi = glXChooseVisual(m_display, scr, attribs);
 	if (!vi) {
-		std::cerr << "Failed to choose visual\n";
+		UF_MSG_ERROR("Failed to choose visual");
 		return;
 	}
 
@@ -74,7 +74,7 @@ void spec::x11::Context::create( uni::Context* shared ) {
 	m_context = glXCreateContext(m_display, vi, sharedCtx, True);
 
 	if (!m_context) {
-		std::cerr << "glXCreateContext failed\n";
+		UF_MSG_ERROR("glXCreateContext failed");
 	}
 }
 

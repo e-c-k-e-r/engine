@@ -572,7 +572,7 @@ template<typename T, size_t N>
 pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, pod::Vector<T,N>& v ) {
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < N; ++i )
+		for ( auto i = 0; i < N && i < json.size(); ++i )
 			v[i] = json[i].as<T>(v[i]);
 	else if ( ext::json::isObject(json) ) {
 		auto i = 0;
@@ -589,7 +589,7 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	pod::Vector<T,N> v = _v;
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < N; ++i )
+		for ( auto i = 0; i < N && i < json.size(); ++i )
 			v[i] = json[i].as<T>(_v[i]);
 	else if ( ext::json::isObject(json) ) {
 		auto i = 0;
