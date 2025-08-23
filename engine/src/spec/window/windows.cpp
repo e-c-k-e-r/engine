@@ -519,7 +519,7 @@ void spec::win32::Window::create( const spec::win32::Window::vector_t& _size, co
 
 	this->m_handle = CreateWindowW(
 		className.c_str(),
-		std::wstring(title).c_str(),
+		std::wstring(title.begin(), title.end()).c_str(),
 		winStyle,
 		position.x,
 		position.y,
@@ -636,8 +636,8 @@ void spec::win32::Window::setSize( const spec::win32::Window::vector_t& size ) {
 }
 
 void spec::win32::Window::setTitle( const spec::win32::Window::title_t& title ) {
-	SetWindowTextW(this->m_handle, std::wstring(title).c_str());
-//	SetWindowTextW(this->m_handle, (wchar_t*) std::wstring(title).c_str());
+	SetWindowTextW(this->m_handle, std::wstring(title.begin(), title.end()).c_str());
+//	SetWindowTextW(this->m_handle, (wchar_t*) std::wstring(title.begin(), title.end()).c_str());
 }
 void spec::win32::Window::setIcon( const spec::win32::Window::vector_t& size, uint8_t* pixels ) {
 	// First destroy the previous one
@@ -1067,6 +1067,7 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 		} break;
 		// Text event
 		case WM_CHAR: if ( /*true ||*/ this->m_syncParse ) {
+		#if 0
 			if (this->m_keyRepeatEnabled || ((lParam & (1 << 30)) == 0)) {
 				// Get the code of the typed character
 				uint32_t character = static_cast<uint32_t>(wParam);
@@ -1084,7 +1085,7 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 						this->m_surrogate = 0;
 					}
 					std::basic_string<uint32_t> 	utf32; 	utf32+=character;
-					std::basic_string<uint8_t> 		utf8; 	utf8.reserve(utf32.length());
+					std::basic_string<char> 		utf8; 	utf8.reserve(utf32.length());
 					uf::Utf32::toUtf8(utf32.begin(), utf32.end(), std::back_inserter(utf8));
 
 					pod::payloads::windowTextEntered event{
@@ -1110,6 +1111,7 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 				#endif
 				}
 			}
+		#endif
 		} break;
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:

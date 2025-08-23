@@ -53,7 +53,7 @@ uf::Serializer uf::config;
 
 namespace {
 	struct {
-		uf::String input;
+		uf::stl::string input;
 		std::ofstream output;
 
 		struct {

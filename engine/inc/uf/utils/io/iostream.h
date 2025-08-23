@@ -64,7 +64,9 @@ namespace uf {
 		
 		char UF_API_CALL readChar(const bool& = true);
 		uf::stl::string UF_API_CALL readString(const bool& = true);
+	#if UF_USE_DEPRECATED_STRING
 		uf::String UF_API_CALL readUString(const bool& = true);
+	#endif
 		void UF_API_CALL operator>> (bool&);
 		void UF_API_CALL operator>> (short&);
 		void UF_API_CALL operator>> (unsigned short&);
@@ -79,13 +81,17 @@ namespace uf {
 		void UF_API_CALL operator>> (double&);
 		void UF_API_CALL operator>> (long double&);
 		void UF_API_CALL operator>> (uf::stl::string&);
+	#if UF_USE_DEPRECATED_STRING
 		void UF_API_CALL operator>> (uf::String&);
+	#endif
 		std::istream& UF_API_CALL operator>> ( std::istream& );
 		friend std::istream& UF_API_CALL operator>> ( std::istream&, uf::IoStream& );
 
 		char UF_API_CALL writeChar(char);
 		const uf::stl::string& UF_API_CALL writeString(const uf::stl::string&);
+	#if UF_USE_DEPRECATED_STRING
 		const uf::String& UF_API_CALL writeUString(const uf::String&);
+	#endif
 		uf::IoStream& UF_API_CALL operator<< (const bool&);
 		uf::IoStream& UF_API_CALL operator<< (const short&);
 		uf::IoStream& UF_API_CALL operator<< (const unsigned short&);
@@ -100,7 +106,9 @@ namespace uf {
 		uf::IoStream& UF_API_CALL operator<< (const double&);
 		uf::IoStream& UF_API_CALL operator<< (const long double&);
 		uf::IoStream& UF_API_CALL operator<< (const uf::stl::string&);
+	#if UF_USE_DEPRECATED_STRING
 		uf::IoStream& UF_API_CALL operator<< (const uf::String&);
+	#endif
 		uf::IoStream& UF_API_CALL operator<< (const char*);
 		uf::IoStream& UF_API_CALL operator<< (const uf::Serializer& val);
 		uf::IoStream& UF_API_CALL operator<< ( void* );

@@ -14,7 +14,7 @@ namespace spec {
 		public:
 			typedef void* 									handle_t;
 			typedef void* 									context_t;
-			typedef uf::String 								title_t;
+			typedef uf::stl::string 						title_t;
 			typedef pod::Vector2i 							vector_t;
 
 			struct Event {

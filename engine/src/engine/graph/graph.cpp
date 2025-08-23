@@ -1509,7 +1509,7 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 	storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 
 #if UF_USE_VULKAN
-	if ( !renderMode || !renderMode->hasBuffer("camera") ) return;
+	if ( !renderMode || !renderMode->hasBuffer("camera") || renderMode->getType() == "Swapchain" ) return; // for some reason causes clang ASAN to cry
 	auto& buffer = renderMode->getBuffer("camera");
 	buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 #endif

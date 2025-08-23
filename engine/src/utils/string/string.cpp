@@ -1,7 +1,9 @@
 #include <uf/utils/string/string.h>
 #include <uf/utils/string/encoding.h>
-//uf::String uf::locale::current;
+
 uf::stl::string uf::locale::current;
+
+#if UF_USE_DEPRECATED_STRING
 uf::String::String() {
 }
 // 	ANSI literals/strings
@@ -223,3 +225,4 @@ uf::String::operator std::wstring() const {
 	for ( auto c : this->m_string ) w_str += c;
 	return w_str;
 }
+#endif

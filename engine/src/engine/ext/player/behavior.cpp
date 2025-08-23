@@ -15,7 +15,6 @@
 #include <uf/utils/io/inputs.h>
 
 #include <sstream>
-#include <stdfloat>
 
 #include "../scene/behavior.h"
 // #include "../../gui/manager/behavior.h"

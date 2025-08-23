@@ -54,8 +54,8 @@ endif
 INC_DIR 				+= $(ENGINE_INC_DIR)
 LIB_DIR 				+= $(ENGINE_LIB_DIR)
 
-INCS 					+= -I$(ENGINE_INC_DIR) -I./dep/include/ #-I/mingw64/include/
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH)/$(CC) -L$(LIB_DIR)/$(ARCH) #-L/mingw64/lib/
+INCS 					+= -I$(ENGINE_INC_DIR) -I./dep/include/
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH)/ -L$(LIB_DIR)/$(ARCH)/$(CC)/ -L$(LIB_DIR)/$(ARCH)/
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+= 
@@ -63,7 +63,7 @@ FLAGS 					+= -DUF_DEV_ENV
 
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
-		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr cpptrace vall_e dc:texconv # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr dc:texconv # vall_e cpptrace # openvr # ncurses draco discord bullet ultralight-ux
 		FLAGS 				+= -march=native -g # -flto # -g
 	endif
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
@@ -380,7 +380,7 @@ $(EX_DLL): $(OBJS_DLL)
 	@echo "Setting defaults: $(ARCH).$(CC).$(RENDERER)"
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(CXX) -shared -Wl,-soname,$(BASE_EXT_DLL).$(LIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS) -o $(EXT_EX_DLL)
+	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_EXT_DLL).$(LIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS) -o $(EXT_EX_DLL)
 	cp $(EXT_EX_DLL) $(EXT_IM_DLL)
 
 else
@@ -398,7 +398,7 @@ $(EX_DLL): $(OBJS_DLL)
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(CXX) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
+	$(CXX) $(FLAGS) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
 	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
 endif
 

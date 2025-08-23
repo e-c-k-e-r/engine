@@ -48,9 +48,11 @@ namespace {
 	void addStr( const uf::stl::string& str ) {
 		for ( auto x : str ) addCh(x);
 	}
+#if UF_USE_DEPRECATED_STRING
 	void addUStr( const uf::String& str ) {
 		for ( auto x : str.getString() ) addCh(x);
 	}
+#endif
 };
 bool uf::IoStream::ncurses = false;
 uf::IoStream uf::iostream;
@@ -94,14 +96,16 @@ uf::stl::string uf::IoStream::readString(const bool& loop) {
 //	::info.input.history.push_back( str );
 	return str;
 }
+#if UF_USE_DEPRECATED_STRING
 uf::String uf::IoStream::readUString(const bool& loop) {
 	uf::stl::string str;
 	std::getline(std::cin, str);
 
-	addUStr(str);
+	addStr(str);
 //	::info.input.history.push_back( str );
 	return str;
 }
+#endif
 char uf::IoStream::writeChar( char ch ) {
 	addCh(ch);
 
@@ -118,6 +122,7 @@ const uf::stl::string& uf::IoStream::writeString( const uf::stl::string& str ) {
 //	::info.input.history.push_back( str );
 	return str;
 }
+#if UF_USE_DEPRECATED_STRING
 const uf::String& uf::IoStream::writeUString( const uf::String& str ) {
 	addUStr(str);
 	
@@ -125,6 +130,7 @@ const uf::String& uf::IoStream::writeUString( const uf::String& str ) {
 //	::info.input.history.push_back( str );
 	return str;
 }
+#endif
 
 void uf::IoStream::operator>> (bool& val) {
 	uf::stl::stringstream ss;
@@ -195,9 +201,11 @@ void uf::IoStream::operator>> (long double& val) {
 void uf::IoStream::operator>> (uf::stl::string& val) {
 	val = this->readString();
 }
+#if UF_USE_DEPRECATED_STRING
 void uf::IoStream::operator>> (uf::String& val) {
 	val = this->readUString();
 }
+#endif
 std::istream& uf::IoStream::operator>> ( std::istream& is ) {
 	uf::stl::string input;
 	is >> input;
@@ -295,10 +303,12 @@ uf::IoStream& uf::IoStream::operator<< (const uf::stl::string& val) {
 	this->writeString(val);
 	return *this;
 }
+#if UF_USE_DEPRECATED_STRING
 uf::IoStream& uf::IoStream::operator<< (const uf::String& val) {
 	this->writeUString(val);
 	return *this;
 }
+#endif
 uf::IoStream& uf::IoStream::operator<< (const char* cstr) {
 	this->writeString(uf::stl::string(cstr));
 	return *this;

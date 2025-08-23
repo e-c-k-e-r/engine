@@ -43,7 +43,7 @@ namespace {
 			case ULMessageSource::kMessageSource_ContentBlocker: source = "ContentBlocker"; break;
 			case ULMessageSource::kMessageSource_Other: source = "Other"; break;
 		}
-		uf::String message; {
+		uf::stl::string message; {
 			size_t len = ulStringGetLength(_message);
 			const ULChar16* data = ulStringGetData(_message);
 			for ( size_t i = 0; i < len; ++i ) message += data[i];

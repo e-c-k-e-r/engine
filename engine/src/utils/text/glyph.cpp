@@ -59,11 +59,11 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, unsigned long c, uint
 	if ( this->isSdf() ) this->generateSdf(this->m_buffer);
 	return this->m_buffer;
 }
-uint8_t* uf::Glyph::generate( const uf::stl::string& font, const uf::String& c, uint size ) {
+uint8_t* uf::Glyph::generate( const uf::stl::string& font, const uf::stl::string& c, uint size ) {
 	ext::freetype::Glyph glyph = ext::freetype::initialize(font);
 	return this->generate( glyph, c );
 }
-uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::String& c, uint size ) {
+uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::stl::string& c, uint size ) {
 	ext::freetype::setPixelSizes( glyph, size );
 	if ( !ext::freetype::load( glyph, c ) ) return NULL;
 	if ( this->m_buffer ) {

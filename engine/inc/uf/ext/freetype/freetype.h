@@ -38,7 +38,7 @@ namespace ext {
 		UF_API void setRenderMode( ext::freetype::Glyph&, decltype(FT_RENDER_MODE_NORMAL) = FT_RENDER_MODE_NORMAL );
 		
 		UF_API bool load( ext::freetype::Glyph&, unsigned long );
-		UF_API bool load( ext::freetype::Glyph&, const uf::String& );
+		UF_API bool load( ext::freetype::Glyph&, const uf::stl::string& );
 
 		UF_API uf::stl::string getError( int );
 	}

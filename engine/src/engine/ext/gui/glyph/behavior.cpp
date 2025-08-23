@@ -196,9 +196,12 @@ namespace {
 			if ( maxTries == 0 ) text += "\n(error formatting)";
 			string = text;
 		}
-
+	#if 0
 		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> convert;
 		std::wstring str = convert.from_bytes(string);
+	#else
+		std::u8string str(string.begin(), string.end());
+	#endif
 		if ( str.size() == 0 ) return gs;
 
 		// Calculate statistics

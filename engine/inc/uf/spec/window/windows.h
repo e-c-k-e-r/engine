@@ -39,8 +39,8 @@ namespace spec {
 		// 	C-tors
 			UF_API_CALL Window();
 			UF_API_CALL Window( spec::win32::Window::handle_t );
-			UF_API_CALL Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title = L"Window" );
-			/*virtual*/ void UF_API_CALL create( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title = L"Window" );
+			UF_API_CALL Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title = "Window" );
+			/*virtual*/ void UF_API_CALL create( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title = "Window" );
 		// 	D-tors
 			/*virtual*/ ~Window();
 			void UF_API_CALL terminate();

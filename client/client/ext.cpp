@@ -33,7 +33,7 @@ void client::initialize() {
 			client::config["window"]["size"][1] = (size.y = resolution.y);
 		}
 		// Window title
-		uf::String title; {
+		uf::stl::string title; {
 			title = client::config["window"]["title"].as<std::string>();
 		}
 		// Terminal window;
@@ -93,7 +93,7 @@ void client::initialize() {
 		uf::hooks.addHook( "window:Title.Changed", [&]( ext::json::Value& json ){
 			if ( json["invoker"] != "os" ) {
 				if ( !ext::json::isObject( json["window"] ) ) return;
-				uf::String title = json["window"]["title"].as<std::string>();
+				uf::stl::string title = json["window"]["title"].as<std::string>();
 				client::window.setTitle(title);
 			}
 		} );

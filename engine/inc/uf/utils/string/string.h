@@ -7,12 +7,17 @@
 #include <locale>
 #include <cstring>
 
+#if UF_USE_DEPRECATED_STRING
 namespace uf {
 	class UF_API String {
 	public:
 		typedef uf::locale::Utf8 						encoding_t;
 		typedef uf::String::encoding_t::literal_t		literal_t;
+	#if __clang__
+		typedef std::basic_string<char> 				string_t;
+	#else
 		typedef std::basic_string<literal_t> 			string_t;
+	#endif
 
 		typedef uf::String::string_t::iterator 			iterator_t;
 		typedef uf::String::string_t::const_iterator 	const_iterator_t;
@@ -112,3 +117,4 @@ namespace uf {
 		}
 	};
 }
+#endif

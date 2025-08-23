@@ -25,8 +25,8 @@ namespace uf {
 		bool generated();
 		uint8_t* generate( const uf::stl::string&, unsigned long, uint = 48 );
 		uint8_t* generate( ext::freetype::Glyph&, unsigned long, uint = 48 );
-		uint8_t* generate( const uf::stl::string&, const uf::String&, uint = 48 );
-		uint8_t* generate( ext::freetype::Glyph&, const uf::String&, uint = 48 );
+		uint8_t* generate( const uf::stl::string&, const uf::stl::string&, uint = 48 );
+		uint8_t* generate( ext::freetype::Glyph&, const uf::stl::string&, uint = 48 );
 
 		void generateSdf( uint8_t* );
 	// 	Get

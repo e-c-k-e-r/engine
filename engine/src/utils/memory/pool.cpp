@@ -154,8 +154,10 @@ pod::Allocation uf::memoryPool::allocate( pod::MemoryPool& pool, size_t size, si
 	{
 		// find any availble spots in-between existing allocations
 		auto next = pool.allocations.begin();
+		// no allocations;
+		if ( pool.allocations.empty() ) {
 		// beginning is big enough to fit
-		if ( pointer + size < next->pointer ) {
+		} else if ( pointer + size < next->pointer ) {
 		} else {
 			for ( auto it = next; it != pool.allocations.end(); ++it ) {
 				// ignore invalid indexes

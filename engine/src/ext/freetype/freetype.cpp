@@ -2,6 +2,40 @@
 #if UF_USE_FREETYPE
 #include <uf/ext/freetype/freetype.h>
 
+namespace {
+	unsigned long first_codepoint(const std::u8string& str) {
+		if (str.empty()) throw std::runtime_error("Empty string");
+
+		const unsigned char* bytes = reinterpret_cast<const unsigned char*>(str.data());
+		unsigned char b0 = bytes[0];
+		unsigned long codepoint = 0;
+		int extra_bytes = 0;
+
+		if (b0 < 0x80) {
+			return b0;
+		} else if ((b0 >> 5) == 0x6) {
+			codepoint = b0 & 0x1F;
+			extra_bytes = 1;
+		} else if ((b0 >> 4) == 0xE) {
+			codepoint = b0 & 0x0F;
+			extra_bytes = 2;
+		} else if ((b0 >> 3) == 0x1E) {
+			codepoint = b0 & 0x07;
+			extra_bytes = 3;
+		} else {
+			UF_EXCEPTION("Invalid UTF-8 start byte");
+		}
+
+		for (int i = 0; i < extra_bytes; ++i) {
+			unsigned char bx = bytes[i+1];
+			if ((bx >> 6) != 0x2) UF_EXCEPTION("Invalid continuation byte");
+			codepoint = (codepoint << 6) | (bx & 0x3F);
+		}
+
+		return codepoint;
+	}
+}
+
 ext::freetype::Library ext::freetype::library;
 
 ext::freetype::Library::Library() : loaded(false) {
@@ -81,8 +115,12 @@ bool ext::freetype::load( ext::freetype::Glyph& glyph, unsigned long c ) {
 	}
 	return true;
 }
-bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& string ) {
+bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::stl::string& string ) {
+#if UF_USE_DEPRECATED_STRING
 	unsigned long c = string.translate<uf::locale::Utf32>().at(0);
+#else
+	unsigned long c = first_codepoint( std::u8string( string.begin(), string.end() ) );
+#endif
 	int error = 0;
 	if ( (error = FT_Load_Char(glyph.face, FT_Get_Char_Index(glyph.face, c), FT_LOAD_RENDER) )) {
 		std::cout << "Error #" << ext::freetype::getError(error) << ": FreeType failed to load glyph `" << c << "`" << std::endl;
@@ -94,8 +132,8 @@ bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& string 
 uf::stl::string ext::freetype::getError( int error ) {
 	#undef FTERRORS_H_
 	#define FT_ERRORDEF( e, v, s )  { e, s },
-	#define FT_ERROR_START_LIST     {
-	#define FT_ERROR_END_LIST       { 0, NULL } };
+	#define FT_ERROR_START_LIST 	{
+	#define FT_ERROR_END_LIST	   	{ 0, NULL } };
 
 	const struct FTErrors {
 		int err_code;
