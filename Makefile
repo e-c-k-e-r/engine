@@ -118,7 +118,11 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 		# OpenGL through GLEW
 		else
 			FLAGS 			+= -DUF_USE_GLEW
-			DEPS 			+= -lglew32 -lopengl32 -lglu32
+			ifneq (,$(findstring linux,$(ARCH)))
+				DEPS 			+= -lGLU -lglut -lGLEW
+			else
+				DEPS 			+= -lglew32 -lopengl32 -lglu32
+			endif
 		endif
 	endif
 

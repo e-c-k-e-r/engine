@@ -8,6 +8,9 @@ namespace spec {
 	typedef spec::unknown::Context Context;
 }
 #else
+
+#include <GL/glx.h>
+
 namespace spec {
 	namespace x11 {
 		class UF_API_VAR Context : public spec::uni::Context {

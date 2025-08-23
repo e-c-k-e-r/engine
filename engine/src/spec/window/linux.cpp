@@ -14,6 +14,13 @@
 #define UF_HOOK_USE_USERDATA 1
 #define UF_HOOK_USE_JSON 0
 
+#if UF_USE_VULKAN
+	#include <vulkan/vulkan.h>
+	#include <vulkan/vulkan_xlib.h>
+#elif UF_USE_OPENGL
+	#include <GL/glx.h>
+#endif
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrandr.h>
@@ -22,6 +29,9 @@
 
 #include <cstring>
 #include <iostream>
+
+#define None 0L
+#define Success 0
 
 namespace {
 	Display *globalDisplay = nullptr;
@@ -239,6 +249,9 @@ void spec::x11::Window::terminate() {
 #endif
 }
 
+Display* spec::x11::Window::getDisplay() const {
+	return m_display;
+}
 spec::x11::Window::handle_t spec::x11::Window::getHandle() const {
 	return m_handle;
 }
@@ -1053,6 +1066,9 @@ void spec::x11::Window::processEvents() {
 				pod::payloads::windowMouseMoved move{
 				    {{"window:Mouse.Moved", "client"}, {getSize()}},
 				    {current, current - last, 0}};
+
+				if ( current == last ) break;
+
 				this->pushEvent(move.type, move);
 
 				last = current;

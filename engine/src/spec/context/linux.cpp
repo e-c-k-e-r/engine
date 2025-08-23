@@ -8,6 +8,9 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 
+#define None 0L
+#define Success 0
+
 spec::x11::Context::Context( uni::Context* shared, const Context::Settings& settings ) :
 	uni::Context(NULL, true, settings),
 	m_display(nullptr),
@@ -26,7 +29,8 @@ spec::x11::Context::Context( uni::Context* shared, const Context::Settings& sett
 	XSetWindowAttributes swa;
 	swa.event_mask = StructureNotifyMask;
 	m_window = XCreateSimpleWindow(m_display, RootWindow(m_display, scr), 0, 0, 1, 1, 0, 0, 0);
-	XMapWindow(m_display, m_window);
+	
+	//XMapWindow(m_display, m_window);
 
 	this->create(shared);
 }

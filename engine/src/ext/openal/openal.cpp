@@ -209,6 +209,8 @@ void ext::al::close( uf::audio::Metadata& metadata ) {
 }
 
 void ext::al::listener( const pod::Transform<>& transform ) {
+	if ( uf::audio::muted ) return;
+	
 	float o[6] = { transform.forward.x, transform.forward.y, transform.forward.z, transform.up.x, transform.up.y, transform.up.z };
 	AL_CHECK_RESULT(alListener3f( AL_POSITION, transform.position.x, transform.position.y, transform.position.z ));
 	AL_CHECK_RESULT(alListener3f( AL_VELOCITY, 0, 0, 0 ));

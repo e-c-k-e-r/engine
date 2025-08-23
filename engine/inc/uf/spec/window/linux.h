@@ -11,9 +11,17 @@
 
 #if UF_USE_VULKAN
 	#include <vulkan/vulkan.h>
-	#include <vulkan/vulkan_xlib.h>
+	// #include <vulkan/vulkan_xlib.h>
 #elif UF_USE_OPENGL
-	#include <GL/glx.h>
+	// #include <GL/glx.h>
+#endif
+
+// these macros interfere with other things
+#ifdef Success
+	#undef Success
+#endif
+#ifdef None
+	#undef None
 #endif
 
 namespace spec {
@@ -47,6 +55,7 @@ namespace spec {
 			void UF_API_CALL create(const vector_t& size, const title_t& title = L"Window");
 			void UF_API_CALL terminate();
 
+			Display* UF_API_CALL getDisplay() const;
 			handle_t UF_API_CALL getHandle() const;
 			vector_t UF_API_CALL getPosition() const;
 			vector_t UF_API_CALL getSize() const;
@@ -91,4 +100,5 @@ namespace spec {
 namespace uf {
 	using Window = spec::x11::Window;
 }
+
 #endif
