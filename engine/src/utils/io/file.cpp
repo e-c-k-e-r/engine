@@ -271,7 +271,7 @@ size_t uf::io::mtime( const uf::stl::string& _filename ) {
 	return buffer.st_mtime;
 }
 bool uf::io::mkdir( const uf::stl::string& _filename ) {
-#if UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST || UF_ENV_LINUX
 	return false;
 #else
 	uf::stl::string filename = sanitize(_filename);

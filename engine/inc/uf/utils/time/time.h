@@ -5,11 +5,11 @@
 #include <cmath>
 
 namespace uf {
-	template<typename T = spec::Time::time_t>
+	template<typename T = spec::time::time_t>
 	class /*UF_API*/ Time {
 	public:
 		typedef T time_t;
-		typedef spec::Time::exp_t exp_t;
+		typedef spec::time::exp_t exp_t;
 	protected:
 		uf::Time<T>::time_t m_time;
 		uf::Time<T>::exp_t m_exp;
@@ -19,7 +19,7 @@ namespace uf {
 		static const uf::Time<T>::exp_t microseconds = -6;
 		static const uf::Time<T>::exp_t nanoseconds = -9;
 
-		Time(uf::Time<T>::time_t t = 0, uf::Time<T>::exp_t b = spec::Time::unit );
+		Time(uf::Time<T>::time_t t = 0, uf::Time<T>::exp_t b = spec::time::unit );
 
 		void set(uf::Time<T>::time_t t);
 		void set(uf::Time<T>::time_t t, uf::Time<T>::exp_t b);
@@ -31,7 +31,7 @@ namespace uf {
 		uf::Time<T>::time_t get() const;
 		uf::Time<T>::exp_t getBase() const;
 
-		uf::Time<T>::time_t asBase(uf::Time<T>::exp_t base = spec::Time::unit );
+		uf::Time<T>::time_t asBase(uf::Time<T>::exp_t base = spec::time::unit );
 		inline uf::Time<T>::time_t asSeconds();
 		inline uf::Time<T>::time_t asMilliseconds();
 		inline uf::Time<T>::time_t asMicroseconds();
@@ -55,17 +55,17 @@ namespace uf {
 		uf::Time<T> operator-( const uf::Time<T>& t );
 		uf::Time<T> operator+( const uf::Time<T>& t );
 	};
-	template<typename T = spec::Time::time_t>
+	template<typename T = spec::time::time_t>
 	class /*UF_API*/ Timer {
 	public:
 		typedef T time_t;
-		typedef spec::Time::exp_t exp_t;
+		typedef spec::time::exp_t exp_t;
 	protected:
 		bool m_running;
 		uf::Time<T> m_begin;
 		uf::Time<T> m_end;
 	public:
-		Timer(bool running = true, uf::Timer<T>::exp_t b = spec::Time::unit);
+		Timer(bool running = true, uf::Timer<T>::exp_t b = spec::time::unit);
 
 		void start( uf::Time<T> = 0 );
 		void stop();

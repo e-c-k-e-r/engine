@@ -1,7 +1,7 @@
 #pragma once
 
 #if UF_USE_FMT
-	#if UF_ENV_DREAMCAST
+	#if UF_ENV_DREAMCAST || UF_ENV_LINUX
 		#define FMT_HEADER_ONLY
 	#endif
 	#include <fmt/core.h>

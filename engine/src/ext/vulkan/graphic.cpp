@@ -1196,7 +1196,7 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	return rebuild;
 }
 void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
-	auto& device = *this->device; // ext::vulkan::device;
+	auto& device = *this->device;
 	bool update = !this->accelerationStructures.bottoms.empty();
 
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR acclerationStructureProperties{};

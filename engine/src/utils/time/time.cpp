@@ -1,7 +1,7 @@
 #include <uf/utils/time/time.h> // time(r)
 
 namespace {
-	uf::Time<> zero = spec::time.getTime(); 	// Program epoch, used for getting time deltas (without uf::Timer)
+	uf::Time<> zero = spec::time::getTime(); 	// Program epoch, used for getting time deltas (without uf::Timer)
 }
 // extern UF_API uf::Timer<> timer; 				// System timer, used for getting time deltas
 
@@ -13,5 +13,5 @@ float uf::time::delta = 0;
 float uf::time::clamp = 0;
 
 size_t uf::time::time() {
-	return spec::time.unixTime();
+	return spec::time::unixTime();
 }

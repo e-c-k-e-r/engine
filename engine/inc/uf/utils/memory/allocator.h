@@ -5,7 +5,7 @@
 // #include <limits>
 // #include <functional>
 
-#define UF_MEMORYPOOL_USE_STL_ALLOCATOR 0
+#define UF_MEMORYPOOL_USE_STL_ALLOCATOR 1
 
 namespace uf {
 	namespace allocator {

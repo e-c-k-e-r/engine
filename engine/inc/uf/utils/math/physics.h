@@ -3,6 +3,7 @@
 #include <uf/config.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/time/time.h>
+#include <uf/engine/object/object.h>
 
 #if UF_USE_BULLET
 	#include <uf/ext/bullet/bullet.h>

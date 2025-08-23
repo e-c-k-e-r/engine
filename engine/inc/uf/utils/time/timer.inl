@@ -20,12 +20,12 @@ void uf::Timer<T>::stop() {
 }
 template <typename T>
 void uf::Timer<T>::reset() {
-	this->m_end = this->m_begin = spec::time.getTime();
+	this->m_end = this->m_begin = spec::time::getTime();
 }
 template <typename T>
 void uf::Timer<T>::update() {
 	if ( !this->m_running ) return;
-	this->m_end = spec::time.getTime();
+	this->m_end = spec::time::getTime();
 }
 template <typename T>
 bool uf::Timer<T>::running() const {

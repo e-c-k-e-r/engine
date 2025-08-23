@@ -1,7 +1,6 @@
 #include <uf/spec/time/time.h>
 
-#ifdef UF_ENV_WINDOWS
-
+#if 0 && UF_ENV_WINDOWS
 namespace {
 	LARGE_INTEGER getFrequency() {
 		LARGE_INTEGER freq;

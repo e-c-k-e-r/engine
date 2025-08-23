@@ -1,5 +1,5 @@
 #include <uf/spec/time/time.h>
-#ifdef UF_ENV_DREAMCAST
+#if 0 && UF_ENV_DREAMCAST
 #include <arch/timer.h>
 
 spec::uni::Time::time_t spec::dreamcast::Time::getTime() {

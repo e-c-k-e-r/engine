@@ -64,6 +64,7 @@ namespace {
 }
 
 ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler::Descriptor& info ) {
+	auto& device = ext::vulkan::device;
 	ext::vulkan::Sampler sampler;
 	for ( auto& s : samplers ) {
 		if ( memcmp( &info, &s.descriptor, sizeof(info) - sizeof(VkDescriptorImageInfo) ) != 0 ) continue;
@@ -79,7 +80,7 @@ ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler:
 	{
 		auto& s = samplers.emplace_back();
 		s.descriptor = info;
-		s.initialize( ext::vulkan::device );
+		s.initialize( device );
 		sampler = s;
 	}
 RETRIEVE_RETURN:

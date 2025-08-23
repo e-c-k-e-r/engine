@@ -4,16 +4,15 @@
 
 namespace spec {
 	namespace uni {
-		class UF_API Time {
-		public:
+		namespace time {
 			typedef long long time_t;
 			typedef int exp_t;
-			static Time::exp_t unit;
-		protected:
-			
-		public:
-			spec::uni::Time::time_t UF_API_CALL unixTime();
-			spec::uni::Time::time_t UF_API_CALL getTime();
-		};
-	};
+			static constexpr exp_t unit = -6;
+
+			time_t UF_API unixTime();
+			time_t UF_API getTime();
+		}
+	}
+
+	namespace time = uni::time;
 }

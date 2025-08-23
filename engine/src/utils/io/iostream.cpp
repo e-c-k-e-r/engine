@@ -56,7 +56,7 @@ bool uf::IoStream::ncurses = false;
 uf::IoStream uf::iostream;
 
 uf::IoStream::IoStream() {
-	spec::terminal.setLocale();
+	//spec::terminal.setLocale();
 }
 uf::IoStream::~IoStream() {
 }
@@ -326,7 +326,7 @@ std::ostream& operator<< ( std::ostream& os, uf::IoStream& io ) {
 }
 
 uf::stl::string uf::IoStream::getColor() {
-	return this->m_currentColor;
+	return ""; // this->m_currentColor;
 }
 void uf::IoStream::setColor( const uf::stl::string& str ) {
 }

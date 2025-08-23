@@ -8,7 +8,9 @@
 #if !UF_EXCEPTIONS
 	#define JSON_NOEXCEPTION 1
 #endif
-// #define NDEBUG 1
+#if !UF_RTTI
+	#define JSON_HAS_STATIC_RTTI 0
+#endif
 
 #include <nlohmann/json.hpp>
 #include <nlohmann/fifo_map.hpp>

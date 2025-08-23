@@ -933,10 +933,9 @@ void uf::graph::process( pod::Graph& graph ) {
 	// process nodes
 	UF_DEBUG_TIMER_MULTITRACE("Processing nodes");
 	for ( auto index : graph.root.children ) {
+		UF_DEBUG_TIMER_MULTITRACE("Processing node: {}", graph.nodes[index].name);
 		process( graph, index, *graph.root.entity );
-
-		auto& node = graph.nodes[index];
-		if ( node.entity ) UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", node.name);
+		UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", graph.nodes[index].name);
 	}
 
 	// patch materials/textures
@@ -1352,7 +1351,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					metadataJson["physics"]["center"] = uf::vector::encode( center );
 					metadataJson["physics"]["corner"] = uf::vector::encode( corner );
 				}
-			#if UF_GRAPH_EXTENDED
+			#if !UF_GRAPH_EXTENDED
 				if ( type == "mesh" ) {
 					auto& collider = entity.getComponent<pod::PhysicsState>();
 					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);

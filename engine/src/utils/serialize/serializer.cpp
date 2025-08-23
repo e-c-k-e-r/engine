@@ -17,11 +17,7 @@
 #define UF_SERIALIZER_AUTO_CONVERT 1
 #endif
 
-//#define UF_MSG_DEBUG_(...) UF_MSG_DEBUG(__VA_ARGS__)
-#define UF_MSG_DEBUG_(...)
-
-uf::Serializer::Serializer() {
-}
+// uf::Serializer::Serializer() {}
 uf::Serializer::Serializer( const uf::stl::string& str ) {
 	this->deserialize(str);
 }

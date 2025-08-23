@@ -77,7 +77,7 @@ int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
 		std::string string(argv[i]);
-		uf::arguments.emplace_back(string);
+		// uf::arguments.emplace_back(string);
 	}
 
 	std::atexit(::handlers::exit);

@@ -746,6 +746,8 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum ) {
 	return this->getQueue( queueEnum, std::this_thread::get_id() );
 }
 VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+	auto& device = *this;
+	
 	uint32_t index{0};
 	uf::ThreadUnique<VkCommandPool>* commandPool{NULL};
 
@@ -780,6 +782,8 @@ VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueE
 	return pool;
 }
 VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+	auto& device = *this;
+
 	uint32_t index = 0;
 	uf::ThreadUnique<VkQueue>* commandPool{NULL};
 	switch ( queueEnum ) {
@@ -810,7 +814,9 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::th
 	return queue;
 }
 
-void ext::vulkan::Device::initialize() {	
+void ext::vulkan::Device::initialize() {
+	auto& device = *this;
+
 	uf::stl::vector<uf::stl::string> instanceLayers = {
 	//	"VK_LAYER_KHRONOS_synchronization2",
 	};

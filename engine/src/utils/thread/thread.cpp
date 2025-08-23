@@ -29,7 +29,7 @@ void uf::thread::quit( pod::Thread& thread ) { if ( !thread.running ) return;
 
 }
 void uf::thread::tick( pod::Thread& thread ) {
-#if !UF_ENV_DREAMCAST
+#if UF_ENV_WINDOWS
 	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
 //	if ( !res ) UF_THREAD_ANNOUNCE("Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on core " << pthread_self() << "/" << thread.affinity << ")");
 #endif

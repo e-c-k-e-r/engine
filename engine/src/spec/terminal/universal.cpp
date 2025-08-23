@@ -18,8 +18,7 @@ void spec::uni::Terminal::hide() {
 void spec::uni::Terminal::show() {
 }
 void spec::uni::Terminal::setLocale() {
-#if UF_ENV_DREAMCAST
-#else
+#if !UF_ENV_DREAMCAST
 	const char* locales[4] = {
 		"", "C.utf8", "C", "POSIX"
 	};

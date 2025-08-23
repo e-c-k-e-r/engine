@@ -16,7 +16,7 @@ namespace uf {
 		typedef uf::stl::string output_t;
 		typedef uf::stl::string  input_t;
 	
-		Serializer();
+		Serializer() = default;
 		Serializer( const uf::stl::string& str );
 		Serializer( const ext::json::base_value& );
 		Serializer( const ext::json::Value& );

@@ -6,6 +6,7 @@
 namespace uf {
 	extern bool UF_API ready;
 	extern uf::stl::vector<uf::stl::string> UF_API arguments;
+
 	extern uf::Serializer UF_API config;
 	
 	extern void UF_API load();

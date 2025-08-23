@@ -187,6 +187,7 @@ namespace ext {
 		}
 
 		extern UF_API Device device;
+
 		extern UF_API Allocator allocator;
 		extern UF_API Swapchain swapchain;
 		extern UF_API std::mutex mutex;

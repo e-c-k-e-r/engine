@@ -79,128 +79,132 @@ namespace {
 		uf::stl::vector<WPARAM> keys;
 		keys.reserve(8);
 
-		if ( uf::inputs::kbm::states::LShift ) keys.emplace_back(VK_LSHIFT);
-		if ( uf::inputs::kbm::states::RShift ) keys.emplace_back(VK_RSHIFT);
+		#define IF_KEY_STATE( K, V ) if ( uf::inputs::kbm::states::K ) keys.emplace_back(V);
 
-		if ( uf::inputs::kbm::states::LAlt ) keys.emplace_back(VK_LMENU);
-		if ( uf::inputs::kbm::states::RAlt ) keys.emplace_back(VK_RMENU);
+		IF_KEY_STATE( LShift, VK_LSHIFT);
+		IF_KEY_STATE( RShift, VK_RSHIFT);
 
-		if ( uf::inputs::kbm::states::LControl ) keys.emplace_back(VK_LCONTROL);
-		if ( uf::inputs::kbm::states::RControl ) keys.emplace_back(VK_RCONTROL);
+		IF_KEY_STATE( LAlt, VK_LMENU);
+		IF_KEY_STATE( RAlt, VK_RMENU);
 
-		if ( uf::inputs::kbm::states::LSystem ) keys.emplace_back(VK_LWIN);
-		if ( uf::inputs::kbm::states::RSystem ) keys.emplace_back(VK_RWIN);
+		IF_KEY_STATE( LControl, VK_LCONTROL);
+		IF_KEY_STATE( RControl, VK_RCONTROL);
 
-		if ( uf::inputs::kbm::states::Menu ) keys.emplace_back(VK_APPS);
-		if ( uf::inputs::kbm::states::SemiColon ) keys.emplace_back(VK_OEM_1);
-		if ( uf::inputs::kbm::states::Slash ) keys.emplace_back(VK_OEM_2);
-		if ( uf::inputs::kbm::states::Equal ) keys.emplace_back(VK_OEM_PLUS);
-		if ( uf::inputs::kbm::states::Dash ) keys.emplace_back(VK_OEM_MINUS);
-		if ( uf::inputs::kbm::states::LBracket ) keys.emplace_back(VK_OEM_4);
-		if ( uf::inputs::kbm::states::RBracket ) keys.emplace_back(VK_OEM_6);
-		if ( uf::inputs::kbm::states::Comma ) keys.emplace_back(VK_OEM_COMMA);
-		if ( uf::inputs::kbm::states::Period ) keys.emplace_back(VK_OEM_PERIOD);
-		if ( uf::inputs::kbm::states::Quote ) keys.emplace_back(VK_OEM_7);
-		if ( uf::inputs::kbm::states::BackSlash ) keys.emplace_back(VK_OEM_5);
-		if ( uf::inputs::kbm::states::Tilde ) keys.emplace_back(VK_OEM_3);
-		
-		if ( uf::inputs::kbm::states::Escape ) keys.emplace_back(VK_ESCAPE);
-		if ( uf::inputs::kbm::states::Space ) keys.emplace_back(VK_SPACE);
-		if ( uf::inputs::kbm::states::Enter ) keys.emplace_back(VK_RETURN);
-		if ( uf::inputs::kbm::states::BackSpace ) keys.emplace_back(VK_BACK);
-		if ( uf::inputs::kbm::states::Tab ) keys.emplace_back(VK_TAB);
-		if ( uf::inputs::kbm::states::PageUp ) keys.emplace_back(VK_PRIOR);
-		if ( uf::inputs::kbm::states::PageDown ) keys.emplace_back(VK_NEXT);
-		if ( uf::inputs::kbm::states::End ) keys.emplace_back(VK_END);
-		if ( uf::inputs::kbm::states::Home ) keys.emplace_back(VK_HOME);
-		if ( uf::inputs::kbm::states::Insert ) keys.emplace_back(VK_INSERT);
-		if ( uf::inputs::kbm::states::Delete ) keys.emplace_back(VK_DELETE);
-		if ( uf::inputs::kbm::states::Add ) keys.emplace_back(VK_ADD);
-		if ( uf::inputs::kbm::states::Subtract ) keys.emplace_back(VK_SUBTRACT);
-		if ( uf::inputs::kbm::states::Multiply ) keys.emplace_back(VK_MULTIPLY);
-		if ( uf::inputs::kbm::states::Divide ) keys.emplace_back(VK_DIVIDE);
-		if ( uf::inputs::kbm::states::Pause ) keys.emplace_back(VK_PAUSE);
-		
-		if ( uf::inputs::kbm::states::F1 ) keys.emplace_back(VK_F1);
-		if ( uf::inputs::kbm::states::F2 ) keys.emplace_back(VK_F2);
-		if ( uf::inputs::kbm::states::F3 ) keys.emplace_back(VK_F3);
-		if ( uf::inputs::kbm::states::F4 ) keys.emplace_back(VK_F4);
-		if ( uf::inputs::kbm::states::F5 ) keys.emplace_back(VK_F5);
-		if ( uf::inputs::kbm::states::F6 ) keys.emplace_back(VK_F6);
-		if ( uf::inputs::kbm::states::F7 ) keys.emplace_back(VK_F7);
-		if ( uf::inputs::kbm::states::F8 ) keys.emplace_back(VK_F8);
-		if ( uf::inputs::kbm::states::F9 ) keys.emplace_back(VK_F9);
-		if ( uf::inputs::kbm::states::F10 ) keys.emplace_back(VK_F10);
-		if ( uf::inputs::kbm::states::F11 ) keys.emplace_back(VK_F11);
-		if ( uf::inputs::kbm::states::F12 ) keys.emplace_back(VK_F12);
-		if ( uf::inputs::kbm::states::F13 ) keys.emplace_back(VK_F13);
-		if ( uf::inputs::kbm::states::F14 ) keys.emplace_back(VK_F14);
-		if ( uf::inputs::kbm::states::F15 ) keys.emplace_back(VK_F15);
-		
-		if ( uf::inputs::kbm::states::Left ) keys.emplace_back(VK_LEFT);
-		if ( uf::inputs::kbm::states::Right ) keys.emplace_back(VK_RIGHT);
-		if ( uf::inputs::kbm::states::Up ) keys.emplace_back(VK_UP);
-		if ( uf::inputs::kbm::states::Down ) keys.emplace_back(VK_DOWN);
+		IF_KEY_STATE( LSystem, VK_LWIN);
+		IF_KEY_STATE( RSystem, VK_RWIN);
 
-		if ( uf::inputs::kbm::states::Numpad0 ) keys.emplace_back(VK_NUMPAD0);
-		if ( uf::inputs::kbm::states::Numpad1 ) keys.emplace_back(VK_NUMPAD1);
-		if ( uf::inputs::kbm::states::Numpad2 ) keys.emplace_back(VK_NUMPAD2);
-		if ( uf::inputs::kbm::states::Numpad3 ) keys.emplace_back(VK_NUMPAD3);
-		if ( uf::inputs::kbm::states::Numpad4 ) keys.emplace_back(VK_NUMPAD4);
-		if ( uf::inputs::kbm::states::Numpad5 ) keys.emplace_back(VK_NUMPAD5);
-		if ( uf::inputs::kbm::states::Numpad6 ) keys.emplace_back(VK_NUMPAD6);
-		if ( uf::inputs::kbm::states::Numpad7 ) keys.emplace_back(VK_NUMPAD7);
-		if ( uf::inputs::kbm::states::Numpad8 ) keys.emplace_back(VK_NUMPAD8);
-		if ( uf::inputs::kbm::states::Numpad9 ) keys.emplace_back(VK_NUMPAD9);
+		IF_KEY_STATE( Menu, VK_APPS);
+		IF_KEY_STATE( SemiColon, VK_OEM_1);
+		IF_KEY_STATE( Slash, VK_OEM_2);
+		IF_KEY_STATE( Equal, VK_OEM_PLUS);
+		IF_KEY_STATE( Dash, VK_OEM_MINUS);
+		IF_KEY_STATE( LBracket, VK_OEM_4);
+		IF_KEY_STATE( RBracket, VK_OEM_6);
+		IF_KEY_STATE( Comma, VK_OEM_COMMA);
+		IF_KEY_STATE( Period, VK_OEM_PERIOD);
+		IF_KEY_STATE( Quote, VK_OEM_7);
+		IF_KEY_STATE( BackSlash, VK_OEM_5);
+		IF_KEY_STATE( Tilde, VK_OEM_3);
+		
+		IF_KEY_STATE( Escape, VK_ESCAPE);
+		IF_KEY_STATE( Space, VK_SPACE);
+		IF_KEY_STATE( Enter, VK_RETURN);
+		IF_KEY_STATE( BackSpace, VK_BACK);
+		IF_KEY_STATE( Tab, VK_TAB);
+		IF_KEY_STATE( PageUp, VK_PRIOR);
+		IF_KEY_STATE( PageDown, VK_NEXT);
+		IF_KEY_STATE( End, VK_END);
+		IF_KEY_STATE( Home, VK_HOME);
+		IF_KEY_STATE( Insert, VK_INSERT);
+		IF_KEY_STATE( Delete, VK_DELETE);
+		IF_KEY_STATE( Add, VK_ADD);
+		IF_KEY_STATE( Subtract, VK_SUBTRACT);
+		IF_KEY_STATE( Multiply, VK_MULTIPLY);
+		IF_KEY_STATE( Divide, VK_DIVIDE);
+		IF_KEY_STATE( Pause, VK_PAUSE);
+		
+		IF_KEY_STATE( F1, VK_F1);
+		IF_KEY_STATE( F2, VK_F2);
+		IF_KEY_STATE( F3, VK_F3);
+		IF_KEY_STATE( F4, VK_F4);
+		IF_KEY_STATE( F5, VK_F5);
+		IF_KEY_STATE( F6, VK_F6);
+		IF_KEY_STATE( F7, VK_F7);
+		IF_KEY_STATE( F8, VK_F8);
+		IF_KEY_STATE( F9, VK_F9);
+		IF_KEY_STATE( F10, VK_F10);
+		IF_KEY_STATE( F11, VK_F11);
+		IF_KEY_STATE( F12, VK_F12);
+		IF_KEY_STATE( F13, VK_F13);
+		IF_KEY_STATE( F14, VK_F14);
+		IF_KEY_STATE( F15, VK_F15);
+		
+		IF_KEY_STATE( Left, VK_LEFT);
+		IF_KEY_STATE( Right, VK_RIGHT);
+		IF_KEY_STATE( Up, VK_UP);
+		IF_KEY_STATE( Down, VK_DOWN);
 
-		if ( uf::inputs::kbm::states::Q ) keys.emplace_back('Q');
-		if ( uf::inputs::kbm::states::W ) keys.emplace_back('W');
-		if ( uf::inputs::kbm::states::E ) keys.emplace_back('E');
-		if ( uf::inputs::kbm::states::R ) keys.emplace_back('R');
-		if ( uf::inputs::kbm::states::T ) keys.emplace_back('T');
-		if ( uf::inputs::kbm::states::Y ) keys.emplace_back('Y');
-		if ( uf::inputs::kbm::states::U ) keys.emplace_back('U');
-		if ( uf::inputs::kbm::states::I ) keys.emplace_back('I');
-		if ( uf::inputs::kbm::states::O ) keys.emplace_back('O');
-		if ( uf::inputs::kbm::states::P ) keys.emplace_back('P');
+		IF_KEY_STATE( Numpad0, VK_NUMPAD0);
+		IF_KEY_STATE( Numpad1, VK_NUMPAD1);
+		IF_KEY_STATE( Numpad2, VK_NUMPAD2);
+		IF_KEY_STATE( Numpad3, VK_NUMPAD3);
+		IF_KEY_STATE( Numpad4, VK_NUMPAD4);
+		IF_KEY_STATE( Numpad5, VK_NUMPAD5);
+		IF_KEY_STATE( Numpad6, VK_NUMPAD6);
+		IF_KEY_STATE( Numpad7, VK_NUMPAD7);
+		IF_KEY_STATE( Numpad8, VK_NUMPAD8);
+		IF_KEY_STATE( Numpad9, VK_NUMPAD9);
+
+		IF_KEY_STATE( Q, 'Q');
+		IF_KEY_STATE( W, 'W');
+		IF_KEY_STATE( E, 'E');
+		IF_KEY_STATE( R, 'R');
+		IF_KEY_STATE( T, 'T');
+		IF_KEY_STATE( Y, 'Y');
+		IF_KEY_STATE( U, 'U');
+		IF_KEY_STATE( I, 'I');
+		IF_KEY_STATE( O, 'O');
+		IF_KEY_STATE( P, 'P');
 		
-		if ( uf::inputs::kbm::states::A ) keys.emplace_back('A');
-		if ( uf::inputs::kbm::states::S ) keys.emplace_back('S');
-		if ( uf::inputs::kbm::states::D ) keys.emplace_back('D');
-		if ( uf::inputs::kbm::states::F ) keys.emplace_back('F');
-		if ( uf::inputs::kbm::states::G ) keys.emplace_back('G');
-		if ( uf::inputs::kbm::states::H ) keys.emplace_back('H');
-		if ( uf::inputs::kbm::states::J ) keys.emplace_back('J');
-		if ( uf::inputs::kbm::states::K ) keys.emplace_back('K');
-		if ( uf::inputs::kbm::states::L ) keys.emplace_back('L');
+		IF_KEY_STATE( A, 'A');
+		IF_KEY_STATE( S, 'S');
+		IF_KEY_STATE( D, 'D');
+		IF_KEY_STATE( F, 'F');
+		IF_KEY_STATE( G, 'G');
+		IF_KEY_STATE( H, 'H');
+		IF_KEY_STATE( J, 'J');
+		IF_KEY_STATE( K, 'K');
+		IF_KEY_STATE( L, 'L');
 		
-		if ( uf::inputs::kbm::states::Z ) keys.emplace_back('Z');
-		if ( uf::inputs::kbm::states::X ) keys.emplace_back('X');
-		if ( uf::inputs::kbm::states::C ) keys.emplace_back('C');
-		if ( uf::inputs::kbm::states::V ) keys.emplace_back('V');
-		if ( uf::inputs::kbm::states::B ) keys.emplace_back('B');
-		if ( uf::inputs::kbm::states::N ) keys.emplace_back('N');
-		if ( uf::inputs::kbm::states::M ) keys.emplace_back('M');
+		IF_KEY_STATE( Z, 'Z');
+		IF_KEY_STATE( X, 'X');
+		IF_KEY_STATE( C, 'C');
+		IF_KEY_STATE( V, 'V');
+		IF_KEY_STATE( B, 'B');
+		IF_KEY_STATE( N, 'N');
+		IF_KEY_STATE( M, 'M');
 		
-		if ( uf::inputs::kbm::states::Num1 ) keys.emplace_back('1');
-		if ( uf::inputs::kbm::states::Num2 ) keys.emplace_back('2');
-		if ( uf::inputs::kbm::states::Num3 ) keys.emplace_back('3');
-		if ( uf::inputs::kbm::states::Num4 ) keys.emplace_back('4');
-		if ( uf::inputs::kbm::states::Num5 ) keys.emplace_back('5');
-		if ( uf::inputs::kbm::states::Num6 ) keys.emplace_back('6');
-		if ( uf::inputs::kbm::states::Num7 ) keys.emplace_back('7');
-		if ( uf::inputs::kbm::states::Num8 ) keys.emplace_back('8');
-		if ( uf::inputs::kbm::states::Num9 ) keys.emplace_back('9');
-		if ( uf::inputs::kbm::states::Num0 ) keys.emplace_back('0');
+		IF_KEY_STATE( Num1, '1');
+		IF_KEY_STATE( Num2, '2');
+		IF_KEY_STATE( Num3, '3');
+		IF_KEY_STATE( Num4, '4');
+		IF_KEY_STATE( Num5, '5');
+		IF_KEY_STATE( Num6, '6');
+		IF_KEY_STATE( Num7, '7');
+		IF_KEY_STATE( Num8, '8');
+		IF_KEY_STATE( Num9, '9');
+		IF_KEY_STATE( Num0, '0');
 		
-		if ( uf::inputs::kbm::states::Mouse1 ) keys.emplace_back(VK_LBUTTON);
-		if ( uf::inputs::kbm::states::Mouse2 ) keys.emplace_back(VK_RBUTTON);
-		if ( uf::inputs::kbm::states::Mouse3 ) keys.emplace_back(VK_MBUTTON);
+		IF_KEY_STATE( Mouse1, VK_LBUTTON);
+		IF_KEY_STATE( Mouse2, VK_RBUTTON);
+		IF_KEY_STATE( Mouse3, VK_MBUTTON);
 
 		return keys;
 	}
 
+
 	uf::stl::string _GetKeyName( WPARAM key, LPARAM flags = 0 ) {
+		#define CASE_KEY_RETURN( K, V ) case K: return V;
 		switch ( key ) {
 			// Check the scancode to distinguish between left and right shift
 			case VK_SHIFT: {	
@@ -214,109 +218,109 @@ namespace {
 			case VK_CONTROL : return (HIWORD(flags) & KF_EXTENDED) ? "RControl" : "LControl";
 
 			// Other keys are reported properly
-			case VK_LWIN:			return "LSystem";
-			case VK_RWIN:			return "RSystem";
-			case VK_APPS:			return "Menu";
-			case VK_OEM_1:			return "SemiColon";
-			case VK_OEM_2:			return "Slash";
-			case VK_OEM_PLUS:		return "Equal";
-			case VK_OEM_MINUS:  	return "Dash";
-			case VK_OEM_4:			return "LBracket";
-			case VK_OEM_6:			return "RBracket";
-			case VK_OEM_COMMA:  	return "Comma";
-			case VK_OEM_PERIOD:		return "Period";
-			case VK_OEM_7:			return "Quote";
-			case VK_OEM_5:			return "BackSlash";
-			case VK_OEM_3:			return "Tilde";
+			CASE_KEY_RETURN(VK_LWIN, "LSystem");
+			CASE_KEY_RETURN(VK_RWIN, "RSystem");
+			CASE_KEY_RETURN(VK_APPS, "Menu");
+			CASE_KEY_RETURN(VK_OEM_1, "SemiColon");
+			CASE_KEY_RETURN(VK_OEM_2, "Slash");
+			CASE_KEY_RETURN(VK_OEM_PLUS, "Equal");
+			CASE_KEY_RETURN(VK_OEM_MINUS, "Dash");
+			CASE_KEY_RETURN(VK_OEM_4, "LBracket");
+			CASE_KEY_RETURN(VK_OEM_6, "RBracket");
+			CASE_KEY_RETURN(VK_OEM_COMMA, "Comma");
+			CASE_KEY_RETURN(VK_OEM_PERIOD, "Period");
+			CASE_KEY_RETURN(VK_OEM_7, "Quote");
+			CASE_KEY_RETURN(VK_OEM_5, "BackSlash");
+			CASE_KEY_RETURN(VK_OEM_3, "Tilde");
 			
-			case VK_ESCAPE:			return "Escape";
-			case VK_SPACE:			return "Space";
-			case VK_RETURN:			return "Enter";
-			case VK_BACK:			return "BackSpace";
-			case VK_TAB:			return "Tab";
-			case VK_PRIOR:			return "PageUp";
-			case VK_NEXT:			return "PageDown";
-			case VK_END:			return "End";
-			case VK_HOME:			return "Home";
-			case VK_INSERT:			return "Insert";
-			case VK_DELETE:			return "Delete";
-			case VK_ADD:			return "Add";
-			case VK_SUBTRACT:		return "Subtract";
-			case VK_MULTIPLY:		return "Multiply";
-			case VK_DIVIDE:			return "Divide";
-			case VK_PAUSE:			return "Pause";
+			CASE_KEY_RETURN(VK_ESCAPE, "Escape");
+			CASE_KEY_RETURN(VK_SPACE, "Space");
+			CASE_KEY_RETURN(VK_RETURN, "Enter");
+			CASE_KEY_RETURN(VK_BACK, "BackSpace");
+			CASE_KEY_RETURN(VK_TAB, "Tab");
+			CASE_KEY_RETURN(VK_PRIOR, "PageUp");
+			CASE_KEY_RETURN(VK_NEXT, "PageDown");
+			CASE_KEY_RETURN(VK_END, "End");
+			CASE_KEY_RETURN(VK_HOME, "Home");
+			CASE_KEY_RETURN(VK_INSERT, "Insert");
+			CASE_KEY_RETURN(VK_DELETE, "Delete");
+			CASE_KEY_RETURN(VK_ADD, "Add");
+			CASE_KEY_RETURN(VK_SUBTRACT, "Subtract");
+			CASE_KEY_RETURN(VK_MULTIPLY, "Multiply");
+			CASE_KEY_RETURN(VK_DIVIDE, "Divide");
+			CASE_KEY_RETURN(VK_PAUSE, "Pause");
 			
-			case VK_F1:				return "F1";
-			case VK_F2:				return "F2";
-			case VK_F3:				return "F3";
-			case VK_F4:				return "F4";
-			case VK_F5:				return "F5";
-			case VK_F6:				return "F6";
-			case VK_F7:				return "F7";
-			case VK_F8:				return "F8";
-			case VK_F9:				return "F9";
-			case VK_F10:			return "F10";
-			case VK_F11:			return "F11";
-			case VK_F12:			return "F12";
-			case VK_F13:			return "F13";
-			case VK_F14:			return "F14";
-			case VK_F15:			return "F15";
+			CASE_KEY_RETURN(VK_F1, "F1");
+			CASE_KEY_RETURN(VK_F2, "F2");
+			CASE_KEY_RETURN(VK_F3, "F3");
+			CASE_KEY_RETURN(VK_F4, "F4");
+			CASE_KEY_RETURN(VK_F5, "F5");
+			CASE_KEY_RETURN(VK_F6, "F6");
+			CASE_KEY_RETURN(VK_F7, "F7");
+			CASE_KEY_RETURN(VK_F8, "F8");
+			CASE_KEY_RETURN(VK_F9, "F9");
+			CASE_KEY_RETURN(VK_F10, "F10");
+			CASE_KEY_RETURN(VK_F11, "F11");
+			CASE_KEY_RETURN(VK_F12, "F12");
+			CASE_KEY_RETURN(VK_F13, "F13");
+			CASE_KEY_RETURN(VK_F14, "F14");
+			CASE_KEY_RETURN(VK_F15, "F15");
 			
-			case VK_LEFT:			return "Left";
-			case VK_RIGHT:			return "Right";
-			case VK_UP:				return "Up";
-			case VK_DOWN:			return "Down";
+			CASE_KEY_RETURN(VK_LEFT, "Left");
+			CASE_KEY_RETURN(VK_RIGHT, "Right");
+			CASE_KEY_RETURN(VK_UP, "Up");
+			CASE_KEY_RETURN(VK_DOWN, "Down");
 
-			case VK_NUMPAD0:		return "Numpad0";
-			case VK_NUMPAD1:		return "Numpad1";
-			case VK_NUMPAD2:		return "Numpad2";
-			case VK_NUMPAD3:		return "Numpad3";
-			case VK_NUMPAD4:		return "Numpad4";
-			case VK_NUMPAD5:		return "Numpad5";
-			case VK_NUMPAD6:		return "Numpad6";
-			case VK_NUMPAD7:		return "Numpad7";
-			case VK_NUMPAD8:		return "Numpad8";
-			case VK_NUMPAD9:		return "Numpad9";
+			CASE_KEY_RETURN(VK_NUMPAD0, "Numpad0");
+			CASE_KEY_RETURN(VK_NUMPAD1, "Numpad1");
+			CASE_KEY_RETURN(VK_NUMPAD2, "Numpad2");
+			CASE_KEY_RETURN(VK_NUMPAD3, "Numpad3");
+			CASE_KEY_RETURN(VK_NUMPAD4, "Numpad4");
+			CASE_KEY_RETURN(VK_NUMPAD5, "Numpad5");
+			CASE_KEY_RETURN(VK_NUMPAD6, "Numpad6");
+			CASE_KEY_RETURN(VK_NUMPAD7, "Numpad7");
+			CASE_KEY_RETURN(VK_NUMPAD8, "Numpad8");
+			CASE_KEY_RETURN(VK_NUMPAD9, "Numpad9");
 
-			case 'Q':				return "Q";
-			case 'W':				return "W";
-			case 'E':				return "E";
-			case 'R':				return "R";
-			case 'T':				return "T";
-			case 'Y':				return "Y";
-			case 'U':				return "U";
-			case 'I':				return "I";
-			case 'O':				return "O";
-			case 'P':				return "P";
+			CASE_KEY_RETURN('Q', "Q");
+			CASE_KEY_RETURN('W', "W");
+			CASE_KEY_RETURN('E', "E");
+			CASE_KEY_RETURN('R', "R");
+			CASE_KEY_RETURN('T', "T");
+			CASE_KEY_RETURN('Y', "Y");
+			CASE_KEY_RETURN('U', "U");
+			CASE_KEY_RETURN('I', "I");
+			CASE_KEY_RETURN('O', "O");
+			CASE_KEY_RETURN('P', "P");
 			
-			case 'A':				return "A";
-			case 'S':				return "S";
-			case 'D':				return "D";
-			case 'F':				return "F";
-			case 'G':				return "G";
-			case 'H':				return "H";
-			case 'J':				return "J";
-			case 'K':				return "K";
-			case 'L':				return "L";
+			CASE_KEY_RETURN('A', "A");
+			CASE_KEY_RETURN('S', "S");
+			CASE_KEY_RETURN('D', "D");
+			CASE_KEY_RETURN('F', "F");
+			CASE_KEY_RETURN('G', "G");
+			CASE_KEY_RETURN('H', "H");
+			CASE_KEY_RETURN('J', "J");
+			CASE_KEY_RETURN('K', "K");
+			CASE_KEY_RETURN('L', "L");
 			
-			case 'Z':				return "Z";
-			case 'X':				return "X";
-			case 'C':				return "C";
-			case 'V':				return "V";
-			case 'B':				return "B";
-			case 'N':				return "N";
-			case 'M':				return "M";
+			CASE_KEY_RETURN('Z', "Z");
+			CASE_KEY_RETURN('X', "X");
+			CASE_KEY_RETURN('C', "C");
+			CASE_KEY_RETURN('V', "V");
+			CASE_KEY_RETURN('B', "B");
+			CASE_KEY_RETURN('N', "N");
+			CASE_KEY_RETURN('M', "M");
 			
-			case '1':				return "Num1";
-			case '2':				return "Num2";
-			case '3':				return "Num3";
-			case '4':				return "Num4";
-			case '5':				return "Num5";
-			case '6':				return "Num6";
-			case '7':				return "Num7";
-			case '8':				return "Num8";
-			case '9':				return "Num9";
-			case '0':				return "Num0";
+			CASE_KEY_RETURN('1', "Num1");
+			CASE_KEY_RETURN('2', "Num2");
+			CASE_KEY_RETURN('3', "Num3");
+			CASE_KEY_RETURN('4', "Num4");
+			CASE_KEY_RETURN('5', "Num5");
+			CASE_KEY_RETURN('6', "Num6");
+			CASE_KEY_RETURN('7', "Num7");
+			CASE_KEY_RETURN('8', "Num8");
+			CASE_KEY_RETURN('9', "Num9");
+			CASE_KEY_RETURN('0', "Num0");
 		}
 		return std::to_string((int) key);
 	}
@@ -326,114 +330,116 @@ namespace {
 
 	WPARAM GetKeyCode( const uf::stl::string& _name ) {
 		uf::stl::string name = uf::string::uppercase(_name);
-		if ( name == "A" ) return 'A';
-		else if ( name == "B" ) return 'B';
-		else if ( name == "C" ) return 'C';
-		else if ( name == "D" ) return 'D';
-		else if ( name == "E" ) return 'E';
-		else if ( name == "F" ) return 'F';
-		else if ( name == "G" ) return 'G';
-		else if ( name == "H" ) return 'H';
-		else if ( name == "I" ) return 'I';
-		else if ( name == "J" ) return 'J';
-		else if ( name == "K" ) return 'K';
-		else if ( name == "L" ) return 'L';
-		else if ( name == "M" ) return 'M';
-		else if ( name == "N" ) return 'N';
-		else if ( name == "O" ) return 'O';
-		else if ( name == "P" ) return 'P';
-		else if ( name == "Q" ) return 'Q';
-		else if ( name == "R" ) return 'R';
-		else if ( name == "S" ) return 'S';
-		else if ( name == "T" ) return 'T';
-		else if ( name == "U" ) return 'U';
-		else if ( name == "V" ) return 'V';
-		else if ( name == "W" ) return 'W';
-		else if ( name == "X" ) return 'X';
-		else if ( name == "Y" ) return 'Y';
-		else if ( name == "Z" ) return 'Z';
-		else if ( name == "0" ) return '0';
-		else if ( name == "1" ) return '1';
-		else if ( name == "2" ) return '2';
-		else if ( name == "3" ) return '3';
-		else if ( name == "4" ) return '4';
-		else if ( name == "5" ) return '5';
-		else if ( name == "6" ) return '6';
-		else if ( name == "7" ) return '7';
-		else if ( name == "8" ) return '8';
-		else if ( name == "9" ) return '9';
-		else if ( name == "ESCAPE" ) return VK_ESCAPE;
-		else if ( name == "LCONTROL" ) return VK_LCONTROL;
-		else if ( name == "LSHIFT" ) return VK_LSHIFT;
-		else if ( name == "LALT" ) return VK_LMENU;
-		else if ( name == "LSYSTEM" ) return VK_LWIN;
-		else if ( name == "RCONTROL" ) return VK_RCONTROL;
-		else if ( name == "RSHIFT" ) return VK_RSHIFT;
-		else if ( name == "RALT" ) return VK_RMENU;
-		else if ( name == "RSYSTEM" ) return VK_RWIN;
-		else if ( name == "APPS" ) return VK_APPS;
-		else if ( name == "OEM4" ) return VK_OEM_4;
-		else if ( name == "OEM6" ) return VK_OEM_6;
-		else if ( name == "OEM1" ) return VK_OEM_1;
-		else if ( name == "OEMCOMMA" ) return VK_OEM_COMMA;
-		else if ( name == "OEMPERIOD" ) return VK_OEM_PERIOD;
-		else if ( name == "OEM7" ) return VK_OEM_7;
-		else if ( name == "OEM2" ) return VK_OEM_2;
-		else if ( name == "OEM5" ) return VK_OEM_5;
-		else if ( name == "OEM3" ) return VK_OEM_3;
-		else if ( name == "OEM+" ) return VK_OEM_PLUS;
-		else if ( name == "OEM-" ) return VK_OEM_MINUS;
-		else if ( name == " " ) return VK_SPACE;
-		else if ( name == "SPACE" ) return VK_SPACE;
-		else if ( name == "ENTER" ) return VK_RETURN;
-		else if ( name == "BACK" ) return VK_BACK;
-		else if ( name == "TAB" ) return VK_TAB;
-		else if ( name == "PRIOR" ) return VK_PRIOR;
-		else if ( name == "NEXT" ) return VK_NEXT;
-		else if ( name == "END" ) return VK_END;
-		else if ( name == "HOME" ) return VK_HOME;
-		else if ( name == "INSERT" ) return VK_INSERT;
-		else if ( name == "DELETE" ) return VK_DELETE;
-		else if ( name == "+" ) return VK_ADD;
-		else if ( name == "-" ) return VK_SUBTRACT;
-		else if ( name == "*" ) return VK_MULTIPLY;
-		else if ( name == "/" ) return VK_DIVIDE;
-		else if ( name == "LEFT" ) return VK_LEFT;
-		else if ( name == "RIGHT" ) return VK_RIGHT;
-		else if ( name == "UP" ) return VK_UP;
-		else if ( name == "DOWN" ) return VK_DOWN;
-		else if ( name == "NUM0" ) return VK_NUMPAD0;
-		else if ( name == "NUM1" ) return VK_NUMPAD1;
-		else if ( name == "NUM2" ) return VK_NUMPAD2;
-		else if ( name == "NUM3" ) return VK_NUMPAD3;
-		else if ( name == "NUM4" ) return VK_NUMPAD4;
-		else if ( name == "NUM5" ) return VK_NUMPAD5;
-		else if ( name == "NUM6" ) return VK_NUMPAD6;
-		else if ( name == "NUM7" ) return VK_NUMPAD7;
-		else if ( name == "NUM8" ) return VK_NUMPAD8;
-		else if ( name == "NUM9" ) return VK_NUMPAD9;
-		else if ( name == "F1" ) return VK_F1;
-		else if ( name == "F2" ) return VK_F2;
-		else if ( name == "F3" ) return VK_F3;
-		else if ( name == "F4" ) return VK_F4;
-		else if ( name == "F5" ) return VK_F5;
-		else if ( name == "F6" ) return VK_F6;
-		else if ( name == "F7" ) return VK_F7;
-		else if ( name == "F8" ) return VK_F8;
-		else if ( name == "F9" ) return VK_F9;
-		else if ( name == "F10" ) return VK_F10;
-		else if ( name == "F11" ) return VK_F11;
-		else if ( name == "F12" ) return VK_F12;
-		else if ( name == "F13" ) return VK_F13;
-		else if ( name == "F14" ) return VK_F14;
-		else if ( name == "F15" ) return VK_F15;
-		else if ( name == "PAUSE" ) return VK_PAUSE;
+		#define IF_KEY_RETURN( K, V ) if ( name == K ) return V
+
+		IF_KEY_RETURN( "A", 'A');
+		else IF_KEY_RETURN( "B", 'B');
+		else IF_KEY_RETURN( "C", 'C');
+		else IF_KEY_RETURN( "D", 'D');
+		else IF_KEY_RETURN( "E", 'E');
+		else IF_KEY_RETURN( "F", 'F');
+		else IF_KEY_RETURN( "G", 'G');
+		else IF_KEY_RETURN( "H", 'H');
+		else IF_KEY_RETURN( "I", 'I');
+		else IF_KEY_RETURN( "J", 'J');
+		else IF_KEY_RETURN( "K", 'K');
+		else IF_KEY_RETURN( "L", 'L');
+		else IF_KEY_RETURN( "M", 'M');
+		else IF_KEY_RETURN( "N", 'N');
+		else IF_KEY_RETURN( "O", 'O');
+		else IF_KEY_RETURN( "P", 'P');
+		else IF_KEY_RETURN( "Q", 'Q');
+		else IF_KEY_RETURN( "R", 'R');
+		else IF_KEY_RETURN( "S", 'S');
+		else IF_KEY_RETURN( "T", 'T');
+		else IF_KEY_RETURN( "U", 'U');
+		else IF_KEY_RETURN( "V", 'V');
+		else IF_KEY_RETURN( "W", 'W');
+		else IF_KEY_RETURN( "X", 'X');
+		else IF_KEY_RETURN( "Y", 'Y');
+		else IF_KEY_RETURN( "Z", 'Z');
+		else IF_KEY_RETURN( "0", '0');
+		else IF_KEY_RETURN( "1", '1');
+		else IF_KEY_RETURN( "2", '2');
+		else IF_KEY_RETURN( "3", '3');
+		else IF_KEY_RETURN( "4", '4');
+		else IF_KEY_RETURN( "5", '5');
+		else IF_KEY_RETURN( "6", '6');
+		else IF_KEY_RETURN( "7", '7');
+		else IF_KEY_RETURN( "8", '8');
+		else IF_KEY_RETURN( "9", '9');
+		else IF_KEY_RETURN( "ESCAPE", VK_ESCAPE);
+		else IF_KEY_RETURN( "LCONTROL", VK_LCONTROL);
+		else IF_KEY_RETURN( "LSHIFT", VK_LSHIFT);
+		else IF_KEY_RETURN( "LALT", VK_LMENU);
+		else IF_KEY_RETURN( "LSYSTEM", VK_LWIN);
+		else IF_KEY_RETURN( "RCONTROL", VK_RCONTROL);
+		else IF_KEY_RETURN( "RSHIFT", VK_RSHIFT);
+		else IF_KEY_RETURN( "RALT", VK_RMENU);
+		else IF_KEY_RETURN( "RSYSTEM", VK_RWIN);
+		else IF_KEY_RETURN( "APPS", VK_APPS);
+		else IF_KEY_RETURN( "OEM4", VK_OEM_4);
+		else IF_KEY_RETURN( "OEM6", VK_OEM_6);
+		else IF_KEY_RETURN( "OEM1", VK_OEM_1);
+		else IF_KEY_RETURN( "OEMCOMMA", VK_OEM_COMMA);
+		else IF_KEY_RETURN( "OEMPERIOD", VK_OEM_PERIOD);
+		else IF_KEY_RETURN( "OEM7", VK_OEM_7);
+		else IF_KEY_RETURN( "OEM2", VK_OEM_2);
+		else IF_KEY_RETURN( "OEM5", VK_OEM_5);
+		else IF_KEY_RETURN( "OEM3", VK_OEM_3);
+		else IF_KEY_RETURN( "OEM+", VK_OEM_PLUS);
+		else IF_KEY_RETURN( "OEM-", VK_OEM_MINUS);
+		else IF_KEY_RETURN( " ", VK_SPACE);
+		else IF_KEY_RETURN( "SPACE", VK_SPACE);
+		else IF_KEY_RETURN( "ENTER", VK_RETURN);
+		else IF_KEY_RETURN( "BACK", VK_BACK);
+		else IF_KEY_RETURN( "TAB", VK_TAB);
+		else IF_KEY_RETURN( "PRIOR", VK_PRIOR);
+		else IF_KEY_RETURN( "NEXT", VK_NEXT);
+		else IF_KEY_RETURN( "END", VK_END);
+		else IF_KEY_RETURN( "HOME", VK_HOME);
+		else IF_KEY_RETURN( "INSERT", VK_INSERT);
+		else IF_KEY_RETURN( "DELETE", VK_DELETE);
+		else IF_KEY_RETURN( "+", VK_ADD);
+		else IF_KEY_RETURN( "-", VK_SUBTRACT);
+		else IF_KEY_RETURN( "*", VK_MULTIPLY);
+		else IF_KEY_RETURN( "/", VK_DIVIDE);
+		else IF_KEY_RETURN( "LEFT", VK_LEFT);
+		else IF_KEY_RETURN( "RIGHT", VK_RIGHT);
+		else IF_KEY_RETURN( "UP", VK_UP);
+		else IF_KEY_RETURN( "DOWN", VK_DOWN);
+		else IF_KEY_RETURN( "NUM0", VK_NUMPAD0);
+		else IF_KEY_RETURN( "NUM1", VK_NUMPAD1);
+		else IF_KEY_RETURN( "NUM2", VK_NUMPAD2);
+		else IF_KEY_RETURN( "NUM3", VK_NUMPAD3);
+		else IF_KEY_RETURN( "NUM4", VK_NUMPAD4);
+		else IF_KEY_RETURN( "NUM5", VK_NUMPAD5);
+		else IF_KEY_RETURN( "NUM6", VK_NUMPAD6);
+		else IF_KEY_RETURN( "NUM7", VK_NUMPAD7);
+		else IF_KEY_RETURN( "NUM8", VK_NUMPAD8);
+		else IF_KEY_RETURN( "NUM9", VK_NUMPAD9);
+		else IF_KEY_RETURN( "F1", VK_F1);
+		else IF_KEY_RETURN( "F2", VK_F2);
+		else IF_KEY_RETURN( "F3", VK_F3);
+		else IF_KEY_RETURN( "F4", VK_F4);
+		else IF_KEY_RETURN( "F5", VK_F5);
+		else IF_KEY_RETURN( "F6", VK_F6);
+		else IF_KEY_RETURN( "F7", VK_F7);
+		else IF_KEY_RETURN( "F8", VK_F8);
+		else IF_KEY_RETURN( "F9", VK_F9);
+		else IF_KEY_RETURN( "F10", VK_F10);
+		else IF_KEY_RETURN( "F11", VK_F11);
+		else IF_KEY_RETURN( "F12", VK_F12);
+		else IF_KEY_RETURN( "F13", VK_F13);
+		else IF_KEY_RETURN( "F14", VK_F14);
+		else IF_KEY_RETURN( "F15", VK_F15);
+		else IF_KEY_RETURN( "PAUSE", VK_PAUSE);
 		
-		else if ( name == "MOUSE1" ) return VK_LBUTTON;
-		else if ( name == "MOUSE2" ) return VK_RBUTTON;
-		else if ( name == "MOUSE3" ) return VK_MBUTTON;
-		else if ( name == "XBUTTON1" ) return VK_XBUTTON1;
-		else if ( name == "XBUTTON2" ) return VK_XBUTTON2;
+		else IF_KEY_RETURN( "MOUSE1", VK_LBUTTON);
+		else IF_KEY_RETURN( "MOUSE2", VK_RBUTTON);
+		else IF_KEY_RETURN( "MOUSE3", VK_MBUTTON);
+		else IF_KEY_RETURN( "XBUTTON1", VK_XBUTTON1);
+		else IF_KEY_RETURN( "XBUTTON2", VK_XBUTTON2);
 		return 0;
 	}
 
@@ -704,125 +710,126 @@ bool spec::win32::Window::hasFocus() const {
 void spec::win32::Window::bufferInputs() {
 	uf::Window::focused = this->hasFocus();
 
-#define GET_KEYSTATE(X) uf::Window::focused ? GetAsyncKeyState(X) & 0x8000 : false;
+	#define GET_KEYSTATE(X) uf::Window::focused ? GetAsyncKeyState(X) & 0x8000 : false;
+	#define STORE_KEYSTATE(K, V) uf::inputs::kbm::states::K = GET_KEYSTATE(V);
 
-	uf::inputs::kbm::states::LShift = GET_KEYSTATE(VK_LSHIFT);
-	uf::inputs::kbm::states::RShift = GET_KEYSTATE(VK_RSHIFT);
+	STORE_KEYSTATE(LShift, VK_LSHIFT);
+	STORE_KEYSTATE(RShift, VK_RSHIFT);
 
-	uf::inputs::kbm::states::LAlt = GET_KEYSTATE(VK_LMENU);
-	uf::inputs::kbm::states::RAlt = GET_KEYSTATE(VK_RMENU);
+	STORE_KEYSTATE(LAlt, VK_LMENU);
+	STORE_KEYSTATE(RAlt, VK_RMENU);
 
-	uf::inputs::kbm::states::LControl = GET_KEYSTATE(VK_LCONTROL);
-	uf::inputs::kbm::states::RControl = GET_KEYSTATE(VK_RCONTROL);
+	STORE_KEYSTATE(LControl, VK_LCONTROL);
+	STORE_KEYSTATE(RControl, VK_RCONTROL);
 
-	uf::inputs::kbm::states::LSystem = GET_KEYSTATE(VK_LWIN);
-	uf::inputs::kbm::states::RSystem = GET_KEYSTATE(VK_RWIN);
+	STORE_KEYSTATE(LSystem, VK_LWIN);
+	STORE_KEYSTATE(RSystem, VK_RWIN);
 
-	uf::inputs::kbm::states::Menu = GET_KEYSTATE(VK_APPS);
-	uf::inputs::kbm::states::SemiColon = GET_KEYSTATE(VK_OEM_1);
-	uf::inputs::kbm::states::Slash = GET_KEYSTATE(VK_OEM_2);
-	uf::inputs::kbm::states::Equal = GET_KEYSTATE(VK_OEM_PLUS);
-	uf::inputs::kbm::states::Dash = GET_KEYSTATE(VK_OEM_MINUS);
-	uf::inputs::kbm::states::LBracket = GET_KEYSTATE(VK_OEM_4);
-	uf::inputs::kbm::states::RBracket = GET_KEYSTATE(VK_OEM_6);
-	uf::inputs::kbm::states::Comma = GET_KEYSTATE(VK_OEM_COMMA);
-	uf::inputs::kbm::states::Period = GET_KEYSTATE(VK_OEM_PERIOD);
-	uf::inputs::kbm::states::Quote = GET_KEYSTATE(VK_OEM_7);
-	uf::inputs::kbm::states::BackSlash = GET_KEYSTATE(VK_OEM_5);
-	uf::inputs::kbm::states::Tilde = GET_KEYSTATE(VK_OEM_3);
+	STORE_KEYSTATE(Menu, VK_APPS);
+	STORE_KEYSTATE(SemiColon, VK_OEM_1);
+	STORE_KEYSTATE(Slash, VK_OEM_2);
+	STORE_KEYSTATE(Equal, VK_OEM_PLUS);
+	STORE_KEYSTATE(Dash, VK_OEM_MINUS);
+	STORE_KEYSTATE(LBracket, VK_OEM_4);
+	STORE_KEYSTATE(RBracket, VK_OEM_6);
+	STORE_KEYSTATE(Comma, VK_OEM_COMMA);
+	STORE_KEYSTATE(Period, VK_OEM_PERIOD);
+	STORE_KEYSTATE(Quote, VK_OEM_7);
+	STORE_KEYSTATE(BackSlash, VK_OEM_5);
+	STORE_KEYSTATE(Tilde, VK_OEM_3);
 	
-	uf::inputs::kbm::states::Escape = GET_KEYSTATE(VK_ESCAPE);
-	uf::inputs::kbm::states::Space = GET_KEYSTATE(VK_SPACE);
-	uf::inputs::kbm::states::Enter = GET_KEYSTATE(VK_RETURN);
-	uf::inputs::kbm::states::BackSpace = GET_KEYSTATE(VK_BACK);
-	uf::inputs::kbm::states::Tab = GET_KEYSTATE(VK_TAB);
-	uf::inputs::kbm::states::PageUp = GET_KEYSTATE(VK_PRIOR);
-	uf::inputs::kbm::states::PageDown = GET_KEYSTATE(VK_NEXT);
-	uf::inputs::kbm::states::End = GET_KEYSTATE(VK_END);
-	uf::inputs::kbm::states::Home = GET_KEYSTATE(VK_HOME);
-	uf::inputs::kbm::states::Insert = GET_KEYSTATE(VK_INSERT);
-	uf::inputs::kbm::states::Delete = GET_KEYSTATE(VK_DELETE);
-	uf::inputs::kbm::states::Add = GET_KEYSTATE(VK_ADD);
-	uf::inputs::kbm::states::Subtract = GET_KEYSTATE(VK_SUBTRACT);
-	uf::inputs::kbm::states::Multiply = GET_KEYSTATE(VK_MULTIPLY);
-	uf::inputs::kbm::states::Divide = GET_KEYSTATE(VK_DIVIDE);
-	uf::inputs::kbm::states::Pause = GET_KEYSTATE(VK_PAUSE);
+	STORE_KEYSTATE(Escape, VK_ESCAPE);
+	STORE_KEYSTATE(Space, VK_SPACE);
+	STORE_KEYSTATE(Enter, VK_RETURN);
+	STORE_KEYSTATE(BackSpace, VK_BACK);
+	STORE_KEYSTATE(Tab, VK_TAB);
+	STORE_KEYSTATE(PageUp, VK_PRIOR);
+	STORE_KEYSTATE(PageDown, VK_NEXT);
+	STORE_KEYSTATE(End, VK_END);
+	STORE_KEYSTATE(Home, VK_HOME);
+	STORE_KEYSTATE(Insert, VK_INSERT);
+	STORE_KEYSTATE(Delete, VK_DELETE);
+	STORE_KEYSTATE(Add, VK_ADD);
+	STORE_KEYSTATE(Subtract, VK_SUBTRACT);
+	STORE_KEYSTATE(Multiply, VK_MULTIPLY);
+	STORE_KEYSTATE(Divide, VK_DIVIDE);
+	STORE_KEYSTATE(Pause, VK_PAUSE);
 	
-	uf::inputs::kbm::states::F1 = GET_KEYSTATE(VK_F1);
-	uf::inputs::kbm::states::F2 = GET_KEYSTATE(VK_F2);
-	uf::inputs::kbm::states::F3 = GET_KEYSTATE(VK_F3);
-	uf::inputs::kbm::states::F4 = GET_KEYSTATE(VK_F4);
-	uf::inputs::kbm::states::F5 = GET_KEYSTATE(VK_F5);
-	uf::inputs::kbm::states::F6 = GET_KEYSTATE(VK_F6);
-	uf::inputs::kbm::states::F7 = GET_KEYSTATE(VK_F7);
-	uf::inputs::kbm::states::F8 = GET_KEYSTATE(VK_F8);
-	uf::inputs::kbm::states::F9 = GET_KEYSTATE(VK_F9);
-	uf::inputs::kbm::states::F10 = GET_KEYSTATE(VK_F10);
-	uf::inputs::kbm::states::F11 = GET_KEYSTATE(VK_F11);
-	uf::inputs::kbm::states::F12 = GET_KEYSTATE(VK_F12);
-	uf::inputs::kbm::states::F13 = GET_KEYSTATE(VK_F13);
-	uf::inputs::kbm::states::F14 = GET_KEYSTATE(VK_F14);
-	uf::inputs::kbm::states::F15 = GET_KEYSTATE(VK_F15);
+	STORE_KEYSTATE(F1, VK_F1);
+	STORE_KEYSTATE(F2, VK_F2);
+	STORE_KEYSTATE(F3, VK_F3);
+	STORE_KEYSTATE(F4, VK_F4);
+	STORE_KEYSTATE(F5, VK_F5);
+	STORE_KEYSTATE(F6, VK_F6);
+	STORE_KEYSTATE(F7, VK_F7);
+	STORE_KEYSTATE(F8, VK_F8);
+	STORE_KEYSTATE(F9, VK_F9);
+	STORE_KEYSTATE(F10, VK_F10);
+	STORE_KEYSTATE(F11, VK_F11);
+	STORE_KEYSTATE(F12, VK_F12);
+	STORE_KEYSTATE(F13, VK_F13);
+	STORE_KEYSTATE(F14, VK_F14);
+	STORE_KEYSTATE(F15, VK_F15);
 	
-	uf::inputs::kbm::states::Left = GET_KEYSTATE(VK_LEFT);
-	uf::inputs::kbm::states::Right = GET_KEYSTATE(VK_RIGHT);
-	uf::inputs::kbm::states::Up = GET_KEYSTATE(VK_UP);
-	uf::inputs::kbm::states::Down = GET_KEYSTATE(VK_DOWN);
+	STORE_KEYSTATE(Left, VK_LEFT);
+	STORE_KEYSTATE(Right, VK_RIGHT);
+	STORE_KEYSTATE(Up, VK_UP);
+	STORE_KEYSTATE(Down, VK_DOWN);
 
-	uf::inputs::kbm::states::Numpad0 = GET_KEYSTATE(VK_NUMPAD0);
-	uf::inputs::kbm::states::Numpad1 = GET_KEYSTATE(VK_NUMPAD1);
-	uf::inputs::kbm::states::Numpad2 = GET_KEYSTATE(VK_NUMPAD2);
-	uf::inputs::kbm::states::Numpad3 = GET_KEYSTATE(VK_NUMPAD3);
-	uf::inputs::kbm::states::Numpad4 = GET_KEYSTATE(VK_NUMPAD4);
-	uf::inputs::kbm::states::Numpad5 = GET_KEYSTATE(VK_NUMPAD5);
-	uf::inputs::kbm::states::Numpad6 = GET_KEYSTATE(VK_NUMPAD6);
-	uf::inputs::kbm::states::Numpad7 = GET_KEYSTATE(VK_NUMPAD7);
-	uf::inputs::kbm::states::Numpad8 = GET_KEYSTATE(VK_NUMPAD8);
-	uf::inputs::kbm::states::Numpad9 = GET_KEYSTATE(VK_NUMPAD9);
+	STORE_KEYSTATE(Numpad0, VK_NUMPAD0);
+	STORE_KEYSTATE(Numpad1, VK_NUMPAD1);
+	STORE_KEYSTATE(Numpad2, VK_NUMPAD2);
+	STORE_KEYSTATE(Numpad3, VK_NUMPAD3);
+	STORE_KEYSTATE(Numpad4, VK_NUMPAD4);
+	STORE_KEYSTATE(Numpad5, VK_NUMPAD5);
+	STORE_KEYSTATE(Numpad6, VK_NUMPAD6);
+	STORE_KEYSTATE(Numpad7, VK_NUMPAD7);
+	STORE_KEYSTATE(Numpad8, VK_NUMPAD8);
+	STORE_KEYSTATE(Numpad9, VK_NUMPAD9);
 
-	uf::inputs::kbm::states::Q = GET_KEYSTATE('Q');
-	uf::inputs::kbm::states::W = GET_KEYSTATE('W');
-	uf::inputs::kbm::states::E = GET_KEYSTATE('E');
-	uf::inputs::kbm::states::R = GET_KEYSTATE('R');
-	uf::inputs::kbm::states::T = GET_KEYSTATE('T');
-	uf::inputs::kbm::states::Y = GET_KEYSTATE('Y');
-	uf::inputs::kbm::states::U = GET_KEYSTATE('U');
-	uf::inputs::kbm::states::I = GET_KEYSTATE('I');
-	uf::inputs::kbm::states::O = GET_KEYSTATE('O');
-	uf::inputs::kbm::states::P = GET_KEYSTATE('P');
+	STORE_KEYSTATE(Q, 'Q');
+	STORE_KEYSTATE(W, 'W');
+	STORE_KEYSTATE(E, 'E');
+	STORE_KEYSTATE(R, 'R');
+	STORE_KEYSTATE(T, 'T');
+	STORE_KEYSTATE(Y, 'Y');
+	STORE_KEYSTATE(U, 'U');
+	STORE_KEYSTATE(I, 'I');
+	STORE_KEYSTATE(O, 'O');
+	STORE_KEYSTATE(P, 'P');
 	
-	uf::inputs::kbm::states::A = GET_KEYSTATE('A');
-	uf::inputs::kbm::states::S = GET_KEYSTATE('S');
-	uf::inputs::kbm::states::D = GET_KEYSTATE('D');
-	uf::inputs::kbm::states::F = GET_KEYSTATE('F');
-	uf::inputs::kbm::states::G = GET_KEYSTATE('G');
-	uf::inputs::kbm::states::H = GET_KEYSTATE('H');
-	uf::inputs::kbm::states::J = GET_KEYSTATE('J');
-	uf::inputs::kbm::states::K = GET_KEYSTATE('K');
-	uf::inputs::kbm::states::L = GET_KEYSTATE('L');
+	STORE_KEYSTATE(A, 'A');
+	STORE_KEYSTATE(S, 'S');
+	STORE_KEYSTATE(D, 'D');
+	STORE_KEYSTATE(F, 'F');
+	STORE_KEYSTATE(G, 'G');
+	STORE_KEYSTATE(H, 'H');
+	STORE_KEYSTATE(J, 'J');
+	STORE_KEYSTATE(K, 'K');
+	STORE_KEYSTATE(L, 'L');
 	
-	uf::inputs::kbm::states::Z = GET_KEYSTATE('Z');
-	uf::inputs::kbm::states::X = GET_KEYSTATE('X');
-	uf::inputs::kbm::states::C = GET_KEYSTATE('C');
-	uf::inputs::kbm::states::V = GET_KEYSTATE('V');
-	uf::inputs::kbm::states::B = GET_KEYSTATE('B');
-	uf::inputs::kbm::states::N = GET_KEYSTATE('N');
-	uf::inputs::kbm::states::M = GET_KEYSTATE('M');
+	STORE_KEYSTATE(Z, 'Z');
+	STORE_KEYSTATE(X, 'X');
+	STORE_KEYSTATE(C, 'C');
+	STORE_KEYSTATE(V, 'V');
+	STORE_KEYSTATE(B, 'B');
+	STORE_KEYSTATE(N, 'N');
+	STORE_KEYSTATE(M, 'M');
 	
-	uf::inputs::kbm::states::Num1 = GET_KEYSTATE('1');
-	uf::inputs::kbm::states::Num2 = GET_KEYSTATE('2');
-	uf::inputs::kbm::states::Num3 = GET_KEYSTATE('3');
-	uf::inputs::kbm::states::Num4 = GET_KEYSTATE('4');
-	uf::inputs::kbm::states::Num5 = GET_KEYSTATE('5');
-	uf::inputs::kbm::states::Num6 = GET_KEYSTATE('6');
-	uf::inputs::kbm::states::Num7 = GET_KEYSTATE('7');
-	uf::inputs::kbm::states::Num8 = GET_KEYSTATE('8');
-	uf::inputs::kbm::states::Num9 = GET_KEYSTATE('9');
-	uf::inputs::kbm::states::Num0 = GET_KEYSTATE('0');
+	STORE_KEYSTATE(Num1, '1');
+	STORE_KEYSTATE(Num2, '2');
+	STORE_KEYSTATE(Num3, '3');
+	STORE_KEYSTATE(Num4, '4');
+	STORE_KEYSTATE(Num5, '5');
+	STORE_KEYSTATE(Num6, '6');
+	STORE_KEYSTATE(Num7, '7');
+	STORE_KEYSTATE(Num8, '8');
+	STORE_KEYSTATE(Num9, '9');
+	STORE_KEYSTATE(Num0, '0');
 	
-	uf::inputs::kbm::states::Mouse1 = GET_KEYSTATE(VK_LBUTTON);
-	uf::inputs::kbm::states::Mouse2 = GET_KEYSTATE(VK_RBUTTON);
-	uf::inputs::kbm::states::Mouse3 = GET_KEYSTATE(VK_MBUTTON);
+	STORE_KEYSTATE(Mouse1, VK_LBUTTON);
+	STORE_KEYSTATE(Mouse2, VK_RBUTTON);
+	STORE_KEYSTATE(Mouse3, VK_MBUTTON);
 
 	uf::inputs::kbm::states::MouseWheel = uf::Window::focused ? ::lastMouseWheel : 0;
 	::lastMouseWheel = 0;
@@ -896,73 +903,11 @@ bool spec::win32::Window::pollEvents( bool block ) {
 
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-	/*
-		if ( event.payload.is<uf::stl::string>() ) {
-			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
-			uf::hooks.call( "window:Event", payload );
-			uf::hooks.call( event.name, payload );
-		} else if ( event.payload.is<uf::Serializer>() ) {
-			uf::Serializer& payload = event.payload.as<uf::Serializer>();
-			uf::hooks.call( "window:Event", payload );
-			uf::hooks.call( event.name, payload );
-		} else if ( event.payload.is<ext::json::Value>() ) {
-			ext::json::Value& payload = event.payload.as<ext::json::Value>();
-			uf::hooks.call( "window:Event", payload );
-			uf::hooks.call( event.name, payload );
-		} else */ {
-			uf::hooks.call( "window:Event", event.payload );
-			uf::hooks.call( event.name, event.payload );
-		}
+		uf::hooks.call( "window:Event", event.payload );
+		uf::hooks.call( event.name, event.payload );
 		this->m_events.pop();
 	}
 	return true;
-#if 0
-	/* Empty; look for something! */ if ( this->m_events.readable.empty() && this->m_events.optimal.empty() ) {
-		do {
-			this->processEvents();
-		} while ( block && this->m_events.readable.empty() && this->m_events.optimal.empty() );
-	}
-
-	if ( uf::hooks.prefersReadable() ) // Should we handle events in a readable format...
-	/* Process events parsed in a readable format */ {
-		// process things
-		while ( !this->m_events.readable.empty() ) {
-			auto& event = this->m_events.readable.front();
-			uf::hooks.call( event.name, event.argument );
-		/*
-			try {
-				uf::hooks.call( "window:Event", event.argument );
-				uf::hooks.call( event.name, event.argument );
-			//	uf::iostream << event.name << "\t" << event.argument << "\n";
-			} catch ( ... ) {
-				// Let the hook handler handle the exceptions
-			}
-		*/
-			this->m_events.readable.pop();
-		}
-	//	this->m_events.optimal.clear(); 	// flush queue in case
-	} else // ... or in an optimal format?
-	/* Process events parsed in an optimal format */ {
-		// process things
-		while ( !this->m_events.optimal.empty() ) {
-			auto& event = this->m_events.optimal.front();
-			uf::hooks.call( event.name, event.argument );
-		/*
-			try {
-				uf::hooks.call( "window:Event", event.argument );
-				uf::hooks.call( event.name, event.argument );
-			//	uf::iostream << event.name << "\t" << event.argument << "\n";
-			} catch ( ... ) {
-				// Let the hook handler handle the exceptions
-			}
-		*/
-			uf::userdata::destroy(event.argument);
-			this->m_events.optimal.pop();
-		}
-	//	this->m_events.readable.clear(); 	// flush queue in case
-	}
-	return true;
-#endif
 }
 
 void spec::win32::Window::registerWindowClass() {

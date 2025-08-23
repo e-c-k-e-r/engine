@@ -4,6 +4,13 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
+#if UF_ENV_LINUX
+	#ifdef Success
+		#undef Success
+		#undef None
+	#endif
+#endif
+
 #include <typeinfo>
 #include <iostream>
 #include <cassert>

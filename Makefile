@@ -3,7 +3,8 @@ CC						= $(shell cat "./makefiles/default/cc")
 RENDERER 				= $(shell cat "./makefiles/default/renderer")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
-TARGET_LIB_EXTENSION 	= dll
+LIB_EXTENSION 			= dll
+LIB_EXTENSION_A 		= .a
 PREFIX 					= $(ARCH).$(CC)
 
 include makefiles/$(PREFIX).make
@@ -36,10 +37,18 @@ EXT_LIB_NAME 			+= ext
 
 7Z 						+= /c/Program\ Files/7-Zip/7z.exe
 
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.4.321.1/
-GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
-SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
-SPV_LINTER 				+= $(VULKAN_SDK_PATH)/Bin/spirv-lint
+ifneq (,$(findstring win64,$(ARCH)))
+	VULKAN_SDK_PATH 	= /c/VulkanSDK/1.4.321.1/
+	GLSLC 				= $(VULKAN_SDK_PATH)/Bin/glslc
+	SPV_OPTIMIZER 		= $(VULKAN_SDK_PATH)/Bin/spirv-opt
+	SPV_LINTER 			= $(VULKAN_SDK_PATH)/Bin/spirv-lint
+else
+	VULKAN_SDK_PATH		= /
+	GLSLC 				= glslc
+	SPV_OPTIMIZER 		= spirv-opt
+	SPV_LINTER 			= spirv-lint
+endif
+
 
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)
@@ -62,6 +71,15 @@ ifneq (,$(findstring win64,$(ARCH)))
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
 	INCS 				:= -I./dep/master/include $(INCS)
+else ifneq (,$(findstring linux,$(ARCH)))
+	ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
+		REQ_DEPS 			+= toml xatlas curl dc:texconv # meshoptimizer ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux 
+		FLAGS 				+= -march=native -g # -flto # -g
+	endif
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
+	FLAGS				+= -DUF_ENV_LINUX -fPIC
+	DEPS				+= -pthread -ldl -lX11 -lXrandr 
+	INCS				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST # -DUF_LEAN_AND_MEAN # this apparently crashes
 	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua reactphysics simd ctti fmt freetype openal aldc ogg wav png # imgui
@@ -69,10 +87,18 @@ else ifneq (,$(findstring dreamcast,$(ARCH)))
 endif
 
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
-	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
-	DEPS 				+= -lvulkan-1 -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
+	FLAGS 				+= -DUF_USE_VULKAN
+	DEPS 				+= -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
 	INCS 				+= -I$(VULKAN_SDK_PATH)/include -I./dep/include/spirv_cross/
 	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
+	
+	ifneq (,$(findstring linux,$(ARCH)))
+		DEPS 			+= -lvulkan
+		FLAGS			+= -DVK_USE_PLATFORM_XLIB_KHR # VK_USE_PLATFORM_XCB_KHR
+	else
+		DEPS 			+= -lvulkan-1
+		FLAGS			+= -DVK_USE_PLATFORM_WIN32_KHR
+	endif
 endif
 ifneq (,$(findstring opengl,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENGL -DUF_USE_OPENGL_FIXED_FUNCTION
@@ -182,7 +208,12 @@ ifneq (,$(findstring lua,$(REQ_DEPS)))
 	ifneq (,$(findstring luajit,$(REQ_DEPS)))
 		FLAGS 				+= -DUF_USE_LUAJIT
 		DEPS 				+= -lluajit-5.1
-		INCS 				+= -I/mingw64/include/luajit-2.1
+
+		ifneq (,$(findstring linux,$(ARCH)))
+			INCS 				+= -I/usr/include/luajit-2.1
+		else
+			INCS 				+= -I/mingw64/include/luajit-2.1
+		endif
 	else
 		ifneq (,$(findstring dreamcast,$(ARCH)))
 			DEPS 			+= -llua
@@ -253,8 +284,8 @@ endif
 SRCS_DLL 				:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
-IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a
-EX_DLL 					+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION)
+IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION)$(LIB_EXTENSION_A)
+EX_DLL 					+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION)
 # External Engine's DLL
 EXT_INC_DIR 			+= $(INC_DIR)
 EXT_LB_FLAGS 			+= $(LIB_DIR)
@@ -269,8 +300,8 @@ EXT_LIBS 				+= $(LIBS)
 SRCS_EXT_DLL 			:= $(shell find $(EXT_SRC_DIR) -name "*.cpp")
 OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL))
 BASE_EXT_DLL 			+= lib$(EXT_LIB_NAME)
-EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a
-EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION)
+EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION)$(LIB_EXTENSION_A)
+EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION)
 # Client EXE
 #SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
 SRCS 					:= $(shell find $(CLIENT_SRC_DIR) -name "*.cpp")
@@ -302,13 +333,13 @@ $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).a
+	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)$(LIB_EXTENSION_A)
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
+	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)$(LIB_EXTENSION_A)
 
 ./bin/dreamcast/romdisk.img:
 	$(KOS_GENROMFS) -f ./bin/dreamcast/romdisk.img -d ./bin/dreamcast/romdisk/ -v
@@ -333,11 +364,28 @@ $(PREFIX): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 %.$(PREFIX).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
+ifneq (,$(findstring linux,$(ARCH)))
+#$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
+$(EX_DLL): FLAGS += -DUF_EXPORTS
+$(EX_DLL): $(OBJS_DLL) 
+	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_DLL).$(LIB_EXTENSION) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS) -o $(EX_DLL)
+	cp $(EX_DLL) $(IM_DLL)
+	@echo -n $(ARCH) > "./bin/exe/default/arch"
+	@echo -n $(CC) > "./bin/exe/default/cc"
+	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
+	@echo "Setting defaults: $(ARCH).$(CC).$(RENDERER)"
+$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
+$(EXT_EX_DLL): $(OBJS_EXT_DLL) 
+	$(CXX) -shared -Wl,-soname,$(BASE_EXT_DLL).$(LIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS) -o $(EXT_EX_DLL)
+	cp $(EXT_EX_DLL) $(EXT_IM_DLL)
+
+else
+
 #$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
 $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
 	$(CXX) $(FLAGS) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
-	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).a
+	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).a
 	@echo -n $(ARCH) > "./bin/exe/default/arch"
 	@echo -n $(CC) > "./bin/exe/default/cc"
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
@@ -347,7 +395,8 @@ $(EX_DLL): $(OBJS_DLL)
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
 	$(CXX) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
-	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
+	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
+endif
 
 $(TARGET): $(OBJS)
 	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)

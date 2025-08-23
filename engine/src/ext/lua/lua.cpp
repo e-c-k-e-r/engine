@@ -4,7 +4,7 @@
 
 bool ext::lua::enabled = true;
 sol::state ext::lua::state;
-uf::stl::string ext::lua::main = uf::io::root + "/scripts/main.lua";
+uf::stl::string ext::lua::main;
 uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 
 #include <uf/utils/math/transform.h>

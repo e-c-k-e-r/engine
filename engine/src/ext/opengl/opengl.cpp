@@ -77,7 +77,7 @@ GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::depth = ext::opengl::enums::Format::D32_SFLOAT;
 
-ext::opengl::Device ext::opengl::device;
+ext::opengl::Device* ext::opengl::device = NULL;
 std::mutex ext::opengl::mutex;
 std::mutex ext::opengl::immediateModeMutex;
 
@@ -505,6 +505,8 @@ void ext::opengl::destroy() {
 //	swapchain.destroy();
 	device.destroy();
 	ext::opengl::mutex.unlock();
+
+	delete device;
 }
 void ext::opengl::synchronize( uint8_t flag ) {
 	if ( flag & 0b01 ) {
