@@ -279,36 +279,83 @@ bool uf::io::mkdir( const uf::stl::string& _filename ) {
 	return status != -1;
 #endif
 }
+
+uf::stl::string uf::io::assetType( const uf::stl::string _filename ) {
+	// remove .gz
+	uf::stl::string filename = uf::string::replace( _filename, ".gz", "" );
+
+	// grab filename and extension
+	uf::stl::string basename = uf::io::filename( filename );
+	uf::stl::string extension = uf::io::extension( filename );
+
+	// a map does allocations, an if ladder is easy
+	if ( basename == "graph.json" ) return "model";
+	if ( basename == "scene.json" ) return "scene";
+	if ( extension == "json" ) return "entity";
+	if ( extension == "png" ) return "texture";
+	if ( extension == "glb" ) return "model";
+	if ( extension == "gltf" ) return "model";
+	if ( extension == "graph" ) return "model";
+	if ( extension == "ogg" ) return "audio";
+	if ( extension == "wav" ) return "audio";
+	if ( extension == "spv" ) return "shader";
+	if ( extension == "lua" ) return "script";
+	return "";
+}
+
 uf::stl::string uf::io::resolveURI( const uf::stl::string& filename, const uf::stl::string& _root ) {
 	uf::stl::string root = _root;
 	if ( filename.substr(0,8) == "https://" ) return filename;
 	const uf::stl::string extension = uf::io::extension(filename);
 	// just sanitize
 	if ( filename.find(uf::io::root) == 0 ) {
-		return uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) );
+		return uf::io::preferred( uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) ) );
 	}
 	if ( filename.find("%root%") == 0 ) {
 		const uf::stl::string f = uf::string::replace( filename, "%root%", uf::io::root );
-		return uf::io::sanitize( uf::io::filename( f ), uf::io::directory( f ) );
+		return uf::io::preferred( uf::io::sanitize( uf::io::filename( f ), uf::io::directory( f ) ) );
 	}
 	// if the filename contains an absolute path or if no root is provided
 	if ( filename[0] == '/' || root == "" ) {
-		const uf::stl::string basename = uf::io::filename( filename );
-		const uf::stl::string extensions = uf::io::extension( filename, -1 );
+		const uf::stl::string assetType = uf::io::assetType( filename );
+		
 		if ( filename[0] == '/' && filename[1] == '/' ) root = uf::io::root;
-	//	else if ( uf::io::extension(filename, -1) == "graph.json" ) root = uf::io::root + "/models/";
-	//	else if ( uf::io::extension(filename, -1) == "scene.json" ) root = uf::io::root + "/scenes/";
-		else if ( basename == "graph.json" || basename == "graph.json.gz" ) root = uf::io::root + "/models/";
-		else if ( basename == "scene.json" || basename == "scene.json.gz" ) root = uf::io::root + "/scenes/";
-		else if ( extension == "json" || extensions == "json.gz" ) root = uf::io::root + "/entities/";
-		else if ( extension == "png" || extensions == "png.gz" ) root = uf::io::root + "/textures/";
-		else if ( extension == "glb" || extensions == "glb.gz" ) root = uf::io::root + "/models/";
-		else if ( extension == "gltf" || extensions == "gltf.gz" ) root = uf::io::root + "/models/";
-		else if ( extension == "graph" || extensions == "graph.gz" ) root = uf::io::root + "/models/";
-		else if ( extension == "ogg" || extensions == "ogg.gz" ) root = uf::io::root + "/audio/";
-		else if ( extension == "wav" || extensions == "wav.gz" ) root = uf::io::root + "/audio/";
-		else if ( extension == "spv" || extensions == "spv.gz" ) root = uf::io::root + "/shaders/";
-		else if ( extension == "lua" || extensions == "lua.gz" ) root = uf::io::root + "/scripts/";
+		else if ( assetType != "" )  {
+			if ( assetType == "model" ) root = uf::io::root + "/models/";
+			else if ( assetType == "scene" ) root = uf::io::root + "/scenes/";
+			else if ( assetType == "entity" ) root = uf::io::root + "/entities/";
+			else if ( assetType == "texture" ) root = uf::io::root + "/textures/";
+			else if ( assetType == "audio" ) root = uf::io::root + "/audio/";
+			else if ( assetType == "shader" ) root = uf::io::root + "/shaders/";
+			else if ( assetType == "script" ) root = uf::io::root + "/scripts/";
+
+			else root = uf::io::root + "/" + assetType + "/";
+		}
 	}
-	return uf::io::sanitize(filename, root);
+	return uf::io::preferred( uf::io::sanitize( filename, root ) );
+}
+
+// attempts to coerce files into a preferred one if it exists
+uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
+	// remove .gz
+	auto extension = "." + uf::io::extension( uf::string::replace( filename, ".gz", "" ) );
+	auto preferredExtension = extension;
+	// deduce asset type
+	auto assetType = uf::io::assetType( extension );
+
+	// to-do: make this config.json defineable
+#if UF_ENV_DREAMCAST
+	if ( assetType == "texture" ) preferredExtension = ".dtex";
+	else if ( assetType == "audio" ) preferredExtension = ".ogg";
+#else
+	if ( assetType == "texture" ) preferredExtension = ".png";
+	else if ( assetType == "audio" ) preferredExtension = ".ogg";
+#endif
+
+	// no change
+	if ( extension == preferredExtension ) return filename;
+	// create preferred path
+	uf::stl::string preferredPath = uf::string::replace( filename, extension, preferredExtension );
+	// pick it if exists
+	return uf::io::exists( preferredPath ) ? preferredPath : filename;
 }

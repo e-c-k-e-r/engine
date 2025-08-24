@@ -9,11 +9,12 @@
 #include <mutex>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::SoundEmitterBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::SoundEmitterBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::SoundEmitterBehavior, ticks = false, renders = false, multithread = true)
 #define this ((uf::Object*) &self)
 void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	auto& emitter = this->getComponent<uf::SoundEmitter>();
+	//auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 	auto& sounds = emitter.get();
 	
 	auto& scene = uf::scene::getCurrentScene();
@@ -24,11 +25,10 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "sound:Stop.%UID%", [&](ext::json::Value& json){
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		for ( size_t i = 0; i < sounds.size(); ++i ) {
-			if ( sounds[i].getFilename() != filename ) continue;
-			sounds[i].destroy();
-			sounds.erase(sounds.begin() + i);
-			metadata["sounds"].erase(i);
+		for ( auto& audio : sounds ) {
+			if ( audio.getFilename() != filename ) continue;
+			audio.stop();
+			audio.destroy();
 		}
 	});
 	this->addHook( "sound:Emit.%UID%", [&]( pod::PCM& waveform ){
@@ -46,7 +46,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		if ( ext::json::isNull(json["loop"]) ) json["loop"] = metadata["audio"]["loop"];
 		if ( ext::json::isNull(json["streamed"]) ) json["streamed"] = metadata["audio"]["streamed"];
 		if ( ext::json::isNull(json["unique"]) ) json["unique"] = metadata["audio"]["unique"];
-		metadata["sounds"].emplace_back(json);
+		if ( ext::json::isNull(json["spatial"]) ) json["spatial"] = metadata["audio"]["spatial"];
 
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		bool unique = json["unique"].as<bool>();
@@ -62,6 +62,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["rolloffFactor"].is<double>() ) audio.setRolloffFactor(json["rolloffFactor"].as<float>());
 		if ( json["maxDistance"].is<double>() ) audio.setMaxDistance(json["maxDistance"].as<float>());
 		if ( json["loop"].is<bool>() ) audio.loop(json["loop"].as<bool>());
+		if ( json["spatial"].is<bool>() ) audio.setSpatial(json["spatial"].as<bool>());
 		
 		float volume = 1.0f; 
 		if ( json["volume"].is<double>() ) volume = json["volume"].as<float>();
@@ -90,6 +91,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
+/*
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto flatten = uf::transform::flatten( transform );
 
@@ -101,18 +103,24 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 		auto& audio = sounds[i];
 		auto& json = metadata["sounds"][i];
 
-		if ( audio.playing() ) audio.update();
+		// ObjectBehavior already handles it
+		// if ( audio.playing() ) audio.update();
 
+		// could probably have ObjectBehavior instead handle updating the spatial but there's no way to signal it at the moment
 		if ( json["spatial"].as<bool>() && audio.playing() ) {
 			audio.setPosition( flatten.position );
 			audio.setOrientation( flatten.orientation );
 		}
-		if ( audio.loops() && !audio.playing() ) {
+		if ( !audio.playing() ) {
 			audio.destroy();
 			sounds.erase(sounds.begin() + i);
 			metadata["sounds"].erase(i);
+			--i;
 		}
 	}
+
+	emitter.cleanup();
+*/
 }
 
 void ext::SoundEmitterBehavior::render( uf::Object& self ){}

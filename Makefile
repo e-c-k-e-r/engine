@@ -2,9 +2,9 @@ ARCH 					= $(shell cat "./makefiles/default/arch")
 CC						= $(shell cat "./makefiles/default/cc")
 RENDERER 				= $(shell cat "./makefiles/default/renderer")
 TARGET_NAME 			= program
-TARGET_EXTENSION 		= exe
-LIB_EXTENSION 			= dll
-LIB_EXTENSION_A 		= .a
+TARGET_EXTENSION 		= .exe
+DLIB_EXTENSION 			= .dll
+SLIB_EXTENSION 			= .a
 PREFIX 					= $(ARCH).$(CC)
 
 include makefiles/$(PREFIX).make
@@ -213,10 +213,15 @@ ifneq (,$(findstring lua,$(REQ_DEPS)))
 		FLAGS 				+= -DUF_USE_LUAJIT
 		DEPS 				+= -lluajit-5.1
 
+		# sol directly includes <luajit.h>
 		ifneq (,$(findstring linux,$(ARCH)))
 			INCS 				+= -I/usr/include/luajit-2.1
 		else
-			INCS 				+= -I/mingw64/include/luajit-2.1
+			ifneq (,$(findstring clang,$(CC)))
+				INCS 				+= -I/clang64/include/luajit-2.1
+			else
+				INCS 				+= -I/mingw64/include/luajit-2.1
+			endif
 		endif
 	else
 		ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -288,8 +293,8 @@ endif
 SRCS_DLL 				:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
-IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION)$(LIB_EXTENSION_A)
-EX_DLL 					+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION)
+IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)$(DLIB_EXTENSION)
+EX_DLL 					+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_DLL)$(DLIB_EXTENSION)
 # External Engine's DLL
 EXT_INC_DIR 			+= $(INC_DIR)
 EXT_LB_FLAGS 			+= $(LIB_DIR)
@@ -304,13 +309,13 @@ EXT_LIBS 				+= $(LIBS)
 SRCS_EXT_DLL 			:= $(shell find $(EXT_SRC_DIR) -name "*.cpp")
 OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL))
 BASE_EXT_DLL 			+= lib$(EXT_LIB_NAME)
-EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION)$(LIB_EXTENSION_A)
-EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION)
+EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)$(DLIB_EXTENSION)
+EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_EXT_DLL)$(DLIB_EXTENSION)
 # Client EXE
 #SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
 SRCS 					:= $(shell find $(CLIENT_SRC_DIR) -name "*.cpp")
 OBJS 					+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
-TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX).$(TARGET_EXTENSION)
+TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX)$(TARGET_EXTENSION)
 # Shaders
 #SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shaders/*/*.glsl) $(wildcard bin/data/shaders/*/*/*.glsl)
 SRCS_SHADERS 			:= $(shell find bin/data/shaders/ -name "*.glsl")
@@ -337,13 +342,13 @@ $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)$(LIB_EXTENSION_A)
+	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)$(LIB_EXTENSION_A)
+	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)
 
 ./bin/dreamcast/romdisk.img:
 	$(KOS_GENROMFS) -f ./bin/dreamcast/romdisk.img -d ./bin/dreamcast/romdisk/ -v
@@ -372,7 +377,7 @@ ifneq (,$(findstring linux,$(ARCH)))
 #$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
 $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
-	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_DLL).$(LIB_EXTENSION) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS) -o $(EX_DLL)
+	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_DLL)$(DLIB_EXTENSION) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS) -o $(EX_DLL)
 	cp $(EX_DLL) $(IM_DLL)
 	@echo -n $(ARCH) > "./bin/exe/default/arch"
 	@echo -n $(CC) > "./bin/exe/default/cc"
@@ -380,7 +385,7 @@ $(EX_DLL): $(OBJS_DLL)
 	@echo "Setting defaults: $(ARCH).$(CC).$(RENDERER)"
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_EXT_DLL).$(LIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS) -o $(EXT_EX_DLL)
+	$(CXX) $(FLAGS) -shared -Wl,-soname,$(BASE_EXT_DLL)$(DLIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS) -o $(EXT_EX_DLL)
 	cp $(EXT_EX_DLL) $(EXT_IM_DLL)
 
 else
@@ -388,8 +393,7 @@ else
 #$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS
 $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL) 
-	$(CXX) $(FLAGS) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
-	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).a
+	$(CXX) $(FLAGS) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL)$(SLIB_EXTENSION) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
 	@echo -n $(ARCH) > "./bin/exe/default/arch"
 	@echo -n $(CC) > "./bin/exe/default/cc"
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
@@ -398,8 +402,8 @@ $(EX_DLL): $(OBJS_DLL)
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(CXX) $(FLAGS) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
-	cp $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).a
+	$(CXX) $(FLAGS) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL)$(SLIB_EXTENSION) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
+
 endif
 
 $(TARGET): $(OBJS)

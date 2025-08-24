@@ -4,7 +4,7 @@
 
 namespace {
 	unsigned long first_codepoint(const std::u8string& str) {
-		if (str.empty()) throw std::runtime_error("Empty string");
+		if (str.empty()) UF_EXCEPTION("Empty string");
 
 		const unsigned char* bytes = reinterpret_cast<const unsigned char*>(str.data());
 		unsigned char b0 = bytes[0];

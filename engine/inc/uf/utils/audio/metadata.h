@@ -51,6 +51,7 @@ namespace uf {
 			struct {
 				bool streamed = true;
 				bool loop = false;
+				bool spatial = false;
 				uint8_t buffers = 4;
 				uint8_t loopMode = 0;
 			} settings;

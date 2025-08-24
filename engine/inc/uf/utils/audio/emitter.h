@@ -1,6 +1,5 @@
 #pragma once
 
-
 namespace uf {
 	class UF_API AudioEmitter {
 	public:
@@ -24,6 +23,7 @@ namespace uf {
 		const container_t& get() const;
 
 		void update();
+		void update( const pod::Vector3f&, const pod::Quaternion<>& );
 		void cleanup( bool = false );
 	};
 	class UF_API MappedAudioEmitter {
@@ -47,6 +47,7 @@ namespace uf {
 		const container_t& get() const;
 
 		void update();
+		void update( const pod::Vector3f&, const pod::Quaternion<>& );
 		void cleanup( bool = false );
 	};
 

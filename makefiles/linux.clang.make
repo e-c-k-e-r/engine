@@ -7,5 +7,6 @@ WARNINGS 		= -Wall -Wno-pointer-arith -Wno-unused-function -Wno-unused-variable 
 SANITIZE 		= -fsanitize=address # -fuse-ld=lld -fno-omit-frame-pointer
 FLAGS 			+= -std=c++2b $(OPTIMIZATIONS) $(WARNINGS) $(SANITIZE) -fcolor-diagnostics -fansi-escape-codes
 
-LIB_EXTENSION 	= so
-LIB_EXTENSION_A = 
+TARGET_EXTENSION 		= 
+DLIB_EXTENSION 			= .so
+SLIB_EXTENSION 			= 

@@ -1,5 +1,6 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/thread/thread.h>
 
 #if UF_USE_OPENAL
 	#include <uf/ext/openal/openal.h>
@@ -11,10 +12,18 @@
 	bool uf::audio::muted = true;
 #endif
 
+bool uf::audio::asyncUpdate = false;
 bool uf::audio::streamsByDefault = true;
 uint8_t uf::audio::buffers = 4;
 size_t uf::audio::bufferSize = 1024 * 16;
 uf::Audio uf::audio::null;
+
+// to-do: make this a global setting
+#if UF_ENV_DREAMCAST
+#define UF_AUDIO_ASYNC 0
+#else
+#define UF_AUDIO_ASYNC 0
+#endif
 
 #if UF_AUDIO_MAPPED_VOLUMES
 	uf::stl::unordered_map<uf::stl::string, float> uf::audio::volumes;
@@ -34,6 +43,13 @@ bool uf::Audio::initialized() const {
 bool uf::Audio::playing() const {
 #if UF_USE_OPENAL
 	return this->m_metadata && this->m_metadata->al.source.playing();
+#else
+	return false;
+#endif
+}
+bool uf::Audio::played() const {
+#if UF_USE_OPENAL
+	return this->getDuration() > 0 && this->getTime() >= this->getDuration();
 #else
 	return false;
 #endif
@@ -82,8 +98,19 @@ void uf::Audio::stream( const pod::PCM& buffer ) {
 void uf::Audio::update() {
 #if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
-	ext::al::update( *this->m_metadata );
+	if ( !this->m_metadata->settings.streamed ) return;
+
+	if ( uf::audio::asyncUpdate ) uf::thread::queue( uf::thread::fetchWorker(), [&]{
+		ext::al::update( *this->m_metadata );
+	}); else  ext::al::update( *this->m_metadata );
 #endif
+}
+void uf::Audio::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	if ( this->spatial() ) {
+		this->setPosition( position );
+		this->setOrientation( orientation );
+	}
+	this->update();
 }
 void uf::Audio::destroy() {
 #if UF_USE_OPENAL
@@ -126,6 +153,19 @@ bool uf::Audio::loops() const {
 	return this->m_metadata->settings.loop;
 #else
 	return false;
+#endif
+}
+
+bool uf::Audio::spatial() const {
+#if UF_USE_OPENAL
+	if ( !this->m_metadata ) return false;
+	return this->m_metadata->settings.spatial;
+#endif
+}
+void uf::Audio::setSpatial( bool state ) {
+#if UF_USE_OPENAL
+	if ( !this->m_metadata ) return;
+	this->m_metadata->settings.spatial = state;
 #endif
 }
 

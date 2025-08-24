@@ -198,6 +198,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 	auto& configEngineAudioJson = json["engine"]["audio"];
 
 	uf::audio::muted = configEngineAudioJson["mute"].as( uf::audio::muted );
+	uf::audio::asyncUpdate = configEngineAudioJson["async update"].as( uf::audio::asyncUpdate );
 	uf::audio::streamsByDefault = configEngineAudioJson["streams by default"].as( uf::audio::streamsByDefault );
 	uf::audio::bufferSize = configEngineAudioJson["buffers"]["size"].as( uf::audio::bufferSize );
 	uf::audio::buffers = configEngineAudioJson["buffers"]["count"].as( uf::audio::buffers );

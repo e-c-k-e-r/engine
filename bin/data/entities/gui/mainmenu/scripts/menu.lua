@@ -187,6 +187,7 @@ ent:bind( "tick", function(self)
 				-- simulate click on input press
 				if (inputs.key("A") or inputs.key("START") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
 					timer:reset()
+					--playSound( "buttonclickrelease" )
 					v:callHook("gui:Clicked.%UID%", {})
 				end
 			else

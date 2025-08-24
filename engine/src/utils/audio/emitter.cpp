@@ -48,11 +48,22 @@ const uf::AudioEmitter::container_t& uf::AudioEmitter::get() const {
 void uf::AudioEmitter::update() {
 	for ( auto& audio : this->m_container ) if ( audio.playing() ) audio.update();
 }
+void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	for ( auto& audio : this->m_container ) {
+		if ( audio.playing() ) audio.update( position, orientation );
+	}
+}
 void uf::AudioEmitter::cleanup( bool purge ) {
-	for ( size_t i = 0; i < this->m_container.size(); ++i ) {
-		if ( !purge && this->m_container[i].playing() ) continue;
-		this->m_container[i].destroy();
-		this->m_container.erase(this->m_container.begin() + i);
+	for ( auto it = this->m_container.begin(); it != this->m_container.end(); ) {
+		auto& audio = *it;
+		if ( purge || audio.played() ) {
+			audio.stop();
+			audio.destroy();
+			// because cleanup might only happen on nonplaying audio (for some reason) we're erasing here instead of just clearing the container
+			it = this->m_container.erase(it);
+		} else {
+			++it;
+		}
 	}
 }
 
@@ -104,10 +115,15 @@ void uf::MappedAudioEmitter::update() {
 		pair.second.update();
 	}
 }
+void uf::MappedAudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	for ( auto& pair : this->m_container ) {
+		if ( pair.second.playing() ) pair.second.update( position, orientation );
+	}
+}
 void uf::MappedAudioEmitter::cleanup( bool purge ) {
 	for ( auto it = this->m_container.begin(); it != this->m_container.end(); ) {
 		auto& pair = *it;
-		if (purge || !pair.second.playing()) {
+		if ( purge || pair.second.played() ) {
 			pair.second.stop();
 			pair.second.destroy();
 			// because cleanup might only happen on nonplaying audio (for some reason) we're erasing here instead of just clearing the container

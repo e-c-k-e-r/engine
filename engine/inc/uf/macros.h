@@ -106,8 +106,8 @@
 
 #if UF_ENV_DREAMCAST
 	#define DC_STATS() {\
-		UF_MSG_DEBUG(spec::dreamcast::malloc_stats());\
-		UF_MSG_DEBUG(spec::dreamcast::pvr_malloc_stats());\
+		UF_MSG_DEBUG("{}", spec::dreamcast::malloc_stats());\
+		UF_MSG_DEBUG("{}", spec::dreamcast::pvr_malloc_stats());\
 	}
 #endif
 

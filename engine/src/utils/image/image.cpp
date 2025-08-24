@@ -79,18 +79,14 @@ void uf::Image::setFilename( const uf::stl::string& filename ) {
 	((((uint16_t)r & 0xf8) << 8) | (((uint16_t) g & 0xfc) << 3) | ((uint16_t) b >> 3))
 
 // from file
-bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
-#if UF_USE_OPENGL_GLDC
-	uf::stl::string extension = uf::io::extension(filename);
-	if ( extension != "dtex" ) {
-		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
-		if ( uf::io::exists(dtex) ) return this->open(dtex, flip);
-
-		UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
-	//	return false;
-	}
-#endif
+bool uf::Image::open( const uf::stl::string& _filename, bool flip ) {
+	// to-do: use preferred
+	uf::stl::string filename = uf::io::preferred( _filename );
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: {}", filename);
+#if UF_USE_OPENGL_GLDC
+	 auto extension = uf::io::extension( filename );
+	if ( extension != "dtex" ) UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
+#endif
 	
 	this->m_filename = filename;
 	this->m_pixels.clear();

@@ -94,6 +94,8 @@ namespace uf {
 		bool UF_API exists( const uf::stl::string& );
 		size_t UF_API mtime( const uf::stl::string& );
 		bool UF_API mkdir( const uf::stl::string& );
+		uf::stl::string UF_API assetType( const uf::stl::string _filename );
 		uf::stl::string UF_API resolveURI( const uf::stl::string&, const uf::stl::string& = "" );
+		uf::stl::string UF_API preferred( const uf::stl::string& filename );
 	}
 }

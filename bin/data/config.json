@@ -328,6 +328,8 @@
 		},
 		"audio": {
 			"mute": false,
+			"async update": false,
+			"streams by default": true,
 			"buffers": {
 				"size": 32768,
 				"count": 4
@@ -336,8 +338,7 @@
 				"sfx": 0.35,
 				"bgm": 0.15,
 				"voice": 1.0
-			},
-			"streams by default": true
+			}
 		},
 		"memory pool": {
 			"enabled": true, // needs to be kept on

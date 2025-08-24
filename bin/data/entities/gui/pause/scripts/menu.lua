@@ -136,7 +136,7 @@ ent:bind( "tick", function(self)
 		static.alpha = 0
 	end
 
-	if (window.keyPressed("Escape") or inputs.key("START")) and timer:elapsed() >= INPUT_DELAY then
+	if window.keyPressed("Escape") and timer:elapsed() >= INPUT_DELAY then
 		timer:reset()
 		self:callHook("menu:Close.%UID%", {})
 	end
@@ -210,6 +210,7 @@ ent:bind( "tick", function(self)
 				-- simulate click on input press
 				if (inputs.key("A") or inputs.key("START") or inputs.key("Enter")) and timer:elapsed() >= INPUT_DELAY then
 					timer:reset()
+					--playSound( "buttonclickrelease" )
 					v:callHook("gui:Clicked.%UID%", {})
 				end
 			else

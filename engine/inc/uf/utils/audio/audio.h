@@ -26,9 +26,11 @@
 namespace uf {
 	namespace audio {
 		extern UF_API bool muted;
+		extern UF_API bool asyncUpdate;
 		extern UF_API bool streamsByDefault;
 		extern UF_API uint8_t buffers;
 		extern UF_API size_t bufferSize;
+
 	#if UF_AUDIO_MAPPED_VOLUMES
 		extern UF_API uf::stl::unordered_map<uf::stl::string, float> volumes;
 	#else
@@ -47,6 +49,7 @@ namespace uf {
 	public:
 		bool initialized() const;
 		bool playing() const;
+		bool played() const;
 
 		void open( const uf::stl::string& );
 		void open( const uf::stl::string&, bool );
@@ -57,6 +60,7 @@ namespace uf {
 		void stream( const uf::stl::string& );
 		void stream( const pod::PCM& );
 		void update();
+		void update( const pod::Vector3f&, const pod::Quaternion<>& );
 		void destroy();
 
 		void play();
@@ -66,6 +70,9 @@ namespace uf {
 
 		float getTime() const;
 		void setTime( float );
+
+		bool spatial() const;
+		void setSpatial( bool );
 
 		void setPosition( const pod::Vector3f& );
 		void setOrientation( const pod::Quaternion<>& );

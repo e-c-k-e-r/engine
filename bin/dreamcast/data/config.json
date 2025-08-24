@@ -24,20 +24,33 @@
 			"opengl": {
 				"validation": { "enabled": true },
 				"framebuffer": { "size": 1, "msaa": 1 },
+				"experimental": {
+					"rebuild on tick begin": false
+				},
 				"pipelines": {
-					"culling": true
+					"culling": false
+				},
+				"experimental": {
+					"rebuild on tick begin": false,
+					"batch queue submissions": true,
+					"dedicated thread": false,
+					"memory budget": false,
+					"register render modes": false
+				},
+				"invariant": {
+					"default stage buffers": true,
+					"default defer buffer destroy": true,
+					"default command buffer immediate": true,
+					"multithreaded recording": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
-					"color": "R8G8B8A8_UNORM",
+					"color": "R8G8B8A8_UNORM", // "R32G32B32A32_SFLOAT",
 					"normal": "R16G16B16A16_SFLOAT",
 					"position": "R16G16B16A16_SFLOAT"
 				},
 				"features": [],
-				"extensions": {
-					"instance": [],
-					"device": []
-				}
+				"extensions": { "instance": [], "device": [] }
 			},
 			"lua": {
 				"enabled": true,
@@ -54,8 +67,9 @@
 				"enabled": false
 			},
 			"reactphysics": {
-				"timescale": 0.03333333333,
-				"interpolate": false,
+				"global storage": false,
+				"timescale": 0.01666666666,
+				"interpolate": true,
 				"gravity": {
 					"mode": "default",
 					"constant": 6.67408e-11
@@ -69,7 +83,9 @@
 			}
 		},
 		"audio": {
-			"mute": true,
+			"mute": false,
+			"async update": false,
+			"streams by default": true,
 			"buffers": {
 				"size": 24576,
 				"count": 6
@@ -78,8 +94,7 @@
 				"sfx": 1.0,
 				"bgm": 1.0,
 				"voice": 1.0
-			},
-			"streams by default": true
+			}
 		},
 		"memory pool": {
 			"enabled": true, // probably should be enabled
@@ -100,7 +115,7 @@
 		},
 		"threads": {
 			"workers" : 1,
-			"frame limiter": 15 // "auto"
+			"frame limiter": 15 // 60 // "auto"
 		},
 		"debug": {
 			"framerate": {
@@ -115,14 +130,15 @@
 			},
 			"entity": {
 				"delete children on destroy": false,
-				"delete components on destroy": false
+				"delete components on destroy": true
 			},
 			"userdata": {
 				"auto destruct": true,
 				"auto validate": false
 			},
 			"loader": {
-				"assert": true
+				"assert": true,
+				"async": true
 			},
 			"hooks": {
 				"defer lazy calls": true
@@ -143,8 +159,8 @@
 		"mouse" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 2, 2 ],
-			"smoothing": [ 4, 4 ]
+			"sensitivity": [ 50, 50 ],
+			"smoothing": [ 0.25, 0.25 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

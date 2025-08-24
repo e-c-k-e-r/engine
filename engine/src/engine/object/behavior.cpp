@@ -234,18 +234,22 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 #endif
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
+	auto& transform = this->getComponent<pod::Transform<>>();
+	auto flattened = uf::transform::flatten( transform );
 	// update audios
 	if ( this->hasComponent<uf::Audio>() ) {
 		auto& audio = this->getComponent<uf::Audio>();
-		audio.update();
+		audio.update( flattened.position, flattened.orientation );
 	}
 	if ( this->hasComponent<uf::SoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::SoundEmitter>();
-		audio.update();
+		audio.update( flattened.position, flattened.orientation );
+		audio.cleanup();
 	}
 	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
-		audio.update();
+		audio.update( flattened.position, flattened.orientation );
+		audio.cleanup();
 	}
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
