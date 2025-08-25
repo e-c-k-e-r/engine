@@ -15,8 +15,12 @@ namespace {
 	rp3d::PhysicsCommon common;
 	rp3d::PhysicsWorld* world;
 
-	reactphysics3d::TriangleMesh* createTriangleMesh( const uf::Mesh& mesh ) {
+	// i was wrong to assume that RP3D handles deleting these per the documentation
+	uf::stl::unordered_map<size_t, uf::stl::vector<rp3d::TriangleVertexArray*>> triangleParts;
+
+	reactphysics3d::TriangleMesh* createTriangleMesh( const uf::Mesh& mesh, const uf::Object& object ) {
 		auto* rMesh = ::common.createTriangleMesh();
+		auto& parts = ::triangleParts[object.getUid()];
 
 		uf::Mesh::Input vertexInput = mesh.vertex;
 		uf::Mesh::Input indexInput = mesh.index;
@@ -73,7 +77,7 @@ namespace {
 				if ( vertexInput.count == 0 || indexInput.count == 0 ) continue;
 
 				if ( normalAttribute.descriptor.name == "normal" ) {
-					rMesh->addSubpart(new rp3d::TriangleVertexArray(
+					auto* part = new rp3d::TriangleVertexArray(
 						vertexInput.count,
 						(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 						vertexAttribute.stride,
@@ -88,9 +92,11 @@ namespace {
 						vertexType,
 						normalType,
 						indexType
-					));
+					);
+					parts.emplace_back(part);
+					rMesh->addSubpart(part);
 				} else {
-					rMesh->addSubpart(new rp3d::TriangleVertexArray(
+					auto* part = new rp3d::TriangleVertexArray(
 						vertexInput.count,
 						(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 						vertexAttribute.stride,
@@ -101,12 +107,14 @@ namespace {
 
 						vertexType,
 						indexType
-					));
+					);
+					parts.emplace_back(part);
+					rMesh->addSubpart(part);
 				}
 			}
 		} else if ( vertexInput.count > 0 && indexInput.count > 0 ) {
 			if ( normalAttribute.descriptor.name == "normal" ) {
-				rMesh->addSubpart(new rp3d::TriangleVertexArray(
+				auto* part = new rp3d::TriangleVertexArray(
 					vertexInput.count,
 					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 					vertexAttribute.stride,
@@ -121,9 +129,11 @@ namespace {
 					vertexType,
 					normalType,
 					indexType
-				));
+				);
+				parts.emplace_back(part);
+				rMesh->addSubpart(part);
 			} else {
-				rMesh->addSubpart(new rp3d::TriangleVertexArray(
+				auto* part = new rp3d::TriangleVertexArray(
 					vertexInput.count,
 					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 					vertexAttribute.stride,
@@ -134,7 +144,9 @@ namespace {
 
 					vertexType,
 					indexType
-				));
+				);
+				parts.emplace_back(part);
+				rMesh->addSubpart(part);
 			}
 		}
 
@@ -420,6 +432,15 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object ) {
 void ext::reactphysics::destroy( uf::Object& object ) {
 	auto& state = object.getComponent<pod::PhysicsState>();
 	ext::reactphysics::destroy( state );
+
+	auto uid = object.getUid();
+	if ( ::triangleParts.count( uid ) > 0 ) {
+		auto& parts = ::triangleParts[uid];
+		for ( auto* part : parts ) {
+			delete part;
+		}
+		::triangleParts.erase( uid );
+	}
 }
 void ext::reactphysics::destroy( pod::PhysicsState& state ) {
 	ext::reactphysics::detach( state );
@@ -468,6 +489,7 @@ void ext::reactphysics::detach( pod::PhysicsState& state ) {
 	if ( !state.body || !state.world ) return;
 	// auto& scene = uf::scene::getCurrentScene();
 	// auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+
 	state.world->destroyRigidBody(state.body);
 	state.body = NULL;
 
@@ -478,7 +500,7 @@ void ext::reactphysics::detach( pod::PhysicsState& state ) {
 pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh& mesh, bool dynamic ) {
 	UF_ASSERT( mesh.index.count );
 	
-	auto* rMesh = ::createTriangleMesh( mesh );
+	auto* rMesh = ::createTriangleMesh( mesh, object );
 
 	auto& state = ext::reactphysics::create( object );
 	state.shape = ::common.createConcaveMeshShape( rMesh );

@@ -341,7 +341,7 @@
 			}
 		},
 		"memory pool": {
-			"enabled": true, // needs to be kept on
+			"enabled": true, // needs to be kept on for GC
 			"subPools": true,
 			"alignment": 64,
 			"override": false,
@@ -355,11 +355,11 @@
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": 0 // "auto"
+			"framerate": 0 // "auto" // for some reason drops to 60
 		},
 		"threads": {
 			"workers" : "auto",
-			"frame limiter": 0 // "auto"
+			"frame limiter": "auto"
 		},
 		"debug": {
 			"framerate": {

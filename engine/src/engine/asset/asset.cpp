@@ -100,6 +100,7 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "jpg", 	uf::asset::Type::IMAGE },
 		{ "jpeg", 	uf::asset::Type::IMAGE },
 		{ "png", 	uf::asset::Type::IMAGE },
+		{ "dtex", 	uf::asset::Type::IMAGE },
 		
 		{ "ogg", 	uf::asset::Type::AUDIO },
 		{ "wav", 	uf::asset::Type::AUDIO },

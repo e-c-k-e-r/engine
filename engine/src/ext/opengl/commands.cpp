@@ -10,9 +10,6 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
 
-#define VERBOSE false
-#define VERBOSE_SUBMIT false
-
 namespace {
 	size_t culled = 0;
 }
@@ -41,13 +38,17 @@ void ext::opengl::CommandBuffer::end() {
 }
 void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 	if ( state != 1 ) return;
-	
 	switch ( header.type ) {
 		case ext::opengl::enums::Command::CLEAR: {
 			InfoClear* info = (InfoClear*) &header;
+		#if UF_COMMAND_BUFFER_USERDATA
 			auto& userdata = infos.emplace_back();
 			userdata.create<InfoClear>( *info );
 			info = &userdata.get<InfoClear>();
+		#else
+			info = new InfoClear(*info);
+			infos.emplace_back(info);
+		#endif
 			info->type = enums::Command::CLEAR;
 			info->next = NULL;
 		} break;
@@ -55,25 +56,40 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			InfoViewport* info = (InfoViewport*) &header;
 			if ( info->size.x == 0 ) info->size.x = ext::opengl::settings::width;
 			if ( info->size.y == 0 ) info->size.y = ext::opengl::settings::height;
+		#if UF_COMMAND_BUFFER_USERDATA
 			auto& userdata = infos.emplace_back();
 			userdata.create<InfoViewport>( *info );
-			info->next = NULL;
 			info = &userdata.get<InfoViewport>();
+		#else
+			info = new InfoViewport(*info);
+			infos.emplace_back(info);
+		#endif
 			info->type = enums::Command::VIEWPORT;
+			info->next = NULL;
 		} break;
 		case ext::opengl::enums::Command::VARIANT: {
 			InfoVariant* info = (InfoVariant*) &header;
+		#if UF_COMMAND_BUFFER_USERDATA
 			auto& userdata = infos.emplace_back();
 			userdata.create<InfoVariant>( *info );
 			info = &userdata.get<InfoVariant>();
+		#else
+			info = new InfoVariant(*info);
+			infos.emplace_back(info);
+		#endif
 			info->type = enums::Command::VARIANT;
 			info->next = NULL;
 		} break;
 		case ext::opengl::enums::Command::DRAW: {
 			InfoDraw* info = (InfoDraw*) &header;
+		#if UF_COMMAND_BUFFER_USERDATA
 			auto& userdata = infos.emplace_back();
 			userdata.create<InfoDraw>( *info );
 			info = &userdata.get<InfoDraw>();
+		#else
+			info = new InfoDraw(*info);
+			infos.emplace_back(info);
+		#endif
 			info->type = enums::Command::DRAW;
 			info->next = NULL;
 		} break;
@@ -95,7 +111,11 @@ void ext::opengl::CommandBuffer::submit() {
 	mutex->lock();
 	//UF_TIMER_MULTITRACE_START("Starting command buffer submission: " << this);
 	for ( auto& info : infos ) {
+	#if UF_COMMAND_BUFFER_USERDATA
 		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
+	#else
+		CommandBuffer::Info* header = (CommandBuffer::Info*) info;
+	#endif
 		switch ( header->type ) {
 			case ext::opengl::enums::Command::CLEAR: {
 				InfoClear* info = (InfoClear*) header;
@@ -128,6 +148,31 @@ void ext::opengl::CommandBuffer::submit() {
 }
 void ext::opengl::CommandBuffer::flush() {
 	mutex->lock();
+	#if !UF_COMMAND_BUFFER_USERDATA
+	for ( auto& info : infos ) {
+		CommandBuffer::Info* header = (CommandBuffer::Info*) info;
+		switch ( header->type ) {
+			case ext::opengl::enums::Command::CLEAR: {
+				InfoClear* info = (InfoClear*) header;
+				delete info;
+			} break;
+			case ext::opengl::enums::Command::VIEWPORT: {
+				InfoViewport* info = (InfoViewport*) header;
+				delete info;
+			} break;
+			case ext::opengl::enums::Command::VARIANT: {
+				InfoVariant* info = (InfoVariant*) header;
+				delete info;
+			} break;
+			case ext::opengl::enums::Command::DRAW: {
+				InfoDraw* info = (InfoDraw*) header;
+				delete info;
+			} break;
+			default: {
+			} break;
+		}
+	}
+	#endif
 	infos.clear();
 	state = 0;
 	mutex->unlock();
@@ -451,7 +496,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.descriptor.inputs.index.count ) {
 		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
 	} else {
-	#if UF_ENV_DREAMCAST
+	#if 0 && UF_ENV_DREAMCAST
 		// GLdc has a "regression" where glDrawArrays does not work
 		// everything should be using indices anyways so this path shouldn't really ever be taken
 		uf::stl::vector<uint16_t> indices(drawInfo.descriptor.inputs.vertex.count);

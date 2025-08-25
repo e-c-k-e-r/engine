@@ -83,7 +83,7 @@
 			}
 		},
 		"audio": {
-			"mute": false,
+			"mute": true,
 			"async update": false,
 			"streams by default": true,
 			"buffers": {

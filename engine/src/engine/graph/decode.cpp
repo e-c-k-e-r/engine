@@ -18,7 +18,7 @@
 
 #define UF_GRAPH_EXTENDED 1
 
-#if 0 && UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
@@ -248,7 +248,7 @@ namespace {
 		#if !UF_GRAPH_EXTENDED
 			mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 		#else
-			if ( graph.metadata["stream"]["enabled"].as<bool>() ) {
+			if ( graph.settings.stream.enabled ) {
 				mesh.buffers.emplace_back();
 				mesh.buffer_paths.emplace_back(directory + "/" + filename);
 			} else {
@@ -427,7 +427,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["primitives"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.primitives[name] = decodePrimitives( value, graph );
+			storage.primitives[name] = decodePrimitives( value, graph );
 			graph.primitives.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read primitives.");
@@ -442,7 +442,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.meshes[name] = decodeMesh( value, graph );
+			storage.meshes[name] = decodeMesh( value, graph );
 			graph.meshes.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read meshes"); 
@@ -457,7 +457,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.images[name] = decodeImage( value, graph );
+			storage.images[name] = decodeImage( value, graph );
 			graph.images.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read images");
@@ -486,7 +486,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["textures"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.textures[name] = decodeTexture( value, graph );
+			storage.textures[name] = decodeTexture( value, graph );
 			graph.textures.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read texture information");
@@ -501,7 +501,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["samplers"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.samplers[name] = decodeSampler( value, graph );
+			storage.samplers[name] = decodeSampler( value, graph );
 			graph.samplers.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read sampler information");
@@ -516,7 +516,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["materials"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.materials[name] = decodeMaterial( value, graph );
+			storage.materials[name] = decodeMaterial( value, graph );
 			graph.materials.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read material information");
@@ -542,7 +542,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	tasks.queue([&]{
 		// load animation information
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
-		/*graph.storage*/storage.animations.map.reserve( serializer["animations"].size() );
+		storage.animations.map.reserve( serializer["animations"].size() );
 		ext::json::forEach( serializer["animations"], [&]( ext::json::Value& value ){
 			if ( value.is<uf::stl::string>() ) {
 				auto path = directory + "/" + value.as<uf::stl::string>();
@@ -550,9 +550,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				json.readFromFile( path );
 				auto name = key + json["name"].as<uf::stl::string>();
 				if ( graph.settings.stream.animations ) {
-					/*graph.storage*/storage.animations[name].path = path;
+					storage.animations[name].path = path;
 				} else {
-					/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+					storage.animations[name] = decodeAnimation( json, graph );
 				}
 				graph.animations.emplace_back(name);
 			} else {
@@ -564,14 +564,14 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 					auto name = key + json["name"].as<uf::stl::string>();
 					if ( graph.settings.stream.animations ) {
-						/*graph.storage*/storage.animations[name].path = path;
+						storage.animations[name].path = path;
 					} else {
-						/*graph.storage*/storage.animations[name] = decodeAnimation( json, graph );
+						storage.animations[name] = decodeAnimation( json, graph );
 					}
 					graph.animations.emplace_back(name);
 				} else {
 					auto name = key + value["name"].as<uf::stl::string>();
-					/*graph.storage*/storage.animations[name] = decodeAnimation( value, graph );
+					storage.animations[name] = decodeAnimation( value, graph );
 					graph.animations.emplace_back(name);
 				}
 			}
@@ -587,7 +587,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["skins"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			/*graph.storage*/storage.skins[name] = decodeSkin( value, graph );
+			storage.skins[name] = decodeSkin( value, graph );
 			graph.skins.emplace_back(name);
 		});
 	#if UF_ENV_DREAMCAST

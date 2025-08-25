@@ -26,7 +26,7 @@
 #if UF_USE_OPENGL
 	#define UF_GRAPH_SPARSE_READ_MESH 1
 #else
-	#define UF_GRAPH_SPARSE_READ_MESH 0
+	#define UF_GRAPH_SPARSE_READ_MESH 1
 #endif
 #define UF_GRAPH_EXTENDED 1
 
@@ -1663,12 +1663,15 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 		// bail if no update is detected
 		auto drawCommandHash = ::fnv1aHash(queuedDrawIDs);
-		if ( drawCommandHash == graph.settings.stream.hash ) {
-			return;
-		}
-		graph.settings.stream.hash = drawCommandHash;
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
 
+		if ( drawCommandHash == graph.settings.stream.hash ) {
+		//	return;
+		}
+		graph.settings.stream.hash = drawCommandHash;
+
+	// read from disk
+	#if UF_GRAPH_SPARSE_READ_MESH
 		// needs to be dequantized first, naively copying the descriptor settings just doesn't work
 		{
 		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
@@ -1690,8 +1693,6 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		#endif
 		}
 
-	// read from disk
-	#if UF_GRAPH_SPARSE_READ_MESH
 		// reset counts
 		mesh.vertex.count = 0;
 		mesh.index.count = 0;
@@ -1867,6 +1868,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		LOAD_MESH_DATA( vertex );
 	}
 
+	// in the event streamed in mesh data from any pathway isn't already converted
 	{
 	#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
 		mesh.convert<float, uint16_t>();

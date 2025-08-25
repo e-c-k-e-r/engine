@@ -13,6 +13,7 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/mesh/mesh.h>
 
+#define UF_COMMAND_BUFFER_USERDATA 1
 #define UF_COMMAND_BUFFER_POINTERED_USERDATA 1
 
 namespace ext {
@@ -79,10 +80,14 @@ namespace ext {
 				} color;
 			};
 
+			#if UF_COMMAND_BUFFER_USERDATA
 			#if UF_COMMAND_BUFFER_POINTERED_USERDATA
 				typedef uf::PointeredUserdata userdata_t;
 			#else
 				typedef uf::Userdata userdata_t;
+			#endif
+			#else
+				typedef Info* userdata_t;
 			#endif
 			typedef std::function<void()> function_t;
 			static size_t preallocate;
