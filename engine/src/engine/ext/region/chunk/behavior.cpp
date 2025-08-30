@@ -29,7 +29,9 @@ namespace {
 		auto& metadataJson = this->getComponent<uf::Serializer>();
 
 		auto& mesh = this->getComponent<uf::Mesh>();
+	#if 0
 		auto& collider = this->getComponent<pod::PhysicsState>();
+	#endif
 		
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& texture = graphic.material.textures.emplace_back();
@@ -67,6 +69,7 @@ namespace {
 			uf::graph::convert( self );
 		}
 
+		#if 0
 		{
 			auto& phyziks = metadataJson["physics"];
 
@@ -77,8 +80,8 @@ namespace {
 			collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
 
 			uf::physics::impl::create( self, mesh, !phyziks["static"].as<bool>(true) );
-
 		}
+		#endif
 	}
 }
 void ext::RegionChunkBehavior::initialize( uf::Object& self ) {

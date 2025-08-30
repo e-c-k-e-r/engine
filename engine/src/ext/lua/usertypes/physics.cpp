@@ -1,14 +1,14 @@
 #include <uf/ext/lua/lua.h>
-#if UF_USE_LUA
+#if UF_USE_LUA && UF_USE_REACTPHYSICS
 #include <uf/utils/math/physics.h>
 
 namespace binds {
 	bool hasBody( pod::Physics& self ) { return self.body; }
-	pod::Vector3f& linearVelocity( pod::Physics& self ) { return self.linear.velocity; }
-	pod::Quaternion<>& rotationalVelocity( pod::Physics& self ) { return self.rotational.velocity; }
+	pod::Vector3f& linearVelocity( pod::Physics& self ) { return self.velocity; }
+	pod::Quaternion<>& rotationalVelocity( pod::Physics& self ) { return self.angularVelocity; }
 
-	void setLinearVelocity( pod::Physics& self, const pod::Vector3f& v ) { self.linear.velocity = v; }
-	void setRotationalVelocity( pod::Physics& self, const pod::Quaternion<>& v ) { self.rotational.velocity = v; }
+	void setLinearVelocity( pod::Physics& self, const pod::Vector3f& v ) { self.velocity = v; }
+	void setRotationalVelocity( pod::Physics& self, const pod::Quaternion<>& v ) { self.angularVelocity = v; }
 
 	void enableGravity( pod::PhysicsState& state, bool s ) {
 		if ( !state.body ) return;

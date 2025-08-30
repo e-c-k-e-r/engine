@@ -1,10 +1,11 @@
 #pragma once
 
 #include <uf/config.h>
+#include <uf/utils/math/shapes.h>
 #include <uf/utils/mesh/mesh.h>
+#include <uf/utils/mesh/clip.h>
 #include <uf/engine/graph/graph.h>
 #include <limits>
-
 
 namespace uf {
 	namespace meshgrid {

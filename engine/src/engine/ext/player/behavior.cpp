@@ -25,7 +25,9 @@ UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multi
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 
+#if UF_USE_REACTPHYSICS
 	auto& collider = this->getComponent<pod::PhysicsState>();
+#endif
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -130,9 +132,13 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& cameraTransform = camera.getTransform();
 
 	auto& transform = this->getComponent<pod::Transform<>>();
-	auto& physics = this->getComponent<pod::Physics>();
 	auto& scene = uf::scene::getCurrentScene();
+#if UF_USE_REACTPHYSICS
+	auto& physics = this->getComponent<pod::Physics>();
 	auto& collider = this->getComponent<pod::PhysicsState>();
+#else
+	auto& physics = this->getComponent<pod::RigidBody>();
+#endif
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -269,11 +275,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 #endif
 
+	bool wasFloored = stats.floored;
 	stats.menu = metadata.system.menu;
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
-
-	{
+	if ( !stats.floored ) {
+	#if UF_USE_REACTPHYSICS
 		float t = -1;
 		uf::Object* hit = NULL;
 		pod::Vector3f center = transform.position + metadata.movement.floored.feet;
@@ -282,6 +289,17 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("Floored: {} | {}", hit->getName(), t);
 			stats.floored = true;
 		}
+	#else
+		pod::Vector3f origin = transform.position + metadata.movement.floored.feet;
+		pod::Vector3f direction = metadata.movement.floored.floor;
+		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{origin, direction}, physics, 1.0f );
+
+		if ( query.hit ) {
+			UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physics.velocity));
+			stats.floored = true;
+			// if ( physics.velocity.y < 0.0f ) physics.velocity.y = 0.0f;
+		}
+	#endif
 	}
 #if 0
 	TIMER(0.25, keys.use ) {
@@ -328,7 +346,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 #endif
 
+#if UF_USE_REACTPHYSICS
 	if ( collider.stats.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
+#endif
 
 	{
 		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
@@ -343,7 +363,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			speed.run *= 1.5;
 		}
 		if ( !stats.floored || stats.noclipped ) speed.friction = 1;
-		if ( stats.noclipped ) physics.linear.velocity = {};
+		if ( stats.noclipped ) physics.velocity = {};
 	}
 	if ( keys.running ) speed.move = speed.run;
 	else if ( keys.walk ) speed.move = speed.walk;
@@ -403,10 +423,13 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		translator = cameraTransform;
 		translator.forward.y = 0;
 		translator.forward = uf::vector::normalize( translator.forward );
-	} else if ( stats.noclipped || collider.stats.gravity == pod::Vector3f{0,0,0} ){
+	}
+	#if UF_USE_REACTPHYSICS
+	else if ( stats.noclipped || collider.stats.gravity == pod::Vector3f{0,0,0} ){
 		translator.forward.y += cameraTransform.forward.y;
 		translator.forward = uf::vector::normalize( translator.forward );
 	}
+	#endif
 
 	if ( metadata.system.control ) {
 		// noclip handler
@@ -430,16 +453,16 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( keys.left ^ keys.right ) target += translator.right * (keys.right ? 1 : -1);
 		target = uf::vector::normalize( target );
 
-		physics.linear.velocity *= { speed.friction, 1, speed.friction };
+		physics.velocity *= { speed.friction, 1, speed.friction };
 
 		stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
 		
 		if ( stats.walking ) {
 			float factor = stats.floored ? 1.0f : speed.air;
 			if ( stats.noclipped ) {
-				physics.linear.velocity += target * speed.move;
+				physics.velocity += target * speed.move;
 			} else {
-				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+				physics.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
 			}
 
 			auto dot = uf::vector::dot( transform.forward, target );
@@ -449,14 +472,18 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				auto axis = transform.up;
 				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * uf::physics::time::delta * 4; // speed.rotate;
 
+			#if UF_USE_REACTPHYSICS
 				if ( collider.body ) uf::physics::impl::applyRotation( collider, axis, angle ); else
+			#else
+				if ( physics.object ) uf::physics::impl::applyRotation( physics, axis, angle ); else
+			#endif
 				uf::transform::rotate( transform, axis, angle );
 			}
 		}
 		if ( !stats.floored ) stats.walking = false;		
 	}
 	TIMER(0.0625, stats.floored && keys.jump && !stats.noclipped ) {
-		physics.linear.velocity += translator.up * metadata.movement.jump;
+		physics.velocity += translator.up * metadata.movement.jump;
 	}
 	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
 	if ( keys.crouch ) {
@@ -500,7 +527,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( metadata.camera.invert.x ) lookDelta.x *= -1;
 				metadata.camera.limit.current.x += lookDelta.x;
 				if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
+				#if UF_USE_REACTPHYSICS
 					if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, lookDelta.x ); else
+				#else
+					if ( physics.object ) uf::physics::impl::applyRotation( physics, transform.up, lookDelta.x ); else
+				#endif
 					uf::transform::rotate( transform, transform.up, lookDelta.x );
 				} else metadata.camera.limit.current.x -= lookDelta.x;
 			}
@@ -508,13 +539,19 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( metadata.camera.invert.y ) lookDelta.y *= -1;
 				metadata.camera.limit.current.y += lookDelta.y;
 					if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
+					#if UF_USE_REACTPHYSICS
 					//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
+					#endif
 						uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
 				} else metadata.camera.limit.current.y -= lookDelta.y;
 			}
 		} else if ( metadata.system.control ) {
 			if ( keys.lookRight ^ keys.lookLeft ) {
+			#if UF_USE_REACTPHYSICS
 				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+			#else
+				if ( physics.object ) uf::physics::impl::applyRotation( physics, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+			#endif
 				uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 			}
 			if ( keys.lookUp ^ keys.lookDown ) {
@@ -529,15 +566,22 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		//	cameraTransform.position = uf::quaternion::rotate( rotation, cameraTransform.position - transform.position );
 		}
 		if ( keys.lookUp ^ keys.lookDown ) {
+		#if 0
 		//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
+		#endif
 			float direction = keys.lookUp ? 1 : -1;
 			if ( metadata.camera.invert.y ) direction *= -1;
 			uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
 		}
 	}
 	{
-		if ( collider.body ) uf::physics::impl::setVelocity( collider, physics.linear.velocity ); else 
-		transform.position += physics.linear.velocity * uf::physics::time::delta;
+	#if UF_USE_REACTPHYSICS
+		if ( collider.body ) uf::physics::impl::setVelocity( collider, physics.velocity ); else 
+	#else
+		if ( physics.object ) uf::physics::impl::setVelocity( physics, physics.velocity ); else 
+	#endif
+		transform.position += physics.velocity * uf::physics::time::delta;
+	//	if ( uf::vector::magnitude( physics.velocity ) > 1.0e-6 ) UF_MSG_DEBUG("Velocity: {}", uf::vector::toString( physics.velocity ));
 	}
 
 

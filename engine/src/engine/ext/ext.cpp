@@ -48,7 +48,6 @@
 
 bool uf::ready = false;
 uf::stl::vector<uf::stl::string> uf::arguments;
-
 uf::Serializer uf::config;
 
 namespace {

@@ -57,8 +57,7 @@ T& uf::Vector<T,N>::setComponent( std::size_t i, const T& value ) {
 // 	Validation
 template<typename T, std::size_t N> 											// 	Checks if all components are valid (non NaN, inf, etc.)
 bool uf::Vector<T,N>::isValid() const {
-	for ( std::size_t i = 0; i < N; ++i ) if ( this->m_pod[i] != this->m_pod[i] ) return false;
-	return true;
+	return uf::vector::isValid( this->m_pod );
 }
 // 	Basic arithmetic
 template<typename T, std::size_t N> 											// 	Adds two vectors of same type and size together

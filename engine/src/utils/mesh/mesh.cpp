@@ -362,6 +362,57 @@ std::string uf::Mesh::printIndirects( bool full ) const {
 	return str.str();
 }
 
+uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wanted ) const {
+	uf::Mesh::View view;
+	view.vertex = vertex;
+	view.index  = index;
+
+	if ( wanted.size() ) {
+		for ( auto& attr : vertex.attributes ) {
+			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
+			view.attributes[attr.descriptor.name] = { attr };
+		}
+	} else {
+		for ( auto& attr : vertex.attributes ) view.attributes[attr.descriptor.name] = { attr };
+	}
+
+	if ( !index.attributes.empty() ) {
+		view.attributes["index"] = { index.attributes.front() };
+	}
+
+	return view;
+}
+uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::string>& wanted ) const {
+	uf::Mesh::View view;
+	view.vertex = remapVertexInput(i);
+	view.index  = remapIndexInput(i);
+	view.indirectIndex = i;
+
+	if ( wanted.size() ) {
+		for (auto& attr : vertex.attributes) {
+			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
+			view.attributes[attr.descriptor.name] = { attr };
+		}
+	} else {
+		for ( auto& attr : vertex.attributes ) view.attributes[attr.descriptor.name] = { attr };
+	}
+
+	if ( !index.attributes.empty() ) {
+		view.attributes["index"] = { index.attributes.front() };
+	}
+
+	return view;
+}
+uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::stl::string>& wanted ) const {
+	uf::stl::vector<uf::Mesh::View> views;
+	if ( indirect.count > 0 ) {
+		for ( auto i = 0; i < indirect.count; i++ ) views.emplace_back(makeView(i, wanted));
+	} else {
+		views.emplace_back( makeView(wanted) );
+	}
+	return views;
+}
+
 uf::Mesh::Input uf::Mesh::remapInput( const uf::Mesh::Input& input, size_t i ) const {
 	uf::Mesh::Input res = input;
 	UF_ASSERT( &input == &vertex || &input == &index );

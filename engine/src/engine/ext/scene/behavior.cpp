@@ -24,7 +24,6 @@
 
 #include <uf/ext/gltf/gltf.h>
 
-#include <uf/utils/math/collision.h>
 #include <uf/utils/window/payloads.h>
 
 #include <uf/ext/ext.h>

@@ -42,6 +42,10 @@ bool /*UF_API*/ uf::vector::equals( const T& left, const T& right ) {
 		if ( left[i] != right[i] ) return false;
 	return true;
 }
+template<typename T> 														//
+bool /*UF_API*/ uf::vector::isValid( const T& v ) {
+	return uf::vector::equals( v, v );
+}
 // Basic arithmetic
 template<typename T> 														// Adds two vectors of same type and size together
 T /*UF_API*/ uf::vector::add( const T& left, const T& right ) {
@@ -494,6 +498,18 @@ T /*UF_API*/ uf::vector::normalize( const T& vector ) {
 #endif
 	return uf::vector::divide(vector, norm);
 }
+
+template<typename T> 														// Clamps the length of a vector
+T /*UF_API*/ uf::vector::clampMagnitude( const T& v, float maxMag ) {
+	T res = v;
+	float mag = uf::vector::magnitude( res );
+	if ( mag > maxMag ) {
+		res /= (maxMag / sqrt(mag));
+	}
+
+	return res;
+}
+
 template<typename T> 														// Normalizes a vector
 void /*UF_API*/ uf::vector::orthonormalize( T& normal, T& tangent ) {
 	normal = uf::vector::normalize( normal );

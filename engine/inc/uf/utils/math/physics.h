@@ -5,12 +5,10 @@
 #include <uf/utils/time/time.h>
 #include <uf/engine/object/object.h>
 
-#if UF_USE_BULLET
-	#include <uf/ext/bullet/bullet.h>
-#elif UF_USE_REACTPHYSICS
+#if UF_USE_REACTPHYSICS
 	#include <uf/ext/reactphysics/reactphysics.h>
 #else
-	#include "physics/stub.h"
+	#include "physics/impl.h"
 #endif
 
 namespace uf {
@@ -25,9 +23,13 @@ namespace uf {
 		void UF_API initialize( uf::Object& );
 		void UF_API tick( uf::Object& );
 		void UF_API terminate( uf::Object& );
+	#if 0
 		template<typename T> pod::Transform<T>& update( pod::Transform<T>& transform, pod::Physics& physics );
 		template<typename T> pod::Transform<T>& update( pod::Physics& physics, pod::Transform<T>& transform );
+	#endif
 	}
 }
 
+#if 0
 #include "physics/pod.inl"
+#endif

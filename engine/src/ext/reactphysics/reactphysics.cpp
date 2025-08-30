@@ -16,138 +16,97 @@ namespace {
 	rp3d::PhysicsWorld* world;
 
 	// i was wrong to assume that RP3D handles deleting these per the documentation
+	// these should be userdatas / allocated using our mempool instead to avoid fragmentation
 	uf::stl::unordered_map<size_t, uf::stl::vector<rp3d::TriangleVertexArray*>> triangleParts;
 
 	reactphysics3d::TriangleMesh* createTriangleMesh( const uf::Mesh& mesh, const uf::Object& object ) {
 		auto* rMesh = ::common.createTriangleMesh();
 		auto& parts = ::triangleParts[object.getUid()];
 
-		uf::Mesh::Input vertexInput = mesh.vertex;
-		uf::Mesh::Input indexInput = mesh.index;
+		auto views = mesh.makeViews({"position", "normal"});
 
-		uf::Mesh::Attribute vertexAttribute = mesh.vertex.attributes.front();
-		uf::Mesh::Attribute normalAttribute = mesh.vertex.attributes.front();
-		uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+		if ( views.empty() ) return rMesh;
 
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( attribute.descriptor.name == "position" ) vertexAttribute = attribute;
-			if ( attribute.descriptor.name == "normal" ) normalAttribute = attribute;
-		}
-		UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+		for ( auto& view : views ) {
+			if ( !view.vertex.count || !view.index.count ) continue;
 
-		rp3d::TriangleVertexArray::IndexDataType indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
-		rp3d::TriangleVertexArray::VertexDataType vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
-		rp3d::TriangleVertexArray::NormalDataType normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE;
-		switch ( mesh.index.size ) {
-			case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
-			case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
-			default: UF_EXCEPTION("unsupported index type: {}", mesh.index.size); break;
-		}
-		switch ( vertexAttribute.descriptor.type ) {
-			case uf::renderer::enums::Type::USHORT:
-			case uf::renderer::enums::Type::SHORT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_SHORT_TYPE; break;
-			case uf::renderer::enums::Type::FLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE; break;
-		#if UF_USE_FLOAT16
-			case uf::renderer::enums::Type::HALF: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT16_TYPE; break;
-		#endif
-		#if UF_USE_BFLOAT16
-			case uf::renderer::enums::Type::BFLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_BFLOAT16_TYPE; break;
-		#endif
-			default: UF_EXCEPTION("unsupported vertex type: {}", vertexAttribute.descriptor.type); break;
-		}
-		switch ( normalAttribute.descriptor.type ) {
-			case uf::renderer::enums::Type::USHORT:
-			case uf::renderer::enums::Type::SHORT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_SHORT_TYPE; break;
-			case uf::renderer::enums::Type::FLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE; break;
-		#if UF_USE_FLOAT16
-			case uf::renderer::enums::Type::HALF: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT16_TYPE; break;
-		#endif
-		#if UF_USE_BFLOAT16
-			case uf::renderer::enums::Type::BFLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_BFLOAT16_TYPE; break;
-		#endif
-			default: UF_EXCEPTION("unsupported normal type: {}", normalAttribute.descriptor.type); break;
-		}
+			rp3d::TriangleVertexArray* part = NULL;
 
-		if ( mesh.indirect.count ) {
-			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
-				vertexInput = mesh.remapVertexInput( i );
-				indexInput = mesh.remapIndexInput( i );
-				
-				// skip if culled
-				if ( vertexInput.count == 0 || indexInput.count == 0 ) continue;
+			auto& indices = view["index"];
+			auto& positions = view["position"];
+			auto& normals = view["normal"];
 
-				if ( normalAttribute.descriptor.name == "normal" ) {
-					auto* part = new rp3d::TriangleVertexArray(
-						vertexInput.count,
-						(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
-						vertexAttribute.stride,
-						
-						(const uint8_t*) (normalAttribute.pointer) + normalAttribute.stride * vertexInput.first,
-						normalAttribute.stride,
+			UF_ASSERT( positions.valid() );
 
-						indexInput.count / 3,
-						(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
-						indexAttribute.stride * 3,
-
-						vertexType,
-						normalType,
-						indexType
-					);
-					parts.emplace_back(part);
-					rMesh->addSubpart(part);
-				} else {
-					auto* part = new rp3d::TriangleVertexArray(
-						vertexInput.count,
-						(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
-						vertexAttribute.stride,
-
-						indexInput.count / 3,
-						(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
-						indexAttribute.stride * 3,
-
-						vertexType,
-						indexType
-					);
-					parts.emplace_back(part);
-					rMesh->addSubpart(part);
-				}
+			// deduce types
+			rp3d::TriangleVertexArray::IndexDataType indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
+			rp3d::TriangleVertexArray::VertexDataType vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
+			rp3d::TriangleVertexArray::NormalDataType normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE;
+			switch ( mesh.index.size ) {
+				case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
+				case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
+				default: UF_EXCEPTION("unsupported index type: {}", mesh.index.size); break;
 			}
-		} else if ( vertexInput.count > 0 && indexInput.count > 0 ) {
-			if ( normalAttribute.descriptor.name == "normal" ) {
-				auto* part = new rp3d::TriangleVertexArray(
-					vertexInput.count,
-					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
-					vertexAttribute.stride,
-					
-					(const uint8_t*) (normalAttribute.pointer) + normalAttribute.stride * vertexInput.first,
-					normalAttribute.stride,
+			switch ( positions.attribute.descriptor.type ) {
+				case uf::renderer::enums::Type::USHORT:
+				case uf::renderer::enums::Type::SHORT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_SHORT_TYPE; break;
+				case uf::renderer::enums::Type::FLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE; break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT16_TYPE; break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT: vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_BFLOAT16_TYPE; break;
+			#endif
+				default: UF_EXCEPTION("unsupported vertex type: {}", positions.attribute.descriptor.type); break;
+			}
+			switch ( normals.attribute.descriptor.type ) {
+				case uf::renderer::enums::Type::USHORT:
+				case uf::renderer::enums::Type::SHORT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_SHORT_TYPE; break;
+				case uf::renderer::enums::Type::FLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE; break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT16_TYPE; break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT: normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_BFLOAT16_TYPE; break;
+			#endif
+				default: UF_EXCEPTION("unsupported normal type: {}", normals.attribute.descriptor.type); break;
+			}
 
-					indexInput.count / 3,
-					(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
-					indexAttribute.stride * 3,
+			// has normals
+			if ( normals.valid() ) {
+				part = new rp3d::TriangleVertexArray(
+					view.vertex.count,
+					positions.data(view.vertex.first),
+					positions.stride(),
+					
+					normals.data(view.vertex.first),
+					normals.stride(),
+					
+					view.index.count / 3,
+					indices.data(view.index.first),
+					indices.stride() * 3,
 
 					vertexType,
 					normalType,
 					indexType
 				);
-				parts.emplace_back(part);
-				rMesh->addSubpart(part);
 			} else {
-				auto* part = new rp3d::TriangleVertexArray(
-					vertexInput.count,
-					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
-					vertexAttribute.stride,
-
-					indexInput.count / 3,
-					(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
-					indexAttribute.stride * 3,
+				part = new rp3d::TriangleVertexArray(
+					view.vertex.count,
+					positions.data(view.vertex.first),
+					positions.stride(),
+										
+					view.index.count / 3,
+					indices.data(view.index.first),
+					indices.stride() * 3,
 
 					vertexType,
 					indexType
 				);
-				parts.emplace_back(part);
-				rMesh->addSubpart(part);
 			}
+
+			parts.emplace_back(part);
+			rMesh->addSubpart(part);
 		}
 
 		return rMesh;
@@ -426,6 +385,8 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object ) {
 	state.transform.reference = &object.getComponent<pod::Transform<>>();
 	state.shared = ext::reactphysics::shared;
 
+	UF_MSG_DEBUG("Created physics state: {}", uf::string::toString( object ));
+
 	return state;
 }
 
@@ -507,6 +468,8 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 	state.stats.mass = 0;
 	ext::reactphysics::attach( state );
 
+	UF_MSG_DEBUG("Created physics state (mesh): {}", uf::string::toString( object ));
+
 	return state;
 }
 // collider for boundingbox
@@ -514,6 +477,8 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const pod::Vec
 	auto& state = ext::reactphysics::create( object );
 	state.shape = ::common.createBoxShape( rp3d::Vector3( abs(extent.x), abs(extent.y), abs(extent.z) ) );
 	ext::reactphysics::attach( state );
+	
+	UF_MSG_DEBUG("Created physics state (box): {}", uf::string::toString( object ));
 
 	return state;
 }
@@ -522,6 +487,8 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, float radius, 
 	auto& state = ext::reactphysics::create( object );
 	state.shape = ::common.createCapsuleShape( radius, height );
 	ext::reactphysics::attach( state );
+	
+	UF_MSG_DEBUG("Created physics state (capsule): {} | {}, {}", uf::string::toString( object ), radius, height);
 
 	return state;
 }
@@ -549,8 +516,8 @@ void ext::reactphysics::syncTo( ext::reactphysics::WorldState& world ) {
 
 		if ( state.shared ) {
 			if ( !ext::reactphysics::interpolate ) body->setTransform(::convert(state.transform));
-			body->setLinearVelocity( ::convert(state.linear.velocity) );
-			body->setAngularVelocity( ::convertQ(state.rotational.velocity) );
+			body->setLinearVelocity( ::convert(state.velocity) );
+			body->setAngularVelocity( ::convertQ(state.angularVelocity) );
 		}
 		// apply per-object gravities
 		float mass = body->getMass();
@@ -629,11 +596,11 @@ void ext::reactphysics::syncFrom( ext::reactphysics::WorldState& world, float in
 	*/
 	
 		state.internal.current.transform = ::convert( body->getTransform() );
-		state.internal.current.linear.velocity = ::convert( body->getLinearVelocity() );
-		state.internal.current.rotational.velocity = ::convertQ( body->getAngularVelocity() );
+		state.internal.current.velocity = ::convert( body->getLinearVelocity() );
+		state.internal.current.angularVelocity = ::convertQ( body->getAngularVelocity() );
 
-		physics.linear.velocity = state.internal.current.linear.velocity;
-		physics.rotational.velocity = state.internal.current.rotational.velocity;
+		physics.velocity = state.internal.current.velocity;
+		physics.angularVelocity = state.internal.current.angularVelocity;
 
 		if ( !ext::reactphysics::interpolate ) {
 			transform.position = state.internal.current.transform.position;
@@ -650,8 +617,8 @@ void ext::reactphysics::syncFrom( ext::reactphysics::WorldState& world, float in
 			transform.orientation = uf::quaternion::slerp(  state.internal.previous.transform.orientation, state.internal.current.transform.orientation, interp);
 			if ( state.transform.reference ) transform.position -= state.transform.position;
 
-		//	physics.linear.velocity = uf::vector::lerp( state.internal.previous.linear.velocity, state.internal.current.linear.velocity, interp );
-		//	physics.rotational.velocity = uf::quaternion::slerp( state.internal.previous.rotational.velocity, state.internal.current.rotational.velocity, interp );
+		//	physics.velocity = uf::vector::lerp( state.internal.previous.velocity, state.internal.current.velocity, interp );
+		//	physics.angularVelocity = uf::quaternion::slerp( state.internal.previous.angularVelocity, state.internal.current.angularVelocity, interp );
 		}
 	}
 }
@@ -688,7 +655,7 @@ void ext::reactphysics::setVelocity( pod::PhysicsState& state, const pod::Vector
 	if ( !state.body ) return;
 	if ( state.shared ) {
 		auto& physics = state.object->getComponent<pod::Physics>();
-		physics.linear.velocity = v;
+		physics.velocity = v;
 	//	return;
 	}
 	state.body->setLinearVelocity( ::convert(v) );
@@ -698,7 +665,7 @@ void ext::reactphysics::applyVelocity( pod::PhysicsState& state, const pod::Vect
 
 	if ( state.shared ) {
 		auto& physics = state.object->getComponent<pod::Physics>();
-		physics.linear.velocity += v;
+		physics.velocity += v;
 	 //	return;
 	}
 	state.body->setLinearVelocity( state.body->getLinearVelocity() + ::convert(v) );

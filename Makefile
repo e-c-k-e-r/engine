@@ -66,7 +66,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr dc:texconv # vall_e cpptrace # openvr # ncurses draco discord bullet ultralight-ux
 		FLAGS 				+= -march=native -g # -flto # -g
 	endif
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav 
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows

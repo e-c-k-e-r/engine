@@ -156,6 +156,50 @@ template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::interpolate( co
 	transform.orientation = uf::quaternion::slerp( from.orientation, to.orientation, factor );
 	return reorient ? uf::transform::reorient( transform ) : transform;
 }
+
+template<typename T>
+pod::Transform<T> uf::transform::inverse(const pod::Transform<T>& t) {
+    pod::Transform<T> inv;
+
+    // Inverse orientation = conjugate of normalized quaternion
+    pod::Quaternion<T> qInv = uf::quaternion::conjugate(uf::vector::normalize(t.orientation));
+
+    // Inverse scale is reciprocal (with protection against zero)
+    pod::Vector3t<T> sInv {
+        (fabs(t.scale.x) > 1e-8) ? (1.0f / t.scale.x) : 0.0f,
+        (fabs(t.scale.y) > 1e-8) ? (1.0f / t.scale.y) : 0.0f,
+        (fabs(t.scale.z) > 1e-8) ? (1.0f / t.scale.z) : 0.0f
+    };
+
+    inv.scale = sInv;
+    inv.orientation = qInv;
+
+    // To invert translation: apply inverse orientation/scale
+    pod::Vector3t<T> negPos = -t.position;
+    inv.position = uf::quaternion::rotate(qInv, pod::Vector3f{ negPos.x * sInv.x,
+                                                  negPos.y * sInv.y,
+                                                  negPos.z * sInv.z });
+
+    // Update basis vectors
+    inv = uf::transform::reorient(inv);
+
+    return inv;
+}
+
+
+template<typename T> 														// Normalizes a vector
+pod::Vector3t<T> /*UF_API*/ uf::transform::apply( const pod::Transform<T>& transform, const pod::Vector3t<T>& point ) {
+	//	return uf::transform::model( transform ) * point;
+	return uf::matrix::multiply( uf::transform::model( transform ), point );
+}
+
+// Apply inverse transform to a point
+template<typename T>
+pod::Vector3t<T> uf::transform::applyInverse(const pod::Transform<T>& t, const pod::Vector3t<T>& worldPoint) {
+    pod::Transform<T> inv = inverse(t);
+    return uf::transform::apply(inv, worldPoint);
+}
+
 template<typename T> 														// Normalizes a vector
 uf::stl::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool flatten ) {
 	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;

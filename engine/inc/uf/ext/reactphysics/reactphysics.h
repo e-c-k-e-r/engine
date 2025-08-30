@@ -4,7 +4,6 @@
 #include <uf/engine/object/object.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/mesh/mesh.h>
-#include <uf/utils/math/collision.h>
 #include <uf/engine/graph/graph.h>
 
 #if UF_USE_REACTPHYSICS
@@ -25,21 +24,18 @@ namespace pod {
 		rp3d::PhysicsWorld* world = NULL;
 	
 		pod::Transform<> transform = {};
-		
-		struct Linear {
-			pod::Vector3f velocity;
-			pod::Vector3f acceleration;
-		} linear;
-		struct Angular {
-			pod::Quaternion<> velocity;
-			pod::Quaternion<> acceleration;
-		} rotational;
+		pod::Vector3f velocity;
+		pod::Vector3f acceleration;
+		pod::Quaternion<> angularVelocity;
+		pod::Quaternion<> angularAcceleration;
 
 		struct {
 			struct {
 				pod::Transform<> transform = {};
-				Linear linear;
-				Angular rotational;
+				pod::Vector3f velocity;
+				pod::Vector3f acceleration;
+				pod::Quaternion<> angularVelocity;
+				pod::Quaternion<> angularAcceleration;
 			} current, previous;
 		} internal;
 

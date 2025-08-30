@@ -1347,11 +1347,17 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 					pod::Vector3f center = (max + min) * 0.5f;
 					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
+
+					UF_MSG_DEBUG("{}: Center: {} | Corner: {}", node.name, uf::vector::toString( center ), uf::vector::toString( corner ));
+					UF_MSG_DEBUG("{}: Min: {} | Max: {}", node.name, uf::vector::toString( min ), uf::vector::toString( max ));
 					
-					metadataJson["physics"]["center"] = uf::vector::encode( center );
-					metadataJson["physics"]["corner"] = uf::vector::encode( corner );
+					if ( ext::json::isNull( metadataJson["physics"]["center"] ) ) metadataJson["physics"]["center"] = uf::vector::encode( center );
+					if ( ext::json::isNull( metadataJson["physics"]["corner"] ) ) metadataJson["physics"]["corner"] = uf::vector::encode( corner );
+					if ( ext::json::isNull( metadataJson["physics"]["min"] ) ) metadataJson["physics"]["min"] = uf::vector::encode( min );
+					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( max );
 				}
 			#if !UF_GRAPH_EXTENDED
+			#if UF_USE_REACTPHYSICS
 				if ( type == "mesh" ) {
 					auto& collider = entity.getComponent<pod::PhysicsState>();
 					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
@@ -1362,6 +1368,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				
 					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !phyziks["static"].as<bool>(true) );
 				}
+			#else
+				if ( type == "mesh" ) {
+					auto phyziks["mass"].as(collider.stats.mass);
+					uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass );
+				}
+			#endif
 			#endif
 			}
 		}
@@ -1917,10 +1929,11 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	// bind mesh to physics state
 	// to-do: figure out why the mesh just suddenly breaks when re-streamed in dreamcast (could just be the version of reactphysics)
 	{
+		#if UF_USE_REACTPHYSICS
 		auto phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
 		else metadataJson["physics"] = phyziks;
-		
+
 		if ( ext::json::isObject( phyziks ) ) {
 			uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
 			if ( type == "mesh" ) {
@@ -1939,6 +1952,24 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				uf::physics::impl::create( entity, mesh, !phyziks["static"].as<bool>(true) );
 			}
 		}
+		#else
+		auto phyziks = tag["physics"];
+		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
+		else metadataJson["physics"] = phyziks;
+
+		if ( ext::json::isObject( phyziks ) ) {
+			uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
+			if ( type == "mesh" ) {
+				bool exists = entity.hasComponent<pod::RigidBody>();
+				if ( exists ) {
+					uf::physics::impl::destroy( entity );
+				}
+				
+				auto mass = phyziks["mass"].as(0.0f);			
+				uf::physics::impl::create( entity, mesh, mass );
+			}
+		}
+		#endif
 	}
 }
 void uf::graph::reload( pod::Graph& graph ) {

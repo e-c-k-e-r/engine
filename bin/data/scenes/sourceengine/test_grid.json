@@ -7,6 +7,14 @@
 	"metadata": {
 		"graph": {
 			"tags": {
+				" worldspawn": {
+				//	"physics": { "type": "bounding box", "static": true },
+					"physics": { "type": "plane", "static": true, "direction": [ 0, 1, 0 ], "offset": 0 },
+					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
+					"optimize meshlets": { "simplify": 0.125, "print": false },
+					"unwrap mesh": true
+				},
+
 				"/^prop_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
 				"/^func_/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } }
 			}

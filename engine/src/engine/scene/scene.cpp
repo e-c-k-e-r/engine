@@ -211,9 +211,11 @@ void uf::scene::unloadScene() {
 	if ( current->hasComponent<pod::Graph::Storage>() ) {
 		uf::graph::destroy( current->getComponent<pod::Graph::Storage>() );
 	}
+	#if 0
 	if ( current->hasComponent<uf::physics::impl::WorldState>() ) {
 		uf::physics::impl::destroy( *current );
 	}
+	#endif
 
 	// mark rendermodes as disabled immediately
 	auto graph = current->getGraph(true);

@@ -62,79 +62,53 @@ size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 		source = mesh;
 		source.updateDescriptor();
 
-		uf::Mesh::Input vertexInput = mesh.vertex;
+		for (auto& view : source.makeViews({"position", "uv", "st", "index"})) {
+			auto pos = view["position"];
+			auto uv  = view["uv"];
+			auto st  = view["st"];
+			auto idx = view["index"];
 
-		uf::Mesh::Attribute positionAttribute;
-		uf::Mesh::Attribute uvAttribute;
-		uf::Mesh::Attribute stAttribute;
+			// Must have positions + indices
+			if (!pos.valid() || !idx.valid()) continue;
+			if (view.vertex.count == 0 || view.index.count == 0) continue;
 
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( attribute.descriptor.name == "position" ) positionAttribute = attribute;
-			else if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
-			else if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
-		}
-		UF_ASSERT( positionAttribute.descriptor.name == "position" && uvAttribute.descriptor.name == "uv" && stAttribute.descriptor.name == "st" );
-
-		if ( mesh.index.count ) {
-			uf::Mesh::Input indexInput = mesh.index;
-			uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
-
+			// Choose xatlas index format
 			::xatlas::IndexFormat indexType = ::xatlas::IndexFormat::UInt32;
-			switch ( mesh.index.size ) {
+			switch (idx.attribute.descriptor.size) {
 				case sizeof(uint16_t): indexType = ::xatlas::IndexFormat::UInt16; break;
 				case sizeof(uint32_t): indexType = ::xatlas::IndexFormat::UInt32; break;
 				default: UF_EXCEPTION("unsupported index type"); break;
 			}
 
-			if ( mesh.indirect.count ) {
-				auto& primitives = /*graph.storage*/storage.primitives[name];
-				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
-
-				for ( auto i = 0; i < mesh.indirect.count; ++i ) {
-					size_t atlasID = drawCommands[i].auxID;
-
-					vertexInput = mesh.remapVertexInput( i );
-					indexInput = mesh.remapIndexInput( i );
-
-					auto& atlas = atlases[atlasID];
-					auto& entry = atlas.entries.emplace_back();
-					entry.index = index;
-					entry.commandID = i;
-
-					auto& decl = entry.decl;
-					
-					decl.vertexPositionData = static_cast<uint8_t*>(positionAttribute.pointer) + positionAttribute.stride * vertexInput.first;
-					decl.vertexPositionStride = positionAttribute.stride;
-
-					decl.vertexUvData = static_cast<uint8_t*>(uvAttribute.pointer) + uvAttribute.stride * vertexInput.first;
-					decl.vertexUvStride = uvAttribute.stride;
-
-					decl.vertexCount = vertexInput.count;
-
-					decl.indexCount = indexInput.count;
-					decl.indexData = static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
-					decl.indexFormat = indexType;
-				}
-			} else {
-				size_t atlasID = 0;
-				auto& atlas = atlases[atlasID];
-				auto& entry = atlas.entries.emplace_back();
-				entry.index = index;
-
-				auto& decl = entry.decl;
-				decl.vertexPositionData = static_cast<uint8_t*>(positionAttribute.pointer) + positionAttribute.stride * vertexInput.first;
-				decl.vertexPositionStride = positionAttribute.stride;
-
-				decl.vertexUvData = static_cast<uint8_t*>(uvAttribute.pointer) + uvAttribute.stride * vertexInput.first;
-				decl.vertexUvStride = uvAttribute.stride;
-
-				decl.vertexCount = vertexInput.count;
-
-				decl.indexCount = indexInput.count;
-				decl.indexData = static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
-				decl.indexFormat = indexType;
+			// Get atlas target from indirect auxID or default 0
+			size_t atlasID = 0;
+			if ( 0 <= view.indirectIndex ) {
+				auto* drawCommand = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
+				atlasID = drawCommand[view.indirectIndex].auxID;
 			}
-		} else UF_EXCEPTION("to-do: not require indices for meshes");
+
+			auto& atlas = atlases[atlasID];
+			auto& entry = atlas.entries.emplace_back();
+			entry.index = index;
+
+			auto& decl = entry.decl;
+			decl.vertexPositionData   = pos.data(view.vertex.first);
+			decl.vertexPositionStride = pos.stride();
+
+			if ( uv.valid() ) {
+				decl.vertexUvData   = uv.data(view.vertex.first);
+				decl.vertexUvStride = uv.stride();
+			} else if ( st.valid() ) {
+				decl.vertexUvData   = st.data(view.vertex.first);
+				decl.vertexUvStride = st.stride();
+			}
+
+			decl.vertexCount = view.vertex.count;
+
+			decl.indexCount = view.index.count;
+			decl.indexData  = idx.data(view.index.first);
+			decl.indexFormat = indexType;
+		}
 	}
 
 	::xatlas::ChartOptions chartOptions{};

@@ -1,8 +1,11 @@
 #include <uf/config.h>
 #include <uf/ext/ext.h>
 
-void EXT_API ext::initialize() {
+// perform unit tests
+#include <uf/utils/tests/tests.h>
 
+void EXT_API ext::initialize() {
+	uf::unitTests::execute();
 }
 void EXT_API ext::tick() {
 	

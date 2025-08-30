@@ -31,7 +31,7 @@ void uf::physics::tick( uf::Object& scene ) {
 	if ( uf::physics::time::delta > uf::physics::time::clamp ) {
 		uf::physics::time::delta = uf::physics::time::clamp;
 	}
-	uf::physics::impl::tick( scene );
+	uf::physics::impl::tick( scene, uf::physics::time::delta );
 }
 void uf::physics::terminate( ) {
 	return uf::physics::terminate( uf::scene::getCurrentScene() );

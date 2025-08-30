@@ -4,6 +4,9 @@
 #define UF_NS_GET_LAST(name) uf::string::namespaceGetLast(#name)
 #define UF_NS_REMOVE_FIRST(name) uf::string::namespaceRemoveFirst(#name)
 
+#define S_1(x) #x
+#define S_2(x) S_1(x)
+
 #define TIMER(x, ...)\
 	static bool first = true;\
 	static uf::Timer<long long> timer(false);\

@@ -1,7 +1,6 @@
 #include <uf/engine/object/object.h>
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
-#include <uf/utils/math/collision.h>
 #include <uf/utils/time/time.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/math/transform.h>
@@ -10,7 +9,6 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/renderer/renderer.h>
-#include <uf/utils/math/physics.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/engine/graph/graph.h>
 
@@ -132,27 +130,64 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 
 	if ( ext::json::isObject(metadataJson["physics"]) ) {
+		auto& metadataJsonPhysics = metadataJson["physics"];
+	#if UF_USE_REACTPHYSICS
 		auto& collider = this->getComponent<pod::PhysicsState>();
-		collider.stats.flags = metadataJson["physics"]["flags"].as(collider.stats.flags);
-		collider.stats.mass = metadataJson["physics"]["mass"].as(collider.stats.mass);
-		collider.stats.restitution = metadataJson["physics"]["restitution"].as(collider.stats.restitution);
-		collider.stats.friction = metadataJson["physics"]["friction"].as(collider.stats.friction);
-		collider.stats.inertia = uf::vector::decode( metadataJson["physics"]["inertia"], collider.stats.inertia );
-		collider.stats.gravity = uf::vector::decode( metadataJson["physics"]["gravity"], collider.stats.gravity );
+		collider.stats.flags = metadataJsonPhysics["flags"].as(collider.stats.flags);
+		collider.stats.mass = metadataJsonPhysics["mass"].as(collider.stats.mass);
+		collider.stats.restitution = metadataJsonPhysics["restitution"].as(collider.stats.restitution);
+		collider.stats.friction = metadataJsonPhysics["friction"].as(collider.stats.friction);
+		collider.stats.inertia = uf::vector::decode( metadataJsonPhysics["inertia"], collider.stats.inertia );
+		collider.stats.gravity = uf::vector::decode( metadataJsonPhysics["gravity"], collider.stats.gravity );
 	
-		if ( metadataJson["physics"]["type"].as<uf::stl::string>() == "bounding box" ) {
-			pod::Vector3f center = uf::vector::decode( metadataJson["physics"]["center"], pod::Vector3f{} );
-			pod::Vector3f corner = uf::vector::decode( metadataJson["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
+		if ( metadataJsonPhysics["type"].as<uf::stl::string>() == "bounding box" ) {
+			pod::Vector3f center = uf::vector::decode( metadataJsonPhysics["center"], pod::Vector3f{} );
+			pod::Vector3f corner = uf::vector::decode( metadataJsonPhysics["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
 
-			if ( metadataJson["physics"]["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
+			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
 
 			uf::physics::impl::create( *this, corner );
-		} else if ( metadataJson["physics"]["type"].as<uf::stl::string>() == "capsule" ) {
-			float radius = metadataJson["physics"]["radius"].as<float>();
-			float height = metadataJson["physics"]["height"].as<float>();
+		} else if ( metadataJsonPhysics["type"].as<uf::stl::string>() == "capsule" ) {
+			float radius = metadataJsonPhysics["radius"].as<float>();
+			float height = metadataJsonPhysics["height"].as<float>();
 
 			uf::physics::impl::create( *this, radius, height );
 		}
+	#else
+		auto type = metadataJsonPhysics["type"].as<uf::stl::string>();
+		float mass = metadataJsonPhysics["mass"].as<float>();
+
+		if ( type == "bounding box" || type == "aabb" ) {
+		/*
+			pod::Vector3f center = uf::vector::decode( metadataJsonPhysics["center"], pod::Vector3f{} );
+			pod::Vector3f corner = uf::vector::decode( metadataJsonPhysics["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
+			uf::physics::impl::create( self, pod::AABB{ center - corner, center + corner }, mass );
+		*/
+			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
+			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
+			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass );
+		} else if ( type == "plane" ) {
+			pod::Vector3f direction = uf::vector::decode( metadataJsonPhysics["direction"], pod::Vector3f{} );
+			float offset = metadataJsonPhysics["offset"].as<float>();
+
+			uf::physics::impl::create( self, pod::Plane{ direction, offset }, mass );
+		} else if ( type == "sphere" ) {
+			float radius = metadataJsonPhysics["radius"].as<float>();
+			
+			uf::physics::impl::create( self, pod::Sphere{ radius }, mass );
+		} else if ( type == "capsule" ) {
+			float radius = metadataJsonPhysics["radius"].as<float>();
+			float height = metadataJsonPhysics["height"].as<float>();
+			
+			uf::physics::impl::create( self, pod::Capsule{ radius, height * 0.5f }, mass );
+		}
+
+		if ( this->getName() == "Player" && this->hasComponent<pod::RigidBody>() ) {
+			auto& body = this->getComponent<pod::RigidBody>();
+			body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+			body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
+		}
+	#endif
 	}
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
@@ -195,11 +230,13 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		atlas.clear();
 	//	this->deleteComponent<uf::Atlas>();
 	}
+	#if UF_USE_REACTPHYSICS
 	if ( this->hasComponent<pod::PhysicsState>() ) {
 		auto& collider = this->getComponent<pod::PhysicsState>();
 		uf::physics::impl::detach( collider );
 	//	this->deleteComponent<pod::PhysicsState>();
 	}
+	#endif
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		if ( uf::renderer::settings::experimental::registerRenderMode ) {
@@ -218,14 +255,6 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		//	this->deleteComponent<uf::renderer::DeferredRenderMode>();
 		}
 	}
-/*
-	if ( this->hasComponent<pod::Graph::Storage>() ) {
-		uf::graph::destroy( this->getComponent<pod::Graph::Storage>() );
-	}
-	if ( this->hasComponent<uf::physics::impl::WorldState>() ) {
-		uf::physics::impl::destroy( self );
-	}
-*/
 
 #if UF_ENTITY_OBJECT_UNIFIED
 	for ( uf::Entity* kv : this->getChildren() ) kv->destroy();

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <uf/utils/math/vector.h>
-#include <uf/utils/math/shapes.h>
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/math/quant.h>
 
@@ -160,6 +159,38 @@ namespace uf {
 			size_t offset = 0; // bytes to offset from within the associated buffer
 			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
 		} vertex, index, instance, indirect;
+
+		struct AttributeView {
+			Attribute attribute;
+
+            const void* data(size_t first = 0) const {
+                if ( !valid() ) return NULL;
+                return static_cast<const uint8_t*>(attribute.pointer) + attribute.stride * first;
+            }
+
+            template<typename T>
+            const T* get(size_t first = 0) const {
+                return reinterpret_cast<const T*>(data(first));
+            }
+
+            bool valid() const { return attribute.pointer != NULL; }
+            size_t stride() const { return attribute.stride; }
+            size_t components() const { return attribute.descriptor.components; }
+		};
+
+		struct View {
+			uf::Mesh::Input vertex;
+			uf::Mesh::Input index;
+			int32_t indirectIndex = -1;
+			
+			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
+
+			const AttributeView& operator[](const uf::stl::string& name) const {
+                static AttributeView null{};
+                if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
+                return null;
+            }
+		};
 	/*
 		struct Bounds {
 			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
@@ -245,6 +276,10 @@ namespace uf {
 		std::string printIndices( bool = true ) const;
 		std::string printInstances( bool = true ) const;
 		std::string printIndirects( bool = true ) const;
+
+		uf::Mesh::View makeView( const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
+		uf::Mesh::View makeView( size_t commandIndex, const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
+		uf::stl::vector<uf::Mesh::View> makeViews( const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
 
 		inline bool hasVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
 		inline bool hasVertex( const uf::Mesh& mesh ) const { return _hasV( vertex, mesh.vertex ); }

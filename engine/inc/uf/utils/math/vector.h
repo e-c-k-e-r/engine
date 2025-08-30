@@ -125,6 +125,8 @@ namespace uf {
 	// 	Equality checking
 		template<typename T> int /*UF_API*/ compareTo( const T& left, const T& right ); 					// 	Equality check between two vectors (less than)
 		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two vectors (equals)
+
+		template<typename T> bool /*UF_API*/ isValid( const T& v ); 										//  Checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
 		template<typename T> T /*UF_API*/ add( const T& left, const T& right );								// 	Adds two vectors of same type and size together
 		template<typename T> T /*UF_API*/ add( const T& left, /*const typename T::type_t&*/ typename T::type_t scalar );			// 	Adds two vectors of same type and size together
@@ -172,8 +174,9 @@ namespace uf {
 		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); 						// 	Compute the norm of the vector
 		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> T /*UF_API*/ normalize( const T& vector ); 									// 	Normalizes a vector
-		template<typename T> void /*UF_API*/ orthonormalize( T& x, T& y ); 									// 	Normalizes a vector
-		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); 						// 	Normalizes a vector
+		template<typename T> T /*UF_API*/ clampMagnitude( const T& vector ); 								// 	Clamps the magnitude of a vector
+		template<typename T> void /*UF_API*/ orthonormalize( T& x, T& y ); 									// 	Orthonormalizes a vector against another vector
+		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); 						// 	Orthonormalizes a vector against another vector
 		
 		template<typename T> uf::stl::string /*UF_API*/ toString( const T& vector ); 							// 	Parses a vector as a string
 		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); 				// 	Parses a vector into a JSON value
