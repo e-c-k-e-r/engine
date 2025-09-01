@@ -8,8 +8,8 @@ namespace {
 		auto normal = uf::vector::normalize( plane.collider.u.plane.normal );
 		float offset = plane.collider.u.plane.offset;
 
-		auto center = (aabb.bounds.min + aabb.bounds.max) * 0.5f; // center
-		auto extent = (aabb.bounds.max - aabb.bounds.min) * 0.5f; // half extents
+		auto center = ::aabbCenter( aabb.bounds ); // center
+		auto extent = ::aabbExtent( aabb.bounds ); // half extents
 		float r = fabs(extent.x * normal.x) + fabs(extent.y * normal.y) + fabs(extent.z * normal.z); // effective projection radius of box onto plane normal
 
 		float dist = uf::vector::dot( normal, center ) - offset;
@@ -30,7 +30,7 @@ namespace {
 		auto& normal = plane.collider.u.plane.normal;
 		float offset = plane.collider.u.plane.offset;
 		
-		auto center = sphere.transform->position;
+		auto center = ::getPosition( a );
 		float r = sphere.collider.u.sphere.radius;
 
 		float dist = uf::vector::dot( normal, center ) - offset;

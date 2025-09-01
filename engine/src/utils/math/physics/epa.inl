@@ -77,7 +77,7 @@ namespace {
 		}
 	}
 
-	pod::Contact epa( const pod::RigidBody& A, const pod::RigidBody& B, const pod::Simplex& simplex, int maxIterations = 64, float eps = EPS(1.0e-4f) ) {
+	pod::Contact epa( const pod::RigidBody& a, const pod::RigidBody& b, const pod::Simplex& simplex, int maxIterations = 64, float eps = EPS(1.0e-4f) ) {
 		UF_ASSERT( ::isValidSimplex(simplex) );
 
 		auto faces = ::initialPolytope(simplex);
@@ -98,7 +98,7 @@ namespace {
 			auto& f = faces[idx];
 
 			// new support
-			auto sp = ::supportMinkowskiDetailed( A, B, f.normal );
+			auto sp = ::supportMinkowskiDetailed( a, b, f.normal );
 			float d = uf::vector::dot( sp.p, f.normal );
 
 			// convergence check
@@ -118,11 +118,6 @@ namespace {
 				if ( penetration < 0.0f ) {
 					f.normal = -f.normal;
 					penetration = -penetration;
-				}
-
-				// discard invalid contact
-				if ( !std::isfinite(contact.x) || !std::isfinite(contact.y) || !std::isfinite(contact.z) || penetration <= 0.0f ) {
-					return {};
 				}
 
 				return { contact, normal, penetration };

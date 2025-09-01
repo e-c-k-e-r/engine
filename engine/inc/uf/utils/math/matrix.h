@@ -38,6 +38,11 @@ namespace pod {
 		bool operator==( const Matrix<T,R,C>& matrix ) const; 			// 	Equality check between two matrices (equals)
 		bool operator!=( const Matrix<T,R,C>& matrix ) const; 			// 	Equality check between two matrices (not equals)
 	};
+
+	template<typename T = pod::Math::num_t> using Matrix2t = Matrix<T,2>;
+	typedef Matrix2t<> Matrix2;
+	typedef Matrix2t<float> Matrix2f;
+
 	template<typename T = pod::Math::num_t> using Matrix3t = Matrix<T,3>;
 	typedef Matrix3t<> Matrix3;
 	typedef Matrix3t<float> Matrix3f;
@@ -62,14 +67,20 @@ namespace uf {
 		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right ); 				// 	Equality check between two matrices (equals)
 		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right, float eps ); 	// 	Equality check between two matrices (equals)
 	// 	Basic arithmetic
-	//	template<typename T=pod::Matrix4> pod::Matrix<typename T::type_t, C, C> /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two matrices of same type and size together
-		template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> multiply( const T& left, const U& right );						// 	Multiplies two matrices of same type and size together
-		template<typename T> pod::Matrix<T,4,4> multiply( const pod::Matrix<T,4,4>& left, const pod::Matrix<T,4,4>& right );						// 	Multiplies two matrices of same type and size together
-		template<typename T=pod::Matrix4> T /*UF_API*/ transpose( const T& matrix );										// 	Flip sign of all components
-		template<typename T=pod::Matrix4> T /*UF_API*/ inverse( const T& matrix );										// 	Flip sign of all components
+	//	template<typename T=pod::Matrix4> pod::Matrix<typename T::type_t, C, C> /*UF_API*/ multiply( const T& left, const T& right );			// 	Multiplies two matrices of same type and size together
+		template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> multiply( const T& left, const U& right );		// 	Multiplies two matrices of same type and size together
+		template<typename T> pod::Matrix4t<T> multiply( const pod::Matrix4t<T>& left, const pod::Matrix4t<T>& right );							// 	Multiplies two matrices of same type and size together
+		template<typename T=pod::Matrix4> T /*UF_API*/ transpose( const T& matrix );
+		
+		template<typename T=pod::Math::num_t> pod::Matrix2t<T> inverse(const pod::Matrix2t<T>& mat );
+		template<typename T=pod::Math::num_t> pod::Matrix3t<T> inverse(const pod::Matrix3t<T>& mat );
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> inverse(const pod::Matrix4t<T>& mat );
+
+		template<typename T=pod::Math::num_t> pod::Vector2t<T> multiply(const pod::Matrix2t<T>& mat, const pod::Vector2t<T>& v );
+		template<typename T=pod::Math::num_t> pod::Vector3t<T> multiply(const pod::Matrix3t<T>& mat, const pod::Vector3t<T>& v );
 		template<typename T=pod::Math::num_t> pod::Vector3t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w = 1, bool = false );
 		template<typename T=pod::Math::num_t> pod::Vector4t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool = false );
-		
+
 		template<typename T=pod::Matrix4> T /*UF_API*/ multiplyAll( const T& matrix, typename T::type_t scalar );
 		template<typename T=pod::Matrix4> T /*UF_API*/ add( const T& lhs, const T& rhs );
 	// 	Writes to first value

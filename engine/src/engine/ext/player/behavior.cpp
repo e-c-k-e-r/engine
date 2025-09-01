@@ -295,9 +295,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{origin, direction}, physics, 1.0f );
 
 		if ( query.hit ) {
-			UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physics.velocity));
+			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physics.velocity));
 			stats.floored = true;
-			// if ( physics.velocity.y < 0.0f ) physics.velocity.y = 0.0f;
+			if ( physics.velocity.y < 0.0f ) physics.velocity.y = 0.0f;
 		}
 	#endif
 	}

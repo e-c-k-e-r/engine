@@ -82,9 +82,9 @@ namespace {
 		const auto& capsule = a;
 		const auto& sphere = b;
 
-		auto [ p1, p2 ] = ::getCapsuleSegment(  capsule );
+		auto [ p1, p2 ] = ::getCapsuleSegment( capsule );
 
-		const pod::Vector3f sphereCenter = sphere.transform->position;
+		auto sphereCenter = ::getPosition( sphere );
 		float r = capsule.collider.u.capsule.radius + sphere.collider.u.sphere.radius;
 
 		// closest point on capsule segment to sphere center

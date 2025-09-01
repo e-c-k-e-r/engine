@@ -157,14 +157,12 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		auto type = metadataJsonPhysics["type"].as<uf::stl::string>();
 		float mass = metadataJsonPhysics["mass"].as<float>();
 
+		pod::Vector3f offset = uf::vector::decode( metadataJsonPhysics["offset"], pod::Vector3f{} );
+
 		if ( type == "bounding box" || type == "aabb" ) {
-		/*
-			pod::Vector3f center = uf::vector::decode( metadataJsonPhysics["center"], pod::Vector3f{} );
-			pod::Vector3f corner = uf::vector::decode( metadataJsonPhysics["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
-			uf::physics::impl::create( self, pod::AABB{ center - corner, center + corner }, mass );
-		*/
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
+			
 			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass );
 		} else if ( type == "plane" ) {
 			pod::Vector3f direction = uf::vector::decode( metadataJsonPhysics["direction"], pod::Vector3f{} );
@@ -182,10 +180,16 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::physics::impl::create( self, pod::Capsule{ radius, height * 0.5f }, mass );
 		}
 
-		if ( this->getName() == "Player" && this->hasComponent<pod::RigidBody>() ) {
+		if ( this->hasComponent<pod::RigidBody>() ) {
 			auto& body = this->getComponent<pod::RigidBody>();
-			body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
-			body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
+			
+			if ( this->getName() == "Player" ) {
+				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
+			}
+		
+		//	body.transform.position = offset;
+			body.offset = offset;
 		}
 	#endif
 	}

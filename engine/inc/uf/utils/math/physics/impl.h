@@ -22,22 +22,21 @@ namespace pod {
 		SPHERE,
 		PLANE,
 		CAPSULE,
+		TRIANGLE,
 		MESH,
 	};
 
 	struct SupportPoint {
-		pod::Vector3f p;   // Minkowski difference point
-		pod::Vector3f pA;  // original support point in A
-		pod::Vector3f pB;  // original support point in B
+		pod::Vector3f p;
+		pod::Vector3f pA;
+		pod::Vector3f pB;
 	};
 
 	struct Simplex {
-		//uf::stl::vector<pod::Vector3f> pts;
 		uf::stl::vector<pod::SupportPoint> pts;
 	};
 
 	struct Face {
-	//	pod::Vector3f a,b,c;
 		pod::SupportPoint a, b, c;
 		pod::Vector3f normal;
 		float distance;
@@ -56,7 +55,7 @@ namespace pod {
 		uf::stl::vector<pod::BVH::Node> nodes;
 	};
 
-	struct MeshCollider {
+	struct MeshBVH {
 		pod::BVH* bvh;
 		const uf::Mesh* mesh;
 	};
@@ -71,7 +70,8 @@ namespace pod {
 			pod::AABB aabb;
 			pod::Plane plane;
 			pod::Capsule capsule;
-			pod::MeshCollider mesh;
+			pod::TriangleWithNormal triangle;
+			pod::MeshBVH mesh;
 		} u;
 	};
 
@@ -86,7 +86,10 @@ namespace pod {
 	struct RigidBody {
 		pod::World* world = NULL;
 		uf::Object* object = NULL;
+		// pod::Transform<> transform = {};
+		
 		pod::Transform<>* transform = NULL;
+		pod::Vector3f offset = {};
 
 		bool isStatic = false;
 

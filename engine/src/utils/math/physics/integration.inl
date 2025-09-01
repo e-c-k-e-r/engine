@@ -25,10 +25,12 @@ namespace {
 		if ( !a.isStatic ) {
 			a.velocity -= impulse * a.inverseMass;
 			a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
+		//	if ( uf::vector::magnitude( impulse ) > 1.0e-4 ) UF_MSG_DEBUG("aV delta={}", uf::vector::toString(impulse * a.inverseMass));
 		}
 		if ( !b.isStatic ) {
 			b.velocity += impulse * b.inverseMass;
 			b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
+		//	if ( uf::vector::magnitude( impulse ) > 1.0e-4 ) UF_MSG_DEBUG("bV delta={}", uf::vector::toString(impulse * b.inverseMass));
 		}
 	}
 
@@ -104,31 +106,58 @@ namespace {
 		return false;
 	}
 
-	bool similarContact( const pod::Contact& a, const pod::Contact& b, float eps = 1.0e-3f, float distSq = 0.95f ) {
-		return uf::vector::distanceSquared(a.point, b.point) < eps && uf::vector::dot(a.normal, b.normal) > distSq;
+	bool similarContact( const pod::Contact& a, const pod::Contact& b, float distSq = 1.0e-2f, float norm = 0.9f ) {
+		return uf::vector::distanceSquared(a.point, b.point) < distSq && uf::vector::dot(a.normal, b.normal) > norm;
 	}
 
 	void reduceContacts( pod::Manifold& manifold ) {
 		if ( manifold.points.size() <= 4 ) return;
 
-		uf::stl::vector<pod::Contact> reduced;
+		uf::stl::vector<pod::Contact> result;
 		for ( auto& c : manifold.points ) {
+			// prune invalid contacts
+			if ( !uf::vector::isValid( c.point ) ) continue;
+
 			bool merged = false;
-			for ( auto& r : reduced ) {
+			for ( auto& r : result ) {
 				if ( !::similarContact( c, r ) ) continue;
 				// merge, pick deeper penetration
-				if (c.penetration > r.penetration) r = c;
+				if ( c.penetration > r.penetration ) r = c;
 				merged = true;
 				break;
 			}
-			if ( !merged ) reduced.emplace_back(c);
+			if ( !merged ) result.emplace_back(c);
 		}
+		
+		// UF_MSG_DEBUG("Reduced {} => {} contacts", manifold.points.size(), result.size());
 
 		// keep only deepest + farthest up to 4
-		std::sort(reduced.begin(), reduced.end(), [](auto& a, auto& b){ return a.penetration > b.penetration; });
-		if (reduced.size() > 4) reduced.resize(4);
+		std::sort(result.begin(), result.end(), [](auto& a, auto& b){ return a.penetration > b.penetration; });
+		if ( result.size() > 4 ) result.resize(4);
 
-		manifold.points = reduced;
+		manifold.points = result;
+	}
+
+	void mergeContacts( pod::Manifold& manifold ) {
+		uf::stl::vector<pod::Contact> result;
+		
+		for ( auto& c : manifold.points ) {
+			bool merged = false;
+			for ( auto& r : result ) {
+				if ( !::similarContact( c, r ) ) continue;
+				// merge: average position + normal, keep max penetration
+				r.point  = ( r.point + c.point ) * 0.5f;
+				r.normal = uf::vector::normalize( r.normal + c.normal );
+				r.penetration = std::max( r.penetration, c.penetration );
+				merged = true;
+				break;
+			}
+			if ( !merged ) result.emplace_back( c );
+		}
+		
+	//	UF_MSG_DEBUG("Merged {} => {} contacts", manifold.points.size(), result.size());
+
+		manifold.points = result;
 	}
 
 	void retrieveContacts( pod::Manifold& current, const pod::Manifold& previous, float decay = 0.35f ) {
@@ -147,8 +176,8 @@ namespace {
 		if ( !c.lifetime ) return; // too new
 
 		// build relative offsets
-		pod::Vector3f rA = c.point - a.transform->position;
-		pod::Vector3f rB = c.point - b.transform->position;
+		pod::Vector3f rA = c.point - ::getPosition( a );
+		pod::Vector3f rB = c.point - ::getPosition( b );
 
 		// normal impulse
 		pod::Vector3f Pn = c.normal * c.accumulatedNormalImpulse;
@@ -158,118 +187,23 @@ namespace {
 		pod::Vector3f Pt = c.tangent * c.accumulatedTangentImpulse;
 		::applyImpulseTo( a, b, rA, rB, Pt );
 
-		UF_MSG_DEBUG("Warming, Pn={}, Pt={}, lifetime={}", uf::vector::toString(Pn), uf::vector::toString(Pt), c.lifetime );
+	//	UF_MSG_DEBUG("Warming, Pn={}, Pt={}, lifetime={}", uf::vector::toString(Pn), uf::vector::toString(Pt), c.lifetime );
+	}
+	void warmupManifold( pod::RigidBody& a, pod::RigidBody& b, const pod::Manifold& manifold, float dt ) {
+		for ( auto& contact : manifold.points ) {
+			::warmupContacts( a, b, contact, dt );
+		}
 	}
 
 	// baumgarte position correction
 	void positionCorrection( pod::RigidBody& a, pod::RigidBody& b, const pod::Contact& contact ) {
+		if ( ::baumgarteCorrectionPercent <= 0 ) return;
+
 		float correctionMagnitude = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) / (a.inverseMass + b.inverseMass) * ::baumgarteCorrectionPercent;
 		pod::Vector3f correction = contact.normal * correctionMagnitude;
 
-		if ( !a.isStatic ) a.transform->position -= correction * a.inverseMass;
-		if ( !b.isStatic ) b.transform->position += correction * b.inverseMass;
-	}
-
-	void resolveContact( pod::RigidBody& a, pod::RigidBody& b, pod::Contact& contact, float dt ) {
-		// relative positions from centers to contact point
-		pod::Vector3f rA = contact.point - a.transform->position;
-		pod::Vector3f rB = contact.point - b.transform->position;
-
-		// relative velocity at contact
-		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
-		pod::Vector3f vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
-		pod::Vector3f rv = vB - vA;
-
-		// normal contact velocity
-		float velAlongNormal = uf::vector::dot(rv, contact.normal);
-		float velTolerance = 0; // -1.0e3f;
-		if ( velAlongNormal > velTolerance ) return; // if separating, no impulse
-
-		// compute restitution (bounce)
-		float e = std::min(a.material.restitution, b.material.restitution);
-
-		// nullify restitution if velocity is small enough
-		if ( fabs(velAlongNormal) < 1.0f) e = 0.0f;
-
-		// effective inverse mass along normal
-		float invMassN = ::computeEffectiveMass(a, b, rA, rB, contact.normal);
-
-		// normal impulse scalar
-		float jn = -(1.0f + e) * velAlongNormal;
-		jn /= invMassN;
-		if ( ::warmupSolver ) {
-			float jnOld = contact.accumulatedNormalImpulse;
-			float jnNew = std::max(0.0f, jnOld + jn);
-			float jnDelta = jnNew - jnOld;
-			contact.accumulatedNormalImpulse = jnNew;
-			jn = jnDelta;
-		}
-
-		pod::Vector3f normalImpulse = contact.normal * jn;
-		::applyImpulseTo(a, b, rA, rB, normalImpulse);
-
-		// tangent direction
-		pod::Vector3f tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
-		float tangentMag = uf::vector::magnitude(tangent);
-		if (tangentMag > EPS(1e-6f)) {
-			tangent /= tangentMag;
-
-			// effective mass along tangent
-			float invMassT = ::computeEffectiveMass(a, b, rA, rB, tangent);
-
-			// tangential relative velocity
-			float vt = uf::vector::dot(rv, tangent);
-
-			// required tangential impulse to cancel tangent velocity
-			float jt = -vt / invMassT;
-
-			// friction coefficients
-			float mu_s = std::sqrt(a.material.staticFriction * b.material.staticFriction);
-			float mu_d = std::sqrt(a.material.dynamicFriction * b.material.dynamicFriction);
-			
-			if ( std::fabs(jt) > jn * mu_s) jt = -jn * mu_d; // dynamic friction: resist sliding proportionally
-
-			if ( ::warmupSolver ) {
-				float maxFriction = mu_s * contact.accumulatedNormalImpulse;
-				float jtOld = contact.accumulatedTangentImpulse;
-				float jtNew = std::max(-maxFriction, std::min(jtOld + jt, maxFriction));
-				float jtDelta = jtNew - jtOld;
-				contact.accumulatedTangentImpulse = jtNew;
-				contact.tangent = tangent;
-				jt = jtDelta;
-			}
-
-			pod::Vector3f frictionImpulse = tangent * jt;
-			::applyImpulseTo(a, b, rA, rB, frictionImpulse);
-		}
-
-		::positionCorrection(a, b, contact);
-	}
-
-	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
-		if ( ::warmupSolver ) {
-			for ( auto& m : manifolds ) {
-				for ( auto& c : m.points ) {
-					::warmupContacts(*m.a, *m.b, c, dt);
-				}
-			}
-		}
-
-		for ( auto i = 0; i < ::solverIterations; ++i ) {
-			for ( auto& m : manifolds ) {
-			#if 0
-				if ( ::blockContactSolver ) {
-					//::solveManifoldBlockN( m, dt );
-					::solveManifoldBlock2x2( m, dt );
-				} else {
-					for ( auto& c : m.points ) {
-						::resolveContact(*m.a, *m.b, c, dt);
-					}
-				}
-			#endif
-				for ( auto& c : m.points ) ::resolveContact(*m.a, *m.b, c, dt);
-			}
-		}
+		if ( !a.isStatic ) a.transform/*.reference*/->position -= correction * a.inverseMass;
+		if ( !b.isStatic ) b.transform/*.reference*/->position += correction * b.inverseMass;
 	}
 
 	void integrate( pod::RigidBody& body, float dt ) {
@@ -282,9 +216,7 @@ namespace {
 		pod::Vector3f acceleration = body.forceAccumulator * body.inverseMass;
 		acceleration += world.gravity; // apply gravity
 		body.velocity += acceleration * dt;
-
-		auto previous = body.transform->position;
-		body.transform->position += body.velocity * dt;
+		body.transform/*.reference*/->position += body.velocity * dt;
 
 		// angular integration
 		body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
@@ -292,15 +224,26 @@ namespace {
 		// update orientation
 		if ( uf::vector::magnitude( body.angularVelocity ) > EPS(1.0e-8f) ) {
 			pod::Quaternion<> dq = uf::quaternion::axisAngle(uf::vector::normalize(body.angularVelocity), uf::vector::magnitude(body.angularVelocity)*dt);
-			uf::transform::rotate( *body.transform, dq );
+			uf::transform::rotate( *body.transform/*.reference*/, dq );
 		}
+
+		/*
+		UF_MSG_DEBUG("acceleration={}, velocity={}, forceAccumulator={}, position={}, center={}",
+			uf::vector::toString( acceleration ),
+			uf::vector::toString( body.velocity ),
+			uf::vector::toString( body.forceAccumulator ),
+			uf::vector::toString( body.transform->position ),
+			uf::vector::toString( ::getPosition( body ) )
+		);
+		*/
+
+		// update AABB
+		body.bounds = ::computeAABB( body );
 
 		// reset accumulators
 		body.forceAccumulator = {};
 		body.torqueAccumulator = {};
 
-		// update AABB
-		body.bounds = ::computeAABB( body );
 
 		// apply rolling resistance
 		::applyRollingResistance(body, dt);

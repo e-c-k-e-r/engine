@@ -21,27 +21,29 @@ namespace {
 	}
 
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::RigidBody& body ) {
+		const auto transform = ::getTransform( body );
 		const auto& capsule = body.collider.u.capsule;
-		const pod::Vector3f up = uf::quaternion::rotate( body.transform->orientation, pod::Vector3f{0,1,0} );
+		const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
 
 		// segment defines the cylinder axis only (ignore spherical ends)
-		auto p1 = body.transform->position + up * capsule.halfHeight;
-		auto p2 = body.transform->position - up * capsule.halfHeight;
+		auto p1 = transform.position + up * capsule.halfHeight;
+		auto p2 = transform.position - up * capsule.halfHeight;
 		return { p1, p2 };
 	}
 
 	pod::AABB computeAABB( const pod::RigidBody& body ) {
+		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::AABB: {
 				return {
-					body.transform->position + body.collider.u.aabb.min,
-					body.transform->position + body.collider.u.aabb.max,
+					transform.position + body.collider.u.aabb.min,
+					transform.position + body.collider.u.aabb.max,
 				};
 			} break;
 			case pod::ShapeType::SPHERE: {
 				return {
-					body.transform->position - body.collider.u.sphere.radius,
-					body.transform->position + body.collider.u.sphere.radius,
+					transform.position - body.collider.u.sphere.radius,
+					transform.position + body.collider.u.sphere.radius,
 				};
 			} break;
 			case pod::ShapeType::CAPSULE: {
@@ -51,8 +53,8 @@ namespace {
 			case pod::ShapeType::MESH: {
 				if ( body.collider.u.mesh.bvh && !body.collider.u.mesh.bvh->nodes.empty() )
 					return {
-						body.transform->position + body.collider.u.mesh.bvh->nodes[0].bounds.min,
-						body.transform->position + body.collider.u.mesh.bvh->nodes[0].bounds.max,
+						transform.position + body.collider.u.mesh.bvh->nodes[0].bounds.min,
+						transform.position + body.collider.u.mesh.bvh->nodes[0].bounds.max,
 					};
 			} break;
 			default: {
@@ -158,14 +160,14 @@ namespace {
 
 		// transform all 8 corners
 		pod::Vector3f corners[8] = {
-			{box.min.x, box.min.y, box.min.z},
-			{box.max.x, box.min.y, box.min.z},
-			{box.min.x, box.max.y, box.min.z},
-			{box.max.x, box.max.y, box.min.z},
-			{box.min.x, box.min.y, box.max.z},
-			{box.max.x, box.min.y, box.max.z},
-			{box.min.x, box.max.y, box.max.z},
-			{box.max.x, box.max.y, box.max.z},
+			{ box.min.x, box.min.y, box.min.z },
+			{ box.max.x, box.min.y, box.min.z },
+			{ box.min.x, box.max.y, box.min.z },
+			{ box.max.x, box.max.y, box.min.z },
+			{ box.min.x, box.min.y, box.max.z },
+			{ box.max.x, box.min.y, box.max.z },
+			{ box.min.x, box.max.y, box.max.z },
+			{ box.max.x, box.max.y, box.max.z },
 		};
 
 		pod::AABB out = {
@@ -182,16 +184,19 @@ namespace {
 	}
 
 	pod::Vector3f aabbCenter( const pod::AABB& aabb ) {
-		return ( aabb.min + aabb.max ) * 0.5f;
+		return ( aabb.max + aabb.min ) * 0.5f;
+	}
+	pod::Vector3f aabbExtent( const pod::AABB& aabb ) {
+		return ( aabb.max - aabb.min ) * 0.5f;
 	}
 
 	bool aabbAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES(AABB, AABB);
 
-		const pod::AABB& A = a.bounds;
-		const pod::AABB& B = b.bounds;
+		const auto& A = a.bounds;
+		const auto& B = b.bounds;
 
-		if (!aabbOverlap(A, B)) return false;
+		if ( !::aabbOverlap( A, B ) ) return false;
 
 		// Calculate overlap extents
 		float overlaps[3] = {
@@ -210,7 +215,7 @@ namespace {
 			}
 		}
 
-		pod::Vector3f delta = b.transform->position - a.transform->position;
+		pod::Vector3f delta = ::getPosition( b ) - ::getPosition( a );
 		pod::Vector3f normal{0,0,0};
 		normal[axis] = (delta[axis] < 0 ? -1.0f : 1.0f);
 

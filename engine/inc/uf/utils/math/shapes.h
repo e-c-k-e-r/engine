@@ -32,8 +32,8 @@ namespace pod {
 		pod::Vector3f points[3];
 	};
 
-	struct TriangleWithNormal : Triangle { // to-do: find a better name
-	    pod::Vector3f normals[3];
+	struct TriangleWithNormal : Triangle {
+		pod::Vector3f normals[3];
 	};
 
 	template<typename T>

@@ -30,10 +30,17 @@ namespace {
 	bool meshCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 	bool meshMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
+	bool triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+
+	pod::Vector3f aabbCenter( const pod::AABB& aabb );
 	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS(1.0e-6f) );
 	pod::AABB computeTriangleAABB( const pod::Triangle& tri );
 
-	void reduceContacts( pod::Manifold& manifold );
+	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt );
 
 	void traverseNodePair( const pod::BVH& bvh, int leftID, int rightID, pod::BVH::pair_t& pairs );
 	void traverseNodePair( const pod::BVH& a, int nodeA, const pod::BVH& b, int nodeB, pod::BVH::pair_t& out );
@@ -51,6 +58,20 @@ namespace {
 		auto idB = reinterpret_cast<uint64_t>(&b);
 		if ( idA > idB ) std::swap(idA, idB); // ensure consistent order
 		return (idA << 32) ^ idB;
+	}
+
+	// returns an absolute transform while also allowing offsetting the collision body
+	// to-do: find a succint way to explain this madness
+	pod::Transform<> getTransform( const pod::RigidBody& body ) {
+		pod::Transform<> t;
+		t.position = body.offset;
+		t.reference = body.transform;
+		return uf::transform::flatten( t );
+	}
+
+	pod::Vector3f getPosition( const pod::RigidBody& body, bool useTransform = false ) {
+		if ( !useTransform ) return ::aabbCenter( body.bounds );
+		return ::getTransform( body ).position;
 	}
 
 	// normalizes the delta between two bodies / contacts by the distance (as it was already computed) if non-zero
@@ -212,7 +233,7 @@ namespace {
 
 
 	pod::Vector3f orientNormalToAB( const pod::RigidBody& a, const pod::RigidBody& b, pod::Vector3f n ) {
-		return uf::vector::normalize( uf::vector::dot( n, b.transform->position - a.transform->position ) < 0.0f ? -n : n );
+		return uf::vector::normalize( uf::vector::dot( n, ::getPosition( b ) - ::getPosition( a ) ) < 0.0f ? -n : n );
 	}
 
 	float segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vector3f& p1, const pod::Triangle& tri, pod::Vector3f& outSeg, pod::Vector3f& outTri ) {

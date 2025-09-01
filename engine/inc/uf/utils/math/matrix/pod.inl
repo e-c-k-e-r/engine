@@ -317,124 +317,140 @@ template<typename T> T uf::matrix::transpose( const T& matrix ) {
 
 	return transpose;
 }
-// 	Flip sign of all components
-template<typename T> T uf::matrix::inverse( const T& matrix ) {
-	if ( T::rows != 4 || T::columns != 4 ) return matrix;
+//
+template<typename T> pod::Matrix2t<T> uf::matrix::inverse( const pod::Matrix2t<T>& m ) {
+	T det = m[0] * m[3] - m[1] * m[2];
+	if ( std::fabs(det) < 1e-12f ) return m;
 
-	const typename T::type_t* m = &matrix[0];
-	ALIGN16 typename T::type_t inv[16];
-	typename T::type_t det;
-	uint_fast8_t i;
+	T invDet = 1 / det;
+	
+	return pod::Matrix2t<T>{
+		 m[3] * invDet, -m[1] * invDet,
+		-m[2] * invDet, m[0] * invDet,
+	};
+}
 
-	inv[0] = m[5]  * m[10] * m[15] - 
-			 m[5]  * m[11] * m[14] - 
-			 m[9]  * m[6]  * m[15] + 
-			 m[9]  * m[7]  * m[14] +
-			 m[13] * m[6]  * m[11] - 
-			 m[13] * m[7]  * m[10];
-	inv[4] = -m[4]  * m[10] * m[15] + 
-			  m[4]  * m[11] * m[14] + 
-			  m[8]  * m[6]  * m[15] - 
-			  m[8]  * m[7]  * m[14] - 
-			  m[12] * m[6]  * m[11] + 
-			  m[12] * m[7]  * m[10];
-	inv[8] = m[4]  * m[9] * m[15] - 
-			 m[4]  * m[11] * m[13] - 
-			 m[8]  * m[5] * m[15] + 
-			 m[8]  * m[7] * m[13] + 
-			 m[12] * m[5] * m[11] - 
-			 m[12] * m[7] * m[9];
-	inv[12] = -m[4]  * m[9] * m[14] + 
-			   m[4]  * m[10] * m[13] +
-			   m[8]  * m[5] * m[14] - 
-			   m[8]  * m[6] * m[13] - 
-			   m[12] * m[5] * m[10] + 
-			   m[12] * m[6] * m[9];
-	inv[1] = -m[1]  * m[10] * m[15] + 
-			  m[1]  * m[11] * m[14] + 
-			  m[9]  * m[2] * m[15] - 
-			  m[9]  * m[3] * m[14] - 
-			  m[13] * m[2] * m[11] + 
-			  m[13] * m[3] * m[10];
-	inv[5] = m[0]  * m[10] * m[15] - 
-			 m[0]  * m[11] * m[14] - 
-			 m[8]  * m[2] * m[15] + 
-			 m[8]  * m[3] * m[14] + 
-			 m[12] * m[2] * m[11] - 
-			 m[12] * m[3] * m[10];
-	inv[9] = -m[0]  * m[9] * m[15] + 
-			  m[0]  * m[11] * m[13] + 
-			  m[8]  * m[1] * m[15] - 
-			  m[8]  * m[3] * m[13] - 
-			  m[12] * m[1] * m[11] + 
-			  m[12] * m[3] * m[9];
-	inv[13] = m[0]  * m[9] * m[14] - 
-			  m[0]  * m[10] * m[13] - 
-			  m[8]  * m[1] * m[14] + 
-			  m[8]  * m[2] * m[13] + 
-			  m[12] * m[1] * m[10] - 
-			  m[12] * m[2] * m[9];
-	inv[2] = m[1]  * m[6] * m[15] - 
-			 m[1]  * m[7] * m[14] - 
-			 m[5]  * m[2] * m[15] + 
-			 m[5]  * m[3] * m[14] + 
-			 m[13] * m[2] * m[7] - 
-			 m[13] * m[3] * m[6];
-	inv[6] = -m[0]  * m[6] * m[15] + 
-			  m[0]  * m[7] * m[14] + 
-			  m[4]  * m[2] * m[15] - 
-			  m[4]  * m[3] * m[14] - 
-			  m[12] * m[2] * m[7] + 
-			  m[12] * m[3] * m[6];
-	inv[10] = m[0]  * m[5] * m[15] - 
-			  m[0]  * m[7] * m[13] - 
-			  m[4]  * m[1] * m[15] + 
-			  m[4]  * m[3] * m[13] + 
-			  m[12] * m[1] * m[7] - 
-			  m[12] * m[3] * m[5];
-	inv[14] = -m[0]  * m[5] * m[14] + 
-			   m[0]  * m[6] * m[13] + 
-			   m[4]  * m[1] * m[14] - 
-			   m[4]  * m[2] * m[13] - 
-			   m[12] * m[1] * m[6] + 
-			   m[12] * m[2] * m[5];
-	inv[3] = -m[1] * m[6] * m[11] + 
-			  m[1] * m[7] * m[10] + 
-			  m[5] * m[2] * m[11] - 
-			  m[5] * m[3] * m[10] - 
-			  m[9] * m[2] * m[7] + 
-			  m[9] * m[3] * m[6];
-	inv[7] = m[0] * m[6] * m[11] - 
-			 m[0] * m[7] * m[10] - 
-			 m[4] * m[2] * m[11] + 
-			 m[4] * m[3] * m[10] + 
-			 m[8] * m[2] * m[7] - 
-			 m[8] * m[3] * m[6];
-	inv[11] = -m[0] * m[5] * m[11] + 
-			   m[0] * m[7] * m[9] + 
-			   m[4] * m[1] * m[11] - 
-			   m[4] * m[3] * m[9] - 
-			   m[8] * m[1] * m[7] + 
-			   m[8] * m[3] * m[5];
-	inv[15] = m[0] * m[5] * m[10] - 
-			  m[0] * m[6] * m[9] - 
-			  m[4] * m[1] * m[10] + 
-			  m[4] * m[2] * m[9] + 
-			  m[8] * m[1] * m[6] - 
-			  m[8] * m[2] * m[5];
+template<typename T> pod::Matrix3t<T> uf::matrix::inverse( const pod::Matrix3t<T>& m ) {
+// matrix elements
+	const T* a = &m[0];
+	T det = a[0]*(a[4]*a[8] - a[5]*a[7])
+		  - a[1]*(a[3]*a[8] - a[5]*a[6])
+		  + a[2]*(a[3]*a[7] - a[4]*a[6]);
 
-	det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
-	if (det == 0) return matrix;
-	det = 1.0 / det;
-	ALIGN16 T inverted;
-	#pragma unroll // GCC unroll 16
-	for ( i = 0; i < 16; ++i )
-		inverted[i] = inv[i] * det;
+	if (std::fabs(det) < 1e-12f) return m; // singular
 
-	return inverted;
+	T invDet = static_cast<T>(1) / det;
+
+	return pod::Matrix3t<T>{
+		(a[4]*a[8] - a[5]*a[7]) * invDet,
+		(a[2]*a[7] - a[1]*a[8]) * invDet,
+		(a[1]*a[5] - a[2]*a[4]) * invDet,
+
+		(a[5]*a[6] - a[3]*a[8]) * invDet,
+		(a[0]*a[8] - a[2]*a[6]) * invDet,
+		(a[2]*a[3] - a[0]*a[5]) * invDet,
+
+		(a[3]*a[7] - a[4]*a[6]) * invDet,
+		(a[1]*a[6] - a[0]*a[7]) * invDet,
+		(a[0]*a[4] - a[1]*a[3]) * invDet,
+	};
+}
+
+template<typename T> pod::Matrix4t<T> uf::matrix::inverse( const pod::Matrix4t<T>& m ) {
+	const T* a = &m[0];
+	ALIGN16 pod::Matrix4t<T> inv;
+
+	inv[0]  =   a[5] * (a[10]*a[15] - a[11]*a[14]) -
+				a[9] * (a[6]*a[15]  - a[7]*a[14]) +
+				a[13]* (a[6]*a[11]  - a[7]*a[10]);
+
+	inv[4]  = - a[4] * (a[10]*a[15] - a[11]*a[14]) +
+				a[8] * (a[6]*a[15]  - a[7]*a[14]) -
+				a[12]* (a[6]*a[11]  - a[7]*a[10]);
+
+	inv[8]  =   a[4] * (a[9]*a[15]  - a[11]*a[13]) -
+				a[8] * (a[5]*a[15]  - a[7]*a[13]) +
+				a[12]* (a[5]*a[11]  - a[7]*a[9]);
+
+	inv[12] = - a[4] * (a[9]*a[14]  - a[10]*a[13]) +
+				a[8] * (a[5]*a[14]  - a[6]*a[13]) -
+				a[12]* (a[5]*a[10]  - a[6]*a[9]);
+
+	inv[1]  = - a[1] * (a[10]*a[15] - a[11]*a[14]) +
+				a[9] * (a[2]*a[15]  - a[3]*a[14]) -
+				a[13]* (a[2]*a[11]  - a[3]*a[10]);
+
+	inv[5]  =   a[0] * (a[10]*a[15] - a[11]*a[14]) -
+				a[8] * (a[2]*a[15]  - a[3]*a[14]) +
+				a[12]* (a[2]*a[11]  - a[3]*a[10]);
+
+	inv[9]  = - a[0] * (a[9]*a[15]  - a[11]*a[13]) +
+				a[8] * (a[1]*a[15]  - a[3]*a[13]) -
+				a[12]* (a[1]*a[11]  - a[3]*a[9]);
+
+	inv[13] =   a[0] * (a[9]*a[14]  - a[10]*a[13]) -
+				a[8] * (a[1]*a[14]  - a[2]*a[13]) +
+				a[12]* (a[1]*a[10]  - a[2]*a[9]);
+
+	inv[2]  =   a[1] * (a[6]*a[15]  - a[7]*a[14]) -
+				a[5] * (a[2]*a[15]  - a[3]*a[14]) +
+				a[13]* (a[2]*a[7]   - a[3]*a[6]);
+
+	inv[6]  = - a[0] * (a[6]*a[15]  - a[7]*a[14]) +
+				a[4] * (a[2]*a[15]  - a[3]*a[14]) -
+				a[12]* (a[2]*a[7]   - a[3]*a[6]);
+
+	inv[10] =   a[0] * (a[5]*a[15]  - a[7]*a[13]) -
+				a[4] * (a[1]*a[15]  - a[3]*a[13]) +
+				a[12]* (a[1]*a[7]   - a[3]*a[5]);
+
+	inv[14] = - a[0] * (a[5]*a[14]  - a[6]*a[13]) +
+				a[4] * (a[1]*a[14]  - a[2]*a[13]) -
+				a[12]* (a[1]*a[6]   - a[2]*a[5]);
+
+	inv[3]  = - a[1] * (a[6]*a[11]  - a[7]*a[10]) +
+				a[5] * (a[2]*a[11]  - a[3]*a[10]) -
+				a[9] * (a[2]*a[7]   - a[3]*a[6]);
+
+	inv[7]  =   a[0] * (a[6]*a[11]  - a[7]*a[10]) -
+				a[4] * (a[2]*a[11]  - a[3]*a[10]) +
+				a[8] * (a[2]*a[7]   - a[3]*a[6]);
+
+	inv[11] = - a[0] * (a[5]*a[11]  - a[7]*a[9]) +
+				a[4] * (a[1]*a[11]  - a[3]*a[9]) -
+				a[8] * (a[1]*a[7]   - a[3]*a[5]);
+
+	inv[15] =   a[0] * (a[5]*a[10]  - a[6]*a[9]) -
+				a[4] * (a[1]*a[10]  - a[2]*a[9]) +
+				a[8] * (a[1]*a[6]   - a[2]*a[5]);
+
+	// determinant
+	T det = a[0]*inv[0] + a[1] * inv[4] + a[2] * inv[8] + a[3] * inv[12];
+	if ( std::fabs(det) < 1e-12f ) return m; // singular
+
+	T invDet = 1 / det;
+	for (int i = 0; i < 16; ++i ) inv[i] *= invDet;
+
+	return inv;
 }
 template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w, bool div ) {
 	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w }, div );
+}
+template<typename T>
+pod::Vector2t<T> uf::matrix::multiply(const pod::Matrix2t<T>& mat, const pod::Vector2t<T>& v ) {
+	return pod::Vector2t<T>{
+		v[0]* mat[0] + v[1]* mat[2],
+		v[0]* mat[1] + v[1]* mat[3],
+	};
+}
+
+template<typename T>
+pod::Vector3t<T> uf::matrix::multiply(const pod::Matrix3t<T>& mat, const pod::Vector3t<T>& v ) {
+	return pod::Vector3t<T>{
+		v[0]* mat[0] + v[1]* mat[3] + v[2] * mat[6],
+		v[0]* mat[1] + v[1]* mat[4] + v[2] * mat[7],
+		v[0]* mat[2] + v[1]* mat[5] + v[2] * mat[8],
+	};
 }
 template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool div ) {
 #if UF_ENV_DREAMCAST
@@ -455,8 +471,6 @@ template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<
 #endif
 }
 // 	Writes to first value
-// 	Multiplies two matrices of same type and size together
-// 	Flip sign of all components
 template<typename T> T& uf::matrix::invert( T& matrix ) {
 	return matrix = uf::matrix::inverse((const T&) matrix);
 }
@@ -542,11 +556,11 @@ template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t, T f, T n ) {
 	ALIGN16 pod::Matrix4t<T> m = uf::matrix::identity();
 	m[0*4+0] = 2 / (r - l);
-    m[1*4+1] = 2 / (t - b);
-    m[2*4+2] = - 2 / (f - n);
-    m[3*4+0] = - (r + l) / (r - l);
-    m[3*4+1] = - (t + b) / (t - b);
-    m[3*4+2] = - (f + n) / (f - n);
+	m[1*4+1] = 2 / (t - b);
+	m[2*4+2] = - 2 / (f - n);
+	m[3*4+0] = - (r + l) / (r - l);
+	m[3*4+1] = - (t + b) / (t - b);
+	m[3*4+2] = - (f + n) / (f - n);
 	return m;
 /*
 	uf::stl::vector<T> m = {
@@ -575,15 +589,15 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 		return pod::Matrix4t<T>({
 			f / raidou, 	0, 	 	0, 		0,
 			0, 			 	f, 	 	0, 		0,
-			0,       		0,    	0, 		1,
-			0,       		0,   znear, 	0
+			0,	   		0,		0, 		1,
+			0,	   		0,   znear, 	0
 		});
 	#elif UF_USE_VULKAN
 		return pod::Matrix4t<T>({
 			f / raidou, 	0, 	 	0, 		0,
 			0, 				-f, 	0, 		0,
-			0,       		0,    	0, 		1,
-			0,       		0,   znear, 	0
+			0,	   		0,		0, 		1,
+			0,	   		0,   znear, 	0
 		});
 	#endif
 	} else {

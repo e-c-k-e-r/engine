@@ -1,14 +1,14 @@
 namespace {
-	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Vector3f tri[3], float& t, float& u, float& v, float eps = EPS(1.0e-6f) ) {
-		auto edge1 = tri[1] - tri[0];
-		auto edge2 = tri[2] - tri[0];
+	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Triangle& tri, float& t, float& u, float& v, float eps = EPS(1.0e-6f) ) {
+		auto edge1 = tri.points[1] - tri.points[0];
+		auto edge2 = tri.points[2] - tri.points[0];
 		auto h = uf::vector::cross( ray.direction, edge2 );
 		float a = uf::vector::dot( edge1, h );
 		
 		if ( fabs(a) < eps ) return false;
 		
 		float f = 1.0f / a;
-		auto s = ray.origin - tri[0];
+		auto s = ray.origin - tri.points[0];
 		u = f * uf::vector::dot( s, h );
 		if ( u < 0.0f || u > 1.0f ) return false;
 		
@@ -75,7 +75,7 @@ namespace {
 		return true;
 	}
 	bool raySphere( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
-		auto center = body.transform->position;
+		auto center = ::getPosition( body );
 		float r = body.collider.u.sphere.radius;
 
 		auto oc = ray.origin - center;
@@ -199,31 +199,33 @@ namespace {
 		return true;
 	}
 	
-	bool rayMesh( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
+	bool rayMesh( const pod::Ray& r, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
 		const uf::Mesh& meshData = *body.collider.u.mesh.mesh;
 		const pod::BVH& bvh  = *body.collider.u.mesh.bvh;
-		
-		pod::Ray localRay;
-		localRay.origin	= uf::transform::applyInverse( *body.transform, ray.origin );
-		localRay.direction = uf::quaternion::rotate( uf::quaternion::inverse(body.transform->orientation), ray.direction );
+
+		const auto transform = ::getTransform( body );
+
+		pod::Ray ray;
+		ray.origin	= uf::transform::applyInverse( transform, r.origin );
+		ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
 
 		uf::stl::vector<int> indices;
-		::queryBVH( bvh, localRay, indices );
+		::queryBVH( bvh, ray, indices );
 
 		for ( auto triID : indices ) {
 			auto tri = ::fetchTriangle( meshData, triID );
 
 			float t, u, v;
-			if ( !::rayTriangleIntersect( localRay, tri.points, t, u, v ) ) continue;
+			if ( !::rayTriangleIntersect( ray, tri, t, u, v ) ) continue;
 			if ( t >= rayHit.contact.penetration ) continue;
 
-			auto l = localRay.origin + localRay.direction * t;
-			auto bary = ::computeBarycentric(l, tri.points[0], tri.points[1], tri.points[2]);
-			auto n = uf::vector::normalize(::interpolateWithBarycentric(bary, tri.normals));
+			auto l = ray.origin + ray.direction * t;
+			auto bary = ::computeBarycentric( l, tri );
+			auto n = uf::vector::normalize( ::interpolateWithBarycentric( bary, tri.normals ) );
 
 			// push back to world
-			auto p = uf::transform::apply(*body.transform, l);
-			n = uf::quaternion::rotate(body.transform->orientation, n);
+			auto p = uf::transform::apply( transform, l);
+			n = uf::quaternion::rotate( transform.orientation, n );
 
 			rayHit.hit = true;
 			rayHit.body = &body;

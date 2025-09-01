@@ -26,6 +26,34 @@
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
+	#define EXPECT_GT(a,b) { \
+		auto& test = uf::unitTests::tests[uf::unitTests::current];\
+		test.passes = (((a) > (b)));\
+		test.message = ::fmt::format("EXPECT_GT({}, {}), ({} > {})", #a, #b, a, b);\
+		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
+	}
+
+	#define EXPECT_LT(a,b) { \
+		auto& test = uf::unitTests::tests[uf::unitTests::current];\
+		test.passes = (((a) < (b)));\
+		test.message = ::fmt::format("EXPECT_LT({}, {}), ({} < {})", #a, #b, a, b);\
+		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
+	}
+
+	#define EXPECT_GE(a,b) { \
+		auto& test = uf::unitTests::tests[uf::unitTests::current];\
+		test.passes = (((a) >= (b)));\
+		test.message = ::fmt::format("EXPECT_GE({}, {}), ({} >= {})", #a, #b, a, b);\
+		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
+	}
+
+	#define EXPECT_LE(a,b) { \
+		auto& test = uf::unitTests::tests[uf::unitTests::current];\
+		test.passes = (((a) <= (b)));\
+		test.message = ::fmt::format("EXPECT_LE({}, {}), ({} <= {})", #a, #b, a, b);\
+		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
+	}
+
 	#define EXPECT_NEAR(a,b,eps) { \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
 		test.passes = (std::fabs((a)-(b)) <= (eps));\

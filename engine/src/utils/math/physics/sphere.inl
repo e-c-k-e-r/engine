@@ -2,7 +2,7 @@ namespace {
 	bool sphereSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, SPHERE );
 
-		auto delta = b.transform->position - a.transform->position;
+		auto delta = ::getPosition( b ) - ::getPosition( a );
 		float r = a.collider.u.sphere.radius + b.collider.u.sphere.radius;
 
 		float dist2 = uf::vector::dot(delta, delta);
@@ -11,7 +11,7 @@ namespace {
 		
 		float penetration = r - dist;
 		auto normal = ::normalizeDelta( delta, dist, eps );
-		auto contact = a.transform->position + (normal * a.collider.u.sphere.radius);
+		auto contact = ::getPosition( a ) + (normal * a.collider.u.sphere.radius);
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
@@ -22,7 +22,7 @@ namespace {
 		const auto& sphere = a;
 		const auto& aabb = b;
 
-		auto& center = sphere.transform->position;
+		auto center = ::getPosition( sphere );
 		float r = sphere.collider.u.sphere.radius;
 
 		auto& bounds = aabb.bounds;
@@ -31,7 +31,7 @@ namespace {
 			std::max(bounds.min.y, std::min(center.y, bounds.max.y)),
 			std::max(bounds.min.z, std::min(center.z, bounds.max.z)),
 		};
-		
+
 		auto delta = center - closest;
 		float dist2 = uf::vector::dot(delta, delta);
 		if ( dist2 > r * r ) return false;

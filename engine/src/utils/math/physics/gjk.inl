@@ -1,8 +1,9 @@
 namespace {
 	pod::Vector3f support( const pod::RigidBody& body, const pod::Vector3f& dir ) {
+		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::SPHERE: {
-				return body.transform->position + uf::vector::normalize( dir ) * body.collider.u.sphere.radius;
+				return transform.position + uf::vector::normalize( dir ) * body.collider.u.sphere.radius;
 			} break;
 			case pod::ShapeType::AABB: {
 				return {
@@ -12,17 +13,24 @@ namespace {
 				};
 			} break;
 			case pod::ShapeType::CAPSULE: {
-				auto up = uf::quaternion::rotate( body.transform->orientation, pod::Vector3f{0,1,0} );
-				auto p1 = body.transform->position + up * body.collider.u.capsule.halfHeight;
-				auto p2 = body.transform->position - up * body.collider.u.capsule.halfHeight;
-				// get closest end
-				auto end = ( uf::vector::dot( dir, p1 ) > uf::vector::dot( dir, p2 ) ) ? p1 : p2;
-
+				auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
+				auto p1 = transform.position + up * body.collider.u.capsule.halfHeight;
+				auto p2 = transform.position - up * body.collider.u.capsule.halfHeight;
+				auto end = ( uf::vector::dot( dir, p1 ) > uf::vector::dot( dir, p2 ) ) ? p1 : p2; // get closest end
 				return end + uf::vector::normalize( dir ) * body.collider.u.capsule.radius;
 			}
-			// to-do: mesh
-			default: {
+			case pod::ShapeType::TRIANGLE: {
+				const auto& tri = body.collider.u.triangle;
+			    float d0 = uf::vector::dot( tri.points[0], dir );
+			    float d1 = uf::vector::dot( tri.points[1], dir );
+			    float d2 = uf::vector::dot( tri.points[2], dir );
 
+			    if ( d0 > d1 && d0 > d2 ) return tri.points[0];
+			    if ( d1 > d2 ) return tri.points[1];
+			    return tri.points[2];
+			} break;
+
+			default: {
 			} break;
 		}
 		return {};
@@ -142,7 +150,7 @@ namespace {
 	}
 
 	bool gjk( const pod::RigidBody& a, const pod::RigidBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS(1e-6f) ) {
-		auto dir = b.transform->position - a.transform->position;
+		auto dir = ::getPosition( b ) - ::getPosition( a );
 		if ( uf::vector::magnitude(dir) < eps ) dir = {1,0,0}; // fallback direction
 
 		// initial condition

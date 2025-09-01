@@ -5,15 +5,16 @@
 #include <uf/utils/memory/stack.h>
 
 namespace {
-	bool warmupSolver = false;
+	bool warmupSolver = true;
 	bool blockContactSolver = false;
+	bool psgContactSolver = true;
 	bool useGjk = false;
 	bool fixedStep = true;
 	int substeps = 0;
 
-	int solverIterations = 20;
-	float baumgarteCorrectionPercent = 0.4f;
-	float baumgarteCorrectionSlop = 0.01f;
+	int solverIterations = 10;
+	float baumgarteCorrectionPercent = 0.005f;
+	float baumgarteCorrectionSlop = 0.001f;
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 }
 
@@ -26,12 +27,14 @@ namespace {
 #include "sphere.inl"
 #include "plane.inl"
 #include "capsule.inl"
+#include "triangle.inl"
 #include "mesh.inl"
 #include "ray.inl"
 #include "bvh.inl"
 #include "gjk.inl"
 #include "epa.inl"
 #include "integration.inl"
+#include "solvers.inl"
 
 // unused
 float uf::physics::impl::timescale = 1.0f / 60.0f;
@@ -120,19 +123,21 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			}
 			// retrieve accumulated impulses
 			if ( ::warmupSolver )  ::retrieveContacts( manifold, ::manifoldsCache[::makePairKey( a, b )] );
+			// merge similar contacts from a mesh to ensure continuity
+			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) {
+				::mergeContacts( manifold );
+			}
 			// keep four most important contacts
 			::reduceContacts( manifold );
-		#if 0
-			UF_MSG_DEBUG("body a={}, body b={}, manifold size={}", uf::vector::toString(a.transform->position), uf::vector::toString(b.transform->position), manifold.points.size());
-			for ( auto& contact : manifold.points ) {
-				UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( contact.point ), uf::vector::toString( contact.normal ), contact.penetration );
-			}
-		#endif
+			// no points remained, skip
+			if ( manifold.points.empty() ) continue;
 
 			// store manifold
 			manifolds.emplace_back(manifold);
 		}
 	}
+
+//	for ( auto& m : manifolds ) for ( auto& c : m.points ) UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( c.point ), uf::vector::toString( c.normal ), c.penetration );
 
 	// pass manifolds to solver
 	::solveContacts( manifolds, dt );
@@ -164,19 +169,11 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 void uf::physics::impl::setMass( pod::RigidBody& body, float mass ) {
 	body.mass = mass;
 	body.inverseMass = 1.0f / mass;
-	setInertia( body );
+	uf::physics::impl::setInertia( body );
 }
 void uf::physics::impl::setInertia( pod::RigidBody& body ) {
 	if ( body.isStatic || body.mass <= 0 ) {
 		body.inverseInertiaTensor = {};
-		return;
-	}
-
-	// to-do: make this a flag or something
-	if ( body.collider.type == pod::ShapeType::CAPSULE ) {
-		body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
-		body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
-
 		return;
 	}
 
@@ -223,7 +220,7 @@ void uf::physics::impl::applyForceAtPoint( pod::RigidBody body, const pod::Vecto
 	// linear force
 	body.forceAccumulator += force;
 	// angular force
-	pod::Vector3f r = point - body.transform->position;
+	pod::Vector3f r = point - ::getPosition( body );
 	body.torqueAccumulator += uf::vector::cross( r, force );
 }
 void uf::physics::impl::applyImpulse( pod::RigidBody& body, const pod::Vector3f& impulse ) {
@@ -238,7 +235,7 @@ void uf::physics::impl::setVelocity( pod::RigidBody& body, const pod::Vector3f& 
 	body.velocity = v;
 }
 void uf::physics::impl::applyRotation( pod::RigidBody& body, const pod::Quaternion<>& q ) {
-	uf::transform::rotate( *body.transform, q );
+	uf::transform::rotate( *body.transform/*.reference*/, q );
 }
 void uf::physics::impl::applyRotation( pod::RigidBody& body, const pod::Vector3f& axis, float angle ) {
 	applyRotation( body, uf::quaternion::axisAngle( axis, angle ) );
@@ -251,9 +248,9 @@ pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object
 	// initial initialization
 	body.world = &world;
 	body.object = &object;
-	body.transform = &object.getComponent<pod::Transform<>>();
+	body.transform/*.reference*/ = &object.getComponent<pod::Transform<>>();
 	body.mass = mass;
-	body.inverseMass = 1.0f / mass;
+	body.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
 	body.isStatic = mass == 0.0f;
 
 	// insert into world
@@ -262,55 +259,53 @@ pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object
 	return body;
 }
 pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass ) {
-	auto& body = create( world, object, mass );
+	auto& body = uf::physics::impl::create( world, object, mass );
 	body.collider.type = pod::ShapeType::AABB;
 	body.collider.u.aabb = aabb;
 	body.bounds = ::computeAABB( body );
-	setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {} | mass: {} | min: {} | max: {}", "AABB", mass, uf::vector::toString(aabb.min), uf::vector::toString(aabb.max) );
+	uf::physics::impl::setInertia( body );
+	UF_MSG_DEBUG("Creating body of type: {}, mass={}, min={}, max={}", "AABB", mass, uf::vector::toString(aabb.min), uf::vector::toString(aabb.max) );
 	return body;
 }
 pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Sphere& sphere, float mass ) {
-	auto& body = create( world, object, mass );
+	auto& body = uf::physics::impl::create( world, object, mass );
 	body.collider.type = pod::ShapeType::SPHERE;
 	body.collider.u.sphere = sphere;
 	body.bounds = ::computeAABB( body );
-	setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {} | mass: {} | radius: {}", "SPHERE", mass, sphere.radius );
+	uf::physics::impl::setInertia( body );
+	UF_MSG_DEBUG("Creating body of type={}, mass={}, radius={}", "SPHERE", mass, sphere.radius );
 	return body;
 }
 pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Plane& plane, float mass ) {
-	auto& body = create( world, object, mass );
+	auto& body = uf::physics::impl::create( world, object, mass );
 	body.collider.type = pod::ShapeType::PLANE;
 	body.collider.u.plane = plane;
 	body.bounds = ::computeAABB( body );
-	setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {} | mass: {} | normal: {} | offset: {}", "PLANE", mass, uf::vector::toString( plane.normal ), plane.offset );
+	uf::physics::impl::setInertia( body );
+	UF_MSG_DEBUG("Creating body of type={}, mass={}, normal={}, offset={}", "PLANE", mass, uf::vector::toString( plane.normal ), plane.offset );
 	return body;
 }
 pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Capsule& capsule, float mass ) {
-	auto& body = create( world, object, mass );
+	auto& body = uf::physics::impl::create( world, object, mass );
 	body.collider.type = pod::ShapeType::CAPSULE;
 	body.collider.u.capsule = capsule;
 	body.material.restitution = 0.001f;
 	body.bounds = ::computeAABB( body );
-	setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {} | mass: {} | radius: {} | height: {}", "CAPSULE", mass, capsule.radius, capsule.halfHeight * 2.0f );
+	uf::physics::impl::setInertia( body );
+	UF_MSG_DEBUG("Creating body of type={}, mass={}, radius={}, height={}", "CAPSULE", mass, capsule.radius, capsule.halfHeight * 2.0f );
 	return body;
 }
 pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass ) {
-	auto& body = create( world, object, mass );
+	auto& body = uf::physics::impl::create( world, object, mass );
 	body.collider.type = pod::ShapeType::MESH;
 	body.collider.u.mesh.mesh = &mesh;
 	body.collider.u.mesh.bvh = new pod::BVH;
 
 	::buildMeshBVH( *body.collider.u.mesh.bvh, mesh );
 
-	UF_MSG_DEBUG("Built mesh BVH: nodes={} indices={}", body.collider.u.mesh.bvh->nodes.size(), body.collider.u.mesh.bvh->indices.size());
-
 	body.bounds = ::computeAABB( body );
-	setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {} | mass: {} ", "MESH", mass );
+	uf::physics::impl::setInertia( body );
+	UF_MSG_DEBUG("Creating body of type={}, mass={}, nodes={} indices={} ", "MESH", mass, body.collider.u.mesh.bvh->nodes.size(), body.collider.u.mesh.bvh->indices.size());
 	return body;
 }
 
