@@ -1,8 +1,15 @@
 namespace {
 	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps ) {
-		return  (a.min.x < b.max.x - eps && a.max.x > b.min.x + eps) &&
-				(a.min.y < b.max.y - eps && a.max.y > b.min.y + eps) &&
-				(a.min.z < b.max.z - eps && a.max.z > b.min.z + eps);
+		for (int axis=0; axis<3; ++axis) {
+			if (a.max[axis] + eps < b.min[axis] - eps) return false;
+			if (a.min[axis] - eps > b.max[axis] + eps) return false;
+	   }
+	   return true;
+	/*
+		return !(a.max.x < b.min.x + eps || a.min.x > b.max.x - eps ||
+				a.max.y < b.min.y + eps || a.min.y > b.max.y - eps ||
+				a.max.z < b.min.z + eps || a.min.z > b.max.z - eps);
+	*/
 	}
 
 	pod::AABB computeSegmentAABB( const pod::Vector3f& p1, const pod::Vector3f p2, float r ) {

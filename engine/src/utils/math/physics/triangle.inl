@@ -25,7 +25,7 @@ namespace {
 		return uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 	}
 	pod::Vector3f triangleNormal( const pod::TriangleWithNormal& tri ) {
-		return uf::vector::normalize(( tri.normals[0] + tri.normals[1] + tri.normals[2] ) / 3.0f);
+		return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 	}
 
 	pod::AABB computeTriangleAABB( const void* vertices, size_t vertexStride, const void* indexData, size_t indexSize, size_t triID ) {
@@ -126,28 +126,135 @@ namespace {
 
 		return tri;
 	}
+
+	bool computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1, float eps = EPS(1e-6f) ) {
+		uf::stl::vector<pod::Vector3f> intersections;
+
+		auto checkAndPush = [&]( const pod::Vector3f& pt ) {
+			// avoid duplicates
+			for ( auto& v : intersections ) {
+				if ( uf::vector::distanceSquared( v, pt ) < eps*eps ) return;
+			}
+			intersections.emplace_back(pt);
+		};
+
+		// segment-plane intersection
+		auto intersectSegmentPlane = [&](const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& n, float d, pod::Vector3f& out)->bool {
+			pod::Vector3f ab = b - a;
+			float denom = uf::vector::dot( n, ab );
+			if (fabs(denom) < eps) return false; // parallel
+
+			float t = (d - uf::vector::dot( n, a )) / denom;
+			if ( t < -eps || t > 1.0f + eps ) return false;
+			out = a + ab * t;
+			return true;
+		};
+
+		// planes
+		auto nA = ::triangleNormal( A );
+		auto nB = ::triangleNormal( B );
+		float dA = uf::vector::dot( nA, A.points[0] );
+		float dB = uf::vector::dot( nB, B.points[0] );
+
+		// clip edges of A against plane of B
+		const pod::Vector3f At[3] = { A.points[0], A.points[1], A.points[2] };
+		for ( auto i = 0; i < 3; ++i ) {
+			int j = ( i + 1 ) % 3;
+			pod::Vector3f p;
+			if ( intersectSegmentPlane( At[i], At[j], nB, dB, p ) ) {
+				// check if intersection lies inside triangle B
+				if ( ::pointInTriangle( p, B ) ) checkAndPush(p);
+			}
+		}
+
+		// clip edges of B against plane of A
+		const pod::Vector3f Bt[3] = { B.points[0], B.points[1], B.points[2] };
+		for ( auto i = 0; i < 3; ++i ) {
+			int j = ( i + 1 ) % 3;
+			pod::Vector3f p;
+			if ( intersectSegmentPlane( Bt[i], Bt[j], nA, dA, p ) ) {
+				if ( ::pointInTriangle( p, A ) ) checkAndPush(p);
+			}
+		}
+
+		if ( intersections.empty() ) return false;
+
+		// degenerate intersection
+		if ( intersections.size() == 1 ) {
+			p0 = p1 = intersections[0];
+			return true;
+		}
+
+		// find two furthest apart points for intersection segment
+		float maxDist2 = -1.0f;
+		for ( auto i = 0 ; i < intersections.size(); i++ ) {
+			for ( auto j = i + 1 ; j<intersections.size(); j++ ) {
+				float d2 = uf::vector::distanceSquared( intersections[i], intersections[j] );
+				if ( d2 > maxDist2 ) {
+					maxDist2 = d2;
+					p0 = intersections[i];
+					p1 = intersections[j];
+				}
+			}
+		}
+
+		return maxDist2 >= 0.0f;
+	}
+
+	pod::Vector2f projectTriangleOntoAxis( const pod::TriangleWithNormal& tri, const pod::Vector3f& axis ) {
+		pod::Vector3f normal = uf::vector::normalize( axis );
+
+		float p0 = uf::vector::dot( tri.points[0], normal );
+		float p1 = uf::vector::dot( tri.points[1], normal );
+		float p2 = uf::vector::dot( tri.points[2], normal );
+
+		return { std::min({ p0, p1, p2 }), std::max({ p0, p1, p2 }) };
+	}
 }
-
-/*
-
-#if REORIENT_NORMALS_ON_CONTACT
-	if ( uf::vector::dot(normal, delta) < 0.0f ) normal = -normal;
-#endif
-
-
-// uf::vector::normalize( ::interpolateWithBarycentric( ::computeBarycentric( contact, tri ), tri.normals ) );
-
-*/
 
 // triangle colliders
 namespace {
 	bool triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold, float eps ) {
-		if ( !::triangleTriangleIntersect( a, b ) ) return false;
+		// if ( !::triangleTriangleIntersect( a, b ) ) return false;
 
-		// to-do: properly derive the contact information
-		auto contact = ( a.points[0] + b.points[0] ) * 0.5f; // center point
-		auto normal = ::triangleNormal( a );
-		float penetration = 0.001f;
+		uf::stl::vector<pod::Vector3f> axes = { ::triangleNormal( a ), ::triangleNormal( b ) };
+
+		pod::Vector3f p0 = {}, p1 = {};
+		if ( !::computeTriangleTriangleSegment(a, b, p0, p1) ) {
+			auto contact = ( p0 + p1 ) * 0.5f;
+			auto normal   = uf::vector::normalize( axes[0] + axes[1] );
+			manifold.points.emplace_back(pod::Contact{ contact, normal, eps });
+			return true;
+		}
+
+		auto contact = ( p0 + p1 ) * 0.5f;
+		float penetration = std::numeric_limits<float>::max();
+		pod::Vector3f normal;
+
+		// check edge cross-products
+		for ( auto i = 0; i < 3; i++ ) {
+			auto ea = a.points[( i + 1 ) % 3] - a.points[i];
+			for ( auto j = 0; j < 3; j++ ) {
+				auto eb = b.points[( j + 1 ) % 3] - b.points[j];
+				auto axis = uf::vector::cross(ea, eb);
+				if ( uf::vector::magnitude( axis ) > eps*eps ) axes.emplace_back( axis );
+			}
+		}
+
+		// project onto each axis
+		for ( auto axis : axes ) {
+			axis = uf::vector::normalize( axis );
+			pod::Vector2f aP = ::projectTriangleOntoAxis( a, axis );
+			pod::Vector2f bP = ::projectTriangleOntoAxis( b, axis );
+
+			float overlap = std::min( aP.x, bP.x ) - std::max( aP.y, bP.y );
+			if ( overlap < 0) return false; // separating axis
+			if ( overlap < penetration ) {
+				penetration = overlap;
+				normal = axis;
+			}
+		}
+
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
@@ -168,7 +275,7 @@ namespace {
 		float dist = std::sqrt( dist2 );
 
 		// to-do: properly derive the contact information
-		auto contact = closest;
+		auto contact = closest; // ( closest + closestAabb ) * 0.5f;
 		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
 		float penetration = tolerance - dist;
 
@@ -184,17 +291,17 @@ namespace {
 
 		float r = sphere.collider.u.sphere.radius;
 		auto center = ::getPosition( sphere );
-		auto closest = ::closestPointOnTriangle( center, tri );
+		auto closest = ::closestPointOnTriangle( center, tri.points[0], tri.points[1], tri.points[2] );
 
 		if ( !uf::vector::isValid( closest ) ) return false;
 
 		// to-do: derive proper delta
 		auto delta = center - closest;
-		float dist2 = uf::vector::dot(delta, delta);
+		float dist2 = uf::vector::dot( delta, delta );
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt(dist2);
 
-		auto contact = closest;
+		auto contact = ( center + closest ) * 0.5f;
 		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
 		float penetration = r - dist;
 
@@ -205,9 +312,50 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	// to-do
+	// to-do: implement
 	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
-		return false;
+		const auto& plane = body;
+		auto normal = plane.collider.u.plane.normal;
+		float d = plane.collider.u.plane.offset;
+
+		bool hit = false;
+		pod::Vector3f dist;
+		for ( auto i = 0; i < 3; i++ ) dist[i] = uf::vector::dot(normal, tri.points[i] ) - d;
+
+		// completely on one side
+		bool allAbove = ( dist.x >  eps && dist.y >  eps && dist.z >  eps );
+		bool allBelow = ( dist.x < -eps && dist.y < -eps && dist.z < -eps );
+		if ( allAbove )
+			return hit;
+
+		if ( allBelow ) {
+			hit = true;
+			for ( auto i = 0; i < 3; i++ ) {
+				float penetration = -dist[i];
+				manifold.points.emplace_back(pod::Contact{tri.points[i], normal, penetration});
+			}
+			return hit;
+		}
+
+		// points touching plane
+		for ( auto i = 0; i < 3; i++ )
+			if ( fabs( dist[i] ) <= eps ) {
+				hit = true;
+				manifold.points.emplace_back(pod::Contact{ tri.points[i], normal, 0.0f });
+			}
+
+		// edges that cross plane
+		for ( auto i = 0; i < 3; i++ ) {
+			auto j = (i + 1) % 3;
+			if ( ( dist[i] > 0 && dist[j] < 0 ) || ( dist[i] < 0 && dist[j] > 0 ) ) {
+				hit = true;
+				float t = dist[i] / ( dist[i] - dist[j] );
+				auto contact = tri.points[i] + ( tri.points[j] - tri.points[i] ) * t;
+				float penetration = -std::min( dist[i], dist[j] );
+				manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
+			}
+		}
+		return hit;
 	}
 	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& capsule = body;
@@ -226,7 +374,7 @@ namespace {
 		auto delta = ( closestSeg - closest );
 
 		// to-do: properly derive the contact information
-		auto contact = closest;
+		auto contact = closest; // ( closestSeg + closest ) * 0.5f;
 		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
 		float penetration = r - dist;
 
@@ -236,5 +384,26 @@ namespace {
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
+	}
+
+	bool triangleTriangle( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, TRIANGLE );
+		return ::triangleTriangle( a.collider.u.triangle, b.collider.u.triangle, manifold, eps );
+	}
+	bool triangleAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, AABB );
+		return ::triangleAabb( a.collider.u.triangle, b, manifold, eps );
+	}
+	bool triangleSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, SPHERE );
+		return ::triangleSphere( a.collider.u.triangle, b, manifold, eps );
+	}
+	bool trianglePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, PLANE );
+		return ::trianglePlane( a.collider.u.triangle, b, manifold, eps );
+	}
+	bool triangleCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, CAPSULE );
+		return ::triangleCapsule( a.collider.u.triangle, b, manifold, eps );
 	}
 }

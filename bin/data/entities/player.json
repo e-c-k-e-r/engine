@@ -77,18 +77,16 @@
 			"gravity": [ 0, -9.81, 0 ],
 			"inertia": [ 0, 0, 0 ],
 
-			"type": "sphere",
-			"radius": 2,
+			"offset": [ 0, 0, 0 ],
 
-		//	"type": "capsule",
-		//	"radius": 1,
-		//	"height": 2,
-			
-		//	"type": "bounding box",
-		//	"min": [ -1.0,  -2.0, -1.0 ],
-		//	"max": [  1.0,  0.0,  1.0 ],
+		//	"type": "sphere",
+		//	"radius": 2,
+
+			"type": "capsule",
+			"radius": 1,
+			"height": 2,
 		
-			"mass": 1,
+			"mass": 100,
 			"friction": 0.95,
 			"restitution": 0.0,
 			

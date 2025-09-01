@@ -75,42 +75,39 @@ namespace {
 		return true;
 	}
 	bool raySphere( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
-		auto center = ::getPosition( body );
+		auto center = ::getPosition(body);
 		float r = body.collider.u.sphere.radius;
 
+		// vector from sphere center to ray origin
 		auto oc = ray.origin - center;
-		// ray starts inside
-		if ( uf::vector::magnitude( oc ) < r * r ) {
-			rayHit.hit = true;
-			rayHit.body = &body;
-			rayHit.contact.point = ray.origin;
-			rayHit.contact.normal = uf::vector::normalize(ray.origin - center);
-			rayHit.contact.penetration = 0.0f;
-			return true;
-		}
 
 		float a = uf::vector::dot( ray.direction, ray.direction );
 		float b = 2.0f * uf::vector::dot( oc, ray.direction );
-		float c = uf::vector::dot( oc, oc ) - r * r;
+		float c = uf::vector::dot( oc, oc ) - r*r;
 
-		float discriminant = b*b - 4*a*c;
-		if ( discriminant < 0.0f ) return false;
+		float disc = b*b - 4*a*c;
 
-		float sqrtDisc = std::sqrt(discriminant);
+		UF_MSG_DEBUG( "center={}, r={}, oc={}, a, b, c, disc", uf::vector::toString( center ), r, uf::vector::toString( oc ), a, b, c, disc );
+
+		if ( disc < 0 ) return false;
+
+		float sqrtDisc = std::sqrt(disc);
 		float t0 = (-b - sqrtDisc) / (2*a);
 		float t1 = (-b + sqrtDisc) / (2*a);
 
-		// take nearest valid hit
-		float t = t0;
-		if ( t < 0.0f ) t = t1;
-		if ( t < 0.0f ) return false;
+		float t = ( t0 >= 0 ) ? t0 : t1;
 
-		if ( t >= rayHit.contact.penetration ) return false; // further than current closest
+		UF_MSG_DEBUG( "sqrtDisc={}, t0={}, t1={}, t={}, rayHit.contact.penetration={}", sqrtDisc, t0, t1, t, rayHit.contact.penetration );
+
+		if ( t < 0 ) return false; // both behind ray
+
+		// compare against current best hit
+		if ( t >= rayHit.contact.penetration ) return false;
 
 		// record hit
 		rayHit.hit = true;
 		rayHit.body = &body;
-		rayHit.contact.point = ray.origin + ray.direction * t;
+		rayHit.contact.point = ray.origin + ray.direction*t;
 		rayHit.contact.normal = uf::vector::normalize( rayHit.contact.point - center );
 		rayHit.contact.penetration = t;
 		return true;

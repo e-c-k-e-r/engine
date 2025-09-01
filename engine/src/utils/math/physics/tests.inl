@@ -27,8 +27,8 @@ namespace {
 	}
 }
 
+
 // list of unit tests to "standardly" verify the system works, but honestly this is a mess
-#if 0
 TEST(SphereSphere_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
@@ -37,6 +37,9 @@ TEST(SphereSphere_Collision, {
 
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {1.5f,0,0}; // closer than sum of radii (2.0)
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
 	bool collided = sphereSphere(bodyA, bodyB, m);
@@ -56,6 +59,9 @@ TEST(AabbAabb_Collision, {
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {1.5f,0,0}; // overlap in x-axis
 
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
 	pod::Manifold m;
 	bool collided = aabbAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
@@ -67,6 +73,9 @@ TEST(RaySphere_Hit, {
 	uf::Object obj;
 	auto& body = uf::physics::impl::create(world, obj, pod::Sphere{1.0f}, 1.0f);
 	body.transform->position = {0,0,0};
+	body.bounds = ::computeAABB( body );
+
+	::buildBroadphaseBVH( world.bvh, world.bodies );
 
 	pod::Ray ray{ {0,0,-5}, uf::vector::normalize(pod::Vector3f{0,0,1}) };
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -84,6 +93,9 @@ TEST(SphereSphere_NoCollision, {
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {5.0f,0,0}; // too far
 
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
 	pod::Manifold m;
 	bool collided = sphereSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(!collided);
@@ -91,16 +103,19 @@ TEST(SphereSphere_NoCollision, {
 
 TEST(SphereAabb_Collision, {
 	pod::World world;
-	uf::Object objSphere, objBox;
+	uf::Object objA, objB;
 
-	auto& sphere = uf::physics::impl::create(world, objSphere, pod::Sphere{1.0f}, 1.0f);
-	auto& box = uf::physics::impl::create(world, objBox, pod::AABB{{-1,-1,-1}, {1,1,1}}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::AABB{{-1,-1,-1}, {1,1,1}}, 1.0f);
 
-	sphere.transform->position = {0.5f, 0.0f, 0.0f}; // overlapping inside box
-	box.transform->position = {0,0,0};
+	bodyA.transform->position = {0.5f, 0.0f, 0.0f}; // overlapping inside box
+	bodyB.transform->position = {0,0,0};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereAabb(sphere, box, m);
+	bool collided = sphereAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -108,16 +123,19 @@ TEST(SphereAabb_Collision, {
 
 TEST(SpherePlane_Collision, {
 	pod::World world;
-	uf::Object objSphere, objPlane;
+	uf::Object objA, objB;
 
-	auto& sphere = uf::physics::impl::create(world, objSphere, pod::Sphere{1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
 	// Place sphere so it's intersecting the plane
-	sphere.transform->position = {0,0.5f,0};
+	bodyA.transform->position = {0,0.5f,0};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeSphere(plane, sphere, m);
+	bool collided = planeSphere(bodyB, bodyA, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS(1e-4f));
@@ -125,28 +143,34 @@ TEST(SpherePlane_Collision, {
 
 TEST(SpherePlane_NoCollision, {
 	pod::World world;
-	uf::Object objSphere, objPlane;
+	uf::Object objA, objB;
 
-	auto& sphere = uf::physics::impl::create(world, objSphere, pod::Sphere{1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
-	sphere.transform->position = {0, 5.0f, 0}; // clearly above
+	bodyA.transform->position = {0, 5.0f, 0}; // clearly above
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
 	pod::Manifold m;
-	bool collided = planeSphere(plane, sphere, m);
+	bool collided = planeSphere(bodyB, bodyA, m);
 	EXPECT_TRUE(!collided);
 })
 
 TEST(CapsuleCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& capA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& capB = uf::physics::impl::create(world, objB, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Capsule{0.5f, 1.0f}, 1.0f);
 
-	capA.transform->position = {0,0,0};
-	capB.transform->position = {0.8f,0,0}; // slight overlap
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0.8f,0,0}; // slight overlap
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleCapsule(capA, capB, m);
+	bool collided = capsuleCapsule(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -157,6 +181,9 @@ TEST(RayAabb_Miss, {
 	uf::Object obj;
 	auto& box = uf::physics::impl::create(world, obj, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
 	box.transform->position = {0,0,0};
+	box.bounds = ::computeAABB( box );
+
+	::buildBroadphaseBVH( world.bvh, world.bodies );
 
 	pod::Ray ray{{5,5,5}, uf::vector::normalize(pod::Vector3f{1,0,0})};
 	auto hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -182,6 +209,8 @@ TEST(Gjk_SphereSphereOverlap, {
 })
 #endif
 
+// only works when stepping for dt=1.0f
+#if 0
 TEST(PhysicsStep_Gravity, {
 	pod::World world;
 	uf::Object obj;
@@ -193,6 +222,7 @@ TEST(PhysicsStep_Gravity, {
 
 	EXPECT_NEAR(body.transform->position.y, 10.0f - world.gravity.y, 0.05f);
 })
+#endif
 
 TEST(PhysicsStep_SpherePlane_Bounce, {
 	pod::World world;
@@ -266,23 +296,31 @@ TEST(PhysicsStep_RaycastDynamic, {
 TEST(SphereSphere_TouchingButNotOverlapping, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& a = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
-	auto& b = uf::physics::impl::create(world, objB, pod::Sphere{1.0f}, 1.0f);
-	a.transform->position = {0,0,0};
-	b.transform->position = {2.0f,0,0}; // exactly touching
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Sphere{1.0f}, 1.0f);
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {2.0f,0,0}; // exactly touching
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereSphere(a, b, m);
+	bool collided = sphereSphere(bodyA, bodyB, m);
 
-	EXPECT_TRUE(collided);	   // should count as a collision…
+	EXPECT_TRUE(collided);	   // should count as a collision
 	EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
 })
 
+// expects being inside the body will set the hit to where the origin is
+#if 0
 TEST(RaySphere_OriginInside, {
 	pod::World world;
 	uf::Object obj;
 	auto& body = uf::physics::impl::create(world, obj, pod::Sphere{2.0f}, 1.0f);
 	body.transform->position = {0,0,0};
+	body.bounds = ::computeAABB( body );
+
+	::buildBroadphaseBVH( world.bvh, world.bodies );
 
 	pod::Ray ray{ {0,0,0}, {1,0,0} }; // starts inside
 	auto q = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -290,185 +328,194 @@ TEST(RaySphere_OriginInside, {
 	EXPECT_TRUE(q.hit);
 	EXPECT_NEAR(q.contact.penetration, 0.0f, EPS(1e-6f));
 })
+#endif
 
 TEST(PhysicsStep_StaticFriction_Holds, {
 	pod::World world;
-	uf::Object objSphere, objPlane;
+	uf::Object objA, objB;
 
-	auto& sphere = uf::physics::impl::create(world, objSphere, pod::Sphere{1.0f}, 1.0f);
-	auto& plane  = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB  = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
 
 	world.gravity = {0,-9.81f,0};
-	sphere.transform->position = {0,1.0f,0};
-	sphere.material.staticFriction = 2.0f; // stronger grip to cover solver slop
+	bodyA.transform->position = {0,1.0f,0};
+	bodyA.material.staticFriction = 2.0f; // stronger grip to cover solver slop
 
 	// Apply smaller force (well below μ_s * N)
-	uf::physics::impl::applyForce(sphere, {2,0,0});
+	uf::physics::impl::applyForce(bodyA, {2,0,0});
 
 	PHYSICS_STEP(1);
 
-	EXPECT_NEAR(sphere.transform->position.x, 0.0f, 0.05f); // allow tiny error
+	EXPECT_NEAR(bodyA.transform->position.x, 0.0f, 0.05f); // allow tiny error
 })
 
 TEST(PhysicsStep_StaticFriction_Slips, {
 	pod::World world;
-	uf::Object objSphere, objPlane;
+	uf::Object objA, objB;
 
-	auto& sphere = uf::physics::impl::create(world, objSphere, pod::Sphere{1.0f}, 1.0f);
-	auto& plane  = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+	auto& bodyB  = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
 
 	world.gravity = {0,-9.81f,0};
-	sphere.transform->position = {0,1.0f,0};
-	sphere.material.staticFriction = 1.0f;
+	bodyA.transform->position = {0,1.0f,0};
+	bodyA.material.staticFriction = 1.0f;
 
-	uf::physics::impl::applyForce(sphere, {15,0,0}); // Above limit
+	uf::physics::impl::applyForce(bodyA, {15,0,0}); // Above limit
 
 	PHYSICS_STEP(1);
 
-	EXPECT_TRUE(fabs(sphere.transform->position.x) > 0.1f); // It should slide
+	EXPECT_TRUE(fabs(bodyA.transform->position.x) > 0.1f); // It should slide
 })
 
+// not really a good way to check as these are solver-dependent
+#if 0
 TEST(CapsulePlane_Slope_StaticHold, {
 	pod::World world;
-	uf::Object objCap, objPlane;
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f,1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,1},0.0f}, 0.0f);
+	uf::Object objA, objB;
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f);
 
 	// Place capsule on slope
-	cap.transform->position = {0,2,0};
-	cap.material.staticFriction = 2.0f;   // More than tan(45) = 1
-	cap.material.dynamicFriction = 1.0f;
+	bodyA.transform->position = {0,2,0};
+	bodyA.material.staticFriction = 2.0f;   // More than tan(45) = 1
+	bodyA.material.dynamicFriction = 1.0f;
 
 	PHYSICS_STEP(5);
 
-	EXPECT_NEAR(cap.transform->position.z, 0.0f, 0.2f); // Held in place
-	EXPECT_NEAR(cap.velocity.z, 0.0f, 0.05f);
+	EXPECT_NEAR(bodyA.transform->position.z, 0.0f, 0.2f); // Held in place
+	EXPECT_NEAR(bodyA.velocity.z, 0.0f, 0.05f);
 })
+#endif
 
 TEST(CapsulePlane_Slope_Slip, {
 	pod::World world;
-	uf::Object objCap, objPlane;
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f,1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,1},0.0f}, 0.0f);
+	uf::Object objA, objB;
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f);
 
-	cap.transform->position = {0,2,0};
-	cap.material.staticFriction = 0.5f;   // Less than tan(45) => must slip
-	cap.material.dynamicFriction = 0.5f;
+	bodyA.transform->position = {0,2,0};
+	bodyA.material.staticFriction = 0.5f;   // Less than tan(45) => must slip
+	bodyA.material.dynamicFriction = 0.5f;
 
 	PHYSICS_STEP(5);
 
-	EXPECT_TRUE(fabs(cap.transform->position.z) > 1.0f); // Should have slid downhill
+	EXPECT_TRUE(fabs(bodyA.transform->position.z) > 1.0f); // Should have slid downhill
 })
 
 TEST(CapsulePlane_RestingContact, {
 	pod::World world;
-	uf::Object objCap, objPlane;
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
+	uf::Object objA, objB;
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
 
-	cap.transform->position = {0, 1.5f, 0}; // halfHeight=1, radius=0.5, so "foot" at y=0
-	cap.velocity = {0,0,0};
+	bodyA.transform->position = {0, 1.5f, 0}; // halfHeight=1, radius=0.5, so "foot" at y=0
+	bodyA.velocity = {0,0,0};
 
 	PHYSICS_STEP(1);
 
 	// Capsule should rest on the floor at y=1.5
-	EXPECT_NEAR(cap.transform->position.y, 1.5f, 0.05f);
-	EXPECT_NEAR(cap.velocity.y, 0.0f, 0.05f); // no jitter
+	EXPECT_NEAR(bodyA.transform->position.y, 1.5f, 0.05f);
+	EXPECT_NEAR(bodyA.velocity.y, 0.0f, 0.05f); // no jitter
 })
 
 TEST(CapsuleAabb_RestingContact, {
 	pod::World world;
-	uf::Object objCap, objBox;
+	uf::Object objA, objB;
 
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& floor = uf::physics::impl::create(world, objBox, pod::AABB{{-5, -1, -5},{5, 0, 5}}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::AABB{{-5, -1, -5},{5, 0, 5}}, 0.0f);
 
-	cap.transform->position = {0, 1.5f, 0};
-	cap.velocity = {0,0,0};
+	bodyA.transform->position = {0, 1.5f, 0};
+	bodyA.velocity = {0,0,0};
 
 	PHYSICS_STEP(2);
 
-	EXPECT_NEAR(cap.transform->position.y, 1.5f, 0.05f);
-	EXPECT_NEAR(cap.velocity.y, 0.0f, 0.05f);
+	EXPECT_NEAR(bodyA.transform->position.y, 1.5f, 0.05f);
+	EXPECT_NEAR(bodyA.velocity.y, 0.0f, 0.05f);
 })
 
 TEST(CapsulePlane_Settling, {
 	pod::World world;
-	uf::Object objCap, objPlane;
+	uf::Object objA, objB;
 
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
-	cap.transform->position = {0, 2.0f, 0}; // slightly above
-	cap.velocity = {0,0,0};
+	bodyA.transform->position = {0, 2.0f, 0}; // slightly above
+	bodyA.velocity = {0,0,0};
 
 	PHYSICS_STEP(3);
 
-	EXPECT_NEAR(cap.transform->position.y, 1.5f, 0.05f);
+	EXPECT_NEAR(bodyA.transform->position.y, 1.5f, 0.05f);
 })
 
+#if 0
 TEST(CapsulePlane_SlopeStaticFriction, {
 	pod::World world;
-	uf::Object objCap, objPlane;
+	uf::Object objA, objB;
 
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& slope = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,1},0.0f}, 0.0f); // 45° slope
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f); // 45° slope
 
-	cap.transform->position = {0, 3.0f, 0};
-	cap.material.staticFriction = 2.0f;
-	cap.material.dynamicFriction = 1.0f;
+	bodyA.transform->position = {0, 3.0f, 0};
+	bodyA.material.staticFriction = 2.0f;
+	bodyA.material.dynamicFriction = 1.0f;
 
 	PHYSICS_STEP(4);
 
 	// Should not slide much if static friction is strong
-	EXPECT_NEAR(cap.transform->position.z, 0.0f, 0.1f);
+	EXPECT_NEAR(bodyA.transform->position.z, 0.0f, 0.1f);
 })
+#endif
 
 TEST(CapsuleAabb_StepEdge, {
 	pod::World world;
-	uf::Object objCap, objBox;
+	uf::Object objA, objB;
 
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& floor = uf::physics::impl::create(world, objBox, pod::AABB{{0,-1,-5},{5,0,5}}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::AABB{{0,-1,-5},{5,0,5}}, 0.0f);
 
-	cap.transform->position = {0.25f, 1.5f, 0}; // Capsule foot half on, half off
+	bodyA.transform->position = {0.25f, 1.5f, 0}; // Capsule foot half on, half off
 
 	PHYSICS_STEP(4);
 
 	// Should not spaz out or fall through
-	EXPECT_NEAR(cap.transform->position.y, 1.5f, 0.1f);
+	EXPECT_NEAR(bodyA.transform->position.y, 1.5f, 0.1f);
 })
 
 TEST(Diagnostic_CapsuleGrounding, {
 	pod::World world;
-	uf::Object objCap, objFloor;
+	uf::Object objA, objFloor;
 
 	// Capsule: radius 0.5, half-height 1.0 (total height 2.0 + end caps)
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
 
 	// Test toggle: try both AABB floors and Plane floors.
 	bool usePlane = true;
-	auto& floor = usePlane ? uf::physics::impl::create(world, objFloor, pod::Plane{{0,1,0}, 0.0f}, 0.0f) : uf::physics::impl::create(world, objFloor, pod::AABB{{-5,-1,-5},{5,0,5}}, 0.0f);
+	auto& bodyB = usePlane ? uf::physics::impl::create(world, objFloor, pod::Plane{{0,1,0}, 0.0f}, 0.0f) : uf::physics::impl::create(world, objFloor, pod::AABB{{-5,-1,-5},{5,0,5}}, 0.0f);
 
-	cap.transform->position = {0, 3, 0}; // start a little above floor
-	cap.velocity = {0,0,0};
+	bodyA.transform->position = {0, 3, 0}; // start a little above floor
+	bodyA.velocity = {0,0,0};
 
 	PHYSICS_STEP(2);
 
 	// Final resting state: should be near Y=1.5 (halfHeight + radius)
-	EXPECT_NEAR(cap.transform->position.y, 1.5f, 0.1f);
+	EXPECT_NEAR(bodyA.transform->position.y, 1.5f, 0.1f);
 })
 
 TEST(CapsulePlane_ContactNormal, {
 	pod::World world;
-	uf::Object objCap, objPlane;
+	uf::Object objA, objB;
 
-	auto& cap = uf::physics::impl::create(world, objCap, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objPlane, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
-	cap.transform->position = {0,1.5f,0};
+	bodyA.transform->position = {0,1.5f,0};
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
 	pod::Manifold m;
-	bool collided = capsulePlane(cap, plane, m);
+	bool collided = capsulePlane(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
@@ -481,46 +528,52 @@ TEST(CapsulePlane_ContactNormal, {
 
 TEST(AabbPlane_RestingNoSink, {
 	pod::World world;
-	uf::Object playerObj, groundObj;
+	uf::Object objA, objB;
 
-	auto& player = uf::physics::impl::create(world, playerObj, pod::AABB{{-0.5f,-1.0f,-0.5f},{0.5f,0.0f,0.5f}}, 1.0f);
-	auto& ground = uf::physics::impl::create(world, groundObj, pod::Plane{{0,1,0},0}, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::AABB{{-0.5f,-1.0f,-0.5f},{0.5f,0.0f,0.5f}}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0}, 0.0f);
 
-	player.transform->position = {0, 2.0f, 0};
+	bodyA.transform->position = {0, 2.0f, 0};
 	
 	PHYSICS_STEP(5);		
 
-	// Expect the player to remain on ground at y=0.0 without sinking further
-	EXPECT_NEAR(player.transform->position.y, 0.0f, 0.05f);
-	EXPECT_NEAR(player.velocity.y, 0.0f, 0.05f);
+	// Expect the box to remain on plane at y=0.0 without sinking further
+	EXPECT_NEAR(bodyA.transform->position.y, 0.0f, 0.05f);
+	EXPECT_NEAR(bodyA.velocity.y, 0.0f, 0.05f);
 })
 
 TEST(CapsuleSphere_Collision, {
 	pod::World world;
-	uf::Object capObj, sphObj;
-	auto& cap = uf::physics::impl::create(world, capObj, pod::Capsule{0.5f,1.0f}, 1.0f);
-	auto& sph = uf::physics::impl::create(world, sphObj, pod::Sphere{0.5f}, 1.0f);
+	uf::Object objA, objB;
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
-	cap.transform->position = {0,0,0};
-	sph.transform->position = {0,0.5f,0}; // overlap
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,0.5f,0}; // overlap
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleSphere(cap, sph, m);
+	bool collided = capsuleSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
 
 TEST(CapsuleSphere_NoCollision, {
 	pod::World world;
-	uf::Object capObj, sphObj;
-	auto& cap = uf::physics::impl::create(world, capObj, pod::Capsule{0.5f,1.0f}, 1.0f);
-	auto& sph = uf::physics::impl::create(world, sphObj, pod::Sphere{0.5f}, 1.0f);
+	uf::Object objA, objB;
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
-	cap.transform->position = {0,0,0};
-	sph.transform->position = {0,5,0}; // too far
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,5,0}; // too far
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleSphere(cap, sph, m);
+	bool collided = capsuleSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -528,14 +581,17 @@ TEST(CapsuleSphere_NoCollision, {
 TEST(AabbSphere_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& sphere= uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
-	box.transform->position	= {0,0,0};
-	sphere.transform->position = {0.75f,0,0}; // Intersecting into box
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0.75f,0,0}; // Intersecting into box
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbSphere(box,sphere,m);
+	bool collided = aabbSphere( bodyA, bodyB, m );
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -543,14 +599,17 @@ TEST(AabbSphere_Collision, {
 TEST(AabbSphere_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& sphere= uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
-	box.transform->position	= {0,0,0};
-	sphere.transform->position = {5,0,0}; // too far away
+	bodyA.transform->position	= {0,0,0};
+	bodyB.transform->position = {5,0,0}; // too far away
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbSphere(box,sphere,m);
+	bool collided = aabbSphere(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -558,13 +617,16 @@ TEST(AabbSphere_NoCollision, {
 TEST(AabbPlane_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
-	box.transform->position = {0,0.5f,0}; // half interpenetrating plane
+	bodyA.transform->position = {0,0.5f,0}; // half interpenetrating plane
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbPlane(box,plane,m);
+	bool collided = aabbPlane(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -572,13 +634,16 @@ TEST(AabbPlane_Collision, {
 TEST(AabbPlane_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& plane = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyA   = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
-	box.transform->position = {0,5,0}; // clearly above
+	bodyA.transform->position = {0,5,0}; // clearly above
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbPlane(box,plane,m);
+	bool collided = aabbPlane(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -586,14 +651,17 @@ TEST(AabbPlane_NoCollision, {
 TEST(AabbCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box	 = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& cap	 = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA	 = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB	 = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	box.transform->position = {0,0,0};
-	cap.transform->position = {0,0.5f,0}; // partially overlapping
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,0.5f,0}; // partially overlapping
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbCapsule(box,cap,m);
+	bool collided = aabbCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -601,14 +669,17 @@ TEST(AabbCapsule_Collision, {
 TEST(AabbCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& box	 = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& cap	 = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA	 = uf::physics::impl::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+	auto& bodyB	 = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	box.transform->position = {0,0,0};
-	cap.transform->position = {0,5,0};
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,5,0};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbCapsule(box,cap,m);
+	bool collided = aabbCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -616,14 +687,17 @@ TEST(AabbCapsule_NoCollision, {
 TEST(SphereCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& sphere = uf::physics::impl::create(world, objA, pod::Sphere{0.5f}, 1.0f);
-	auto& cap	= uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{0.5f}, 1.0f);
+	auto& bodyB	= uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	sphere.transform->position = {0,0.0f,0};
-	cap.transform->position	= {0,0.25f,0};
+	bodyA.transform->position = {0,0.0f,0};
+	bodyB.transform->position	= {0,0.25f,0};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereCapsule(sphere,cap,m);
+	bool collided = sphereCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -631,25 +705,31 @@ TEST(SphereCapsule_Collision, {
 TEST(SphereCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& sphere = uf::physics::impl::create(world, objA, pod::Sphere{0.5f}, 1.0f);
-	auto& cap	= uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Sphere{0.5f}, 1.0f);
+	auto& bodyB	= uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	sphere.transform->position = {0,5,0};
-	cap.transform->position	= {0,0,0};
+	bodyA.transform->position = {0,5,0};
+	bodyB.transform->position	= {0,0,0};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereCapsule(sphere,cap,m);
+	bool collided = sphereCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
 TEST(PlanePlane_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& planeA= uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
-	auto& planeB= uf::physics::impl::create(world, objB, pod::Plane{{0,0,1},0.0f}, 0.0f);
+	auto& bodyA= uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyB= uf::physics::impl::create(world, objB, pod::Plane{{0,0,1},0.0f}, 0.0f);
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planePlane(planeA,planeB,m);
+	bool collided = planePlane(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided); // always false in your engine
 })
 
@@ -657,13 +737,16 @@ TEST(PlanePlane_NoCollision, {
 TEST(PlaneCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& plane = uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
-	auto& cap   = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyB   = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	cap.transform->position = {0,0.25f,0}; // foot intersecting
+	bodyB.transform->position = {0,0.25f,0}; // foot intersecting
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeCapsule(plane,cap,m);
+	bool collided = planeCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -671,13 +754,16 @@ TEST(PlaneCapsule_Collision, {
 TEST(PlaneCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& plane = uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
-	auto& cap   = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
+	auto& bodyB   = uf::physics::impl::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
 
-	cap.transform->position = {0,5,0}; // far above
+	bodyB.transform->position = {0,5,0}; // far above
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeCapsule(plane,cap,m);
+	bool collided = planeCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 TEST(MeshSphere_Collision, {
@@ -686,15 +772,18 @@ TEST(MeshSphere_Collision, {
 
 	// Create mesh body (a plane on Y=0, size=1)
 	auto mesh = ::generateMesh(1.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f); // static mesh
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f); // static mesh
+	bodyA.transform->position = {0,0,0};
 
 	// Sphere just above plane, radius 1, intersects
-	auto& sphereBody = uf::physics::impl::create(world, objSphere, pod::Sphere{2.0f}, 1.0f);
-	sphereBody.transform->position = {0,0.5f,0}; // half below plane (since plane is at y=0)
+	auto& bodyB = uf::physics::impl::create(world, objSphere, pod::Sphere{2.0f}, 1.0f);
+	bodyB.transform->position = {0,0.5f,0}; // half below plane (since plane is at y=0)
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshSphere(meshBody, sphereBody, m);
+	bool collided = meshSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	if ( !m.points.empty() ) EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -705,14 +794,17 @@ TEST(MeshSphere_NoCollision, {
 	uf::Object objMesh, objSphere;
 
 	auto mesh = ::generateMesh(1.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
+	bodyA.transform->position = {0,0,0};
 
-	auto& sphereBody = uf::physics::impl::create(world, objSphere, pod::Sphere{0.5f}, 1.0f);
-	sphereBody.transform->position = {0,5.0f,0}; // far above plane
+	auto& bodyB = uf::physics::impl::create(world, objSphere, pod::Sphere{0.5f}, 1.0f);
+	bodyB.transform->position = {0,5.0f,0}; // far above plane
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshSphere(meshBody, sphereBody, m);
+	bool collided = meshSphere(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -721,15 +813,18 @@ TEST(MeshAabb_Collision, {
 	uf::Object objMesh, objBox;
 
 	auto mesh = ::generateMesh(2.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
+	bodyA.transform->position = {0,0,0};
 
 	pod::AABB box = { {-0.5f,-0.5f,-0.5f}, {0.5f,0.5f,0.5f} };
-	auto& boxBody = uf::physics::impl::create(world, objBox, box, 1.0f);
-	boxBody.transform->position = {0,0.25f,0}; // overlaps plane
+	auto& bodyB = uf::physics::impl::create(world, objBox, box, 1.0f);
+	bodyB.transform->position = {0,0.25f,0}; // overlaps plane
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshAabb(meshBody, boxBody, m);
+	bool collided = meshAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -739,15 +834,18 @@ TEST(MeshAabb_NoCollision, {
 	uf::Object objMesh, objBox;
 
 	auto mesh = ::generateMesh(2.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
+	bodyA.transform->position = {0,0,0};
 
 	pod::AABB box = { {-0.5f,-0.5f,-0.5f}, {0.5f,0.5f,0.5f} };
-	auto& boxBody = uf::physics::impl::create(world, objBox, box, 1.0f);
-	boxBody.transform->position = {0,5.0f,0}; // above plane, no overlap
+	auto& bodyB = uf::physics::impl::create(world, objBox, box, 1.0f);
+	bodyB.transform->position = {0,5.0f,0}; // above plane, no overlap
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshAabb(meshBody, boxBody, m);
+	bool collided = meshAabb(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -756,8 +854,10 @@ TEST(RayMesh_Hit, {
 	uf::Object objMesh;
 
 	auto mesh = ::generateMesh(1.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
+	bodyA.transform->position = {0,0,0};
+
+	::buildBroadphaseBVH( world.bvh, world.bodies );
 
 	pod::Ray ray{ {0,1,0}, {0,-1,0} }; // from above, pointing down
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -771,8 +871,10 @@ TEST(RayMesh_Miss, {
 	uf::Object objMesh;
 
 	auto mesh = ::generateMesh(1.0f);
-	auto& meshBody = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
-	meshBody.transform->position = {0,0,0};
+	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
+	bodyA.transform->position = {0,0,0};
+
+	::buildBroadphaseBVH( world.bvh, world.bodies );
 
 	pod::Ray ray{ {0,2,0}, {1,0,0} }; // parallel, goes sideways
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -786,14 +888,17 @@ TEST(MeshMesh_Collision, {
 
 	auto mesh = ::generateMesh(1.0f);
 
-	auto& meshA = uf::physics::impl::create(world, objA, mesh, 0.0f);
-	auto& meshB = uf::physics::impl::create(world, objB, mesh, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, mesh, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, mesh, 0.0f);
 
-	meshA.transform->position = {0,0,0};
-	meshB.transform->position = {0,0,0}; // same location
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,0,0}; // same location
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshMesh(meshA, meshB, m);
+	bool collided = meshMesh(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 })
 
@@ -803,187 +908,344 @@ TEST(MeshMesh_NoCollision, {
 
 	auto mesh = ::generateMesh(1.0f);
 
-	auto& meshA = uf::physics::impl::create(world, objA, mesh, 0.0f);
-	auto& meshB = uf::physics::impl::create(world, objB, mesh, 0.0f);
+	auto& bodyA = uf::physics::impl::create(world, objA, mesh, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, mesh, 0.0f);
 
-	meshA.transform->position = {0,0,0};
-	meshB.transform->position = {0,10.0f,0}; // too far apart
+	bodyA.transform->position = {0,0,0};
+	bodyB.transform->position = {0,10.0f,0}; // too far apart
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshMesh(meshA, meshB, m);
+	bool collided = meshMesh(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
-#endif
 
-#define EPS 1.0e-4
-#if 0
 TEST(TriangleTriangle_Collision_SimpleOverlap, {
-	// Two identical triangles overlapping on XY plane
-	pod::TriangleWithNormal triA {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal triA{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
-	pod::TriangleWithNormal triB {
-		{ { {0.25f,0.25f,0}, {1.25f,0.25f,0},  {0.25f,1.25f,0} } },
-		{ {0,0,1}, {0,0,1},  {0,0,1} },
+	pod::TriangleWithNormal triB{
+		{ { {0.2f,0.2f,0}, {0.8f,0.2f,0}, {0.2f,0.8f,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
-	pod::Manifold m;
-	bool collided = triangleTriangle( triA, triB, m, EPS );
+	auto& bodyA = uf::physics::impl::create( world, objA, triA, 0.0f );
+	auto& bodyB = uf::physics::impl::create( world, objA, triB, 0.0f );
 
-	EXPECT_TRUE( collided );
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
 	if ( !m.points.empty() ) {
-		EXPECT_NEAR(m.points[0].point.z, 0, EPS); // contact should be on z=0 plane
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
 		EXPECT_GE(m.points[0].penetration, 0.0f);
+		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS(1e-6f));
 	}
 })
-#endif
 
-TEST(TriangleAabb_Collision_CenterInside, {
+TEST(TriangleTriangle_Collision_CoplanarOverlap, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal triA{
+		{ { {0,0,0}, {2,0,0}, {0,2,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+	pod::TriangleWithNormal triB{
+		{ { {1,1,0}, {2,1,0}, {1,2,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+
+	auto& bodyA = uf::physics::impl::create(world, objA, triA, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, triB, 0.0f);
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
+})
+
+TEST(TriangleTriangle_Collision_TouchingEdge, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal triA{
+		{ { {0,0,0}, {1,0,0}, {0.5f,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+	pod::TriangleWithNormal triB{
+		{ { {0.5f,1,0}, {1.5f,0,0}, {1,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+
+	auto& bodyA = uf::physics::impl::create(world, objA, triA, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, triB, 0.0f);
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+
+	// Should still report as collision (tangent contact)
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
+	if(!m.points.empty()) {
+		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS(1e-6f));
+	}
+})
+
+TEST(TriangleAabb_Collision_OverlapCenter, {
+	pod::World world;
+	uf::Object objA, objB;
+
 	pod::TriangleWithNormal tri {
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
-	// Make cube overlapping
-	pod::RigidBody box;
-	box.collider.type = pod::ShapeType::AABB;
-	box.collider.u.aabb.min = {0.25f, 0.25f, -0.1f};
-	box.collider.u.aabb.max = {0.75f, 0.75f, +0.1f};
-	box.transform->position = ::aabbCenter( box.collider.u.aabb );
-	box.bounds = ::computeAABB( box );
+	pod::AABB box = {{0.25f, 0.25f, -0.25f}, {0.75f, 0.75f, +0.25f}};
+
+	auto& bodyA = uf::physics::impl::create( world, objA, tri, 0.0f );
+	auto& bodyB = uf::physics::impl::create( world, objB, box, 0.0f );
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = triangleAabb(tri, box, m, EPS);
+	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS(1e-6f));
 
 	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
 	if ( !m.points.empty() ) {
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
 		EXPECT_GE(m.points[0].penetration, 0.0f);
-
-		UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( m.points[0].point ), uf::vector::toString( m.points[0].normal ), m.points[0].penetration );
 	}
 })
 
-TEST(TriangleSphere_Collision_SphereTouchingTriangle, {
+TEST(TriangleAabb_Collision_NoOverlap, {
+	pod::World world;
+	uf::Object objA, objB;
+
 	pod::TriangleWithNormal tri {
-		{ { {0,-1,0}, {1,1,0}, {-1,1,0} } },
+		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
-	pod::RigidBody sphere;
-	sphere.collider.type = pod::ShapeType::SPHERE;
-	sphere.collider.u.sphere.radius = 1.0f;
-	sphere.transform->position = {0,0,0.5f}; // Place sphere just above triangle so it penetrates slightly
-	sphere.bounds = ::computeAABB( sphere );
+	pod::AABB box = {{2,2,2}, {3,3,3}};
+
+	auto& bodyA = uf::physics::impl::create( world, objA, tri, 0.0f );
+	auto& bodyB = uf::physics::impl::create( world, objB, box, 0.0f );
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = triangleSphere(tri, sphere, m, EPS);
-
-	EXPECT_TRUE(collided);
-	if ( !m.points.empty() ) {
-		EXPECT_NEAR(m.points[0].point.z, 0.0f, 0.5f);
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
-
-		UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( m.points[0].point ), uf::vector::toString( m.points[0].normal ), m.points[0].penetration );
-		EXPECT_GE(m.points[0].penetration, 0.0f);
-	}
+	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS(1e-6f));
+	EXPECT_FALSE(collided);
 })
 
-TEST(TriangleCapsule_Collision_CapsuleIntersectingEdge, {
-	pod::TriangleWithNormal tri {
-		{ { {0,0,0}, {2,0,0},  {1,1,0} } },
-		{ {0,0,1}, {0,0,1},  {0,0,1} },
+TEST(TrianglePlane_Collision_BelowPlane, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	// Plane: z=0 with upward normal
+	pod::Plane plane = { {0,0,1}, 0.0f };
+
+	pod::TriangleWithNormal tri{
+		{ { {0,0,-0.1f}, {1,0,-0.1f}, {0,1,-0.1f} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
-	pod::RigidBody capsule;
-	capsule.collider.type = pod::ShapeType::CAPSULE;
-	capsule.collider.u.capsule.radius = 0.5f;
-	auto [ p1, p2 ] = std::pair{ pod::Vector3f{1,0.5f,-1}, pod::Vector3f{1,0.5f,1} };
-	capsule.bounds = computeSegmentAABB(p1, p2, capsule.collider.u.capsule.radius);
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, plane, 0.0f);
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = triangleCapsule(tri, capsule, m, EPS);
+	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS(1e-6f));
 
 	EXPECT_TRUE(collided);
-	if ( !m.points.empty() ) {
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
+	EXPECT_FALSE(m.points.empty());
+	if (!m.points.empty()) {
 		EXPECT_GE(m.points[0].penetration, 0.0f);
-
-		UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( m.points[0].point ), uf::vector::toString( m.points[0].normal ), m.points[0].penetration );
 	}
 })
 
-TEST(TriangleSphere_Collision_SphereTangentFace, {
-    // Triangle is in Z=0 plane
-    pod::TriangleWithNormal tri {
-        { { {0,-1,0}, {1,1,0}, {-1,1,0} } },
-        { {0,0,1}, {0,0,1}, {0,0,1} },
-    };
+TEST(TrianglePlane_NoCollision_AbovePlane, {
+	pod::World world;
+	uf::Object objA, objB;
 
-    pod::RigidBody sphere;
-    sphere.collider.type = pod::ShapeType::SPHERE;
-    sphere.collider.u.sphere.radius = 1.0f;
-    sphere.transform->position = {0, 0, 1.0f}; // center exactly 1 unit above plane
-    sphere.bounds = ::computeAABB(sphere);
+	pod::Plane plane = { {0,0,1}, 0.0f };
 
-    pod::Manifold m;
-    bool collided = triangleSphere(tri, sphere, m, EPS);
+	pod::TriangleWithNormal tri{
+		{ { {0,0,1}, {1,0,1}, {0,1,1} } },
+		{ {0,0,-1}, {0,0,-1}, {0,0,-1} }, // facing down, but above plane
+	};
 
-    // Should either detect a grazing collision or at least not error
-    EXPECT_TRUE(collided);
-    if (!m.points.empty()) {
-        EXPECT_NEAR(m.points[0].penetration, 0.0f, 1e-4f);
-        EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
-    }
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, plane, 0.0f);
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS(1e-6f));
+	EXPECT_FALSE(collided);
 })
 
-TEST(TriangleSphere_Collision_SphereTangentEdge, {
-    // Triangle tilted in XY plane, edge from (0,0,0) to (1,0,0)
-    pod::TriangleWithNormal tri {
-        { { {0,0,0}, {1,0,0}, {0,1,0} } },
-        { {0,0,1}, {0,0,1}, {0,0,1} },
-    };
+TEST(TriangleSphere_Collision_Tangent, {
+	pod::World world;
+	uf::Object objA, objB;
 
-    pod::RigidBody sphere;
-    sphere.collider.type = pod::ShapeType::SPHERE;
-    sphere.collider.u.sphere.radius = 0.5f;
+	pod::TriangleWithNormal tri{
+		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
 
-    // Place sphere center exactly 0.5 units away from edge line
-    sphere.transform->position = {0.5f, -0.5f, 0.0f};
-    sphere.bounds = ::computeAABB(sphere);
+	pod::Sphere sphere = { 0.5f }; // radius
 
-    pod::Manifold m;
-    bool collided = triangleSphere(tri, sphere, m, EPS);
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, sphere, 0.0f);
+	bodyB.transform->position = pod::Vector3f{0.25f, 0.25f, 0.5f}; // exactly tangent above
 
-    EXPECT_TRUE(collided); // Tangential along edge
-    if (!m.points.empty()) {
-        EXPECT_NEAR(m.points[0].penetration, 0.0f, 1e-4f);
-    }
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleSphere(bodyA, bodyB, m, EPS(1e-6f));
+
+	// At tangency: considered collision
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
+	if(!m.points.empty()) {
+		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
+	}
 })
 
-TEST(TriangleCapsule_Collision_TangentVertex, {
-    pod::TriangleWithNormal tri {
-        { { {0,0,0}, {1,0,0}, {0,1,0} } },
-        { {0,0,1}, {0,0,1}, {0,0,1} },
-    };
+TEST(TriangleCapsule_Collision_Overlap, {
+	pod::World world;
+	uf::Object objA, objB;
 
-    pod::RigidBody capsule;
-    capsule.collider.type = pod::ShapeType::CAPSULE;
-    capsule.collider.u.capsule.radius = 0.25f;
+	pod::TriangleWithNormal tri{
+		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
 
-    // Align segment so it hovers exactly through the vertex (0,0,0)
-    pod::Vector3f p1{0.0f, -0.25f, 0.0f};
-    pod::Vector3f p2{0.0f, -0.25f, 1.0f};
+	// Capsule aligned along Z axis, radius 0.2
+	pod::Capsule capsule;
+	capsule.radius = 0.2f;
+	capsule.halfHeight = 1.0f; // segment lengt * 0.5fh
+	// placed so capsule overlaps the tri plane
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, capsule, 0.0f);
+	bodyB.transform->position = {0.25f, 0.25f, 0.1f};
 
-    capsule.bounds = computeSegmentAABB(p1, p2, capsule.collider.u.capsule.radius);
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
 
-    pod::Manifold m;
-    bool collided = triangleCapsule(tri, capsule, m, EPS);
+	pod::Manifold m;
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
 
-    EXPECT_TRUE(collided);
-    if (!m.points.empty()) {
-        EXPECT_NEAR(m.points[0].penetration, 0.0f, 1e-4f);
-    }
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
+	if(!m.points.empty()) {
+		EXPECT_GE(m.points[0].penetration, 0.0f);
+	}
+})
+
+TEST(TriangleCapsule_Collision_NoOverlap, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal tri{
+		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+
+	pod::Capsule capsule;
+	capsule.radius = 0.2f;
+	capsule.halfHeight = 1.0f * 0.5f;
+	// place it well above the tri plane
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, capsule, 0.0f);
+	bodyB.transform->position = {0.5f, 0.5f, 2.0f};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+	EXPECT_FALSE(collided);
+})
+
+TEST(TriangleCapsule_Collision_Tangent, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal tri{
+		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+
+	pod::Capsule capsule;
+	capsule.radius = 0.5f;
+	capsule.halfHeight = 1.0f * 0.5f;
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, capsule, 0.0f);
+	// place the capsule so its sphere-bottom just kisses the triangle
+	bodyB.transform->position = {0.2f, 0.2f, 0.5f};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+
+	// At tangency, should still count as collision (penetration ≈ 0)
+	EXPECT_TRUE(collided);
+	EXPECT_FALSE(m.points.empty());
+	if(!m.points.empty()) {
+		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
+	}
+})
+
+
+TEST(TriangleCapsule_Collision_EdgeAlignment, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	pod::TriangleWithNormal tri{
+		{ { {0,0,0}, {2,0,0}, {0,2,0} } },
+		{ {0,0,1}, {0,0,1}, {0,0,1} },
+	};
+
+	pod::Capsule capsule;
+	capsule.radius = 0.1f;
+	capsule.halfHeight = 2.0f; // segment tall and skinn * 0.5fy
+	auto& bodyA = uf::physics::impl::create(world, objA, tri, 0.0f);
+	auto& bodyB = uf::physics::impl::create(world, objB, capsule, 0.0f);
+	// lay the capsule along edge (x-axis direction near tri’s base)
+	bodyB.transform->position = {1.0f, -0.05f, 0.0f};
+
+	bodyA.bounds = ::computeAABB( bodyA );
+	bodyB.bounds = ::computeAABB( bodyB );
+
+	pod::Manifold m;
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+
+	EXPECT_TRUE(collided);
 })

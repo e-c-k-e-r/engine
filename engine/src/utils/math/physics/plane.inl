@@ -30,14 +30,14 @@ namespace {
 		auto& normal = plane.collider.u.plane.normal;
 		float offset = plane.collider.u.plane.offset;
 		
-		auto center = ::getPosition( a );
+		auto center = ::getPosition( sphere );
 		float r = sphere.collider.u.sphere.radius;
 
 		float dist = uf::vector::dot( normal, center ) - offset;
 		if ( dist > r ) return false;
 
-		auto contact = center - normal * dist - normal * r;
 		float penetration = r - dist;
+		auto contact = center - normal * dist - normal * penetration;
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;

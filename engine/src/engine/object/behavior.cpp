@@ -163,21 +163,21 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
 			
-			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass );
+			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
 		} else if ( type == "plane" ) {
 			pod::Vector3f direction = uf::vector::decode( metadataJsonPhysics["direction"], pod::Vector3f{} );
-			float offset = metadataJsonPhysics["offset"].as<float>();
+			float o = metadataJsonPhysics["offset"].as<float>();
 
-			uf::physics::impl::create( self, pod::Plane{ direction, offset }, mass );
+			uf::physics::impl::create( self, pod::Plane{ direction, o }, mass, offset );
 		} else if ( type == "sphere" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
 			
-			uf::physics::impl::create( self, pod::Sphere{ radius }, mass );
+			uf::physics::impl::create( self, pod::Sphere{ radius }, mass, offset );
 		} else if ( type == "capsule" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
 			float height = metadataJsonPhysics["height"].as<float>();
 			
-			uf::physics::impl::create( self, pod::Capsule{ radius, height * 0.5f }, mass );
+			uf::physics::impl::create( self, pod::Capsule{ radius, height * 0.5f }, mass, offset );
 		}
 
 		if ( this->hasComponent<pod::RigidBody>() ) {
@@ -187,9 +187,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
 				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 			}
-		
-		//	body.transform.position = offset;
-			body.offset = offset;
 		}
 	#endif
 	}

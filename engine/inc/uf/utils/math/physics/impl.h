@@ -179,19 +179,20 @@ namespace uf {
 			void UF_API applyRotation( pod::RigidBody& body, const pod::Quaternion<>& q );
 			void UF_API applyRotation( pod::RigidBody& body, const pod::Vector3f& axis, float angle );
 			
-			pod::RigidBody& UF_API create( uf::Object&, float mass = 0.0f );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0 );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0 );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0 );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0 );
-			pod::RigidBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0 );
+			pod::RigidBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
 
-			pod::RigidBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0 );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Sphere& sphere, float mass = 0 );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0 );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0 );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0 );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::TriangleWithNormal& tri, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::RigidBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
 
 			void UF_API destroy( uf::Object& );
 			void UF_API destroy( pod::RigidBody& );

@@ -99,8 +99,6 @@ namespace {
 		uf::stl::vector<int> candidates;
 		::queryBVH( bvh, bounds, candidates );
 
-		UF_MSG_DEBUG("candidates={}", candidates.size());
-
 		bool hit = false;
 		// do collision per triangle
 		for ( auto triID : candidates ) {
@@ -125,11 +123,16 @@ namespace {
 		pod::BVH::pair_t pairs;
 		::traverseNodePair(bvhA, 0, bvhB, 0, pairs);
 
+		UF_MSG_DEBUG("candidates={}", pairs.size());
+
 		bool hit = false;
 		// do collision per triangle
 		for (auto [ idA, idB] : pairs ) {
 			auto tA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
 			auto tB = ::fetchTriangle( meshB, idB, b );
+
+			UF_MSG_DEBUG("triA={}, triB={}", idA, idB );
+
 			if ( !::triangleTriangle( tA, tB, manifold, eps ) ) continue;
 			hit = true;
 		}

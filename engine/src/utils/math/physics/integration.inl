@@ -227,16 +227,6 @@ namespace {
 			uf::transform::rotate( *body.transform/*.reference*/, dq );
 		}
 
-		/*
-		UF_MSG_DEBUG("acceleration={}, velocity={}, forceAccumulator={}, position={}, center={}",
-			uf::vector::toString( acceleration ),
-			uf::vector::toString( body.velocity ),
-			uf::vector::toString( body.forceAccumulator ),
-			uf::vector::toString( body.transform->position ),
-			uf::vector::toString( ::getPosition( body ) )
-		);
-		*/
-
 		// update AABB
 		body.bounds = ::computeAABB( body );
 

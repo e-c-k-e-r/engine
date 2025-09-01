@@ -223,49 +223,122 @@ namespace {
 		return ::interpolateWithBarycentric( bary, points[0], points[1], points[2] );
 	}
 
+	bool pointInTriangle( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c, float eps = EPS(1.0e-6f) ) {
+		auto bary = ::computeBarycentric( p, a, b, c, false );
+		return ( bary.x >= -eps && bary.y >= -eps && bary.z >= -eps );
+	}
+	bool pointInTriangle( const pod::Vector3f& p, const pod::Triangle& tri, float eps = EPS(1.0e-6f) ) {
+		auto bary = ::computeBarycentric( p, tri, false );
+		return ( bary.x >= -eps && bary.y >= -eps && bary.z >= -eps );
+	}
+
 	pod::Vector3f closestPointOnTriangle( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c ) {
-		auto bary = ::computeBarycentric( p, a, b, c );
-		return ::interpolateWithBarycentric( bary, a, b, c );
+		// Check if P in vertex region outside A
+		pod::Vector3f ab = b - a;
+		pod::Vector3f ac = c - a;
+		pod::Vector3f ap = p - a;
+		float d1 = uf::vector::dot(ab, ap);
+		float d2 = uf::vector::dot(ac, ap);
+		if (d1 <= 0 && d2 <= 0) return a;
+
+		// Check if P in vertex region outside B
+		pod::Vector3f bp = p - b;
+		float d3 = uf::vector::dot(ab, bp);
+		float d4 = uf::vector::dot(ac, bp);
+		if (d3 >= 0 && d4 <= d3) return b;
+
+		// Check if P in edge region of AB, if so return projection on AB
+		float vc = d1 * d4 - d3 * d2;
+		if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+			float v = d1 / (d1 - d3);
+			return a + ab * v;
+		}
+
+		// Check vertex region outside C
+		pod::Vector3f cp = p - c;
+		float d5 = uf::vector::dot(ab, cp);
+		float d6 = uf::vector::dot(ac, cp);
+		if (d6 >= 0 && d5 <= d6) return c;
+
+		// Check edge region of AC
+		float vb = d5 * d2 - d1 * d6;
+		if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+			float w = d2 / (d2 - d6);
+			return a + ac * w;
+		}
+
+		// Check edge region of BC
+		float va = d3 * d6 - d5 * d4;
+		if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
+			float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+			return b + (c - b) * w;
+		}
+
+		// P inside face region. Return projection onto face
+		float denom = 1.0f / (va + vb + vc);
+		float v = vb * denom;
+		float w = vc * denom;
+		return a + ab * v + ac * w;
 	}
 	pod::Vector3f closestPointOnTriangle( const pod::Vector3f& p, const pod::Triangle& tri ) {
 		return ::closestPointOnTriangle( p, tri.points[0], tri.points[1], tri.points[2] );
 	}
 
-
 	pod::Vector3f orientNormalToAB( const pod::RigidBody& a, const pod::RigidBody& b, pod::Vector3f n ) {
 		return uf::vector::normalize( uf::vector::dot( n, ::getPosition( b ) - ::getPosition( a ) ) < 0.0f ? -n : n );
 	}
 
-	float segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vector3f& p1, const pod::Triangle& tri, pod::Vector3f& outSeg, pod::Vector3f& outTri ) {
-		// segment vs plane
-		auto n = uf::vector::normalize( uf::vector::cross( tri.points[1] - tri.points[0], tri.points[2]-tri.points[0] ) );
-		float d0 = uf::vector::dot( p0 - tri.points[0], n );
-		float d1 = uf::vector::dot( p1 - tri.points[0], n );
-		
-		// intersects plane
-		if ( ( d0 * d1 ) <= 0 ) {
-			float t = d0 / ( d0-d1 );
-			auto p = p0 + ( p1 - p0 ) * t;
-			auto q = ::closestPointOnTriangle( p, tri );
-			outSeg = p; outTri = q;
-			return uf::vector::magnitude( p - q );
+	float segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vector3f& p1, const pod::Triangle& tri, pod::Vector3f& outSeg, pod::Vector3f& outTri, float eps = EPS(1.0e-6f) ) {
+		float best = std::numeric_limits<float>::max();
+
+		auto n = uf::vector::cross( tri.points[1]-tri.points[0], tri.points[2]-tri.points[0] );
+		float denom = uf::vector::dot( n, n );
+		if ( denom > eps ) {
+			n /= std::sqrt( denom );
+			float d0 = uf::vector::dot( p0 - tri.points[0], n );
+			float d1 = uf::vector::dot( p1 - tri.points[0], n );
+			if ( (d0 * d1) <= 0.0f ) {
+				float t = d0 / (d0 - d1);
+				auto q = p0 + (p1 - p0) * t;
+				if ( ::pointInTriangle( q, tri ) ) {
+					outSeg = q;
+					outTri = q;
+					return 0.0f;
+				}
+			}
 		}
 
-		// otherwise check endpoints against triangle
-		auto q0 = ::closestPointOnTriangle( p0, tri );
-		auto q1 = ::closestPointOnTriangle( p1, tri );
-		float d0sq = uf::vector::magnitude( p0 - q0 );
-		float d1sq = uf::vector::magnitude( p1 - q1 );
+		// segment endpoints to triangle
+		for ( auto p : { p0, p1 } ) {
+			auto q = ::closestPointOnTriangle( p, tri );
+			float d = uf::vector::distanceSquared( p, q );
+			if ( d < best ) {
+				best = d;
+				outSeg = p;
+				outTri = q;
+			}
+		}
 
-		if ( d0sq < d1sq ) { outSeg = p0; outTri = q0; return d0sq; }
-		else { outSeg = p1; outTri = q1; return d1sq; }
+		// segment edges to tri edges
+		for ( auto i = 0; i < 3; i++ ) {
+			auto j = ( i + 1 ) % 3;
+			auto [s,e] = ::closestSegmentSegment( p0, p1, tri.points[i], tri.points[j] );
+			float d = uf::vector::distanceSquared( s, e );
+			if ( d < best ) {
+				best = d;
+				outSeg = s;
+				outTri = e;
+			}
+		}
+
+		return best;
 	}
 
 	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS(1e-6f) ) {
 		auto boxA = ::computeTriangleAABB( a );
 		auto boxB = ::computeTriangleAABB( b );
 
-		if ( !aabbOverlap( boxA, boxB ) ) return false;
+		if ( !::aabbOverlap( boxA, boxB ) ) return false;
 
 		// check vertices of a inside b or vice versa
 		for ( auto i = 0; i < 3; i++ ) {

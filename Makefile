@@ -66,7 +66,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 		REQ_DEPS 			+= meshoptimizer toml xatlas curl ffx:fsr dc:texconv # vall_e cpptrace # openvr # ncurses draco discord bullet ultralight-ux
 		FLAGS 				+= -march=native -g # -flto # -g
 	endif
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav 
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit simd ctti gltf imgui fmt freetype openal ogg wav  # reactphysics
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
@@ -76,13 +76,13 @@ else ifneq (,$(findstring linux,$(ARCH)))
 		REQ_DEPS 			+= toml xatlas curl dc:texconv # meshoptimizer ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux 
 		FLAGS 				+= -march=native -g # -flto # -g
 	endif
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit reactphysics simd ctti gltf imgui fmt freetype openal ogg wav
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit simd ctti gltf imgui fmt freetype openal ogg wav # reactphysics
 	FLAGS				+= -DUF_ENV_LINUX -fPIC
 	DEPS				+= -pthread -ldl -lX11 -lXrandr 
 	INCS				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST # -DUF_LEAN_AND_MEAN # this apparently crashes
-	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua reactphysics simd ctti fmt freetype openal aldc ogg wav png # imgui
+	REQ_DEPS 			+= opengl gldc json:nlohmann zlib lua simd ctti fmt freetype openal aldc ogg wav png # imgui # reactphysics
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
 
