@@ -10,7 +10,7 @@
 			"tags": {
 				// exact matches
 				"worldspawn": {
-					"physics": { "type": "mesh", "static": true },
+					"physics": { "type": "mesh", "static": true, "mass": 0 },
 					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
 					"optimize meshlets": { "simplify": 0.125, "print": false },
 					"unwrap mesh": true
@@ -36,7 +36,7 @@
 			//	"/^light_[^e]/": { "ignore": true },
 
 				// regexp matches
-				"/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
+				// "/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
 				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },

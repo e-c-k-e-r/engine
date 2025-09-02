@@ -13,8 +13,8 @@ local targetAlpha = 1.57
 local alpha = 0
 local target = Vector3f(0,0,0)
 local transform = ent:getComponent("Transform")
+local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
-local collider = ent:getComponent("PhysicsState")
 
 local speed = metadata["speed"] or 1.0
 local normal = Vector3f(0,0,-1)
@@ -88,8 +88,8 @@ ent:bind( "tick", function(self)
 	end
 
 	if state > 0 and rot ~= nil then
-		if collider:hasBody() then
-			collider:applyRotation( rot )
+		if physicsBody:hasBody() then
+			physicsBody:applyRotation( rot )
 		else
 			transform:rotate( rot )
 		end

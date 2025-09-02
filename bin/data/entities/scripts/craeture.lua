@@ -2,7 +2,7 @@ local ent = ent
 local scene = entities.currentScene()
 local metadata = ent:getComponent("Metadata")
 local transform = ent:getComponent("Transform")
-local physicsState = ent:getComponent("PhysicsState")
+local physicsBody = ent:getComponent("PhysicsBody")
 local camera = ent:getComponent("Camera")
 local cameraTransform = camera:getTransform()
 
@@ -12,7 +12,6 @@ local timers = {
 }
 if not timers.lookat:running() then timers.lookat:start(); end
 
-local collider = ent:getComponent("PhysicsState")
 local target_transform = nil
 local soundEmitter = ent
 -- on tick
@@ -27,8 +26,8 @@ ent:bind( "tick", function(self)
 			local angle = Vector3f.signedAngle( transform.forward, target, axis ) 
 			local rot = Quaternion.axisAngle( axis, angle * time.delta() * 4 )
 
-			if collider:hasBody() then
-				collider:applyRotation( rot )
+			if physicsBody:hasBody() then
+				physicsBody:applyRotation( rot )
 			else
 				transform:rotate( rot )
 			end

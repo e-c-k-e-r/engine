@@ -1,5 +1,5 @@
 namespace {
-	pod::Vector3f support( const pod::RigidBody& body, const pod::Vector3f& dir ) {
+	pod::Vector3f support( const pod::PhysicsBody& body, const pod::Vector3f& dir ) {
 		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::SPHERE: {
@@ -36,11 +36,11 @@ namespace {
 		return {};
 	}
 
-	pod::Vector3f supportMinkowski( const pod::RigidBody& A, const pod::RigidBody& B, const pod::Vector3f& dir ) {
+	pod::Vector3f supportMinkowski( const pod::PhysicsBody& A, const pod::PhysicsBody& B, const pod::Vector3f& dir ) {
 		return ::support( A, dir ) - ::support( B, -dir );
 	}
 
-	pod::SupportPoint supportMinkowskiDetailed( const pod::RigidBody& A, const pod::RigidBody& B, const pod::Vector3f& dir ) {
+	pod::SupportPoint supportMinkowskiDetailed( const pod::PhysicsBody& A, const pod::PhysicsBody& B, const pod::Vector3f& dir ) {
 		auto pA = ::support( A, dir );
 		auto pB = ::support( B, -dir );
 		return { pA - pB, pA, pB };
@@ -149,7 +149,7 @@ namespace {
 		return false;
 	}
 
-	bool gjk( const pod::RigidBody& a, const pod::RigidBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS(1e-6f) ) {
+	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS(1e-6f) ) {
 		auto dir = ::getPosition( b ) - ::getPosition( a );
 		if ( uf::vector::magnitude(dir) < eps ) dir = {1,0,0}; // fallback direction
 

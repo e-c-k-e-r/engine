@@ -1,50 +1,54 @@
 // BVH
 namespace {
 	// collects a list of nodes that are overlapping with each other
-	void traverseNodePair( const pod::BVH& bvh, int leftID, int rightID, pod::BVH::pair_t& pairs ) {
-		const auto& left = bvh.nodes[leftID];
-		const auto& right = bvh.nodes[rightID];
+	void traverseNodePair( const pod::BVH& bvh, int indexA, int indexB, pod::BVH::pair_t& pairs ) {
+		const auto& nodeA = bvh.nodes[indexA];
+		const auto& nodeB = bvh.nodes[indexB];
 
-		if ( !::aabbOverlap( left.bounds, right.bounds ) ) return;
+		if ( !::aabbOverlap( nodeA.bounds, nodeB.bounds ) ) return;
 
-		if ( left.count > 0 && right.count > 0 ) {
-			for ( auto i = 0; i < left.count; ++i )
-				for ( auto j = 0; j < right.count; ++j ) {
-					int a = bvh.indices[left.start + i];
-					int b = bvh.indices[right.start + j];
-					pairs.emplace_back(std::pair{a, b});
+		if ( nodeA.count > 0 && nodeB.count > 0 ) {
+			for ( auto i = 0; i < nodeA.count; ++i )
+				for ( auto j = 0; j < nodeB.count; ++j ) {
+					int indexA = bvh.indices[nodeA.start + i];
+					int indexB = bvh.indices[nodeB.start + j];
+					pairs.emplace_back(std::pair{indexA, indexB});
 				}
 			return;
 		}
 
-		if ( left.count == 0 ) {
-			::traverseNodePair( bvh, left.left, rightID, pairs );
-			::traverseNodePair( bvh, left.right, rightID, pairs );
-		} else if ( right.count == 0 ) {
-			::traverseNodePair( bvh, leftID, right.left, pairs );
-			::traverseNodePair( bvh, leftID, right.right, pairs );
+		if ( nodeA.count == 0 ) {
+			::traverseNodePair( bvh, nodeA.left, indexB, pairs );
+			::traverseNodePair( bvh, nodeA.right, indexB, pairs );
+		} else if ( nodeB.count == 0 ) {
+			::traverseNodePair( bvh, indexA, nodeB.left, pairs );
+			::traverseNodePair( bvh, indexA, nodeB.right, pairs );
 		}
 	}
 	// collects a list of nodes from each BVH that are overlapping with each other (for mesh v mesh)
-	void traverseNodePair( const pod::BVH& a, int nodeA, const pod::BVH& b, int nodeB, pod::BVH::pair_t& pairs ) {
-		const auto& nA = a.nodes[nodeA];
-		const auto& nB = b.nodes[nodeB];
+	void traverseNodePair( const pod::BVH& bvhA, int indexA, const pod::BVH& bvhB, int indexB, pod::BVH::pair_t& pairs ) {
+		const auto& nodeA = bvhA.nodes[indexA];
+		const auto& nodeB = bvhB.nodes[indexB];
 
-		if ( !::aabbOverlap( nA.bounds, nB.bounds ) ) return;
+		if ( !::aabbOverlap( nodeA.bounds, nodeB.bounds ) ) return;
 
-		if ( nA.count > 0 && nB.count > 0 ) {
-			for ( auto i = 0; i < nA.count; i++ )
-				for ( auto j = 0; j < nB.count; j++ )
-					pairs.emplace_back(a.indices[nA.start+i], b.indices[nB.start+j]);
+		if ( nodeA.count > 0 && nodeB.count > 0 ) {
+			for ( auto i = 0; i < nodeA.count; i++ ) {
+				for ( auto j = 0; j < nodeB.count; j++ ) {
+					auto indexA = bvhA.indices[nodeA.start+i];
+					auto indexB = bvhB.indices[nodeB.start+j];
+					pairs.emplace_back(std::pair{indexA, indexB});
+				}
+			}
 			return;
 		}
 
-		if ( nA.count == 0 ) {
-			::traverseNodePair( a, nA.left, b , nodeB, pairs );
-			::traverseNodePair( a, nA.right, b , nodeB, pairs );
-		} else {
-			::traverseNodePair( a, nodeA, b, nB.left, pairs );
-			::traverseNodePair( a, nodeA, b, nB.right, pairs );
+		if ( nodeA.count == 0 ) {
+			::traverseNodePair( bvhA, nodeA.left, bvhB , indexB, pairs );
+			::traverseNodePair( bvhA, nodeA.right, bvhB , indexB, pairs );
+		} else if ( nodeB.count == 0 ) {
+			::traverseNodePair( bvhA, indexA, bvhB, nodeB.left, pairs );
+			::traverseNodePair( bvhA, indexA, bvhB, nodeB.right, pairs );
 		}
 	}
 
@@ -54,9 +58,14 @@ namespace {
 		if ( node.count > 0 ) {
 			for ( auto i = 0; i < node.count; ++i ) {
 				 for ( auto j = i + 1; j < node.count; ++j ) {
-					int a = bvh.indices[node.start + i];
-					int b = bvh.indices[node.start + j];
-					pairs.emplace_back(std::pair{a, b});
+					int indexA = bvh.indices[node.start + i];
+					int indexB = bvh.indices[node.start + j];
+
+					if ( !::aabbOverlap( bvh.nodes[indexA].bounds, bvh.nodes[indexB].bounds ) ) {
+						continue;
+					}
+
+					pairs.emplace_back(std::pair{indexA, indexB});
 				 }
 			}
 			return;
@@ -113,7 +122,7 @@ namespace {
 		return index;
 	}
 
-	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::RigidBody*>& bodies, int capacity = 2 ) {
+	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int capacity = 2 ) {
 		bvh.indices.clear();
 		bvh.nodes.clear();
 		bvh.indices.reserve(bodies.size());
@@ -188,7 +197,7 @@ namespace {
 			}
 		}
 	}
-	void queryBVH( const pod::BVH& bvh, const pod::RigidBody& body, uf::stl::vector<int>& indices ) {
+	void queryBVH( const pod::BVH& bvh, const pod::PhysicsBody& body, uf::stl::vector<int>& indices ) {
 		return ::queryBVH( bvh, body.bounds, indices );
 	}
 	

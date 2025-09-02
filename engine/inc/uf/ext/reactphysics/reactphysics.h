@@ -5,6 +5,7 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/math/shapes.h>
 
 #if UF_USE_REACTPHYSICS
 #include <reactphysics3d/reactphysics3d.h>
@@ -12,23 +13,49 @@
 namespace rp3d = reactphysics3d;
 
 namespace pod {
-	struct UF_API Physics {
-		size_t uid = 0;
-		uf::Object* object = NULL;
-		
-		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
+	typedef uint32_t CollisionMask;
+
+	struct PhysicsMaterial {
+		float restitution = 0.2f;
+		float staticFriction = 0.5f;
+		float dynamicFriction = 0.3f;
+	};
+
+	struct UF_API Collider {
+		pod::CollisionMask mask;
+
 		rp3d::RigidBody* body = NULL;	
 		rp3d::CollisionShape* shape = NULL;	
-		rp3d::Collider* colliders = NULL;	
+	};
 
+	struct UF_API PhysicsBody {
 		rp3d::PhysicsWorld* world = NULL;
-	
+		uf::Object* object = NULL;
+		
 		pod::Transform<> transform = {};
-		pod::Vector3f velocity;
-		pod::Vector3f acceleration;
-		pod::Quaternion<> angularVelocity;
-		pod::Quaternion<> angularAcceleration;
+		pod::Vector3f offset = {};
 
+		bool isStatic = false;
+
+		float mass = 1.0f;
+		float inverseMass = 1.0f;
+
+		pod::Vector3f velocity = {};
+		pod::Vector3f forceAccumulator = {};
+
+		pod::Vector3f angularVelocity = {};
+		pod::Vector3f torqueAccumulator = {};
+
+		pod::Vector3f inertiaTensor = { 0, 0, 0 };
+		pod::Vector3f inverseInertiaTensor = { 0, 0, 0 };
+
+		pod::Vector3f gravity = { 0.0f, -9.81f, 0.0f }; // an invalid gravity will fallback to world gravity
+
+		pod::Collider collider;
+		pod::PhysicsMaterial material;
+
+
+		// to-do: do something about this
 		struct {
 			struct {
 				pod::Transform<> transform = {};
@@ -38,19 +65,19 @@ namespace pod {
 				pod::Quaternion<> angularAcceleration;
 			} current, previous;
 		} internal;
-
-
-		struct {
-			uint32_t flags = 0;
-			float mass = 0.0f;
-			float friction = 0.8f;
-			float restitution = 0.0f;
-			pod::Vector3f inertia = {0, 0, 0};
-			pod::Vector3f gravity = {0, 0, 0};
-		} stats;
 	};
 
-	typedef Physics PhysicsState;
+	struct Contact {
+		pod::Vector3f contact = {};
+		pod::Vector3f normal = {};
+		float penetration = 0;
+	};
+
+	struct RayQuery {
+		bool hit = false;
+		const pod::PhysicsBody* body;
+		pod::Contact contact = { pod::Vector3f{}, pod::Vector3f{}, FLT_MAX };
+	};
 }
 
 namespace ext {
@@ -88,53 +115,53 @@ namespace ext {
 		}
 
 		// base collider creation
-		pod::PhysicsState& UF_API create( uf::Object& );
+		pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 
 		void UF_API destroy( uf::Object& );
-		void UF_API destroy( pod::PhysicsState& );
+		void UF_API destroy( pod::PhysicsBody& );
 
-		void UF_API attach( pod::PhysicsState& );
-		void UF_API detach( pod::PhysicsState& );
+		void UF_API attach( pod::PhysicsBody& );
+		void UF_API detach( pod::PhysicsBody& );
 
 		// collider for mesh (static or dynamic)
-		pod::PhysicsState& UF_API create( uf::Object&, const uf::Mesh&, bool );
+		pod::PhysicsBody& UF_API create( uf::Object&, const uf::Mesh&, float mass = 0.0f, const pod::Vector3f& = {} );
 		// collider for boundingbox
-		pod::PhysicsState& UF_API create( uf::Object&, const pod::Vector3f& );
+		pod::PhysicsBody& UF_API create( uf::Object&, const pod::AABB&, float mass = 0.0f, const pod::Vector3f& = {} );
+		// collider for sphere
+		pod::PhysicsBody& UF_API create( uf::Object&, const pod::Sphere&, float mass = 0.0f, const pod::Vector3f& = {} );
+		// collider for plane
+		pod::PhysicsBody& UF_API create( uf::Object&, const pod::Plane&, float mass = 0.0f, const pod::Vector3f& = {} );
 		// collider for capsule
-		pod::PhysicsState& UF_API create( uf::Object&, float, float );
+		pod::PhysicsBody& UF_API create( uf::Object&, const pod::Capsule&, float mass = 0.0f, const pod::Vector3f& = {} );
 
 		// update mesh
-		void UF_API update( pod::PhysicsState&, const uf::Mesh&, bool );
+		void UF_API update( pod::PhysicsBody&, const uf::Mesh&, bool );
 
 		// synchronize engine transforms to bullet transforms
 		void UF_API syncTo( ext::reactphysics::WorldState& );
 		// synchronize bullet transforms to engine transforms
 		void UF_API syncFrom( ext::reactphysics::WorldState&, float = 1 );
 		// apply impulse
-		void UF_API setImpulse( pod::PhysicsState&, const pod::Vector3f& = {} );
-		void UF_API applyImpulse( pod::PhysicsState&, const pod::Vector3f& );
+		void UF_API setImpulse( pod::PhysicsBody&, const pod::Vector3f& = {} );
+		void UF_API applyImpulse( pod::PhysicsBody&, const pod::Vector3f& );
 		// directly move a transform
-		void UF_API applyMovement( pod::PhysicsState&, const pod::Vector3f& );
+		void UF_API applyMovement( pod::PhysicsBody&, const pod::Vector3f& );
 		// directly apply a velocity
-		void UF_API setVelocity( pod::PhysicsState&, const pod::Vector3f& );
-		void UF_API applyVelocity( pod::PhysicsState&, const pod::Vector3f& );
+		void UF_API setVelocity( pod::PhysicsBody&, const pod::Vector3f& );
+		void UF_API applyVelocity( pod::PhysicsBody&, const pod::Vector3f& );
 		// directly rotate a transform
-		void UF_API applyRotation( pod::PhysicsState&, const pod::Quaternion<>& );
-		void UF_API applyRotation( pod::PhysicsState&, const pod::Vector3f&, float );
+		void UF_API applyRotation( pod::PhysicsBody&, const pod::Quaternion<>& );
+		void UF_API applyRotation( pod::PhysicsBody&, const pod::Vector3f&, float );
 
 		// ray casting
-		uf::Object* UF_API rayCast( const pod::Vector3f&, const pod::Vector3f& );		
-		uf::Object* UF_API rayCast( pod::PhysicsState&, const pod::Vector3f&, const pod::Vector3f& );		
-		uf::Object* UF_API rayCast( pod::PhysicsState&, const pod::Vector3f&, const pod::Vector3f&, float& );
-		uf::Object* UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*, float& );
-//		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*, uf::Object*& );
+		pod::RayQuery UF_API rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float max );
 
 		// allows noclip
-		void UF_API activateCollision( pod::PhysicsState&, bool = true );
+		void UF_API activateCollision( pod::PhysicsBody&, bool = true );
 
 		// 
-		float UF_API getMass( pod::PhysicsState& );
-		void UF_API setMass( pod::PhysicsState&, float );
+		float UF_API getMass( pod::PhysicsBody& );
+		void UF_API setMass( pod::PhysicsBody&, float );
 	}
 }
 namespace uf {

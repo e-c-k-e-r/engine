@@ -383,18 +383,15 @@ if ( meshopt.should ) {
 	primitives.reserve( meshlets.size() );
 
 	for ( auto& meshlet : meshlets ) {
-		// to-do: check against the meshlet's actual primitive information
-		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
-			.indices = meshlet.indices.size(),
-			.instances = 1,
-			.indexID = indexID,
-			.vertexID = vertexID,
-			.instanceID = meshlet.primitive.drawCommand.instanceID,
-			.auxID = meshlet.primitive.drawCommand.auxID,
-			.materialID = meshlet.primitive.drawCommand.materialID,
-			.vertices = meshlet.vertices.size(),
-		});
-		
+		meshlet.primitive.drawCommand.instances = 1;
+		meshlet.primitive.drawCommand.instanceID = ++masterInstanceID; // this doesn't matter......
+		meshlet.primitive.drawCommand.indexID = indexID;
+		meshlet.primitive.drawCommand.indices = meshlet.indices.size();
+		meshlet.primitive.drawCommand.vertexID = vertexID;
+		meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
+
+		drawCommands.emplace_back(meshlet.primitive.drawCommand);
+
 		primitives.emplace_back( meshlet.primitive );
 
 		indexID += meshlet.indices.size();

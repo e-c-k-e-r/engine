@@ -1,40 +1,40 @@
 // forward declare
 namespace {
-	bool aabbAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool aabbSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool aabbPlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool aabbCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool aabbMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool aabbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool aabbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool aabbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 	
-	bool sphereSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool sphereAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool spherePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool sphereCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool sphereMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool sphereSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool sphereAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool spherePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool sphereCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool sphereMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 	
-	bool planeAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool planeSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool planePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool planeCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool planeMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool planeAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool planeSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool planePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool planeCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool planeMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 	
-	bool capsuleCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool capsuleAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool capsulePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool capsuleSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool capsuleMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool capsuleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool capsuleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool capsulePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool capsuleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool capsuleMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
-	bool meshAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool meshSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool meshPlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool meshCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool meshMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool meshSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool meshPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool meshCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
 	bool triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
-	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
+	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
 	pod::Vector3f aabbCenter( const pod::AABB& aabb );
 	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS(1.0e-6f) );
@@ -53,7 +53,7 @@ namespace {
 
 namespace {
 	// create ID from pointers
-	uint64_t makePairKey( const pod::RigidBody& a, const pod::RigidBody& b ) {
+	uint64_t makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
 		auto idA = reinterpret_cast<uint64_t>(&a);
 		auto idB = reinterpret_cast<uint64_t>(&b);
 		if ( idA > idB ) std::swap(idA, idB); // ensure consistent order
@@ -62,16 +62,23 @@ namespace {
 
 	// returns an absolute transform while also allowing offsetting the collision body
 	// to-do: find a succint way to explain this madness
-	pod::Transform<> getTransform( const pod::RigidBody& body ) {
+	pod::Transform<> getTransform( const pod::PhysicsBody& body ) {
 		pod::Transform<> t;
 		t.position = body.offset;
 		t.reference = body.transform;
 		return uf::transform::flatten( t );
 	}
 
-	pod::Vector3f getPosition( const pod::RigidBody& body, bool useTransform = false ) {
+	pod::Vector3f getPosition( const pod::PhysicsBody& body, bool useTransform = false ) {
 		if ( !useTransform ) return ::aabbCenter( body.bounds );
 		return ::getTransform( body ).position;
+	}
+
+	bool shouldCollide( const pod::Collider& a, const pod::Collider& b ) {
+		return ( a.category & b.mask ) && ( b.category & a.mask );
+	}
+	bool shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
+		return ::shouldCollide( a.collider, b.collider );
 	}
 
 	// normalizes the delta between two bodies / contacts by the distance (as it was already computed) if non-zero
@@ -284,7 +291,7 @@ namespace {
 		return ::closestPointOnTriangle( p, tri.points[0], tri.points[1], tri.points[2] );
 	}
 
-	pod::Vector3f orientNormalToAB( const pod::RigidBody& a, const pod::RigidBody& b, pod::Vector3f n ) {
+	pod::Vector3f orientNormalToAB( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Vector3f n ) {
 		return uf::vector::normalize( uf::vector::dot( n, ::getPosition( b ) - ::getPosition( a ) ) < 0.0f ? -n : n );
 	}
 

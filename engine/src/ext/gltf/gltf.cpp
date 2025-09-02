@@ -253,7 +253,8 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	}
 	// load meshes
 	{
-		size_t masterAuxID = 0;
+		size_t masterInstanceID = 0;
+
 		graph.meshes.reserve(model.meshes.size());
 		storage.meshes.reserve(model.meshes.size());
 

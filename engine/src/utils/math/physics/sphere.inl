@@ -1,5 +1,5 @@
 namespace {
-	bool sphereSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool sphereSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, SPHERE );
 
 		auto delta = ::getPosition( b ) - ::getPosition( a );
@@ -16,7 +16,7 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool sphereAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool sphereAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, AABB );
 
 		const auto& sphere = a;
@@ -51,15 +51,15 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool spherePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool spherePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, PLANE );
 		return planeSphere( b, a, manifold, eps );
 	}
-	bool sphereCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool sphereCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, CAPSULE );
 		return capsuleSphere( b, a, manifold, eps );
 	}
-	bool sphereMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool sphereMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, MESH );
 		return meshSphere( b, a, manifold, eps );
 	}

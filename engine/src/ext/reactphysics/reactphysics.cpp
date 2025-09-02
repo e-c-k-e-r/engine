@@ -212,7 +212,7 @@ namespace {
 	// allows showing collision models
 	void debugDraw( uf::Object& object ) {
 		auto& scene = uf::scene::getCurrentScene();
-		auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+		auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 
 		static size_t oldCount = 0;
 		uf::Mesh mesh;
@@ -322,7 +322,7 @@ void ext::reactphysics::initialize( uf::Object& scene ) {
 //	logger->addFileDestination("./data/logs/rp3d_log_.html", logLevel, rp3d::DefaultLogger::Format::HTML); 
 //	::common.setLogger(::logger);
 
-	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 	world = ::common.createPhysicsWorld(settings);
 //	world->setEventListener(&::listener);
 
@@ -340,7 +340,7 @@ void ext::reactphysics::tick( float delta ) {
 	return ext::reactphysics::tick( uf::scene::getCurrentScene(), delta );
 }
 void ext::reactphysics::tick( uf::Object& scene, float delta ) {
-	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 	ext::reactphysics::syncTo( world );
 
 	static float accumulator = 0;
@@ -360,15 +360,15 @@ void ext::reactphysics::terminate() {
 	return ext::reactphysics::terminate( uf::scene::getCurrentScene() );
 }
 void ext::reactphysics::terminate( uf::Object& scene ) {
-	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 	if ( !world ) return;
 
 	size_t count = world->getNbRigidBodies();
 	for ( size_t i = 0; i < count; ++i ) {
 		auto* body = world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
-		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
-		state.body = NULL;
+		auto& state = object->getComponent<pod::PhysicsBody>();
+		state.collider.body = NULL;
 	}
 
 	::common.destroyPhysicsWorld(world);
@@ -376,22 +376,22 @@ void ext::reactphysics::terminate( uf::Object& scene ) {
 }
 
 // base collider creation
-pod::PhysicsState& ext::reactphysics::create( uf::Object& object ) {
-	auto& state = object.getComponent<pod::PhysicsState>();
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, float mass, const pod::Vector3f& offset ) {
+	auto& state = object.getComponent<pod::PhysicsBody>();
 
 	state.world = ext::reactphysics::globalStorage ? ::world : uf::scene::getCurrentScene().getComponent<ext::reactphysics::WorldState>();
-	state.uid = object.getUid();
 	state.object = &object;
+	state.transform.position = offset;
 	state.transform.reference = &object.getComponent<pod::Transform<>>();
-	state.shared = ext::reactphysics::shared;
-
-	UF_MSG_DEBUG("Created physics state: {}", uf::string::toString( object ));
+	state.mass = mass;
+	state.isStatic = mass != 0.0f;
+	state.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
 
 	return state;
 }
 
 void ext::reactphysics::destroy( uf::Object& object ) {
-	auto& state = object.getComponent<pod::PhysicsState>();
+	auto& state = object.getComponent<pod::PhysicsBody>();
 	ext::reactphysics::destroy( state );
 
 	auto uid = object.getUid();
@@ -403,14 +403,14 @@ void ext::reactphysics::destroy( uf::Object& object ) {
 		::triangleParts.erase( uid );
 	}
 }
-void ext::reactphysics::destroy( pod::PhysicsState& state ) {
+void ext::reactphysics::destroy( pod::PhysicsBody& state ) {
 	ext::reactphysics::detach( state );
 }
 
-void ext::reactphysics::attach( pod::PhysicsState& state ) {
-	if ( !state.shape || !state.world ) return;
+void ext::reactphysics::attach( pod::PhysicsBody& state ) {
+	if ( !state.collider.shape || !state.world ) return;
 	// auto& scene = uf::scene::getCurrentScene();
-	// auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	// auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 	
 	rp3d::Transform colliderTransform = rp3d::Transform::identity();
 	colliderTransform.setPosition( ::convert( state.transform.position ) );
@@ -419,77 +419,88 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 	state.transform.position = {};
 	state.transform.orientation = {};
 
-	state.body = state.world->createRigidBody( ::convert( *state.transform.reference ) );
+	state.collider.body = state.world->createRigidBody( ::convert( *state.transform.reference ) );
 	
-	auto* collider = state.body->addCollider(state.shape, colliderTransform);
+	auto* collider = state.collider.body->addCollider(state.collider.shape, colliderTransform);
 	collider->setCollisionCategoryBits(0xFF);
 	collider->setCollideWithMaskBits(0xFF);
 	
-	state.body->setUserData(state.object);
-	state.body->setMass(state.stats.mass);
+	state.collider.body->setUserData(state.object);
+	state.collider.body->setMass(state.mass);
 
-	if ( state.stats.mass != 0.0f ) {
-		state.body->setType(rp3d::BodyType::DYNAMIC);
-		state.body->updateLocalCenterOfMassFromColliders();
-		state.body->updateMassPropertiesFromColliders();
+	if ( state.mass != 0.0f ) {
+		state.collider.body->setType(rp3d::BodyType::DYNAMIC);
+		state.collider.body->updateLocalCenterOfMassFromColliders();
+		state.collider.body->updateMassPropertiesFromColliders();
 	} else {
-		state.body->setType(rp3d::BodyType::STATIC);
+		state.collider.body->setType(rp3d::BodyType::STATIC);
 	}
 
-	state.body->enableGravity(state.stats.gravity != pod::Vector3f{0,0,0});
+	state.collider.body->enableGravity(state.gravity != pod::Vector3f{0,0,0});
 
 	// affects air speed, bad
-//	state.body->setLinearDamping(state.stats.friction);
+//	state.collider.body->setLinearDamping(state.material.staticFriction);
 
 	auto& material = collider->getMaterial();
 	material.setBounciness(0);
 
-	state.body->setLocalInertiaTensor( ::convert( state.stats.inertia ) );
+	state.collider.body->setLocalInertiaTensor( ::convert( state.inertiaTensor ) );
 }
-void ext::reactphysics::detach( pod::PhysicsState& state ) {
-	if ( !state.body || !state.world ) return;
+void ext::reactphysics::detach( pod::PhysicsBody& state ) {
+	if ( !state.collider.body || !state.world ) return;
 	// auto& scene = uf::scene::getCurrentScene();
-	// auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
+	// auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 
-	state.world->destroyRigidBody(state.body);
-	state.body = NULL;
+	state.world->destroyRigidBody(state.collider.body);
+	state.collider.body = NULL;
 
 	state = {}; // necessary if it gets reused
 }
 
 // collider for mesh (static or dynamic)
-pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh& mesh, bool dynamic ) {
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
 	UF_ASSERT( mesh.index.count );
 	
 	auto* rMesh = ::createTriangleMesh( mesh, object );
 
-	auto& state = ext::reactphysics::create( object );
-	state.shape = ::common.createConcaveMeshShape( rMesh );
-	state.stats.mass = 0;
+	auto& state = ext::reactphysics::create( object, mass, offset );
+	state.collider.shape = ::common.createConcaveMeshShape( rMesh );
+	state.mass = 0;
 	ext::reactphysics::attach( state );
-
-	UF_MSG_DEBUG("Created physics state (mesh): {}", uf::string::toString( object ));
 
 	return state;
 }
 // collider for boundingbox
-pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const pod::Vector3f& extent ) {
-	auto& state = ext::reactphysics::create( object );
-	state.shape = ::common.createBoxShape( rp3d::Vector3( abs(extent.x), abs(extent.y), abs(extent.z) ) );
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
+	pod::Vector3f extent = ( aabb.max - aabb.min ) * 0.5f;
+	auto& state = ext::reactphysics::create( object, mass, offset );
+	state.collider.shape = ::common.createBoxShape( rp3d::Vector3( abs(extent.x), abs(extent.y), abs(extent.z) ) );
 	ext::reactphysics::attach( state );
 	
-	UF_MSG_DEBUG("Created physics state (box): {}", uf::string::toString( object ));
-
+	return state;
+}
+//
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, const pod::Sphere& aabb, float mass, const pod::Vector3f& offset ) {
+	auto& state = ext::reactphysics::create( object, mass, offset );
+	//state.collider.shape = ::common.createSphereShape( rp3d::Vector3( abs(extent.x), abs(extent.y), abs(extent.z) ) );
+	ext::reactphysics::attach( state );
+	
+	return state;
+}
+//
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, const pod::Plane& aabb, float mass, const pod::Vector3f& offset ) {
+	auto& state = ext::reactphysics::create( object, mass, offset );
+	//state.collider.shape = ::common.createPlaneShape( rp3d::Vector3( abs(extent.x), abs(extent.y), abs(extent.z) ) );
+	ext::reactphysics::attach( state );
+	
 	return state;
 }
 // collider for capsule
-pod::PhysicsState& ext::reactphysics::create( uf::Object& object, float radius, float height ) {
-	auto& state = ext::reactphysics::create( object );
-	state.shape = ::common.createCapsuleShape( radius, height );
+pod::PhysicsBody& ext::reactphysics::create( uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
+	auto& state = ext::reactphysics::create( object, mass, offset );
+	state.collider.shape = ::common.createCapsuleShape( capsule.radius, capsule.halfHeight * 2.0f );
 	ext::reactphysics::attach( state );
 	
-	UF_MSG_DEBUG("Created physics state (capsule): {} | {}, {}", uf::string::toString( object ), radius, height);
-
 	return state;
 }
 
@@ -512,9 +523,9 @@ void ext::reactphysics::syncTo( ext::reactphysics::WorldState& world ) {
 	for ( size_t i = 0; i < count; ++i ) {
 		auto* body = world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
-		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
+		auto& state = object->getComponent<pod::PhysicsBody>();
 
-		if ( state.shared ) {
+		if ( true /*state\.shared*/ ) {
 			if ( !ext::reactphysics::interpolate ) body->setTransform(::convert(state.transform));
 			body->setLinearVelocity( ::convert(state.velocity) );
 			body->setAngularVelocity( ::convertQ(state.angularVelocity) );
@@ -524,9 +535,9 @@ void ext::reactphysics::syncTo( ext::reactphysics::WorldState& world ) {
 		switch ( ext::reactphysics::gravity::mode ) {
 			case ext::reactphysics::gravity::Mode::PER_OBJECT: if ( body->isGravityEnabled() ) {
 			#if RP3D_OLD
-				body->applyForceToCenterOfMass( ::convert(state.stats.gravity * mass) );
+				body->applyForceToCenterOfMass( ::convert(state.gravity * mass) );
 			#else
-				body->applyLocalForceAtCenterOfMass( ::convert(state.stats.gravity * mass) );
+				body->applyLocalForceAtCenterOfMass( ::convert(state.gravity * mass) );
 			#endif
 			} break;
 			case ext::reactphysics::gravity::Mode::UNIVERSAL: if ( mass > 0 ) {
@@ -575,170 +586,131 @@ void ext::reactphysics::syncFrom( ext::reactphysics::WorldState& world, float in
 		auto* body = world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
 
-		auto& state = object->getComponent<pod::PhysicsState>();
-
-		if ( !state.object ) {
-			state.object = object;
-			//continue;
-		}
+		auto& state = object->getComponent<pod::PhysicsBody>();
+		if ( !state.object ) state.object = object;
 		
 		auto& transform = state.object->getComponent<pod::Transform<>>();
-		auto& physics = state.object->getComponent<pod::Physics>();
-
-	/*
-		transform.position = ::convert( body->getTransform().getPosition() );
-		transform.orientation = ::convert( body->getTransform().getOrientation() );
-	
-		// state transform is an offset, un-offset
-		if ( state.transform.reference ) transform.position -= state.transform.position;
-
-	//	transform = uf::transform::reorient( transform );
-	*/
 	
 		state.internal.current.transform = ::convert( body->getTransform() );
 		state.internal.current.velocity = ::convert( body->getLinearVelocity() );
 		state.internal.current.angularVelocity = ::convertQ( body->getAngularVelocity() );
 
-		physics.velocity = state.internal.current.velocity;
-		physics.angularVelocity = state.internal.current.angularVelocity;
+		state.velocity = state.internal.current.velocity;
+		state.angularVelocity = state.internal.current.angularVelocity;
 
 		if ( !ext::reactphysics::interpolate ) {
 			transform.position = state.internal.current.transform.position;
 			transform.orientation = state.internal.current.transform.orientation;
-	
 			// state transform is an offset, un-offset
 			if ( state.transform.reference ) transform.position -= state.transform.position;
-
-		//	transform = uf::transform::reorient( transform );
 		} else {
-		//	transform = uf::transform::interpolate( state.internal.previous.transform, state.internal.current.transform, interp );
-
 			transform.position = state.internal.previous.transform.position * ( 1.0f - interp ) + state.internal.current.transform.position * interp;
 			transform.orientation = uf::quaternion::slerp(  state.internal.previous.transform.orientation, state.internal.current.transform.orientation, interp);
+			// state transform is an offset, un-offset
 			if ( state.transform.reference ) transform.position -= state.transform.position;
-
-		//	physics.velocity = uf::vector::lerp( state.internal.previous.velocity, state.internal.current.velocity, interp );
-		//	physics.angularVelocity = uf::quaternion::slerp( state.internal.previous.angularVelocity, state.internal.current.angularVelocity, interp );
 		}
 	}
 }
 // apply impulse
-void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
-	if ( !state.body ) return;
+void ext::reactphysics::setImpulse( pod::PhysicsBody& state, const pod::Vector3f& v ) {
+	if ( !state.collider.body ) return;
 #if !RP3D_OLD
-	state.body->resetForce();
-	state.body->resetTorque();
+	state.collider.body->resetForce();
+	state.collider.body->resetTorque();
 #endif
-	state.body->setLinearVelocity( ::convert(pod::Vector3f{}) );
-	state.body->setAngularVelocity( ::convert(pod::Vector3f{}) );
+	state.collider.body->setLinearVelocity( ::convert(pod::Vector3f{}) );
+	state.collider.body->setAngularVelocity( ::convert(pod::Vector3f{}) );
 //	ext::reactphysics::applyImpulse( state, v );
 }
-void ext::reactphysics::applyImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
-	if ( !state.body ) return;
+void ext::reactphysics::applyImpulse( pod::PhysicsBody& state, const pod::Vector3f& v ) {
+	if ( !state.collider.body ) return;
 
 #if RP3D_OLD
-	state.body->applyForceToCenterOfMass( ::convert(v) );
+	state.collider.body->applyForceToCenterOfMass( ::convert(v) );
 #else
-	state.body->applyLocalForceAtCenterOfMass( ::convert(v) );
+	state.collider.body->applyLocalForceAtCenterOfMass( ::convert(v) );
 #endif
 }
 // directly move a transform
-void ext::reactphysics::applyMovement( pod::PhysicsState& state, const pod::Vector3f& v ) {
-	if ( !state.body ) return;
+void ext::reactphysics::applyMovement( pod::PhysicsBody& state, const pod::Vector3f& v ) {
+	if ( !state.collider.body ) return;
 
-	rp3d::Transform transform = state.body->getTransform();
+	rp3d::Transform transform = state.collider.body->getTransform();
 	transform.setPosition( transform.getPosition() + ::convert(v) * uf::physics::time::delta );
-	state.body->setTransform(transform);
+	state.collider.body->setTransform(transform);
 }
 // directly apply a velocity
-void ext::reactphysics::setVelocity( pod::PhysicsState& state, const pod::Vector3f& v ) {
-	if ( !state.body ) return;
-	if ( state.shared ) {
-		auto& physics = state.object->getComponent<pod::Physics>();
-		physics.velocity = v;
-	//	return;
-	}
-	state.body->setLinearVelocity( ::convert(v) );
+void ext::reactphysics::setVelocity( pod::PhysicsBody& state, const pod::Vector3f& v ) {
+	if ( !state.collider.body ) return;
+	
+	state.velocity = v;
+	state.collider.body->setLinearVelocity( ::convert(v) );
 }
-void ext::reactphysics::applyVelocity( pod::PhysicsState& state, const pod::Vector3f& v ) {
-	if ( !state.body ) return;
+void ext::reactphysics::applyVelocity( pod::PhysicsBody& state, const pod::Vector3f& v ) {
+	if ( !state.collider.body ) return;
 
-	if ( state.shared ) {
-		auto& physics = state.object->getComponent<pod::Physics>();
-		physics.velocity += v;
-	 //	return;
-	}
-	state.body->setLinearVelocity( state.body->getLinearVelocity() + ::convert(v) );
+	state.velocity += v;
+	state.collider.body->setLinearVelocity( state.collider.body->getLinearVelocity() + ::convert(v) );
 }
 // directly rotate a transform
-void ext::reactphysics::applyRotation( pod::PhysicsState& state, const pod::Quaternion<>& q ) {
-	if ( !state.body ) return;
+void ext::reactphysics::applyRotation( pod::PhysicsBody& state, const pod::Quaternion<>& q ) {
+	if ( !state.collider.body ) return;
 
-	if ( state.shared ) {
-		auto& transform = state.object->getComponent<pod::Transform<>>();
-		uf::transform::rotate( transform, q );
-	//	return;
-	}
-	auto transform = state.body->getTransform();
+	uf::transform::rotate( state.object->getComponent<pod::Transform<>>(), q );
+
+	auto transform = state.collider.body->getTransform();
 	transform.setOrientation( transform.getOrientation() * ::convert( q ) );
-	state.body->setTransform(transform);
+	state.collider.body->setTransform(transform);
 }
-void ext::reactphysics::applyRotation( pod::PhysicsState& state, const pod::Vector3f& axis, float delta ) {
+void ext::reactphysics::applyRotation( pod::PhysicsBody& state, const pod::Vector3f& axis, float delta ) {
 	ext::reactphysics::applyRotation( state, uf::quaternion::axisAngle( axis, delta ) );
 }
 
 // ray casting
-
-uf::Object* ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction ) {	
-	float depth = -1;
-	return rayCast( center, direction, NULL, depth );
-}
-
-uf::Object* ext::reactphysics::rayCast( pod::PhysicsState& state, const pod::Vector3f& center, const pod::Vector3f& direction ) {	
-	float depth = -1;
-	return rayCast( center, direction, state.object, depth );
-}
-uf::Object* ext::reactphysics::rayCast( pod::PhysicsState& state, const pod::Vector3f& center, const pod::Vector3f& direction, float& depth ) {
-	return rayCast( center, direction, state.object, depth );
-}
-
-uf::Object* ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object* source, float& depth ) {
+pod::RayQuery ext::reactphysics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance ) {
 	auto& scene = uf::scene::getCurrentScene();
-	auto& world = ext::reactphysics::globalStorage ? ::world : scene.getComponent<ext::reactphysics::WorldState>();
-	depth = -1;
+	auto& world = /*ext::reactphysics::globalStorage ? ::world :*/ scene.getComponent<ext::reactphysics::WorldState>();
 	
-	if ( !world ) return NULL;
+	pod::RayQuery query;
+	query.contact.penetration = maxDistance;
+	
+	if ( !world ) return query;
 
 	::RaycastCallback callback;
-	callback.source = source;
-	world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
-	if ( !callback.isHit ) return NULL;
-	
-	depth = callback.raycastInfo.hitFraction;
+	callback.source = body.object;
+	world->raycast( rp3d::Ray( ::convert( ray.origin ), ::convert( ray.origin + ray.direction ) ), &callback );
+	if ( !callback.isHit ) return query;
+	uf::Object* object = (uf::Object*) callback.raycastInfo.body->getUserData();
 
-	return (uf::Object*) callback.raycastInfo.body->getUserData();
+	query.hit = callback.isHit;
+	query.body = &object->getComponent<pod::PhysicsBody>();
+	query.contact.contact = ray.origin + ray.direction * callback.raycastInfo.hitFraction;
+	query.contact.normal = ray.direction;
+	query.contact.penetration = callback.raycastInfo.hitFraction;
+	
+	return query;
 }
 
 // allows noclip
-void ext::reactphysics::activateCollision( pod::PhysicsState& state, bool s ) {
-	if ( !state.body ) return;
-//	state.body->setIsActive(s);
-	auto colliders = state.body->getNbColliders();
+void ext::reactphysics::activateCollision( pod::PhysicsBody& state, bool s ) {
+	if ( !state.collider.body ) return;
+//	state.collider.body->setIsActive(s);
+	auto colliders = state.collider.body->getNbColliders();
 	for ( auto i = 0; i < colliders; ++i ) {
-		auto* collider = state.body->getCollider(i);
+		auto* collider = state.collider.body->getCollider(i);
 		collider->setCollisionCategoryBits(s ? 0xFF : 0x00);
 		collider->setCollideWithMaskBits(s ? 0xFF : 0x00);
 	}
 }
 
-float ext::reactphysics::getMass( pod::PhysicsState& state ) {
-	if ( !state.body ) return state.stats.mass;
+float ext::reactphysics::getMass( pod::PhysicsBody& state ) {
+	if ( !state.collider.body ) return state.mass;
 
-	return (state.stats.mass = state.body->getMass());
+	return (state.mass = state.collider.body->getMass());
 }
-void ext::reactphysics::setMass( pod::PhysicsState& state, float mass ) {
-	state.stats.mass = mass;
-	state.body->setMass(mass);
+void ext::reactphysics::setMass( pod::PhysicsBody& state, float mass ) {
+	state.mass = mass;
+	state.collider.body->setMass(mass);
 }
 
 #endif

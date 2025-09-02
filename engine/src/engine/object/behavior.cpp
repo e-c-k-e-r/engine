@@ -131,29 +131,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 
 	if ( ext::json::isObject(metadataJson["physics"]) ) {
 		auto& metadataJsonPhysics = metadataJson["physics"];
-	#if UF_USE_REACTPHYSICS
-		auto& collider = this->getComponent<pod::PhysicsState>();
-		collider.stats.flags = metadataJsonPhysics["flags"].as(collider.stats.flags);
-		collider.stats.mass = metadataJsonPhysics["mass"].as(collider.stats.mass);
-		collider.stats.restitution = metadataJsonPhysics["restitution"].as(collider.stats.restitution);
-		collider.stats.friction = metadataJsonPhysics["friction"].as(collider.stats.friction);
-		collider.stats.inertia = uf::vector::decode( metadataJsonPhysics["inertia"], collider.stats.inertia );
-		collider.stats.gravity = uf::vector::decode( metadataJsonPhysics["gravity"], collider.stats.gravity );
-	
-		if ( metadataJsonPhysics["type"].as<uf::stl::string>() == "bounding box" ) {
-			pod::Vector3f center = uf::vector::decode( metadataJsonPhysics["center"], pod::Vector3f{} );
-			pod::Vector3f corner = uf::vector::decode( metadataJsonPhysics["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
-
-			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
-
-			uf::physics::impl::create( *this, corner );
-		} else if ( metadataJsonPhysics["type"].as<uf::stl::string>() == "capsule" ) {
-			float radius = metadataJsonPhysics["radius"].as<float>();
-			float height = metadataJsonPhysics["height"].as<float>();
-
-			uf::physics::impl::create( *this, radius, height );
-		}
-	#else
 		auto type = metadataJsonPhysics["type"].as<uf::stl::string>();
 		float mass = metadataJsonPhysics["mass"].as<float>();
 
@@ -162,6 +139,10 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		if ( type == "bounding box" || type == "aabb" ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
+		#if UF_USE_REACTPHYSICS
+			auto center = ( max + min ) * 0.5f;
+			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) offset = (center - transform.position);
+		#endif
 			
 			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
 		} else if ( type == "plane" ) {
@@ -175,20 +156,39 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::physics::impl::create( self, pod::Sphere{ radius }, mass, offset );
 		} else if ( type == "capsule" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
-			float height = metadataJsonPhysics["height"].as<float>();
+			float halfHeight = metadataJsonPhysics["height"].as<float>() * 0.5f;
 			
-			uf::physics::impl::create( self, pod::Capsule{ radius, height * 0.5f }, mass, offset );
+			uf::physics::impl::create( self, pod::Capsule{ radius, halfHeight }, mass, offset );
 		}
 
-		if ( this->hasComponent<pod::RigidBody>() ) {
-			auto& body = this->getComponent<pod::RigidBody>();
+		if ( this->hasComponent<pod::PhysicsBody>() ) {
+			auto& physicsBody = this->getComponent<pod::PhysicsBody>();
+			
+			auto gravity = uf::vector::decode( metadataJsonPhysics["gravity"], physicsBody.gravity );
+			auto category = metadataJsonPhysics["category"].as<uf::stl::string>("ALL");
+			auto mask = metadataJsonPhysics["mask"].as<uf::stl::string>("ALL");
+
+		#if UF_USE_REACTPHYSICS
+			physicsBody.mass = mass;
+			physicsBody.gravity = gravity;
+
+			physicsBody.material.restitution = metadataJsonPhysics["restitution"].as(physicsBody.material.restitution);
+			physicsBody.material.staticFriction = metadataJsonPhysics["friction"].as(physicsBody.material.staticFriction);
+			physicsBody.inertiaTensor = uf::vector::decode( metadataJsonPhysics["inertia"], physicsBody.inertiaTensor );
+		#else
+			uf::physics::impl::setColliderCategory( physicsBody, category );
+			uf::physics::impl::setColliderMask( physicsBody, mask );
+			uf::physics::impl::setGravity( physicsBody, gravity );
+		#endif
+
+			physicsBody.velocity = uf::vector::decode( metadataJsonPhysics["velocity"], physicsBody.velocity );
+			physicsBody.angularVelocity = uf::vector::decode( metadataJsonPhysics["angularVelocity"], physicsBody.angularVelocity );
 			
 			if ( this->getName() == "Player" ) {
-				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
-				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
+				physicsBody.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+				physicsBody.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 			}
 		}
-	#endif
 	}
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
@@ -232,10 +232,10 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	//	this->deleteComponent<uf::Atlas>();
 	}
 	#if UF_USE_REACTPHYSICS
-	if ( this->hasComponent<pod::PhysicsState>() ) {
-		auto& collider = this->getComponent<pod::PhysicsState>();
-		uf::physics::impl::detach( collider );
-	//	this->deleteComponent<pod::PhysicsState>();
+	if ( this->hasComponent<pod::PhysicsBody>() ) {
+		auto& physicsBody = this->getComponent<pod::PhysicsBody>();
+		uf::physics::impl::detach( physicsBody );
+	//	this->deleteComponent<pod::PhysicsBody>();
 	}
 	#endif
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {

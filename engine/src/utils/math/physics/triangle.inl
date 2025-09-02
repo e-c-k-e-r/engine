@@ -104,7 +104,7 @@ namespace {
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::RigidBody& body ) {
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body ) {
 		auto tri = ::fetchTriangle( mesh, triID );
 		auto transform = ::getTransform( body );
 
@@ -259,7 +259,7 @@ namespace {
 		return true;
 	}
 
-	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
+	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& aabb = body;
 
 		auto closest = ::closestPointOnTriangle( ::getPosition( aabb ), tri );
@@ -286,7 +286,7 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
+	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& sphere = body;
 
 		float r = sphere.collider.u.sphere.radius;
@@ -313,7 +313,7 @@ namespace {
 		return true;
 	}
 	// to-do: implement
-	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
+	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& plane = body;
 		auto normal = plane.collider.u.plane.normal;
 		float d = plane.collider.u.plane.offset;
@@ -357,7 +357,7 @@ namespace {
 		}
 		return hit;
 	}
-	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::RigidBody& body, pod::Manifold& manifold, float eps ) {
+	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& capsule = body;
 
 		float r = capsule.collider.u.capsule.radius;
@@ -386,23 +386,23 @@ namespace {
 		return true;
 	}
 
-	bool triangleTriangle( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool triangleTriangle( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, TRIANGLE );
 		return ::triangleTriangle( a.collider.u.triangle, b.collider.u.triangle, manifold, eps );
 	}
-	bool triangleAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool triangleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, AABB );
 		return ::triangleAabb( a.collider.u.triangle, b, manifold, eps );
 	}
-	bool triangleSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool triangleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, SPHERE );
 		return ::triangleSphere( a.collider.u.triangle, b, manifold, eps );
 	}
-	bool trianglePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool trianglePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, PLANE );
 		return ::trianglePlane( a.collider.u.triangle, b, manifold, eps );
 	}
-	bool triangleCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool triangleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, CAPSULE );
 		return ::triangleCapsule( a.collider.u.triangle, b, manifold, eps );
 	}

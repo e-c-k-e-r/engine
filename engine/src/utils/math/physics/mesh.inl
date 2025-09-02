@@ -13,7 +13,7 @@ normal  = uf::quaternion::rotate( mesh.transform.orientation, normal );
 
 // 
 namespace {
-	bool meshAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, AABB );
 
 		const auto& mesh = a;
@@ -36,7 +36,7 @@ namespace {
 		}
 		return hit;
 	}
-	bool meshSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool meshSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, SPHERE );
 
 		const auto& mesh = a;
@@ -61,7 +61,7 @@ namespace {
 		return hit;
 	}
 	// to-do
-	bool meshPlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool meshPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, PLANE );
 
 		const auto& mesh = a;
@@ -85,7 +85,7 @@ namespace {
 
 		return hit;
 	}
-	bool meshCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool meshCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, CAPSULE );
 
 		const auto& mesh = a;
@@ -110,7 +110,7 @@ namespace {
 		return hit;
 	}
 	// to-do
-	bool meshMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, MESH );
 
 		const auto& bvhA = *a.collider.u.mesh.bvh;
@@ -123,15 +123,11 @@ namespace {
 		pod::BVH::pair_t pairs;
 		::traverseNodePair(bvhA, 0, bvhB, 0, pairs);
 
-		UF_MSG_DEBUG("candidates={}", pairs.size());
-
 		bool hit = false;
 		// do collision per triangle
 		for (auto [ idA, idB] : pairs ) {
 			auto tA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
 			auto tB = ::fetchTriangle( meshB, idB, b );
-
-			UF_MSG_DEBUG("triA={}, triB={}", idA, idB );
 
 			if ( !::triangleTriangle( tA, tB, manifold, eps ) ) continue;
 			hit = true;

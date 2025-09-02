@@ -1,5 +1,5 @@
 namespace {
-	bool capsuleCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool capsuleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, CAPSULE );
 
 		auto [ A1, A2 ] = ::getCapsuleSegment( a );
@@ -20,7 +20,7 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool capsuleAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool capsuleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, AABB );
 		const auto& capsule = a;
 		const auto& box = b;
@@ -43,7 +43,7 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool capsulePlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool capsulePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, PLANE );
 		const auto& capsule = a;
 		const auto& plane = b;
@@ -77,7 +77,7 @@ namespace {
 	#endif
 		return true;
 	}
-	bool capsuleSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool capsuleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, SPHERE );
 		const auto& capsule = a;
 		const auto& sphere = b;
@@ -102,7 +102,7 @@ namespace {
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
 	}
-	bool capsuleMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool capsuleMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, MESH );
 		return meshCapsule( b, a, manifold, eps );
 	}

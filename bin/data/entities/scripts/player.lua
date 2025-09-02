@@ -2,7 +2,7 @@ local ent = ent
 local scene = entities.currentScene()
 local metadataJson = ent:getComponent("Metadata")
 local transform = ent:getComponent("Transform")
-local physicsState = ent:getComponent("Physics")
+local physicsBody = ent:getComponent("PhysicsBody")
 local camera = ent:getComponent("Camera")
 local cameraTransform = camera:getTransform()
 
@@ -112,7 +112,7 @@ ent:bind( "tick", function(self)
 		local direction = flattenedTransform.forward * 8
 
 		local offset = 0.25
-		local _, depth = physicsState:rayCast( center, direction )
+		local _, depth = physicsBody:rayCast( center, direction )
 		if depth >= 0.5 then
 			depth = 0.5
 		elseif depth < 0 then
@@ -142,7 +142,7 @@ ent:bind( "tick", function(self)
 		local center = flattenedTransform.position
 		local direction = flattenedTransform.forward * useDistance
 
-		local prop, depth = physicsState:rayCast( center, direction )
+		local prop, depth = physicsBody:rayCast( center, direction )
 		local payload = {
 			user = ent:uid(),
 			uid = prop and prop:uid() or 0,
@@ -164,10 +164,10 @@ ent:bind( "tick", function(self)
 		]]
 			local center = flattenedTransform.position
 			local direction = flattenedTransform.forward * pullDistance
-			local prop, depth = physicsState:rayCast( center, direction )
+			local prop, depth = physicsBody:rayCast( center, direction )
 			if depth >= 0 and prop and not string.matched( prop:name(), "/^worldspawn/" ) then
 				local heldObjectTransform = prop:getComponent("Transform")
-				local heldObjectPhysicsState = prop:getComponent("Physics")
+				local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
 
 				local strength = 500
 				local distanceSquared = (heldObjectTransform.position - flattenedTransform.position):magnitude()
@@ -191,7 +191,7 @@ ent:bind( "tick", function(self)
 
 		local prop = entities.get( heldObject.uid )
 		local heldObjectTransform = prop:getComponent("Transform")
-		local heldObjectPhysicsState = prop:getComponent("Physics")
+		local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
 
 		if mouse1 and timers.physcannon:elapsed() > 0.5 then
 			timers.physcannon:reset()
@@ -243,14 +243,14 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 			heldObject.uid = payload.uid
 			heldObject.distance = offset:norm()
 		
-			prop:getComponent("Physics"):enableGravity(false)
+			prop:getComponent("PhysicsBody"):enableGravity(false)
 		else
 			validUse = not string.matched( prop:name(), "/^worldspawn/" )
 		end
 	elseif heldObject.uid ~= 0 then
 		validUse = true
 		local prop = entities.get( heldObject.uid )
-		local heldObjectPhysicsState = prop:getComponent("Physics")
+		local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
 		heldObjectPhysicsState:enableGravity(true)
 		heldObjectPhysicsState:applyImpulse( heldObject.momentum )
 		

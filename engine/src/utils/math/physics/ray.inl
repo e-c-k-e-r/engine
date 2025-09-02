@@ -48,7 +48,7 @@ namespace {
 		return true;
 	}
 
-	bool rayAabb( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
+	bool rayAabb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		float tMin = 0.0f;
 		float tMax = FLT_MAX;
 
@@ -74,7 +74,7 @@ namespace {
 		}
 		return true;
 	}
-	bool raySphere( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
+	bool raySphere( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		auto center = ::getPosition(body);
 		float r = body.collider.u.sphere.radius;
 
@@ -87,8 +87,6 @@ namespace {
 
 		float disc = b*b - 4*a*c;
 
-		UF_MSG_DEBUG( "center={}, r={}, oc={}, a, b, c, disc", uf::vector::toString( center ), r, uf::vector::toString( oc ), a, b, c, disc );
-
 		if ( disc < 0 ) return false;
 
 		float sqrtDisc = std::sqrt(disc);
@@ -96,8 +94,6 @@ namespace {
 		float t1 = (-b + sqrtDisc) / (2*a);
 
 		float t = ( t0 >= 0 ) ? t0 : t1;
-
-		UF_MSG_DEBUG( "sqrtDisc={}, t0={}, t1={}, t={}, rayHit.contact.penetration={}", sqrtDisc, t0, t1, t, rayHit.contact.penetration );
 
 		if ( t < 0 ) return false; // both behind ray
 
@@ -112,7 +108,7 @@ namespace {
 		rayHit.contact.penetration = t;
 		return true;
 	}
-	bool rayPlane( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit, float eps = EPS(1e-6f) ) {
+	bool rayPlane( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit, float eps = EPS(1e-6f) ) {
 		auto& normal = body.collider.u.plane.normal;
 		float offset = body.collider.u.plane.offset;
 
@@ -131,7 +127,7 @@ namespace {
 		rayHit.contact.penetration = t;
 		return true;
 	}
-	bool rayCapsule( const pod::Ray& ray, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
+	bool rayCapsule( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		auto [ p1, p2 ] = ::getCapsuleSegment( body );
 		float r = body.collider.u.capsule.radius;
 
@@ -196,7 +192,7 @@ namespace {
 		return true;
 	}
 	
-	bool rayMesh( const pod::Ray& r, const pod::RigidBody& body, pod::RayQuery& rayHit ) {
+	bool rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		const uf::Mesh& meshData = *body.collider.u.mesh.mesh;
 		const pod::BVH& bvh  = *body.collider.u.mesh.bvh;
 

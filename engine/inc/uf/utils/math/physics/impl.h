@@ -62,9 +62,37 @@ namespace pod {
 
 	typedef uint32_t CollisionMask;
 
+
 	struct Collider {
+		// what it is
+		enum CategoryMask : uint32_t {
+			CATEGORY_NONE        = 0,
+			CATEGORY_STATIC      = 1 << 0,
+			CATEGORY_DYNAMIC     = 1 << 1,
+			CATEGORY_PLAYER      = 1 << 2,
+			CATEGORY_NPC         = 1 << 3,
+			CATEGORY_TRIGGER     = 1 << 4,
+			CATEGORY_PROJECTILE  = 1 << 5,
+			CATEGORY_CHARACTER   = CATEGORY_PLAYER | CATEGORY_NPC,
+			CATEGORY_ALL         = 0xFFFFFFFF
+		};
+		// what it collides with
+		enum CollisionMask : uint32_t {
+			MASK_NONE         = 0,
+			MASK_STATIC       = CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC | CATEGORY_PROJECTILE,
+			MASK_DYNAMIC      = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC,
+			MASK_PLAYER       = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_NPC | CATEGORY_PROJECTILE,
+			MASK_NPC          = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_PROJECTILE,
+			MASK_TRIGGER      = CATEGORY_PLAYER | CATEGORY_NPC,
+			MASK_PROJECTILE   = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC,
+			MASK_CHARACTER    = MASK_PLAYER | MASK_NPC,
+			MASK_ALL          = 0xFFFFFFFF
+		};
+
 		pod::ShapeType type;
-		pod::CollisionMask mask = 0xFFFFFFFF;
+		pod::CollisionMask category = Collider::CATEGORY_ALL;
+		pod::CollisionMask mask = Collider::MASK_ALL;
+
 		union {
 			pod::Sphere sphere;
 			pod::AABB aabb;
@@ -83,7 +111,7 @@ namespace pod {
 
 	struct World; // forward declare
 
-	struct RigidBody {
+	struct PhysicsBody {
 		pod::World* world = NULL;
 		uf::Object* object = NULL;
 		// pod::Transform<> transform = {};
@@ -105,6 +133,8 @@ namespace pod {
 		pod::Vector3f inertiaTensor = { 1, 1, 1 };
 		pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
 
+		pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+
 		pod::AABB bounds;
 		pod::Collider collider;
 		pod::PhysicsMaterial material;
@@ -123,20 +153,20 @@ namespace pod {
 	};
 
 	struct Manifold {
-		pod::RigidBody* a = NULL;
-		pod::RigidBody* b = NULL;
+		pod::PhysicsBody* a = NULL;
+		pod::PhysicsBody* b = NULL;
 		float dt = 0;
 		uf::stl::vector<pod::Contact> points;
 	};
 
 	struct RayQuery {
 		bool hit = false;
-		const pod::RigidBody* body;
+		const pod::PhysicsBody* body;
 		pod::Contact contact = { pod::Vector3f{}, pod::Vector3f{}, FLT_MAX };
 	};
 
 	struct World {
-		uf::stl::vector<pod::RigidBody*> bodies;
+		uf::stl::vector<pod::PhysicsBody*> bodies;
 	
 		pod::Vector3f gravity = { 0, -9.81f, 0 };
 		pod::BVH bvh;
@@ -168,38 +198,46 @@ namespace uf {
 			void UF_API step( pod::World&, float dt );
 			void UF_API substep( pod::World&, float dt, int substeps );
 
-			void UF_API setMass( pod::RigidBody& body, float mass = 0.0f );
-			void UF_API setInertia( pod::RigidBody& body );
-			void UF_API applyForce( pod::RigidBody& body, const pod::Vector3f& force );
-			void UF_API applyForceAtPoint( pod::RigidBody body, const pod::Vector3f& force, const pod::Vector3f& point );
-			void UF_API applyImpulse( pod::RigidBody& body, const pod::Vector3f& impulse );
-			void UF_API applyTorque( pod::RigidBody& body, const pod::Vector3f& torque );
+			void UF_API setMass( pod::PhysicsBody& body, float mass = 0.0f );
+			void UF_API setColliderCategory( pod::PhysicsBody&, uint32_t category = pod::Collider::CATEGORY_ALL );
+			void UF_API setColliderCategory( pod::PhysicsBody&, const uf::stl::string& );
+			void UF_API setColliderMask( pod::PhysicsBody&, uint32_t mask = pod::Collider::MASK_ALL );
+			void UF_API setColliderMask( pod::PhysicsBody&, const uf::stl::string& );
+			void UF_API setGravity( pod::PhysicsBody&, const pod::Vector3f& = { NAN, NAN, NAN } );
+			pod::Vector3f UF_API getGravity( pod::PhysicsBody& );
 
-			void UF_API setVelocity( pod::RigidBody& body, const pod::Vector3f& velocity );
-			void UF_API applyRotation( pod::RigidBody& body, const pod::Quaternion<>& q );
-			void UF_API applyRotation( pod::RigidBody& body, const pod::Vector3f& axis, float angle );
+			void UF_API updateInertia( pod::PhysicsBody& body );
+
+			void UF_API applyForce( pod::PhysicsBody& body, const pod::Vector3f& force );
+			void UF_API applyForceAtPoint( pod::PhysicsBody body, const pod::Vector3f& force, const pod::Vector3f& point );
+			void UF_API applyImpulse( pod::PhysicsBody& body, const pod::Vector3f& impulse );
+			void UF_API applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torque );
+
+			void UF_API setVelocity( pod::PhysicsBody& body, const pod::Vector3f& velocity );
+			void UF_API applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q );
+			void UF_API applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle );
 			
-			pod::RigidBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
 
-			pod::RigidBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object& object, const pod::TriangleWithNormal& tri, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::RigidBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::TriangleWithNormal& tri, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
 
 			void UF_API destroy( uf::Object& );
-			void UF_API destroy( pod::RigidBody& );
+			void UF_API destroy( pod::PhysicsBody& );
 
-			pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::RigidBody&, float = FLT_MAX );
+			pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::PhysicsBody&, float = FLT_MAX );
 			pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, float = FLT_MAX );
-			pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::RigidBody*, float = FLT_MAX );
+			pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::PhysicsBody*, float = FLT_MAX );
 		}
 	}
 }

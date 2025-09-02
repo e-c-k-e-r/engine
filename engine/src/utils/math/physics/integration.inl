@@ -1,5 +1,5 @@
 namespace {
-	float computeEffectiveMass( pod::RigidBody& a, pod::RigidBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& n ) {
+	float computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& n ) {
 		float inverseMass = 0.0f;
 		if ( !a.isStatic ) inverseMass += a.inverseMass;
 		if ( !b.isStatic ) inverseMass += b.inverseMass;
@@ -21,7 +21,7 @@ namespace {
 		return result;
 	}
 
-	void applyImpulseTo( pod::RigidBody& a, pod::RigidBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
+	void applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
 		if ( !a.isStatic ) {
 			a.velocity -= impulse * a.inverseMass;
 			a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
@@ -34,7 +34,7 @@ namespace {
 		}
 	}
 
-	void applyRollingResistance( pod::RigidBody& body, float dt ) {
+	void applyRollingResistance( pod::PhysicsBody& body, float dt ) {
 		if ( body.isStatic ) return;
 
 		float rollingFriction = 0.02f; // to-do: derive from material
@@ -45,14 +45,14 @@ namespace {
 		// body.angularVelocity *= -rollingFriction * dt;
 	}
 
-	void bindManifold( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt = 0 ) {
+	void bindManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt = 0 ) {
 		manifold.a = &a;
 		manifold.b = &b;
 		manifold.dt = dt;
 		manifold.points.clear();
 	}
 
-	bool generateContactsGjk( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	bool generateContactsGjk( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		::bindManifold( a, b, manifold, dt );
 
 		pod::Simplex simplex;
@@ -66,7 +66,7 @@ namespace {
 		return true;
 	}
 
-	bool generateContacts( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	bool generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		if ( ::useGjk ) return generateContactsGjk( a, b, manifold, dt );
 		::bindManifold( a, b, manifold, dt );
 
@@ -172,7 +172,7 @@ namespace {
 		}
 	}
 
-	void warmupContacts( pod::RigidBody& a, pod::RigidBody& b, const pod::Contact& c, float dt ) {
+	void warmupContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& c, float dt ) {
 		if ( !c.lifetime ) return; // too new
 
 		// build relative offsets
@@ -189,14 +189,14 @@ namespace {
 
 	//	UF_MSG_DEBUG("Warming, Pn={}, Pt={}, lifetime={}", uf::vector::toString(Pn), uf::vector::toString(Pt), c.lifetime );
 	}
-	void warmupManifold( pod::RigidBody& a, pod::RigidBody& b, const pod::Manifold& manifold, float dt ) {
+	void warmupManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Manifold& manifold, float dt ) {
 		for ( auto& contact : manifold.points ) {
 			::warmupContacts( a, b, contact, dt );
 		}
 	}
 
 	// baumgarte position correction
-	void positionCorrection( pod::RigidBody& a, pod::RigidBody& b, const pod::Contact& contact ) {
+	void positionCorrection( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& contact ) {
 		if ( ::baumgarteCorrectionPercent <= 0 ) return;
 
 		float correctionMagnitude = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) / (a.inverseMass + b.inverseMass) * ::baumgarteCorrectionPercent;
@@ -206,7 +206,7 @@ namespace {
 		if ( !b.isStatic ) b.transform/*.reference*/->position += correction * b.inverseMass;
 	}
 
-	void integrate( pod::RigidBody& body, float dt ) {
+	void integrate( pod::PhysicsBody& body, float dt ) {
 		// only integrate dynamic bodies
 		if ( body.isStatic || body.mass == 0 ) return;
 
@@ -214,7 +214,7 @@ namespace {
 
 		// linear integration
 		pod::Vector3f acceleration = body.forceAccumulator * body.inverseMass;
-		acceleration += world.gravity; // apply gravity
+		acceleration += uf::physics::impl::getGravity( body ); // apply gravity
 		body.velocity += acceleration * dt;
 		body.transform/*.reference*/->position += body.velocity * dt;
 

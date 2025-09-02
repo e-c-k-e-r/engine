@@ -29,6 +29,8 @@ namespace pod {
 
 		// Render information
 		uf::stl::vector<uf::stl::string> primitives; //
+		uf::stl::vector<uf::stl::string> instances; // ugh
+		uf::stl::vector<uf::stl::string> drawCommands; // ugh
 		uf::stl::vector<uf::stl::string> meshes; //
 
 		uf::stl::vector<uf::stl::string> images; //
@@ -79,8 +81,10 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
+			uf::stl::KeyMap<pod::Instance> instances; // should be unused but is a counter for global instance IDs because I cannot for the life of me figure out a working way to remap otherwise
 			uf::stl::KeyMap<pod::Instance::Addresses> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
+			uf::stl::KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands; // unused
 			uf::stl::KeyMap<uf::Mesh> meshes;
 
 			uf::stl::KeyMap<uf::Image> images;

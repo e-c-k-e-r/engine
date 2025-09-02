@@ -8,6 +8,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
+#include <uf/utils/io/fmt.h>
 
 // it's too unstable right now to do multithreaded loading, perhaps there's a better way
 #if UF_USE_OPENGL
@@ -414,6 +415,17 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		graph.settings.stream.hash = graph.metadata["stream"]["hash"].as(graph.settings.stream.hash);
 		graph.settings.stream.lastUpdate = graph.metadata["stream"]["lastUpdate"].as(graph.settings.stream.lastUpdate);
 	}
+	// store offsets
+	{
+		size_t instances = 0;
+		for ( auto& key : storage.primitives.keys ) {
+			instances += storage.primitives.map[key].size();
+		}
+
+		graph.metadata["offsets"]["instances"] = instances;
+		graph.metadata["offsets"]["materials"] = storage.materials.keys.size();
+		graph.metadata["offsets"]["joints"] = storage.joints.keys.size();
+	}
 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) {
@@ -429,6 +441,12 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			// UF_MSG_DEBUG("{}", name);
 			storage.primitives[name] = decodePrimitives( value, graph );
 			graph.primitives.emplace_back(name);
+
+			uf::stl::vector<pod::DrawCommand> drawCommands;
+			for ( auto& primitive : storage.primitives[name] ) {
+				drawCommands.emplace_back( primitive.drawCommand );
+			}
+			storage.drawCommands[name] = std::move(drawCommands);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read primitives.");
 	#if UF_ENV_DREAMCAST

@@ -6,14 +6,18 @@
 
 namespace {
 	bool warmupSolver = true;
-	bool blockContactSolver = false;
-	bool psgContactSolver = true;
-	bool useGjk = false;
+	bool blockContactSolver = false; // blockNxN solver is flawed
+	bool psgContactSolver = true; // iterative solver is flawed
+	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 	bool fixedStep = true;
-	int substeps = 0;
+	int substeps = 4;
 
-	int solverIterations = 10;
-	float baumgarteCorrectionPercent = 0.005f;
+	// increasing these make things lag
+	int broadphaseBvhCapacity = 1;
+	int meshBvhCapacity = 1;
+
+	int solverIterations = 5;
+	float baumgarteCorrectionPercent = 0.005f; // needs to be very small or the correction is too large
 	float baumgarteCorrectionSlop = 0.001f;
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 }
@@ -106,13 +110,16 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	uf::stl::vector<std::pair<int,int>> pairs;
 
 	// create BVH
-	::buildBroadphaseBVH(bvh, bodies);
+	::buildBroadphaseBVH( bvh, bodies, ::broadphaseBvhCapacity );
 	// query for overlaps
 	::queryOverlaps( bvh, pairs );
 	// iterate overlaps
 	for ( auto& [ia, ib] : pairs ) {
 		auto& a = *bodies[ia];
 		auto& b = *bodies[ib];
+
+		// could be also pruned in the broadphase, but traversal needs to be agnostic between a BVH for bodies or a BVH for triangles
+		if ( !::shouldCollide( a, b ) ) continue;
 
 		pod::Manifold manifold;
 		if ( ::generateContacts( a, b, manifold, dt ) ) {
@@ -136,8 +143,6 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			manifolds.emplace_back(manifold);
 		}
 	}
-
-//	for ( auto& m : manifolds ) for ( auto& c : m.points ) UF_MSG_DEBUG("contact={}, normal={}, depth={}", uf::vector::toString( c.point ), uf::vector::toString( c.normal ), c.penetration );
 
 	// pass manifolds to solver
 	::solveContacts( manifolds, dt );
@@ -166,12 +171,50 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	}
 }
 
-void uf::physics::impl::setMass( pod::RigidBody& body, float mass ) {
+void uf::physics::impl::setMass( pod::PhysicsBody& body, float mass ) {
 	body.mass = mass;
 	body.inverseMass = 1.0f / mass;
-	uf::physics::impl::setInertia( body );
+	uf::physics::impl::updateInertia( body );
 }
-void uf::physics::impl::setInertia( pod::RigidBody& body ) {
+
+void uf::physics::impl::setColliderCategory( pod::PhysicsBody& body, uint32_t category ) {
+	body.collider.category = category;
+}
+void uf::physics::impl::setColliderCategory( pod::PhysicsBody& body, const uf::stl::string& category ) {
+	auto c = uf::string::uppercase( category );
+	if ( c == "NONE" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_NONE );
+	if ( c == "STATIC" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_STATIC );
+	if ( c == "DYNAMIC" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_DYNAMIC );
+	if ( c == "PLAYER" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_PLAYER );
+	if ( c == "NPC" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_NPC );
+	if ( c == "TRIGGER" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_TRIGGER );
+	if ( c == "PROJECTILE" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_PROJECTILE );
+	if ( c == "CHARACTER" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_CHARACTER );
+	if ( c == "ALL" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::CATEGORY_ALL );
+}
+void uf::physics::impl::setColliderMask( pod::PhysicsBody& body, uint32_t mask ) {
+	body.collider.mask = mask;
+}
+void uf::physics::impl::setColliderMask( pod::PhysicsBody& body, const uf::stl::string& mask ) {
+	auto m = uf::string::uppercase( mask );
+	if ( m == "NONE" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_NONE );
+	if ( m == "STATIC" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_STATIC );
+	if ( m == "DYNAMIC" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_DYNAMIC );
+	if ( m == "PLAYER" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_PLAYER );
+	if ( m == "NPC" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_NPC );
+	if ( m == "TRIGGER" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_TRIGGER );
+	if ( m == "PROJECTILE" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_PROJECTILE );
+	if ( m == "CHARACTER" ) return uf::physics::impl::setColliderCategory( body, pod::Collider::MASK_CHARACTER );
+	if ( m == "ALL" ) return uf::physics::impl::setColliderMask( body, pod::Collider::MASK_ALL );
+}
+void uf::physics::impl::setGravity( pod::PhysicsBody& body, const pod::Vector3f& gravity ) {
+	body.gravity = gravity;
+}
+pod::Vector3f uf::physics::impl::getGravity( pod::PhysicsBody& body ) {
+	return uf::vector::isValid( body.gravity ) ? body.gravity : body.world->gravity;
+}
+
+void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 	if ( body.isStatic || body.mass <= 0 ) {
 		body.inverseInertiaTensor = {};
 		return;
@@ -211,11 +254,11 @@ void uf::physics::impl::setInertia( pod::RigidBody& body ) {
 		} break;
 	}
 }
-void uf::physics::impl::applyForce( pod::RigidBody& body, const pod::Vector3f& force ) {
+void uf::physics::impl::applyForce( pod::PhysicsBody& body, const pod::Vector3f& force ) {
 	if ( body.isStatic ) return;
 	body.forceAccumulator += force;
 }
-void uf::physics::impl::applyForceAtPoint( pod::RigidBody body, const pod::Vector3f& force, const pod::Vector3f& point ) {
+void uf::physics::impl::applyForceAtPoint( pod::PhysicsBody body, const pod::Vector3f& force, const pod::Vector3f& point ) {
 	if ( body.isStatic ) return;
 	// linear force
 	body.forceAccumulator += force;
@@ -223,28 +266,28 @@ void uf::physics::impl::applyForceAtPoint( pod::RigidBody body, const pod::Vecto
 	pod::Vector3f r = point - ::getPosition( body );
 	body.torqueAccumulator += uf::vector::cross( r, force );
 }
-void uf::physics::impl::applyImpulse( pod::RigidBody& body, const pod::Vector3f& impulse ) {
+void uf::physics::impl::applyImpulse( pod::PhysicsBody& body, const pod::Vector3f& impulse ) {
 	if ( body.isStatic ) return;
 	body.velocity += impulse * body.inverseMass;
 }
-void uf::physics::impl::applyTorque( pod::RigidBody& body, const pod::Vector3f& torque ) {
+void uf::physics::impl::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torque ) {
 	if ( body.isStatic ) return;
 	body.torqueAccumulator += torque;
 }
-void uf::physics::impl::setVelocity( pod::RigidBody& body, const pod::Vector3f& v ) {
+void uf::physics::impl::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	body.velocity = v;
 }
-void uf::physics::impl::applyRotation( pod::RigidBody& body, const pod::Quaternion<>& q ) {
+void uf::physics::impl::applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q ) {
 	uf::transform::rotate( *body.transform/*.reference*/, q );
 }
-void uf::physics::impl::applyRotation( pod::RigidBody& body, const pod::Vector3f& axis, float angle ) {
+void uf::physics::impl::applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle ) {
 	applyRotation( body, uf::quaternion::axisAngle( axis, angle ) );
 }
 
 // body creation
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& offset ) {
 	// bind to component
-	pod::RigidBody& body = object.getComponent<pod::RigidBody>();
+	pod::PhysicsBody& body = object.getComponent<pod::PhysicsBody>();
 	// initial initialization
 	body.world = &world;
 	body.object = &object;
@@ -254,71 +297,70 @@ pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object
 	body.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
 	body.isStatic = mass == 0.0f;
 
+	if ( body.isStatic ) {
+		uf::physics::impl::setColliderCategory(body, "STATIC");
+		uf::physics::impl::setColliderMask(body, "STATIC");
+	}
+
 	// insert into world
 	world.bodies.emplace_back(&body);
 
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::AABB;
 	body.collider.u.aabb = aabb;
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type: {}, mass={}, min={}, max={}", "AABB", mass, uf::vector::toString(aabb.min), uf::vector::toString(aabb.max) );
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::SPHERE;
 	body.collider.u.sphere = sphere;
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type={}, mass={}, radius={}", "SPHERE", mass, sphere.radius );
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::PLANE;
 	body.collider.u.plane = plane;
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type={}, mass={}, normal={}, offset={}", "PLANE", mass, uf::vector::toString( plane.normal ), plane.offset );
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::CAPSULE;
 	body.collider.u.capsule = capsule;
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type={}, mass={}, radius={}, height={}", "CAPSULE", mass, capsule.radius, capsule.halfHeight * 2.0f );
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::TriangleWithNormal& tri, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::TriangleWithNormal& tri, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::TRIANGLE;
 	body.collider.u.triangle = tri;
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type={}, mass={}, point[0]={}, point[1]={}, point[2]={}", "TRIANGLE", mass, uf::vector::toString( tri.points[0] ), uf::vector::toString( tri.points[1] ), uf::vector::toString( tri.points[2] ) );
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::RigidBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::MESH;
 	body.collider.u.mesh.mesh = &mesh;
 	body.collider.u.mesh.bvh = new pod::BVH;
 
-	::buildMeshBVH( *body.collider.u.mesh.bvh, mesh );
+	::buildMeshBVH( *body.collider.u.mesh.bvh, mesh, ::meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
-	uf::physics::impl::setInertia( body );
-	UF_MSG_DEBUG("Creating body of type={}, mass={}, nodes={} indices={} ", "MESH", mass, body.collider.u.mesh.bvh->nodes.size(), body.collider.u.mesh.bvh->indices.size());
+	uf::physics::impl::updateInertia( body );
 	return body;
 }
 
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, float mass, const pod::Vector3f& offset ) {
 	// bind to scene
 	// auto& root = object.getRootParent<>(); // in the event a scene is being initialized that is not the root scene, use the root parent instead
 	// auto& world = root.getComponent<pod::World>();
@@ -327,38 +369,38 @@ pod::RigidBody& uf::physics::impl::create( uf::Object& object, float mass, const
 	return create( world, object, mass, offset );
 	
 }
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, aabb, mass, offset );
 }
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, sphere, mass, offset );
 }
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, plane, mass, offset );
 }
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, capsule, mass, offset );
 }
-pod::RigidBody& uf::physics::impl::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, mesh, mass, offset );
 }
 
 void uf::physics::impl::destroy( uf::Object& object ) {
-	if ( !object.hasComponent<pod::RigidBody>() ) return;
+	if ( !object.hasComponent<pod::PhysicsBody>() ) return;
 	
-	return destroy( object.getComponent<pod::RigidBody>() );
+	return destroy( object.getComponent<pod::PhysicsBody>() );
 }
-void uf::physics::impl::destroy( pod::RigidBody& body ) {
+void uf::physics::impl::destroy( pod::PhysicsBody& body ) {
 	auto& world = *body.world;
 	// remove from world
 	for ( auto it = world.bodies.begin(); it != world.bodies.end(); ++it ) {
@@ -373,27 +415,23 @@ void uf::physics::impl::destroy( pod::RigidBody& body ) {
 	}
 }
 
-pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::RigidBody& body, float maxDistance ) {
+pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance ) {
 	return rayCast( ray, *body.world, &body, maxDistance );
 }
 pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World& world, float maxDistance ) {
 	return rayCast( ray, world, NULL, maxDistance );
 }
-pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World& world, const pod::RigidBody* body, float maxDistance ) {
+pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance ) {
 	pod::RayQuery rayHit;
 	rayHit.contact.penetration = maxDistance;
 
 	auto& bvh = world.bvh;
 	auto& bodies = world.bodies;
 
-#if 1
 	uf::stl::vector<int> candidates;
 	::queryBVH( bvh, ray, candidates );
 
 	for ( auto i : candidates ) {
-#else
-	for ( auto i = 0; i < bodies.size(); ++i ) {
-#endif
 		auto* b = bodies[i];
 		if ( body == b ) continue;
 		switch ( b->collider.type ) {

@@ -1,5 +1,5 @@
 namespace {
-	void iterativeImpulseSolver( pod::RigidBody& a, pod::RigidBody& b, pod::Contact& contact, float dt ) {
+	void iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Contact& contact, float dt ) {
 		// relative positions from centers to contact point
 		pod::Vector3f rA = contact.point - ::getPosition( a, true );
 		pod::Vector3f rB = contact.point - ::getPosition( b, true );
@@ -74,7 +74,7 @@ namespace {
 	}
 
 	template<size_t N, typename T = float>
-	void blockNxNSolver( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void blockNxNSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		pod::Matrix<T,N> K = {};
 		pod::Vector<T,N> rhs = {};
 		pod::Vector<T,N> lambda = {};
@@ -167,17 +167,17 @@ namespace {
 		}
 	}
 
-	void block2x2Solver( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void block2x2Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		return ::blockNxNSolver<2>( a, b, manifold, dt );
 	}
-	void block3x3Solver( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void block3x3Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		return ::blockNxNSolver<3>( a, b, manifold, dt );
 	}
-	void block4x4Solver( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void block4x4Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		return ::blockNxNSolver<4>( a, b, manifold, dt );
 	}
 
-	void blockPGSSolver( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void blockPGSSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		const int count = std::min( (int) manifold.points.size(), 4 );
 		// precompute inv mass
 		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
@@ -260,7 +260,7 @@ namespace {
 		}
 	}
 
-	void resolveManifold( pod::RigidBody& a, pod::RigidBody& b, pod::Manifold& manifold, float dt ) {
+	void resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		if ( ::blockContactSolver ) {
 			if ( manifold.points.size() == 2 ) return ::block2x2Solver( a, b, manifold, dt );
 			if ( manifold.points.size() == 3 ) return ::block3x3Solver( a, b, manifold, dt );

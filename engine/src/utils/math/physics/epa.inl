@@ -77,7 +77,7 @@ namespace {
 		}
 	}
 
-	pod::Contact epa( const pod::RigidBody& a, const pod::RigidBody& b, const pod::Simplex& simplex, int maxIterations = 64, float eps = EPS(1.0e-4f) ) {
+	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, int maxIterations = 64, float eps = EPS(1.0e-4f) ) {
 		UF_ASSERT( ::isValidSimplex(simplex) );
 
 		auto faces = ::initialPolytope(simplex);

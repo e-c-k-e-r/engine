@@ -345,16 +345,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			}
 		}
 	}
-	// Set movement
-	#if UF_USE_REACTPHYSICS
-	if ( ext::json::isObject( json["physics"] ) && !this->hasComponent<pod::Physics>() ) {
-		auto& physics = this->getComponent<pod::Physics>();
-		physics.velocity = uf::vector::decode( json["physics"]["linear"]["velocity"], physics.velocity );
-		physics.acceleration = uf::vector::decode( json["physics"]["linear"]["acceleration"], physics.acceleration );
-		physics.angularVelocity = uf::vector::decode( json["physics"]["rotational"]["velocity"], physics.angularVelocity );
-		physics.angularAcceleration = uf::vector::decode( json["physics"]["rotational"]["acceleration"], physics.angularAcceleration );
-	}
-	#endif
 
 	// Load assets
 	this->loadAssets( json );

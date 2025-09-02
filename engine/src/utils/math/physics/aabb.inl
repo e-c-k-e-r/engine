@@ -27,7 +27,7 @@ namespace {
 		};
 	}
 
-	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::RigidBody& body ) {
+	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body ) {
 		const auto transform = ::getTransform( body );
 		const auto& capsule = body.collider.u.capsule;
 		const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
@@ -38,7 +38,7 @@ namespace {
 		return { p1, p2 };
 	}
 
-	pod::AABB computeAABB( const pod::RigidBody& body ) {
+	pod::AABB computeAABB( const pod::PhysicsBody& body ) {
 		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::AABB: {
@@ -197,7 +197,7 @@ namespace {
 		return ( aabb.max - aabb.min ) * 0.5f;
 	}
 
-	bool aabbAabb( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES(AABB, AABB);
 
 		const auto& A = a.bounds;
@@ -257,19 +257,19 @@ namespace {
 		return true;
 	}
 
-	bool aabbSphere( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, SPHERE );
 		return ::sphereAabb( b, a, manifold, eps );
 	}
-	bool aabbPlane( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool aabbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, PLANE );
 		return ::planeAabb( b, a, manifold, eps );
 	}
-	bool aabbCapsule( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool aabbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, CAPSULE );
 		return ::capsuleAabb( b, a, manifold, eps );
 	}
-	bool aabbMesh( const pod::RigidBody& a, const pod::RigidBody& b, pod::Manifold& manifold, float eps ) {
+	bool aabbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, MESH );
 		return ::meshAabb( b, a, manifold, eps );
 	}

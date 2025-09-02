@@ -117,7 +117,7 @@
 					"gui": true,
 					"vsync": false, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true,
+					"vxgi": false, // true
 					"culling": true,
 					"bloom": true,
 					"rt": false,
@@ -359,7 +359,7 @@
 		},
 		"threads": {
 			"workers" : "auto",
-			"frame limiter": "auto"
+			"frame limiter": 0 // "auto"
 		},
 		"debug": {
 			"framerate": {
@@ -381,8 +381,8 @@
 				"auto validate": false
 			},
 			"loader": {
-				"assert": true,
-				"async": true
+				"assert": true
+				//"async": true
 			},
 			"hooks": {
 				"defer lazy calls": true
