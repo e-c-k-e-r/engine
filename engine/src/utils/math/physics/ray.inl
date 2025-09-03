@@ -193,8 +193,8 @@ namespace {
 	}
 	
 	bool rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
-		const uf::Mesh& meshData = *body.collider.u.mesh.mesh;
-		const pod::BVH& bvh  = *body.collider.u.mesh.bvh;
+		const auto& meshData = *body.collider.u.mesh.mesh;
+		const auto& bvh  = *body.collider.u.mesh.bvh;
 
 		const auto transform = ::getTransform( body );
 
@@ -202,10 +202,10 @@ namespace {
 		ray.origin	= uf::transform::applyInverse( transform, r.origin );
 		ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
 
-		uf::stl::vector<int> indices;
-		::queryBVH( bvh, ray, indices );
+		uf::stl::vector<int32_t> candidates;
+		::queryBVH( bvh, ray, candidates );
 
-		for ( auto triID : indices ) {
+		for ( auto triID : candidates ) {
 			auto tri = ::fetchTriangle( meshData, triID );
 
 			float t, u, v;
@@ -213,8 +213,7 @@ namespace {
 			if ( t >= rayHit.contact.penetration ) continue;
 
 			auto l = ray.origin + ray.direction * t;
-			auto bary = ::computeBarycentric( l, tri );
-			auto n = uf::vector::normalize( ::interpolateWithBarycentric( bary, tri.normals ) );
+			auto n = ::triangleNormal( tri );
 
 			// push back to world
 			auto p = uf::transform::apply( transform, l);

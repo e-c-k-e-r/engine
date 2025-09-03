@@ -303,7 +303,7 @@
 			},
 			"reactphysics": {
 				"global storage": false,
-				"timescale": 0.01666666666,
+				"timescale": 0.01666666666, // 0.03333333333,
 				"interpolate": true,
 				"gravity": {
 					"mode": "default", // default / per-object / universal

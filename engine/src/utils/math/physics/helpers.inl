@@ -36,19 +36,32 @@ namespace {
 	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
+	// ugh
 	pod::Vector3f aabbCenter( const pod::AABB& aabb );
 	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS(1.0e-6f) );
 	pod::AABB computeTriangleAABB( const pod::Triangle& tri );
 
 	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt );
 
-	void traverseNodePair( const pod::BVH& bvh, int leftID, int rightID, pod::BVH::pair_t& pairs );
-	void traverseNodePair( const pod::BVH& a, int nodeA, const pod::BVH& b, int nodeB, pod::BVH::pair_t& out );
+	int flattenBVH( pod::BVH& bvh, int nodeID );
+
+	void traverseNodePair( const pod::BVH& bvh, int32_t leftID, int32_t rightID, pod::BVH::pairs_t& pairs );
+	void traverseNodePair( const pod::BVH& a, int32_t nodeA, const pod::BVH& b, int32_t nodeB, pod::BVH::pairs_t& out );
 	
-	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int>& indices );
-	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int>& indices, int nodeID );
-	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int>& indices, int nodeID, float maxDist = FLT_MAX );
-	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int>& indices, float maxDist = FLT_MAX );
+	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices );
+	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices, int32_t nodeID );
+
+	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, float maxDist = FLT_MAX );
+	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, int32_t nodeID, float maxDist = FLT_MAX );
+
+	void queryFlatBVH( const pod::BVH&, const pod::AABB& bounds, uf::stl::vector<int32_t>& out );
+	void queryFlatBVH( const pod::BVH&, const pod::Ray& ray, uf::stl::vector<int32_t>& out, float maxDist = FLT_MAX );
+
+	void queryOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
+	void queryOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
+	
+	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
+	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
 }
 
 namespace {
@@ -58,6 +71,40 @@ namespace {
 		auto idB = reinterpret_cast<uint64_t>(&b);
 		if ( idA > idB ) std::swap(idA, idB); // ensure consistent order
 		return (idA << 32) ^ idB;
+	}
+
+	void deduplicatePairs( pod::BVH::pairs_t& pairs ) {
+		// should already be swapped
+		for (auto& [a, b] : pairs) if (a > b) std::swap(a, b);
+		std::sort(pairs.begin(), pairs.end());
+		pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+	}
+
+	// marks a body as asleep
+	void wakeBody( pod::PhysicsBody& body ) {
+		body.activity.awake = true;
+		body.activity.sleepTimer = 0.0f;
+	}
+	void sleepBody( pod::PhysicsBody& body ) {
+		body.activity.awake = false;
+		body.velocity = pod::Vector3f{};
+		body.angularVelocity = pod::Vector3f{};
+	}
+	void updateActivity( pod::PhysicsBody& body, float dt ) {
+		// already asleep
+		if ( !body.activity.awake ) return;
+
+		// check if body is moving
+		float linSpeed = uf::vector::norm( body.velocity );
+		float angSpeed = uf::vector::norm( body.angularVelocity );
+
+		// body is nearly still
+		if ( linSpeed < pod::Activity::linearSleepEpsilon && angSpeed < pod::Activity::angularSleepEpsilon ) {
+			body.activity.sleepTimer += dt;
+			if ( body.activity.sleepTimer > pod::Activity::sleepThreshold ) ::sleepBody( body );
+		}
+		// body is moving, reset timer
+		else ::wakeBody( body );
 	}
 
 	// returns an absolute transform while also allowing offsetting the collision body
@@ -78,6 +125,7 @@ namespace {
 		return ( a.category & b.mask ) && ( b.category & a.mask );
 	}
 	bool shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
+	//	if ( a.isStatic && b.isStatic ) return false;
 		return ::shouldCollide( a.collider, b.collider );
 	}
 
@@ -240,7 +288,7 @@ namespace {
 	}
 
 	pod::Vector3f closestPointOnTriangle( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c ) {
-		// Check if P in vertex region outside A
+		// check if P in vertex region outside A
 		pod::Vector3f ab = b - a;
 		pod::Vector3f ac = c - a;
 		pod::Vector3f ap = p - a;
@@ -248,40 +296,40 @@ namespace {
 		float d2 = uf::vector::dot(ac, ap);
 		if (d1 <= 0 && d2 <= 0) return a;
 
-		// Check if P in vertex region outside B
+		// check if P in vertex region outside B
 		pod::Vector3f bp = p - b;
 		float d3 = uf::vector::dot(ab, bp);
 		float d4 = uf::vector::dot(ac, bp);
 		if (d3 >= 0 && d4 <= d3) return b;
 
-		// Check if P in edge region of AB, if so return projection on AB
+		// check if P in edge region of AB, if so return projection on AB
 		float vc = d1 * d4 - d3 * d2;
 		if (vc <= 0 && d1 >= 0 && d3 <= 0) {
 			float v = d1 / (d1 - d3);
 			return a + ab * v;
 		}
 
-		// Check vertex region outside C
+		// check vertex region outside C
 		pod::Vector3f cp = p - c;
 		float d5 = uf::vector::dot(ab, cp);
 		float d6 = uf::vector::dot(ac, cp);
 		if (d6 >= 0 && d5 <= d6) return c;
 
-		// Check edge region of AC
+		// check edge region of AC
 		float vb = d5 * d2 - d1 * d6;
 		if (vb <= 0 && d2 >= 0 && d6 <= 0) {
 			float w = d2 / (d2 - d6);
 			return a + ac * w;
 		}
 
-		// Check edge region of BC
+		// check edge region of BC
 		float va = d3 * d6 - d5 * d4;
 		if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
 			float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
 			return b + (c - b) * w;
 		}
 
-		// P inside face region. Return projection onto face
+		// p inside face region. Return projection onto face
 		float denom = 1.0f / (va + vb + vc);
 		float v = vb * denom;
 		float w = vc * denom;

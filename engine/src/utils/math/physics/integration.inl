@@ -114,33 +114,38 @@ namespace {
 		if ( manifold.points.size() <= 4 ) return;
 
 		uf::stl::vector<pod::Contact> result;
+		result.reserve(4);
+
 		for ( auto& c : manifold.points ) {
-			// prune invalid contacts
-			if ( !uf::vector::isValid( c.point ) ) continue;
+			if ( !uf::vector::isValid(c.point) ) continue;
 
 			bool merged = false;
 			for ( auto& r : result ) {
-				if ( !::similarContact( c, r ) ) continue;
-				// merge, pick deeper penetration
+				if ( !::similarContact(c, r) ) continue;
 				if ( c.penetration > r.penetration ) r = c;
 				merged = true;
 				break;
 			}
-			if ( !merged ) result.emplace_back(c);
+			if ( !merged ) {
+				if ( result.size() < 4 ) {
+					result.emplace_back(c);
+				} else {
+					// Replace weakest if this one is stronger
+					int weakest = 0;
+					for ( auto i = 1; i < 4; i++ ) {
+						if ( result[i].penetration < result[weakest].penetration ) weakest = i;
+					}
+					if ( c.penetration > result[weakest].penetration ) result[weakest] = c;
+				}
+			}
 		}
-		
-		// UF_MSG_DEBUG("Reduced {} => {} contacts", manifold.points.size(), result.size());
-
-		// keep only deepest + farthest up to 4
-		std::sort(result.begin(), result.end(), [](auto& a, auto& b){ return a.penetration > b.penetration; });
-		if ( result.size() > 4 ) result.resize(4);
 
 		manifold.points = result;
 	}
 
 	void mergeContacts( pod::Manifold& manifold ) {
 		uf::stl::vector<pod::Contact> result;
-		
+		result.reserve(4);
 		for ( auto& c : manifold.points ) {
 			bool merged = false;
 			for ( auto& r : result ) {
@@ -172,6 +177,28 @@ namespace {
 		}
 	}
 
+	void storeManifolds( uf::stl::vector<pod::Manifold>& manifolds, uf::stl::unordered_map<size_t, pod::Manifold>& manifoldsCache ){
+		// update cache
+		for ( auto& manifold : manifolds ) {
+			manifoldsCache[::makePairKey( *manifold.a, *manifold.b )] = manifold;
+		}
+
+		// prune if too old / empty
+		for ( auto itCache = manifoldsCache.begin(); itCache != manifoldsCache.end(); ) {
+			auto& manifold = itCache->second;
+
+			// prune manifolds that are X frames old
+			for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
+				if ( it->lifetime > ::manifoldCacheLifetime ) it = manifold.points.erase(it);
+				else ++it;
+			}
+
+			// empty manifold, kill it
+			if ( manifold.points.empty() ) itCache = manifoldsCache.erase(itCache);
+			else ++itCache;
+		}
+	}
+
 	void warmupContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& c, float dt ) {
 		if ( !c.lifetime ) return; // too new
 
@@ -198,12 +225,22 @@ namespace {
 	// baumgarte position correction
 	void positionCorrection( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& contact ) {
 		if ( ::baumgarteCorrectionPercent <= 0 ) return;
+		if ( a.isStatic && b.isStatic ) return;
 
-		float correctionMagnitude = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) / (a.inverseMass + b.inverseMass) * ::baumgarteCorrectionPercent;
-		pod::Vector3f correction = contact.normal * correctionMagnitude;
+		// penetration depth beyond slop
+		float penetration = std::max( contact.penetration - ::baumgarteCorrectionSlop, 0.0f );
+		if ( penetration <= 0.0f ) return;
 
-		if ( !a.isStatic ) a.transform/*.reference*/->position -= correction * a.inverseMass;
-		if ( !b.isStatic ) b.transform/*.reference*/->position += correction * b.inverseMass;
+		// compute correction magnitude
+		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
+		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
+		float totalInvMass = invMassA + invMassB;
+		if ( totalInvMass <= EPS(1e-8f) ) return;
+
+		// apply correction vector
+		pod::Vector3f correction = contact.normal * (penetration / totalInvMass) * ::baumgarteCorrectionPercent;
+		if ( !a.isStatic ) a.transform->position -= correction * invMassA;
+		if ( !b.isStatic ) b.transform->position += correction * invMassB;
 	}
 
 	void integrate( pod::PhysicsBody& body, float dt ) {
@@ -236,6 +273,9 @@ namespace {
 
 
 		// apply rolling resistance
-		::applyRollingResistance(body, dt);
+		::applyRollingResistance( body, dt );
+
+		// update activity state
+		::updateActivity( body, dt );
 	}
 }

@@ -1384,6 +1384,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					if ( ext::json::isNull( metadataJson["physics"]["min"] ) ) metadataJson["physics"]["min"] = uf::vector::encode( min );
 					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( max );
 				}
+			#if !UF_GRAPH_EXTENDED
 				if ( type == "mesh" ) {
 					auto& physicsBody = entity.getComponent<pod::PhysicsBody>();
 					float mass = phyziks["mass"].as(physicsBody.mass);
@@ -1395,6 +1396,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				
 					uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass );
 				}
+			#endif
 			}
 		}
 	}

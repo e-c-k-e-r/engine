@@ -21,13 +21,13 @@ namespace {
 			}
 			case pod::ShapeType::TRIANGLE: {
 				const auto& tri = body.collider.u.triangle;
-			    float d0 = uf::vector::dot( tri.points[0], dir );
-			    float d1 = uf::vector::dot( tri.points[1], dir );
-			    float d2 = uf::vector::dot( tri.points[2], dir );
+				float d0 = uf::vector::dot( tri.points[0], dir );
+				float d1 = uf::vector::dot( tri.points[1], dir );
+				float d2 = uf::vector::dot( tri.points[2], dir );
 
-			    if ( d0 > d1 && d0 > d2 ) return tri.points[0];
-			    if ( d1 > d2 ) return tri.points[1];
-			    return tri.points[2];
+				if ( d0 > d1 && d0 > d2 ) return tri.points[0];
+				if ( d1 > d2 ) return tri.points[1];
+				return tri.points[2];
 			} break;
 
 			default: {

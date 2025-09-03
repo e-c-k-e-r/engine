@@ -43,16 +43,42 @@ namespace pod {
 	};
 
 	struct BVH {
-		typedef uf::stl::vector<std::pair<int,int>> pair_t;
+		typedef std::pair<int32_t,int32_t> pair_t;
+		typedef uf::stl::vector<pair_t> pairs_t;
+		
 		struct Node {
 			pod::AABB bounds = {};
-			int left = -1;
-			int right = -1;
-			int start = 0;
-			int count = 0;
+			int32_t left = -1;
+			int32_t right = -1;
+			int32_t start = 0;
+			int32_t count = 0;
+
+			bool asleep = false;
 		};
-		uf::stl::vector<size_t> indices;
+		struct FlatNode {
+			pod::AABB bounds = {};
+			int32_t start = -1;
+			int32_t count = -1;
+			int32_t skipIndex = -1;
+
+			bool asleep = false;
+		};
+		struct UpdatePolicy {
+			enum class Decision {
+				NONE,    // do nothing
+				REFIT,   // refit bounds
+				REBUILD  // rebuild from scratch
+			};
+			float displacementThreshold = 0.25f; // 25% of AABB size
+			float overlapThreshold = 2.0f;       // 2x growth in root surface area
+			float dirtyRatioThreshold = 0.3f;    // 30% dirty bodies
+			int   maxFramesBeforeRebuild = 60;   // force rebuild every 60 frames
+		};
+
+		bool dirty = false;
+		uf::stl::vector<uint32_t> indices;
 		uf::stl::vector<pod::BVH::Node> nodes;
+		uf::stl::vector<pod::BVH::FlatNode> flattened;
 	};
 
 	struct MeshBVH {
@@ -109,6 +135,15 @@ namespace pod {
 		float dynamicFriction = 0.3f;
 	};
 
+	struct Activity {
+		bool awake = true;
+		float sleepTimer = 0.0f;
+		int32_t islandID = -1;
+		static constexpr float sleepThreshold = 0.5f; // seconds
+		static constexpr float linearSleepEpsilon = 0.01f; // m/s
+		static constexpr float angularSleepEpsilon = 0.01f; // rad/s		
+	};
+
 	struct World; // forward declare
 
 	struct PhysicsBody {
@@ -138,6 +173,7 @@ namespace pod {
 		pod::AABB bounds;
 		pod::Collider collider;
 		pod::PhysicsMaterial material;
+		pod::Activity activity;
 	};
 
 	struct Contact {
@@ -163,6 +199,11 @@ namespace pod {
 		bool hit = false;
 		const pod::PhysicsBody* body;
 		pod::Contact contact = { pod::Vector3f{}, pod::Vector3f{}, FLT_MAX };
+	};
+
+	struct Island {
+		bool awake = true;
+		uf::stl::vector<pod::PhysicsBody*> bodies;
 	};
 
 	struct World {

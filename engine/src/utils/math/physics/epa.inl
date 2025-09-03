@@ -53,6 +53,9 @@ namespace {
 	void expandPolytope( uf::stl::vector<pod::Face>& faces, const pod::SupportPoint& p ) {
 		uf::stl::vector<int> remove;
 		uf::stl::vector<std::pair<pod::SupportPoint, pod::SupportPoint>> borders;
+		
+		remove.reserve( faces.size() );
+		borders.reserve( faces.size() );
 
 		// find faces visible to point
 		for ( auto i = 0; i < faces.size(); ++i ) {

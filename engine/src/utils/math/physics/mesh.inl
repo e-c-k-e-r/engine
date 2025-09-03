@@ -19,12 +19,12 @@ namespace {
 		const auto& mesh = a;
 		const auto& aabb = b;
 
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
 		const auto& bvh  = *mesh.collider.u.mesh.bvh;
+		const auto& meshData = *mesh.collider.u.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( aabb.bounds, ::getTransform( mesh ) );
-		uf::stl::vector<int> candidates;
+		uf::stl::vector<int32_t> candidates;
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -42,12 +42,12 @@ namespace {
 		const auto& mesh = a;
 		const auto& sphere = b;
 
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
 		const auto& bvh  = *mesh.collider.u.mesh.bvh;
+		const auto& meshData = *mesh.collider.u.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( sphere.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int> candidates;
+		uf::stl::vector<int32_t> candidates;
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -67,12 +67,12 @@ namespace {
 		const auto& mesh = a;
 		const auto& plane = b;
 
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
 		const auto& bvh  = *mesh.collider.u.mesh.bvh;
+		const auto& meshData = *mesh.collider.u.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( plane.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int> candidates;
+		uf::stl::vector<int32_t> candidates;
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -91,12 +91,12 @@ namespace {
 		const auto& mesh = a;
 		const auto& capsule = b;
 
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
 		const auto& bvh  = *mesh.collider.u.mesh.bvh;
+		const auto& meshData = *mesh.collider.u.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( capsule.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int> candidates;
+		uf::stl::vector<int32_t> candidates;
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -120,8 +120,9 @@ namespace {
 		const auto& bvhB = *b.collider.u.mesh.bvh;
 
 		// compute overlaps between one BVH and another BVH
-		pod::BVH::pair_t pairs;
-		::traverseNodePair(bvhA, 0, bvhB, 0, pairs);
+		pod::BVH::pairs_t pairs;
+		::queryOverlaps( bvhA, bvhB, pairs );
+		::deduplicatePairs( pairs );
 
 		bool hit = false;
 		// do collision per triangle

@@ -25,7 +25,8 @@ namespace {
 		return uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 	}
 	pod::Vector3f triangleNormal( const pod::TriangleWithNormal& tri ) {
-		return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
+		return tri.normal;
+		//return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 	}
 
 	pod::AABB computeTriangleAABB( const void* vertices, size_t vertexStride, const void* indexData, size_t indexSize, size_t triID ) {
@@ -57,16 +58,20 @@ namespace {
 		auto views = mesh.makeViews({"position", "normal"});
 		UF_ASSERT(!views.empty());
 
-		uint32_t triIndexID = triID * 3; // remap triangle ID to index ID
 		// find which view contains this triangle index.
+		size_t triBase = 0;
 		const uf::Mesh::View* found = nullptr;
 		for ( auto& v : views ) {
-			if ( v.index.first <= triIndexID && triIndexID < v.index.first + v.index.count ) {
+			auto trisInView = v.index.count / 3;
+			if (triID < triBase + trisInView) {
 				found = &v;
+				triID -= triBase; // local triangle index inside this view
 				break;
 			}
+			triBase += trisInView;
 		}
 		UF_ASSERT( found );
+		uint32_t triIndexID = triID * 3; // remap triangle ID to index ID
 
 		pod::TriangleWithNormal tri;
 
@@ -76,9 +81,6 @@ namespace {
 
 		const void* indexBase = indices.data(found->index.first);
 		size_t indexSize	  = mesh.index.size;
-
-		// reset back to local indices range
-		triIndexID -= found->index.first;
 
 		uint32_t idxs[3];
 		// to-do: just make this a macro that could have a parallel hint
@@ -91,7 +93,10 @@ namespace {
 			for ( auto i = 0; i < 3; ++i ) tri.points[i] = *reinterpret_cast<const pod::Vector3f*>(base + idxs[i] * stride);
 		}
 
-		if ( normals.valid() ) {
+		tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
+
+		/*
+		if ( false && normals.valid() ) {
 			auto* base = reinterpret_cast<const uint8_t*>(normals.data(found->vertex.first));
 			size_t stride = normals.stride();
 			for ( auto i = 0; i < 3; ++i ) tri.normals[i] = *reinterpret_cast<const pod::Vector3f*>(base + idxs[i] * stride);
@@ -99,28 +104,29 @@ namespace {
 			auto normal = ::triangleNormal( (pod::Triangle&) tri );
 			for ( auto i = 0; i < 3; ++i ) tri.normals[i] = normal;
 		}
+		*/
 
 		return tri;
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body ) {
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = true ) {
 		auto tri = ::fetchTriangle( mesh, triID );
 		auto transform = ::getTransform( body );
 
 		if ( body.collider.type == pod::ShapeType::MESH ) {
-			for ( auto i = 0; i < 3; ++i ) {
-				tri.points[i]  = uf::transform::apply( transform, tri.points[i] );
-				tri.normals[i] = uf::quaternion::rotate( transform.orientation, tri.normals[i] );
+			if ( fast ) {
+				for ( auto i = 0; i < 3; ++i ) tri.points[i] += transform.position;
+			} else {
+				for ( auto i = 0; i < 3; ++i ) tri.points[i]  = uf::transform::apply( transform, tri.points[i] );
+				tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
 			}
 		}
 		else {
 		#if REORIENT_NORMALS_ON_FETCH
 			auto triCenter = ::triangleCenter( tri );
 			auto delta = ::getPosition( body ) - triCenter;
-			for ( auto i = 0; i < 3; ++i ) {
-				if ( uf::vector::dot(tri.normals[i], delta) < 0.0f ) tri.normals[i] = -tri.normals[i];
-			}
+			if ( uf::vector::dot(tri.normal, delta) < 0.0f ) tri.normal = -tri.normal;
 		#endif
 		}
 
@@ -129,6 +135,7 @@ namespace {
 
 	bool computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1, float eps = EPS(1e-6f) ) {
 		uf::stl::vector<pod::Vector3f> intersections;
+		intersections.reserve(3);
 
 		auto checkAndPush = [&]( const pod::Vector3f& pt ) {
 			// avoid duplicates
@@ -218,6 +225,7 @@ namespace {
 		// if ( !::triangleTriangleIntersect( a, b ) ) return false;
 
 		uf::stl::vector<pod::Vector3f> axes = { ::triangleNormal( a ), ::triangleNormal( b ) };
+		axes.reserve(2+3);
 
 		pod::Vector3f p0 = {}, p1 = {};
 		if ( !::computeTriangleTriangleSegment(a, b, p0, p1) ) {
@@ -280,7 +288,7 @@ namespace {
 		float penetration = tolerance - dist;
 
 	#if REORIENT_NORMALS_ON_CONTACT
-		if ( uf::vector::dot(normal, delta) < 0.0f ) normal = -normal;
+		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
 	#endif
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
@@ -306,7 +314,7 @@ namespace {
 		float penetration = r - dist;
 
 	#if REORIENT_NORMALS_ON_CONTACT
-		if ( uf::vector::dot(normal, delta) < 0.0f ) normal = -normal;
+		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
 	#endif
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
@@ -379,7 +387,7 @@ namespace {
 		float penetration = r - dist;
 
 	#if REORIENT_NORMALS_ON_CONTACT
-		if ( uf::vector::dot(normal, delta) < 0.0f ) normal = -normal;
+		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
 	#endif
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });

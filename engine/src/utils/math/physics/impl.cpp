@@ -6,20 +6,39 @@
 
 namespace {
 	bool warmupSolver = true;
-	bool blockContactSolver = false; // blockNxN solver is flawed
+	bool blockContactSolver = true;
 	bool psgContactSolver = true; // iterative solver is flawed
 	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 	bool fixedStep = true;
-	int substeps = 4;
+	
+	int substeps = 0;
+	int reserveCount = 32;
 
 	// increasing these make things lag
 	int broadphaseBvhCapacity = 1;
 	int meshBvhCapacity = 1;
 
-	int solverIterations = 5;
-	float baumgarteCorrectionPercent = 0.005f; // needs to be very small or the correction is too large
-	float baumgarteCorrectionSlop = 0.001f;
+	bool flattenBvhBodies = true;
+	bool flattenBvhMeshes = true;
+	
+	// it actually seems slower to use these......
+	bool useBvhSahBodies = false;
+	bool useBvhSahMeshes = false;
+
+	int solverIterations = 10;
+	float baumgarteCorrectionPercent = 0.2f;
+	float baumgarteCorrectionSlop = 0.01f;
+	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
+	int manifoldCacheLifetime = 6;
+
+	uint32_t frameCounter = 0;
+	pod::BVH::UpdatePolicy bvhUpdatePolicy = {
+		.displacementThreshold = 0.25f,
+		.overlapThreshold = 2.0f,
+		.dirtyRatioThreshold = 0.3f,
+		.maxFramesBeforeRebuild = 3600,
+	};
 }
 
 #define EPS(x) x // 1.0e-6f
@@ -103,17 +122,38 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	if ( bodies.empty() ) return;
 
 	for ( auto* body : bodies ) {
+		if ( !body->activity.awake ) continue;
 		::integrate( *body, dt );
 	}
-	
-	uf::stl::vector<pod::Manifold> manifolds;
-	uf::stl::vector<std::pair<int,int>> pairs;
 
-	// create BVH
-	::buildBroadphaseBVH( bvh, bodies, ::broadphaseBvhCapacity );
+	switch ( ::decideBVHUpdate( bvh, bodies, ::bvhUpdatePolicy, ::frameCounter++ ) ) {
+		case pod::BVH::UpdatePolicy::Decision::REBUILD: {
+			::buildBroadphaseBVH( bvh, bodies, ::broadphaseBvhCapacity ); // (re)build
+		} break;
+		case pod::BVH::UpdatePolicy::Decision::REFIT: {
+			::refitBVH( bvh, bodies ); // refit
+		} break;
+		case pod::BVH::UpdatePolicy::Decision::NONE:
+		default:
+			// no-op
+		break;
+	}
+
 	// query for overlaps
+	pod::BVH::pairs_t pairs;
 	::queryOverlaps( bvh, pairs );
+	::deduplicatePairs( pairs );
+
+	// build islands
+	uf::stl::vector<pod::Island> islands;
+	::buildIslands( pairs, world.bodies, islands );
+
+	// update sleep state per island
+	for ( auto& island : islands ) ::updateIsland( island, dt );
+
 	// iterate overlaps
+	uf::stl::vector<pod::Manifold> manifolds;
+	manifolds.reserve(::reserveCount);
 	for ( auto& [ia, ib] : pairs ) {
 		auto& a = *bodies[ia];
 		auto& b = *bodies[ib];
@@ -138,7 +178,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			::reduceContacts( manifold );
 			// no points remained, skip
 			if ( manifold.points.empty() ) continue;
-
+			// wake up bodies
+			if ( a.activity.awake && !b.activity.awake ) ::wakeBody( b );
+			if ( b.activity.awake && !a.activity.awake ) ::wakeBody( a );
 			// store manifold
 			manifolds.emplace_back(manifold);
 		}
@@ -146,24 +188,10 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 
 	// pass manifolds to solver
 	::solveContacts( manifolds, dt );
+	// do position correction
+	::solvePositions( manifolds, dt );
 
-	if ( ::warmupSolver ) {
-		// update cache
-		for ( auto& manifold : manifolds ) {
-			::manifoldsCache[::makePairKey( *manifold.a, *manifold.b )] = manifold;
-		}
-
-		// prune if too old / empty
-		for ( auto& [ key, manifold ] : manifoldsCache ) {
-			// prune manifolds that are X frames old
-			for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
-				if ( it->lifetime > 3 ) manifold.points.erase(it);
-				else ++it;
-			}
-			// empty manifold, kill it
-			if ( manifold.points.empty() ) manifoldsCache.erase(key);
-		}
-	}
+	if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
 
 	// recompute bounds for further queries
 	for ( auto* body : bodies ) {
@@ -255,11 +283,11 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 	}
 }
 void uf::physics::impl::applyForce( pod::PhysicsBody& body, const pod::Vector3f& force ) {
-	if ( body.isStatic ) return;
+	if ( body.isStatic ) return; ::wakeBody( body );
 	body.forceAccumulator += force;
 }
 void uf::physics::impl::applyForceAtPoint( pod::PhysicsBody body, const pod::Vector3f& force, const pod::Vector3f& point ) {
-	if ( body.isStatic ) return;
+	if ( body.isStatic ) return; ::wakeBody( body );
 	// linear force
 	body.forceAccumulator += force;
 	// angular force
@@ -267,21 +295,23 @@ void uf::physics::impl::applyForceAtPoint( pod::PhysicsBody body, const pod::Vec
 	body.torqueAccumulator += uf::vector::cross( r, force );
 }
 void uf::physics::impl::applyImpulse( pod::PhysicsBody& body, const pod::Vector3f& impulse ) {
-	if ( body.isStatic ) return;
+	if ( body.isStatic ) return; ::wakeBody( body );
 	body.velocity += impulse * body.inverseMass;
 }
 void uf::physics::impl::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torque ) {
-	if ( body.isStatic ) return;
+	if ( body.isStatic ) return; ::wakeBody( body );
 	body.torqueAccumulator += torque;
 }
 void uf::physics::impl::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
+	::wakeBody( body );
 	body.velocity = v;
 }
 void uf::physics::impl::applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q ) {
+	::wakeBody( body );
 	uf::transform::rotate( *body.transform/*.reference*/, q );
 }
 void uf::physics::impl::applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle ) {
-	applyRotation( body, uf::quaternion::axisAngle( axis, angle ) );
+	uf::physics::impl::applyRotation( body, uf::quaternion::axisAngle( axis, angle ) );
 }
 
 // body creation
@@ -300,10 +330,13 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	if ( body.isStatic ) {
 		uf::physics::impl::setColliderCategory(body, "STATIC");
 		uf::physics::impl::setColliderMask(body, "STATIC");
+	} else {
+		uf::physics::impl::setColliderCategory(body, "DYNAMIC");
+		uf::physics::impl::setColliderMask(body, "DYNAMIC");
 	}
 
-	// insert into world
-	world.bodies.emplace_back(&body);
+	world.bodies.emplace_back(&body); // insert into world
+	world.bvh.dirty = true; // mark as dirty
 
 	return body;
 }
@@ -351,9 +384,10 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::MESH;
 	body.collider.u.mesh.mesh = &mesh;
-	body.collider.u.mesh.bvh = new pod::BVH;
 
-	::buildMeshBVH( *body.collider.u.mesh.bvh, mesh, ::meshBvhCapacity );
+	body.collider.u.mesh.bvh = new pod::BVH;
+	auto& bvh = *body.collider.u.mesh.bvh;
+	::buildMeshBVH( bvh, mesh, ::meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
@@ -428,7 +462,7 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	auto& bvh = world.bvh;
 	auto& bodies = world.bodies;
 
-	uf::stl::vector<int> candidates;
+	uf::stl::vector<int32_t> candidates;
 	::queryBVH( bvh, ray, candidates );
 
 	for ( auto i : candidates ) {

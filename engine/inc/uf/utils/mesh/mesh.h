@@ -371,11 +371,11 @@ namespace uf {
 				To* dstPtr = (To*) (dstBuffer.data());
 				
 				if ( toEnum == uf::renderer::enums::Type::USHORT ) {
-					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::quantize_f32u16(srcPtr[i]);
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = (To) uf::quant::quantize_f32u16(srcPtr[i]);
 				} else if ( fromEnum == uf::renderer::enums::Type::USHORT ) {
-					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = uf::quant::dequantize_u16f32(srcPtr[i]);
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = (To) uf::quant::dequantize_u16f32(srcPtr[i]);
 				} else {
-					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = srcPtr[i];
+					for ( size_t i = 0; i < elements; ++i ) dstPtr[i] = (To) srcPtr[i];
 				}
 				
 				srcBuffer.swap( dstBuffer );

@@ -33,6 +33,9 @@ namespace pod {
 	};
 
 	struct TriangleWithNormal : Triangle {
+		pod::Vector3f normal;
+	};
+	struct TriangleWithNormals : Triangle {
 		pod::Vector3f normals[3];
 	};
 

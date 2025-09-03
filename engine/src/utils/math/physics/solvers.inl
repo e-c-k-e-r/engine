@@ -70,7 +70,7 @@ namespace {
 			::applyImpulseTo(a, b, rA, rB, tangent * jt);
 		}
 
-		::positionCorrection(a, b, contact);
+	//	::positionCorrection(a, b, contact);
 	}
 
 	template<size_t N, typename T = float>
@@ -143,7 +143,7 @@ namespace {
 
 			float cDot = vRel + penetrationBias;
 
-			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // RHS is magnitude of correction needed
+			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // rHS is magnitude of correction needed
 			lambda[i] = contact.accumulatedNormalImpulse;
 		}
 
@@ -177,86 +177,99 @@ namespace {
 		return ::blockNxNSolver<4>( a, b, manifold, dt );
 	}
 
+	struct ContactCache {
+		pod::Vector3f normal;
+		pod::Vector3f tangent;
+		pod::Vector3f rA, rB;
+		float bias;
+		float effectiveMassN;
+		float effectiveMassT;
+		float accumulatedNormalImpulse;
+		float accumulatedTangentImpulse;
+	};
+
 	void blockPGSSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		const int count = std::min( (int) manifold.points.size(), 4 );
-		// precompute inv mass
-		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
-		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
+		const int count = std::min( (int)manifold.points.size(), 4 );
 
-		// precompute Jacobians for each contact
-		struct ContactCache {
-			pod::Vector3f normal;
-			pod::Vector3f rA, rB;
-			float bias;
-			float effectiveMass;
-		} cache[4];
-
+		// precompute contact caches
+		::ContactCache cache[4];
 		for ( auto i = 0; i < count; i++ ) {
 			auto& c = manifold.points[i];
-			cache[i].normal = c.normal;
-			cache[i].rA = c.point - ::getPosition( a, true );
-			cache[i].rB = c.point - ::getPosition( b, true );
+			auto& cc = cache[i];
 
-			// bias = restitution + Baumgarte correction
-			float vRel = uf::vector::dot(
-				(b.velocity + uf::vector::cross(b.angularVelocity, cache[i].rB)) -
-				(a.velocity + uf::vector::cross(a.angularVelocity, cache[i].rA)),
-				cache[i].normal
-			);
+			cc.normal = c.normal;
+			cc.tangent = ::computeTangent( c.normal );
+			cc.rA = c.point - ::getPosition( a, true );
+			cc.rB = c.point - ::getPosition( b, true );
 
+			// relative velocity along normal
+			pod::Vector3f dv = ( b.velocity + uf::vector::cross( b.angularVelocity, cc.rB ) ) - ( a.velocity + uf::vector::cross( a.angularVelocity, cc.rA ) );
+			float vn = uf::vector::dot( dv, cc.normal );
+
+			// restitution bias + baumgarte
 			float e = std::min( a.material.restitution, b.material.restitution );
-			float penetrationBias = std::max(c.penetration - ::baumgarteCorrectionSlop, 0.0f) * (::baumgarteCorrectionPercent / dt);
+			float penetrationBias = std::max( c.penetration - ::baumgarteCorrectionSlop, 0.0f ) * (::baumgarteCorrectionPercent / dt);
+			cc.bias = (vn < -1.0f ? -e * vn : 0.0f) + penetrationBias;
 
-			cache[i].bias = (vRel < -1.0f ? -e * vRel : 0.0f) + penetrationBias;
+			// effective mass (normal)
+			pod::Vector3f rnA = uf::vector::cross( cc.rA, cc.normal );
+			pod::Vector3f rnB = uf::vector::cross( cc.rB, cc.normal );
+			float Kn = (a.isStatic ? 0.0f : a.inverseMass) + (b.isStatic ? 0.0f : b.inverseMass) +
+					   uf::vector::dot( uf::vector::cross( rnA * a.inverseInertiaTensor, cc.rA ) + uf::vector::cross( rnB * b.inverseInertiaTensor, cc.rB ), cc.normal );
+			cc.effectiveMassN = (Kn > 0.0f) ? 1.0f / Kn : 0.0f;
 
-			// effective mass = 1 / (J M^-1 J^T)
-			pod::Vector3f rnA = uf::vector::cross( cache[i].rA, cache[i].normal );
-			pod::Vector3f rnB = uf::vector::cross( cache[i].rB, cache[i].normal );
+			// effective mass (tangent)
+			pod::Vector3f rtA = uf::vector::cross( cc.rA, cc.tangent );
+			pod::Vector3f rtB = uf::vector::cross( cc.rB, cc.tangent );
+			float Kt = (a.isStatic ? 0.0f : a.inverseMass) + (b.isStatic ? 0.0f : b.inverseMass) +
+					   uf::vector::dot( uf::vector::cross( rtA * a.inverseInertiaTensor, cc.rA ) + uf::vector::cross( rtB * b.inverseInertiaTensor, cc.rB ), cc.tangent );
+			cc.effectiveMassT = ( Kt > 0.0f ) ? ( 1.0f / Kt ) : 0.0f;
 
-			pod::Vector3f Ia_rnA = rnA * a.inverseInertiaTensor; // diag mult
-			pod::Vector3f Ib_rnB = rnB * b.inverseInertiaTensor;
+			// warm start
+			cc.accumulatedNormalImpulse = c.accumulatedNormalImpulse;
+			cc.accumulatedTangentImpulse = c.accumulatedTangentImpulse;
 
-			float Knormal = invMassA + invMassB + uf::vector::dot(uf::vector::cross(Ia_rnA, cache[i].rA) + uf::vector::cross(Ib_rnB, cache[i].rB), cache[i].normal);
-
-			cache[i].effectiveMass = (Knormal > 0.0f) ? 1.0f / Knormal : 0.0f;
+			// apply warm-start impulses
+			pod::Vector3f P = cc.normal * cc.accumulatedNormalImpulse + cc.tangent * cc.accumulatedTangentImpulse;
+			
+			::applyImpulseTo(a, b, cc.rA, cc.rB, P);
 		}
 
-		// initialize lambdas (warm start)
-		pod::Vector4f lambda = {};
-		for ( auto i = 0; i < count; i++ ) {
-			lambda[i] = manifold.points[i].accumulatedNormalImpulse;
-		}
-
-		// iterative PGS loop
+		// iterative PGS
 		for ( auto iter = 0; iter < ::solverIterations; iter++ ) {
-			for (int i = 0; i < count; i++) {
-				auto& c = manifold.points[i];
+			for ( auto i = 0; i < count; i++ ) {
 				auto& cc = cache[i];
 
-				// relative velocity along normal
-				pod::Vector3f dv = (b.velocity + uf::vector::cross(b.angularVelocity, cc.rB)) - (a.velocity + uf::vector::cross(a.angularVelocity, cc.rA));
-				float vn = uf::vector::dot(dv, cc.normal);
+				// relative velocity
+				pod::Vector3f dv = ( b.velocity + uf::vector::cross( b.angularVelocity, cc.rB ) ) - ( a.velocity + uf::vector::cross( a.angularVelocity, cc.rA ) );
 
-				// compute delta impulse
-				float delta = cc.effectiveMass * (-(vn + cc.bias));
+				// normal constraint
+				float vn = uf::vector::dot( dv, cc.normal );
+				float lambdaN = cc.effectiveMassN * (-(vn + cc.bias));
+				float oldImpulseN = cc.accumulatedNormalImpulse;
+				cc.accumulatedNormalImpulse = std::max( oldImpulseN + lambdaN, 0.0f );
+				float dPn = cc.accumulatedNormalImpulse - oldImpulseN;
 
-				// accumulate and clamp
-				float newLambda = std::max( lambda[i] + delta, 0.0f );
-				delta = newLambda - lambda[i];
-				lambda[i] = newLambda;
+				::applyImpulseTo( a, b, cc.rA, cc.rB, cc.normal * dPn );
 
-				// apply impulse
-				::applyImpulseTo( a, b, cc.rA, cc.rB, cc.normal * delta );
+				// friction constraint
+				dv = ( b.velocity + uf::vector::cross( b.angularVelocity, cc.rB ) ) - ( a.velocity + uf::vector::cross( a.angularVelocity, cc.rA ) );
+				float vt = uf::vector::dot( dv, cc.tangent );
+				float lambdaT = cc.effectiveMassT * (-vt);
+				float maxFriction = ( a.material.dynamicFriction + b.material.dynamicFriction ) * 0.5f * cc.accumulatedNormalImpulse;
 
-				// position correction
-				::positionCorrection( a, b, c );
+				float oldImpulseT = cc.accumulatedTangentImpulse;
+				cc.accumulatedTangentImpulse = std::clamp( oldImpulseT + lambdaT, -maxFriction, maxFriction );
+				float dPt = cc.accumulatedTangentImpulse - oldImpulseT;
+
+				::applyImpulseTo( a, b, cc.rA, cc.rB, cc.tangent * dPt );
 			}
 		}
 
-		// store lambdas back
+		// store impulses back into manifold
 		for ( auto i = 0; i < count; i++ ) {
-			manifold.points[i].accumulatedNormalImpulse = lambda[i];
-			// ::positionCorrection( a, b, manifold.points[i] );
+			manifold.points[i].accumulatedNormalImpulse = cache[i].accumulatedNormalImpulse;
+			manifold.points[i].accumulatedTangentImpulse = cache[i].accumulatedTangentImpulse;
 		}
 	}
 
@@ -273,5 +286,15 @@ namespace {
 	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
 		if ( ::warmupSolver ) for ( auto& manifold : manifolds ) ::warmupManifold( *manifold.a, *manifold.b, manifold, dt );
 		for ( auto i = 0; i < ::solverIterations; ++i ) for ( auto& manifold : manifolds ) ::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
+	}
+
+	void solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, int iterations = 4 ) {
+		for ( auto i = 0; i < iterations; ++i ) {
+			for ( auto& m : manifolds ) {
+				for ( auto& c : m.points ) {
+					::positionCorrection( *m.a, *m.b, c );
+				}
+			}
+		}
 	}
 }
