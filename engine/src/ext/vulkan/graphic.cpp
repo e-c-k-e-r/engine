@@ -1588,7 +1588,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		for ( auto& blas : graphic->accelerationStructures.bottoms ) {
 			auto& instance = instances[blas.instanceID];
 			auto mat = modelMatrices[instance.objectID];
-			mat = uf::matrix::transpose(mat);
+			mat = uf::matrix::transpose(mat); // might need to not do this
 
 			auto& instanceVK = instancesVK.emplace_back();
 			memcpy(&instanceVK.transform, &mat, sizeof(instanceVK.transform));

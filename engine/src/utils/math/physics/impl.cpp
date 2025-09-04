@@ -25,8 +25,10 @@ namespace {
 	bool useBvhSahBodies = false;
 	bool useBvhSahMeshes = false;
 
+	bool useSplitBvhs = false; // currently bugged if enabled
+
 	int solverIterations = 10;
-	float baumgarteCorrectionPercent = 0.2f;
+	float baumgarteCorrectionPercent = 0.02f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
@@ -117,21 +119,34 @@ void uf::physics::impl::substep( pod::World& world, float dt, int substeps ) {
 }
 void uf::physics::impl::step( pod::World& world, float dt ) {
 	auto& bodies = world.bodies;
-	auto& bvh = world.bvh;
+	auto& dynamicBvh = world.dynamicBvh;
+	auto& staticBvh = world.staticBvh;
+
+	uf::stl::vector<pod::PhysicsBody*> staticBodies;
+	uf::stl::vector<pod::PhysicsBody*> dynamicBodies;
 
 	if ( bodies.empty() ) return;
 
+	++::frameCounter;
+
 	for ( auto* body : bodies ) {
+		( body->isStatic ? staticBodies : dynamicBodies ).emplace_back(body);
+
 		if ( !body->activity.awake ) continue;
 		::integrate( *body, dt );
 	}
 
-	switch ( ::decideBVHUpdate( bvh, bodies, ::bvhUpdatePolicy, ::frameCounter++ ) ) {
+	// rebuild static bvh if diry
+	if ( staticBvh.dirty && ::useSplitBvhs ) {
+		::buildBroadphaseBVH( staticBvh, staticBodies, ::broadphaseBvhCapacity ); // (re)build
+	}
+
+	switch ( ::decideBVHUpdate( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies, ::bvhUpdatePolicy, ::frameCounter ) ) {
 		case pod::BVH::UpdatePolicy::Decision::REBUILD: {
-			::buildBroadphaseBVH( bvh, bodies, ::broadphaseBvhCapacity ); // (re)build
+			::buildBroadphaseBVH( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies, ::broadphaseBvhCapacity ); // (re)build
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::REFIT: {
-			::refitBVH( bvh, bodies ); // refit
+			::refitBVH( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies ); // refit
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::NONE:
 		default:
@@ -141,12 +156,12 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 
 	// query for overlaps
 	pod::BVH::pairs_t pairs;
-	::queryOverlaps( bvh, pairs );
-	::deduplicatePairs( pairs );
+	::queryOverlaps( dynamicBvh, pairs );
+	if ( ::useSplitBvhs ) ::queryOverlaps( dynamicBvh, staticBvh, pairs );
 
 	// build islands
 	uf::stl::vector<pod::Island> islands;
-	::buildIslands( pairs, world.bodies, islands );
+	::buildIslands( pairs, bodies, islands );
 
 	// update sleep state per island
 	for ( auto& island : islands ) ::updateIsland( island, dt );
@@ -194,7 +209,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
 
 	// recompute bounds for further queries
-	for ( auto* body : bodies ) {
+	for ( auto* body : dynamicBodies ) {
 		body->bounds = ::computeAABB( *body );
 	}
 }
@@ -330,13 +345,14 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	if ( body.isStatic ) {
 		uf::physics::impl::setColliderCategory(body, "STATIC");
 		uf::physics::impl::setColliderMask(body, "STATIC");
+		world.staticBvh.dirty = true; // mark as dirty
 	} else {
 		uf::physics::impl::setColliderCategory(body, "DYNAMIC");
 		uf::physics::impl::setColliderMask(body, "DYNAMIC");
+		world.dynamicBvh.dirty = true; // mark as dirty
 	}
 
 	world.bodies.emplace_back(&body); // insert into world
-	world.bvh.dirty = true; // mark as dirty
 
 	return body;
 }
@@ -459,11 +475,13 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	pod::RayQuery rayHit;
 	rayHit.contact.penetration = maxDistance;
 
-	auto& bvh = world.bvh;
+	auto& dynamicBvh = world.dynamicBvh;
+	auto& staticBvh = world.dynamicBvh;
 	auto& bodies = world.bodies;
 
 	uf::stl::vector<int32_t> candidates;
-	::queryBVH( bvh, ray, candidates );
+	::queryBVH( dynamicBvh, ray, candidates );
+	if ( ::useSplitBvhs ) ::queryBVH( staticBvh, ray, candidates );
 
 	for ( auto i : candidates ) {
 		auto* b = bodies[i];

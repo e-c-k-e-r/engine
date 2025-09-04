@@ -1,15 +1,6 @@
 namespace {
-	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps ) {
-		for (int axis=0; axis<3; ++axis) {
-			if (a.max[axis] + eps < b.min[axis] - eps) return false;
-			if (a.min[axis] - eps > b.max[axis] + eps) return false;
-	   }
-	   return true;
-	/*
-		return !(a.max.x < b.min.x + eps || a.min.x > b.max.x - eps ||
-				a.max.y < b.min.y + eps || a.min.y > b.max.y - eps ||
-				a.max.z < b.min.z + eps || a.min.z > b.max.z - eps);
-	*/
+	inline bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps ) {
+		return ( a.min - eps ) <= ( b.max + eps ) && ( a.max + eps ) >= ( b.min - eps );
 	}
 
 	inline float aabbSurfaceArea(const pod::AABB& aabb) {
@@ -25,11 +16,7 @@ namespace {
 	}
 
 	pod::Vector3f closestPointOnAABB(const pod::Vector3f& p, const pod::AABB& box) {
-		return {
-			std::max(box.min.x, std::min(p.x, box.max.x)),
-			std::max(box.min.y, std::min(p.y, box.max.y)),
-			std::max(box.min.z, std::min(p.z, box.max.z))
-		};
+		return uf::vector::clamp( p, box.min, box.max );
 	}
 
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body ) {
@@ -78,16 +65,8 @@ namespace {
 
 	pod::AABB computeTriangleAABB( const pod::Triangle& tri ) {
 		return {
-			{
-				std::min({tri.points[0].x, tri.points[1].x, tri.points[2].x}),
-				std::min({tri.points[0].y, tri.points[1].y, tri.points[2].y}),
-				std::min({tri.points[0].z, tri.points[1].z, tri.points[2].z}),
-			},
-			{
-				std::max({tri.points[0].x, tri.points[1].x, tri.points[2].x}),
-				std::max({tri.points[0].y, tri.points[1].y, tri.points[2].y}),
-				std::max({tri.points[0].z, tri.points[1].z, tri.points[2].z}),
-			},
+			uf::vector::min( uf::vector::min( tri.points[0], tri.points[1] ), tri.points[2] ),
+    		uf::vector::max( uf::vector::max( tri.points[0], tri.points[1] ), tri.points[2] ),
 		};
 	}
 
@@ -211,17 +190,13 @@ namespace {
 		if ( !::aabbOverlap( A, B ) ) return false;
 
 		// calculate overlap extents
-		float overlaps[3] = {
-			std::min(A.max.x, B.max.x) - std::max(A.min.x, B.min.x),
-			std::min(A.max.y, B.max.y) - std::max(A.min.y, B.min.y),
-			std::min(A.max.z, B.max.z) - std::max(A.min.z, B.min.z)
-		};
+		auto overlaps = uf::vector::min( A.max, B.max ) - uf::vector::max( A.min, B.min );
 
 		// determine collision axis = smallest overlap
 		int axis = -1;
 		float minOverlap = FLT_MAX;
-		for (int i = 0; i < 3; ++i) {
-			if (overlaps[i] < minOverlap) {
+		for ( auto i = 0; i < 3; ++i ) {
+			if ( overlaps[i] < minOverlap ) {
 				minOverlap = overlaps[i];
 				axis = i;
 			}
@@ -232,31 +207,27 @@ namespace {
 		normal[axis] = (delta[axis] < 0 ? -1.0f : 1.0f);
 
 		// build manifold contacts: overlap region corners on the separating axis
-		float xMin = std::max(A.min.x, B.min.x);
-		float xMax = std::min(A.max.x, B.max.x);
-		float yMin = std::max(A.min.y, B.min.y);
-		float yMax = std::min(A.max.y, B.max.y);
-		float zMin = std::max(A.min.z, B.min.z);
-		float zMax = std::min(A.max.z, B.max.z);
+		auto Min = uf::vector::max( A.min, B.min );
+		auto Max = uf::vector::min( A.max, B.max );
 
 		// on chosen axis, clamp to overlapped rectangle -> 4 potential points
 		if (axis == 0) { // x-axis separation, so face-on overlap in YZ plane
-			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), yMin, zMin }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), yMin, zMax }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), yMax, zMin }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), yMax, zMax }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Min.y, Min.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Min.y, Max.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Max.y, Min.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Max.y, Max.z }, normal, minOverlap });
 		}
 		else if (axis == 1) { // y-axis separation, overlap in XZ plane
-			manifold.points.emplace_back(pod::Contact{ { xMin, (normal.y > 0 ? A.max.y : A.min.y), zMin }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMin, (normal.y > 0 ? A.max.y : A.min.y), zMax }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMax, (normal.y > 0 ? A.max.y : A.min.y), zMin }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMax, (normal.y > 0 ? A.max.y : A.min.y), zMax }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Min.x, (normal.y > 0 ? A.max.y : A.min.y), Min.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Min.x, (normal.y > 0 ? A.max.y : A.min.y), Max.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Max.x, (normal.y > 0 ? A.max.y : A.min.y), Min.z }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Max.x, (normal.y > 0 ? A.max.y : A.min.y), Max.z }, normal, minOverlap });
 		}
 		else if (axis == 2) { // z-axis separation, overlap in XY plane
-			manifold.points.emplace_back(pod::Contact{ { xMin, yMin, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMin, yMax, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMax, yMin, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
-			manifold.points.emplace_back(pod::Contact{ { xMax, yMax, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Min.x, Min.y, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Min.x, Max.y, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Max.x, Min.y, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
+			manifold.points.emplace_back(pod::Contact{ { Max.x, Max.y, (normal.z > 0 ? A.max.z : A.min.z) }, normal, minOverlap });
 		}
 
 		return true;

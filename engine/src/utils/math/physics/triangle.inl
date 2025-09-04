@@ -29,28 +29,11 @@ namespace {
 		//return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 	}
 
-	pod::AABB computeTriangleAABB( const void* vertices, size_t vertexStride, const void* indexData, size_t indexSize, size_t triID ) {
-		auto triIndexID = triID * 3;
-
-		uint32_t i0 = ::getIndex( indexData, indexSize, triIndexID + 0 );
-		uint32_t i1 = ::getIndex( indexData, indexSize, triIndexID + 1 );
-		uint32_t i2 = ::getIndex( indexData, indexSize, triIndexID + 2 );
-
-		auto& v0 = *reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + i0 * vertexStride);
-		auto& v1 = *reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + i1 * vertexStride);
-		auto& v2 = *reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + i2 * vertexStride);
-
+	pod::Triangle fetchTriangle( const void* vertices, size_t vertexStride, const void* indexData, size_t indexSize, size_t triID ) {
 		return {
-			{	
-				std::min({v0.x, v1.x, v2.x}),
-				std::min({v0.y, v1.y, v2.y}),
-				std::min({v0.z, v1.z, v2.z}),
-			},
-			{
-				std::max({v0.x, v1.x, v2.x}),
-				std::max({v0.y, v1.y, v2.y}),
-				std::max({v0.z, v1.z, v2.z}),
-			}
+			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 0 ) * vertexStride),
+			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 1 ) * vertexStride),
+			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 2 ) * vertexStride),
 		};
 	}
 
@@ -71,28 +54,12 @@ namespace {
 			triBase += trisInView;
 		}
 		UF_ASSERT( found );
-		uint32_t triIndexID = triID * 3; // remap triangle ID to index ID
-
-		pod::TriangleWithNormal tri;
 
 		auto& positions = (*found)["position"];
 		auto& normals   = (*found)["normal"];
 		auto& indices   = (*found)["index"];
-
-		const void* indexBase = indices.data(found->index.first);
-		size_t indexSize	  = mesh.index.size;
-
-		uint32_t idxs[3];
-		// to-do: just make this a macro that could have a parallel hint
-		for ( auto i = 0; i < 3; ++i ) idxs[i] = getIndex(indexBase, indexSize, triIndexID + i);
-
-		{
-			auto* base = reinterpret_cast<const uint8_t*>(positions.data(found->vertex.first));
-			size_t stride = positions.stride();
-
-			for ( auto i = 0; i < 3; ++i ) tri.points[i] = *reinterpret_cast<const pod::Vector3f*>(base + idxs[i] * stride);
-		}
-
+		
+		pod::TriangleWithNormal tri = { ::fetchTriangle( positions.data(found->vertex.first), positions.stride(), indices.data(found->index.first), mesh.index.size, triID ) };
 		tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 
 		/*
@@ -373,7 +340,7 @@ namespace {
 		auto bounds = ::computeSegmentAABB( p1, p2, r );
 
 		// to-do: derive proper delta
-		pod::Vector3f closestSeg, closest;
+		pod::Vector3f closestSeg = {}, closest = {};
 		float dist2 = ::segmentTriangleDistanceSq( p1, p2, tri, closestSeg, closest );
 
 		if ( !uf::vector::isValid( closest ) ) return false;

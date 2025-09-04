@@ -122,7 +122,6 @@ namespace {
 		// compute overlaps between one BVH and another BVH
 		pod::BVH::pairs_t pairs;
 		::queryOverlaps( bvhA, bvhB, pairs );
-		::deduplicatePairs( pairs );
 
 		bool hit = false;
 		// do collision per triangle

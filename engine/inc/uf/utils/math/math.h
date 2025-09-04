@@ -10,6 +10,12 @@
 	#define UF_EZ_VEC4(vec, size) vec[0], size > 1 ? vec[1] : 0, size > 2 ? vec[2] : 0, size > 3 ? vec[3] : 0
 #endif
 
+#define NUM pod::Math::num_t
+
+#ifndef M_PI
+	#define M_PI 3.141592653589793f
+#endif
+
 namespace pod {
 	namespace Math {
 		typedef float num_t;

@@ -73,13 +73,6 @@ namespace {
 		return (idA << 32) ^ idB;
 	}
 
-	void deduplicatePairs( pod::BVH::pairs_t& pairs ) {
-		// should already be swapped
-		for (auto& [a, b] : pairs) if (a > b) std::swap(a, b);
-		std::sort(pairs.begin(), pairs.end());
-		pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
-	}
-
 	// marks a body as asleep
 	void wakeBody( pod::PhysicsBody& body ) {
 		body.activity.awake = true;

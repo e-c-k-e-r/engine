@@ -1,69 +1,43 @@
-// 	Equality checking
-// 	Equality check between two quaternions (less than)
-template<typename T> size_t uf::quaternion::compareTo( const T& left, const T& right ) {
-	return uf::vector::compareTo(left, right);
-//	return uf::quaternion::angle(left) > uf::quaternion::angle(right);
+namespace pod {
+	// Simple quaterions (designed [to store in arrays] with minimal headaches)
+	template<typename T = NUM> using Quaternion = Vector4t<T>;
 }
-// 	Equality check between two quaternions (equals)
-template<typename T> bool uf::quaternion::equals( const T& left, const T& right ) {
-	return uf::quaternion::compareTo( left, right ) == 0;
-}
-// 	Basic arithmetic
-// 	Multiplies two quaternions of same type and size together
-template<typename T> T uf::quaternion::multiply( const T& left, const T& right ) {
-	T q1 = uf::quaternion::normalize(left);
-	T q2 = uf::quaternion::normalize(right);
-	T q;
-	
-	q.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
-	q.y = q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z;
-	q.z = q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x;
-	q.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
 
-	return uf::quaternion::normalize( q );
-}
-// 	Multiplies this quaternion by a scalar
-/*
-template<typename T> T uf::quaternion::multiply( const T& quaternion, const typename T::type_t& scalar ) {
-	return uf::vector::multiply( quaternion, scalar );
-}
-*/
-// 	Flip sign of all components
-template<typename T> T uf::quaternion::negate( const T& quaternion ) {
-	return uf::quaternion::inverse(quaternion);
-}
+// snip header
+
 template<typename T> pod::Quaternion<T> uf::quaternion::identity() {
 	return pod::Quaternion<T>{ 0, 0, 0, 1 };
 }
-// 	Writes to first value
-// 	Multiplies two quaternions of same type and size together
-template<typename T> T& uf::quaternion::multiply( T& left, const T& right ) {
-	return left = uf::quaternion::multiply((const T&)  left, right );
+template<typename T> T uf::quaternion::multiply( const T& q1, const T& q2 ) {
+#if 0 && UF_USE_SIMD
+	if constexpr (std::is_same_v<typename T::type_t, float>) {
+		return uf::simd::quatMul( q1 , q2 );
+	}
+#endif
+	return {
+		q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y,
+		q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z,
+		q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x,
+		q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z,
+	};
 }
-// 	Multiplies a quaternion and a vector of same type and size together
-template<typename T> pod::Vector3t<T> uf::quaternion::rotate( const pod::Quaternion<T>& left, const pod::Vector3t<T>& right ) {
-	pod::Vector3t<T> qVec = { left.x, left.y, left.z };
-	const T s = left.w;
-	return uf::vector::multiply( qVec, static_cast<T>(2) * uf::vector::dot( qVec, right ) ) + uf::vector::multiply( right, s*s - uf::vector::dot( qVec, qVec )) +  ( uf::vector::cross( qVec, right ) * static_cast<T>(2) * s );
+template<typename T> pod::Vector3t<T> uf::quaternion::rotate( const pod::Quaternion<T>& Q, const pod::Vector3t<T>& v ) {
+#if 0 && UF_USE_SIMD
+	if constexpr (std::is_same_v<T,float>) {
+		return uf::simd::quatRot( Q, v );
+	}
+#endif
+	pod::Vector3t<T> q = { Q.x, Q.y, Q.z };
+	const T s = Q.w;
+	return uf::vector::multiply(q, static_cast<T>(2) * uf::vector::dot(q, v)) + uf::vector::multiply(v, s*s - uf::vector::dot(q, q)) + (uf::vector::cross(q, v) * static_cast<T>(2) * s);
 }
-template<typename T> pod::Vector4t<T> uf::quaternion::rotate( const pod::Quaternion<T>& left, const pod::Vector4t<T>& right ) {
-	pod::Vector3t<T> vector = uf::quaternion::rotate( left, {right.x, right.y, right.z} );
-	return {vector.x, vector.y, vector.z, left.w};
+template<typename T> pod::Vector4t<T> uf::quaternion::rotate( const pod::Quaternion<T>& q, const pod::Vector4t<T>& v ) {
+	pod::Vector3t<T> vector = uf::quaternion::rotate(q, { v.x, v.y, v.z });
+	return { vector.x, vector.y, vector.z, v.w };
 }
-// 	Flip sign of all components
-template<typename T> T& uf::quaternion::negate( T& quaternion ) {
-	return quaternion = uf::quaternion::negate((const T&) quaternion);
-}
-// 	Normalizes a quaternion
-template<typename T> T& uf::quaternion::normalize( T& quaternion ) {
-	return quaternion = uf::quaternion::normalize((const T&) quaternion);
-}
-// 	Complex arithmetic
-// 	Compute the dot product between two quaternions
 template<typename T> typename T::type_t uf::quaternion::dot( const T& left, const T& right ) {
 	return uf::vector::dot(left, right);
 }
-// 	Compute the angle between two quaternions
 template<typename T> pod::Angle uf::quaternion::angle( const T& a, const T& b ) {
 	T tmp = b * uf::quaternion::inverse(a);
 	return acosf(tmp.w) * static_cast<typename T::type_t>(2);
@@ -76,103 +50,80 @@ template<typename T> pod::Vector3t<T> uf::quaternion::eulerAngles( const pod::Qu
 	};
 }
 template<typename T> T uf::quaternion::pitch( const pod::Quaternion<T>& q ) {
-	T const y = static_cast<T>(2) * (q.y * q.z + q.w * q.x);
-#if UF_USE_SIMD
-	uf::simd::value Q = q;
-	pod::Quaternion<T> s = uf::simd::mul( Q, Q );
-	T const x = s.w - s.x - s.y - s.z;
-#else
-	T const x = q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z;
-#endif
-
+	const T y = static_cast<T>(2) * (q.y * q.z + q.w * q.x);
+	auto s = uf::vector::multiply( q, q );
+	const T x = s.w - s.x - s.y - s.z;
 	T epsilon = std::numeric_limits<T>::epsilon();
-	if ( fabs(x) < epsilon && fabs(y) < epsilon  ) //avoid atan2(0,0) - handle singularity - Matiis
-		return static_cast<T>(static_cast<T>(2) * atan2(q.x, q.w));
-
+	if ( fabs(x) < epsilon && fabs(y) < epsilon  ) return static_cast<T>(static_cast<T>(2) * atan2(q.x, q.w));
 	return static_cast<T>(atan2(y, x));
 }
 template<typename T> T uf::quaternion::yaw( const pod::Quaternion<T>& q ) {
 	return asin(std::clamp(static_cast<T>(-2) * (q.x * q.z - q.w * q.y), static_cast<T>(-1), static_cast<T>(1)));
 }
 template<typename T> T uf::quaternion::roll( const pod::Quaternion<T>& q ) {
-	T const y = static_cast<T>(2) * (q.x * q.y + q.w * q.z);
-#if UF_USE_SIMD
-	uf::simd::value Q = q;
-	pod::Quaternion<T> s = uf::simd::mul( Q, Q );
-	T const x = s.w - s.x - s.y - s.z;
-#else
-	T const x = q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z;
-#endif
-
+	const T y = static_cast<T>(2) * (q.x * q.y + q.w * q.z);
+	auto s = uf::vector::multiply( q, q );
+	const T x = s.w - s.x - s.y - s.z;
 	T epsilon = std::numeric_limits<T>::epsilon();
-	if ( fabs(x) < epsilon && fabs(y) < epsilon  ) //avoid atan2(0,0) - handle singularity - Matiis
-		return static_cast<T>(0);
-
+	if ( fabs(x) < epsilon && fabs(y) < epsilon ) return static_cast<T>(0);
 	return static_cast<T>(atan2(y, x));
 }
-
-// 	Linearly interpolate between two quaternions
 template<typename T> T uf::quaternion::lerp( const T& from, const T& to, typename T::type_t delta ) {
 	return uf::vector::lerp( from, to, delta );
 }
-// 	Spherically interpolate between two quaternions
 template<typename T> T uf::quaternion::slerp( const T& x, const T& y, typename T::type_t a ) {
 	T z = y;
-	auto cosTheta = uf::quaternion::dot( x, y );
-	if( cosTheta < 0 ) {
+	auto cosTheta = uf::quaternion::dot(x, y);
+	if ( cosTheta < 0 ) {
 		z = -y;
 		cosTheta = -cosTheta;
 	}
-	if( cosTheta > 1 - std::numeric_limits<typename T::type_t>::epsilon() ) return uf::vector::mix( x, z, a );
-	typename T::type_t angle = acos(cosTheta);
-	return uf::vector::divide( uf::vector::add(uf::vector::multiply(x, sin(static_cast<typename T::type_t>(1) - a * angle)), uf::vector::multiply(z, sin(a * angle))), sin(angle) );
-//	return (x * sin((static_cast<typename T::type_t>(1) - a) * angle) + z * sin(a * angle)) / sin(angle);
-}
+	if (cosTheta > 1 - std::numeric_limits<typename T::type_t>::epsilon()) return uf::vector::mix(x, z, a);
 
-// 	Compute the distance between two quaternions (doesn't sqrt)
+	typename T::type_t angle = acos(cosTheta);
+	// return ( sin( ( 1 - a ) * angle) * x + sin( a * angle ) * y ) / sin( angle );
+	return uf::vector::divide( uf::vector::add( uf::vector::multiply(x, sin((1 - a) * angle)), uf::vector::multiply(z, sin(a * angle)) ), sin( angle ) );
+}
 template<typename T> typename T::type_t uf::quaternion::distanceSquared( const T& a, const T& b ) {
 	return uf::vector::distanceSquared(a, b);
 }
-// 	Compute the distance between two quaternions
 template<typename T> typename T::type_t uf::quaternion::distance( const T& a, const T& b ) {
 	return uf::vector::distance(a, b);
 }
-// 	Gets the magnitude of the quaternion
 template<typename T> typename T::type_t uf::quaternion::magnitude( const T& quaternion ) {
 	return uf::vector::magnitude(quaternion);
 }
-// 	Compute the norm of the quaternion
 template<typename T> typename T::type_t uf::quaternion::norm( const T& quaternion ) {
 	return uf::vector::norm(quaternion);
 }
-// 	Normalizes a quaternion
 template<typename T> T uf::quaternion::normalize( const T& quaternion ) {
 	return uf::vector::normalize(quaternion);
 }
+template<typename T> pod::Matrix4t<T> uf::quaternion::matrix( const pod::Quaternion<T>& q ) {
+#if UF_USE_SIMD
+	if constexpr ( std::is_same_v<T,float> ) {
+		return uf::simd::quatMat( q );
+	}
+#endif
+	auto normal = uf::quaternion::normalize(q);
 
-// Quaternion ops
-template<typename T> pod::Matrix4t<typename T::type_t> uf::quaternion::matrix( const T& q ) {
-	T normal = uf::quaternion::normalize( q );
+	const T xx = 2 * normal.x * normal.x;
+	const T xy = 2 * normal.x * normal.y;
+	const T xz = 2 * normal.x * normal.z;
+	const T xw = 2 * normal.x * normal.w;
 
-	const typename T::type_t xx = 2 * normal.x * normal.x;
-	const typename T::type_t xy = 2 * normal.x * normal.y;
-	const typename T::type_t xz = 2 * normal.x * normal.z;
-	const typename T::type_t xw = 2 * normal.x * -normal.w;
+	const T yy = 2 * normal.y * normal.y;
+	const T yz = 2 * normal.y * normal.z;
+	const T yw = 2 * normal.y * normal.w;
 
-	const typename T::type_t yy = 2 * normal.y * normal.y;
-	const typename T::type_t yz = 2 * normal.y * normal.z;
-	const typename T::type_t yw = 2 * normal.y * -normal.w;
+	const T zz = 2 * normal.z * normal.z;
+	const T zw = 2 * normal.z * normal.w;
 
-	const typename T::type_t zz = 2 * normal.z * normal.z;
-	const typename T::type_t zw = 2 * normal.z * -normal.w;
-
-//	const typename T::type_t ww = w * w;
-
-	return pod::Matrix4t<typename T::type_t>({
-	1 - yy - zz, 			xy - zw, 			xz + yw, 	0,
-		xy + zw, 		1 - xx - zz, 			yz - xw, 	0,
-		xz - yw, 			yz + xw, 		1 - xx - yy, 	0,
-		0, 0, 0, 1
+	return pod::Matrix4t<T>({
+		1 - yy - zz,   xy + zw,       xz - yw,   0,
+		xy - zw,       1 - xx - zz,   yz + xw,   0,
+		xz + yw,       yz - xw,       1 - xx - yy, 0,
+		0,             0,             0,         1
 	});
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Vector3t<T>& axis, T angle ) { 
@@ -180,112 +131,105 @@ template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Ve
 
 	T sinAngle = sin( angle * static_cast<T>(0.5) );
 	T cosAngle = cos( angle * static_cast<T>(0.5) );
-#if UF_USE_SIMD
-	q = uf::simd::mul( uf::simd::value(axis.x, axis.y, axis.z, static_cast<T>(1) ), uf::simd::value(sinAngle, sinAngle, sinAngle, cosAngle) );
-#else
-	q.x = axis.x * sinAngle;
-	q.y = axis.y * sinAngle;
-	q.z = axis.z * sinAngle;
-	q.w = cosAngle;
-#endif
-	uf::quaternion::normalize(q);
-	return q;
+
+	q = pod::Vector4t<T>{ axis.x, axis.y, axis.z, 1 } * pod::Vector4t<T>{ sinAngle, sinAngle, sinAngle, cosAngle };
+	return uf::quaternion::normalize( q );
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v ) {
-	T dot = uf::vector::dot(u, v);
-	static const T EPSILON = static_cast<T>(0.00001);
-	if ( dot + 1 < EPSILON ) return uf::quaternion::axisAngle( uf::vector::normalize(u), static_cast<T>(3.1415926) );
-	T mag = sqrt( static_cast<T>(2) + static_cast<T>(2) * dot );
-	pod::Vector3t<T> w = uf::vector::multiply(uf::vector::cross(u, v), (static_cast<T>(1) / mag));
-	return {
-		.x = w.x,
-		.y = w.y,
-		.z = w.z,
-		.w = mag * static_cast<T>(0.5)
-	};
+	static const T EPSILON = static_cast<T>(1e-6);
+
+	pod::Vector3t<T> uNorm = uf::vector::normalize( u );
+	pod::Vector3t<T> vNorm = uf::vector::normalize( v );
+
+	T dot = uf::vector::dot( uNorm, vNorm );
+
+	if ( dot < -1 + EPSILON ) {
+		pod::Vector3t<T> orthogonal = (fabs(uNorm.x) > fabs(uNorm.z)) ? pod::Vector3t<T>{ -uNorm.y, uNorm.x, 0 } : pod::Vector3t<T>{ 0, -uNorm.z, uNorm.y };
+		orthogonal = uf::vector::normalize( orthogonal );
+		return uf::quaternion::axisAngle( orthogonal, static_cast<T>(M_PI) );
+	}
+
+	pod::Vector3t<T> cross = uf::vector::cross(uNorm, vNorm);
+	T s = sqrt((1 + dot) * 2);
+
+	return uf::quaternion::normalize({
+		.x = cross.x / s,
+		.y = cross.y / s,
+		.z = cross.z / s,
+		.w = s * static_cast<T>(0.5)
+	});
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vector3t<T>& at, const pod::Vector3t<T>& _up ) { 
-	pod::Vector3t<T> up = _up;
-	pod::Vector3t<T> forward = uf::vector::normalize( at ) ;
-	uf::vector::orthonormalize( up, forward );
-	pod::Vector3t<T> right = uf::vector::cross( up, forward );
-	pod::Quaternion<T> q;
-#if UF_USE_SIMD
-	T w = sqrtf(static_cast<T>(1) + right.x + up.y + forward.z) * static_cast<T>(0.5);
-	float w4_recip = static_cast<T>(1) / (static_cast<T>(4) * w);
-	q = uf::simd::mul( uf::simd::sub( uf::simd::value( forward.y, right.z, up.x, static_cast<T>(0) ), uf::simd::value( up.z, forward.x, right.y, static_cast<T>(0) ) ), w4_recip );
-	q.w = w;
-#else
-	q.w = sqrtf(static_cast<T>(1) + right.x + up.y + forward.z) * static_cast<T>(0.5);
-	float w4_recip = static_cast<T>(1) / (static_cast<T>(4) * q.w);
-	q.x = (forward.y - up.z) * w4_recip;
-	q.y = (right.z - forward.x) * w4_recip;
-	q.z = (up.x - right.y) * w4_recip;
-#endif
-	return uf::quaternion::inverse( uf::quaternion::normalize( q ) );
-//	return q;
+	pod::Vector3t<T> forward = uf::vector::normalize(at);
+	pod::Vector3t<T> up = uf::vector::orthonormalize( _up, forward );
+	pod::Vector3t<T> right = uf::vector::cross(up, forward);
+	pod::Matrix4t<T> m({
+		right.x,   up.x,   forward.x,   0,
+		right.y,   up.y,   forward.y,   0,
+		right.z,   up.z,   forward.z,   0,
+		0,         0,      0,           1
+	});
+	return uf::quaternion::normalize( uf::quaternion::fromMatrix( m ) );
 }
 
-template<typename T> T& uf::quaternion::conjugate( T& q ) {
-#if UF_USE_SIMD
-	return q = uf::simd::mul( q, static_cast<typename T::type_t>(-1) );
-#endif
-	return q = {
-		.x = -q.x,	
-		.y = -q.y,	
-		.z = -q.z,	
-		.w =  q.w	
-	};
-}
+
 template<typename T> T uf::quaternion::conjugate( const T& q ) {
-#if UF_USE_SIMD
-	return uf::simd::mul( q, static_cast<typename T::type_t>(-1) );
-#endif
-	return {
-		.x = -q.x,	
-		.y = -q.y,	
-		.z = -q.z,	
-		.w =  q.w	
-	};
+	return uf::vector::multiply( q, { -1, -1, -1, 1 } );
 }
-template<typename T> T& uf::quaternion::inverse( T& q ) {
-#if UF_USE_SIMD
-	uf::simd::value Q = q;
-	return q = uf::simd::div( uf::simd::mul( Q, { static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(1) } ), uf::simd::dot( Q, Q ) );
-#endif
-	return q = uf::quaternion::conjugate( (const T&) q ) / uf::quaternion::dot( q, q );
-}
+
 template<typename T> T uf::quaternion::inverse( const T& q ) {
-#if UF_USE_SIMD
-	uf::simd::value Q = q;
-	return uf::simd::div( uf::simd::mul( Q, { static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(-1), static_cast<typename T::type_t>(1) } ), uf::simd::dot( Q, Q ) );
-#endif
 	return uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
 }
+
+template<typename T> T& uf::quaternion::multiply_( T& left, const T& right ) {
+	return left = uf::quaternion::multiply((const T&) left, right );
+}
+template<typename T> T& uf::quaternion::normalize_( T& q ) {
+	return q = uf::quaternion::normalize((const T&) q);
+}
+template<typename T> T& uf::quaternion::conjugate_( T& q ) {
+	return q = uf::quaternion::conjugate((const T&) q);
+}
+template<typename T> T& uf::quaternion::inverse_( T& q ) {
+	return q = uf::quaternion::inverse((const T&) q);
+}
+
 template<typename T> pod::Quaternion<T> uf::quaternion::fromMatrix( const pod::Matrix4t<T>& m ) {
 	pod::Quaternion<T> q;
-	T m0  = m[(4*0)+0];
-	T m5  = m[(4*1)+1];
-	T m10 = m[(4*2)+2];
 
-#if UF_USE_SIMD
-	q = uf::simd::div( uf::simd::sqrt( uf::simd::max( static_cast<T>(0), uf::simd::add( uf::simd::add( uf::simd::add( static_cast<T>(1), uf::simd::value( m0, m0, -m0, -m0 ) ), uf::simd::value( m5, -m5, -m5, -m5 ) ), { m10, -m10, -m10, m10 } ) ) ), 2.0f );
-	pod::Vector4f signs = uf::simd::sub( uf::simd::value( m[(4*1)+2], m[(4*2)+0], m[(4*0)+1], static_cast<T>(0) ), uf::simd::value( m[(4*2)+1], m[(4*0)+2], m[(4*1)+0], 0.0f ) );
-	return {
-		copysign( q.x, signs.x ),
-		copysign( q.y, signs.y ),
-		copysign( q.z, signs.z ),
-		q.w
-	};
-#else
-	q.w = sqrt(fmax(0, 1 + m0 + m5 + m10)) * static_cast<T>(0.5);
-	q.x = sqrt(fmax(0, 1 + m0 - m5 - m10)) * static_cast<T>(0.5);
-	q.y = sqrt(fmax(0, 1 - m0 + m5 - m10)) * static_cast<T>(0.5);
-	q.z = sqrt(fmax(0, 1 - m0 - m5 + m10)) * static_cast<T>(0.5);
+	T m00 = m[0],  m01 = m[1],  m02 = m[2];
+	T m10 = m[4],  m11 = m[5],  m12 = m[6];
+	T m20 = m[8],  m21 = m[9],  m22 = m[10];
 
-	q.x = copysign(q.x, m[(4*1)+2] - m[(4*2)+1]);
-	q.y = copysign(q.y, m[(4*2)+0] - m[(4*0)+2]);
-	q.z = copysign(q.z, m[(4*0)+1] - m[(4*1)+0]);
-#endif
-	return q;
+	T trace = m00 + m11 + m22;
+	if ( trace > 0 ) {
+		T s = sqrt(trace + 1) * static_cast<T>(2);
+		q.w = static_cast<T>(0.25) * s;
+		q.x = (m21 - m12) / s;
+		q.y = (m02 - m20) / s;
+		q.z = (m10 - m01) / s;
+	}
+	else if ( m00 > m11 && m00 > m22 ) {
+		T s = sqrt(1 + m00 - m11 - m22) * static_cast<T>(2);
+		q.w = (m21 - m12) / s;
+		q.x = static_cast<T>(0.25) * s;
+		q.y = (m01 + m10) / s;
+		q.z = (m02 + m20) / s;
+	}
+	else if ( m11 > m22 ) {
+		T s = sqrt(1 + m11 - m00 - m22) * static_cast<T>(2);
+		q.w = (m02 - m20) / s;
+		q.x = (m01 + m10) / s;
+		q.y = static_cast<T>(0.25) * s;
+		q.z = (m12 + m21) / s;
+	}
+	else {
+		T s = sqrt(1 + m22 - m00 - m11) * static_cast<T>(2);
+		q.w = (m10 - m01) / s;
+		q.x = (m02 + m20) / s;
+		q.y = (m12 + m21) / s;
+		q.z = static_cast<T>(0.25) * s;
+	}
+
+	return uf::quaternion::normalize(q);
 }

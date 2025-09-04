@@ -1297,7 +1297,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( tag["transform"]["offset"].as<bool>() ) {
 			auto parsed = uf::transform::decode( tag["transform"], pod::Transform<>{} );
 			transform.position += parsed.position;
-			transform.orientation = uf::quaternion::multiply( transform.orientation, parsed.orientation );
+			transform.orientation = uf::quaternion::multiply( parsed.orientation, transform.orientation );
 		} else {
 			transform = uf::transform::decode( tag["transform"], transform );
 			if ( tag["transform"]["parent"].is<uf::stl::string>() ) {

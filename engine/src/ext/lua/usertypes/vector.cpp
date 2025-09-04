@@ -191,7 +191,7 @@ namespace binds {
 			return uf::quaternion::axisAngle( arg.as<pod::Vector3f>(), angle );
 		} else if ( arg.is<sol::table>() ) {
 			sol::table table = arg.as<sol::table>();
-			return uf::quaternion::axisAngle( pod::Vector3f{ table[0], table[1], table[2] }, angle );
+			return uf::quaternion::axisAngle( pod::Vector3f{ (float) table[0], table[1], table[2] }, angle );
 		}
 		return ::Quaternion{};
 	}

@@ -8,6 +8,7 @@
 
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/memory/unordered_map.h>
+#include <uf/utils/memory/unordered_set.h>
 
 #include <uf/engine/object/object.h>
 #include <cfloat>
@@ -27,9 +28,9 @@ namespace pod {
 	};
 
 	struct SupportPoint {
-		pod::Vector3f p;
-		pod::Vector3f pA;
-		pod::Vector3f pB;
+		alignas(16) pod::Vector3f p;
+		alignas(16) pod::Vector3f pA;
+		alignas(16) pod::Vector3f pB;
 	};
 
 	struct Simplex {
@@ -38,16 +39,30 @@ namespace pod {
 
 	struct Face {
 		pod::SupportPoint a, b, c;
-		pod::Vector3f normal;
+		alignas(16) pod::Vector3f normal;
 		float distance;
 	};
 
 	struct BVH {
 		typedef std::pair<int32_t,int32_t> pair_t;
-		typedef uf::stl::vector<pair_t> pairs_t;
+		
+		struct PairHash {
+			size_t operator()( const pair_t& p ) const noexcept {
+				uint64_t a = (uint64_t) std::min(p.first, p.second);
+				uint64_t b = (uint64_t) std::max(p.first, p.second);
+				return (a << 32) ^ b;
+			}
+		};
+		struct PairEq {
+			bool operator()( const pair_t& a, const pair_t& b ) const noexcept {
+				return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
+			}
+		};
+
+		typedef uf::stl::unordered_set<pair_t, PairHash, PairEq> pairs_t;
 		
 		struct Node {
-			pod::AABB bounds = {};
+			alignas(16) pod::AABB bounds = {};
 			int32_t left = -1;
 			int32_t right = -1;
 			int32_t start = 0;
@@ -56,7 +71,7 @@ namespace pod {
 			bool asleep = false;
 		};
 		struct FlatNode {
-			pod::AABB bounds = {};
+			alignas(16) pod::AABB bounds = {};
 			int32_t start = -1;
 			int32_t count = -1;
 			int32_t skipIndex = -1;
@@ -65,13 +80,13 @@ namespace pod {
 		};
 		struct UpdatePolicy {
 			enum class Decision {
-				NONE,    // do nothing
+				NONE,	// do nothing
 				REFIT,   // refit bounds
 				REBUILD  // rebuild from scratch
 			};
 			float displacementThreshold = 0.25f; // 25% of AABB size
-			float overlapThreshold = 2.0f;       // 2x growth in root surface area
-			float dirtyRatioThreshold = 0.3f;    // 30% dirty bodies
+			float overlapThreshold = 2.0f;	   // 2x growth in root surface area
+			float dirtyRatioThreshold = 0.3f;	// 30% dirty bodies
 			int   maxFramesBeforeRebuild = 60;   // force rebuild every 60 frames
 		};
 
@@ -92,27 +107,27 @@ namespace pod {
 	struct Collider {
 		// what it is
 		enum CategoryMask : uint32_t {
-			CATEGORY_NONE        = 0,
-			CATEGORY_STATIC      = 1 << 0,
-			CATEGORY_DYNAMIC     = 1 << 1,
-			CATEGORY_PLAYER      = 1 << 2,
-			CATEGORY_NPC         = 1 << 3,
-			CATEGORY_TRIGGER     = 1 << 4,
+			CATEGORY_NONE		= 0,
+			CATEGORY_STATIC	  = 1 << 0,
+			CATEGORY_DYNAMIC	 = 1 << 1,
+			CATEGORY_PLAYER	  = 1 << 2,
+			CATEGORY_NPC		 = 1 << 3,
+			CATEGORY_TRIGGER	 = 1 << 4,
 			CATEGORY_PROJECTILE  = 1 << 5,
 			CATEGORY_CHARACTER   = CATEGORY_PLAYER | CATEGORY_NPC,
-			CATEGORY_ALL         = 0xFFFFFFFF
+			CATEGORY_ALL		 = 0xFFFFFFFF
 		};
 		// what it collides with
 		enum CollisionMask : uint32_t {
-			MASK_NONE         = 0,
-			MASK_STATIC       = CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC | CATEGORY_PROJECTILE,
-			MASK_DYNAMIC      = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC,
-			MASK_PLAYER       = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_NPC | CATEGORY_PROJECTILE,
-			MASK_NPC          = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_PROJECTILE,
-			MASK_TRIGGER      = CATEGORY_PLAYER | CATEGORY_NPC,
+			MASK_NONE		 = 0,
+			MASK_STATIC	   = CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC | CATEGORY_PROJECTILE,
+			MASK_DYNAMIC	  = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC,
+			MASK_PLAYER	   = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_NPC | CATEGORY_PROJECTILE,
+			MASK_NPC		  = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_PROJECTILE,
+			MASK_TRIGGER	  = CATEGORY_PLAYER | CATEGORY_NPC,
 			MASK_PROJECTILE   = CATEGORY_STATIC | CATEGORY_DYNAMIC | CATEGORY_PLAYER | CATEGORY_NPC,
-			MASK_CHARACTER    = MASK_PLAYER | MASK_NPC,
-			MASK_ALL          = 0xFFFFFFFF
+			MASK_CHARACTER	= MASK_PLAYER | MASK_NPC,
+			MASK_ALL		  = 0xFFFFFFFF
 		};
 
 		pod::ShapeType type;
@@ -149,31 +164,30 @@ namespace pod {
 	struct PhysicsBody {
 		pod::World* world = NULL;
 		uf::Object* object = NULL;
-		// pod::Transform<> transform = {};
-		
 		pod::Transform<>* transform = NULL;
-		pod::Vector3f offset = {};
 
 		bool isStatic = false;
 
 		float mass = 1.0f;
 		float inverseMass = 1.0f;
 
-		pod::Vector3f velocity = {};
-		pod::Vector3f forceAccumulator = {};
+		alignas(16) pod::Vector3f offset = {};
 
-		pod::Vector3f angularVelocity = {};
-		pod::Vector3f torqueAccumulator = {};
+		alignas(16) pod::Vector3f velocity = {};
+		alignas(16) pod::Vector3f forceAccumulator = {};
 
-		pod::Vector3f inertiaTensor = { 1, 1, 1 };
-		pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
+		alignas(16) pod::Vector3f angularVelocity = {};
+		alignas(16) pod::Vector3f torqueAccumulator = {};
 
-		pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+		alignas(16) pod::Vector3f inertiaTensor = { 1, 1, 1 };
+		alignas(16) pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
 
-		pod::AABB bounds;
-		pod::Collider collider;
-		pod::PhysicsMaterial material;
-		pod::Activity activity;
+		alignas(16) pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+
+		alignas(16) pod::AABB bounds;
+		alignas(16) pod::Collider collider;
+		alignas(16) pod::PhysicsMaterial material;
+		alignas(16) pod::Activity activity;
 	};
 
 	struct Contact {
@@ -210,7 +224,8 @@ namespace pod {
 		uf::stl::vector<pod::PhysicsBody*> bodies;
 	
 		pod::Vector3f gravity = { 0, -9.81f, 0 };
-		pod::BVH bvh;
+		pod::BVH dynamicBvh;
+		pod::BVH staticBvh;
 	};
 }
 

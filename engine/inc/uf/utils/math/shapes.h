@@ -5,13 +5,13 @@
 
 namespace pod {
 	struct Plane {
-		pod::Vector3f normal;
+		alignas(16) pod::Vector3f normal;
 		float offset;
 	};
 
 	struct AABB {
-		pod::Vector3f min;
-		pod::Vector3f max;
+		alignas(16) pod::Vector3f min;
+		alignas(16) pod::Vector3f max;
 	};
 
 	struct Sphere {
@@ -24,19 +24,19 @@ namespace pod {
 	};
 
 	struct Ray {
-		pod::Vector3f origin;
-		pod::Vector3f direction;
+		alignas(16) pod::Vector3f origin;
+		alignas(16) pod::Vector3f direction;
 	};
 
 	struct Triangle {
-		pod::Vector3f points[3];
+		alignas(16) pod::Vector3f points[3];
 	};
 
 	struct TriangleWithNormal : Triangle {
-		pod::Vector3f normal;
+		alignas(16) pod::Vector3f normal;
 	};
 	struct TriangleWithNormals : Triangle {
-		pod::Vector3f normals[3];
+		alignas(16) pod::Vector3f normals[3];
 	};
 
 	template<typename T>

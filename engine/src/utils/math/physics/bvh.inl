@@ -162,6 +162,8 @@ namespace {
 	}
 
 	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int capacity = 2 ) {
+		if ( bodies.empty() ) return;
+
 		bvh.indices.clear();
 		bvh.nodes.clear();
 		bvh.indices.reserve(bodies.size());
@@ -207,7 +209,8 @@ namespace {
 
 			auto tris = view.index.count / 3;
 			for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-				auto aabb = ::computeTriangleAABB( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto tri = ::fetchTriangle( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto aabb = ::computeTriangleAABB( tri );
 				auto triID = triIndexID + (view.index.first / 3);
 
 				if ( triID != bounds.size() ) UF_MSG_DEBUG("triID={}, bounds.size()={}", triID, bounds.size());
@@ -349,7 +352,8 @@ namespace {
 
 			auto tris = view.index.count / 3;
 			for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-				auto aabb = ::computeTriangleAABB( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto tri = ::fetchTriangle( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto aabb = ::computeTriangleAABB( tri );
 				bounds.emplace_back(aabb);
 			}
 		}
@@ -414,7 +418,7 @@ namespace {
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
-					pairs.emplace_back(bodyA, bodyB);
+					pairs.emplace(bodyA, bodyB);
 				}
 			}
 			return;
@@ -442,7 +446,7 @@ namespace {
 					int bodyA = bvhA.indices[nodeA.start + i];
 					int bodyB = bvhB.indices[nodeB.start + j];
 
-					pairs.emplace_back(bodyA, bodyB);
+					pairs.emplace(bodyA, bodyB);
 				}
 			}
 			return;
@@ -470,7 +474,7 @@ namespace {
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
-					pairs.emplace_back(bodyA, bodyB);
+					pairs.emplace(bodyA, bodyB);
 				}
 			}
 			return;
@@ -499,11 +503,11 @@ namespace {
 namespace {
 	// query a BVH with an AABB via a stack
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& outIndices ) {
+		if ( bvh.nodes.empty() ) return;
+		
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, bounds, outIndices );
 
 		outIndices.reserve(::reserveCount);
-
-		if ( bvh.nodes.empty() ) return;
 
 		uf::stl::stack<int32_t> stack;
 		stack.push(0);
@@ -598,7 +602,6 @@ namespace {
 		auto& nodes = bvh.flattened;
 		auto& indices = bvh.indices;
 
-		outPairs.clear();
 		outPairs.reserve(::reserveCount);
 
 		for ( auto i = 0; i < (int) nodes.size(); ++i ) {
@@ -619,7 +622,7 @@ namespace {
 						if ( indexA == indexB ) continue;
 						if ( indexA > indexB ) std::swap( indexA, indexB );
 
-						outPairs.emplace_back( indexA, indexB );
+						outPairs.emplace( indexA, indexB );
 					}
 				}
 			}
@@ -634,7 +637,6 @@ namespace {
 
 		if ( nodesA.empty() || nodesB.empty() ) return;
 		
-		outPairs.clear();
 		outPairs.reserve(::reserveCount);
 
 		for ( auto i = 0; i < (int) nodesA.size(); ++i ) {
@@ -652,7 +654,7 @@ namespace {
 						auto indexA = indicesA[nodeA.start + ia];
 						auto indexB = indicesB[nodeB.start + ib];
 
-						outPairs.emplace_back( indexA, indexB );
+						outPairs.emplace( indexA, indexB );
 					}
 				}
 			}

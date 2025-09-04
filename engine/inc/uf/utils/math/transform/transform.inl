@@ -65,13 +65,13 @@ template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::reorient( const
 template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::rotate( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta ) {
 	pod::Quaternion<> quat = uf::quaternion::axisAngle( axis, delta );
 	
-	transform.orientation = uf::vector::normalize(uf::quaternion::multiply(transform.orientation, quat));
+	transform.orientation = uf::vector::normalize(uf::quaternion::multiply(quat, transform.orientation));
 	transform = uf::transform::reorient(transform);
 
 	return transform;
 }
 template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::rotate( pod::Transform<T>& transform, const pod::Quaternion<T>& quat ) {		
-	transform.orientation = uf::vector::normalize(uf::quaternion::multiply(transform.orientation, quat));
+	transform.orientation = uf::vector::normalize(uf::quaternion::multiply(quat, transform.orientation));
 	transform = uf::transform::reorient(transform);
 
 	return transform;

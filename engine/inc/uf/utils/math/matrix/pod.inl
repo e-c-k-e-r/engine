@@ -1,171 +1,101 @@
-#if !__clang__ && __GNUC__
-	#pragma GCC push_options
-	#pragma GCC optimize ("unroll-loops")
-#endif
+#define FOR_EACH_2D( R, C, F ) for_each_index<R>([&](auto r) { for_each_index<C>([&](auto c) F ); });
+#define ROW_MAJOR_INDEX( R, C, r, c ) (r * C + c)
+#define COL_MAJOR_INDEX( R, C, r, c ) (c * R + r)
 
-// 	Overloaded ops
-// Accessing via subscripts
+#define INDEX( R, C, r, c ) COL_MAJOR_INDEX( R, C, r, c )
+
 template<typename T, size_t R, size_t C>
-inline T& pod::Matrix<T,R,C>::operator[](uint_fast8_t i) {
-//	static T null = 0.0/0.0;
-//	if ( i >= R*C ) return null;
+inline T& pod::Matrix<T,R,C>::operator[](size_t i) {
 	return this->components[i];
 }
 template<typename T, size_t R, size_t C>
-inline const T& pod::Matrix<T,R,C>::operator[](uint_fast8_t i) const {
-//	static T null = 0.0/0.0;
-//	if ( i >= R*C ) return null;
+inline const T& pod::Matrix<T,R,C>::operator[](size_t i) const {
 	return this->components[i];
 }
 template<typename T, size_t R, size_t C>
-pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator()() const {
-	pod::Matrix<T,R,C> matrix;
-	#pragma unroll // GCC unroll C
-	for ( uint_fast8_t c = 0; c < C; ++c ) 
-		#pragma unroll // GCC unroll R
-		for ( uint_fast8_t r = 0; r < R; ++r ) 
-			matrix[r+c*C] = (r == c ? 1 : 0);
-	return matrix;
+inline T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) {
+	return this->components[INDEX( R, C, r, c )];
 }
 template<typename T, size_t R, size_t C>
-inline T& pod::Matrix<T,R,C>::operator()(uint_fast8_t r, uint_fast8_t c) {
-	return this->components[r+c*C];
+inline const T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) const {
+	return this->components[INDEX( R, C, r, c )];
 }
-template<typename T, size_t R, size_t C>
-inline const T& pod::Matrix<T,R,C>::operator()(uint_fast8_t r, uint_fast8_t c) const {
-	return this->components[r+c*C];
-}
-/*
-template<typename T, size_t R, size_t C>
-T* pod::Matrix<T,R,C>::operator[](size_t i) {
-	return this->components[i];
-}
-template<typename T, size_t R, size_t C>
-const T* pod::Matrix<T,R,C>::operator[](size_t i) const {
-	return this->components[i];
-}
-*/
+
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::identity() {
-	ALIGN16 pod::Matrix4t<T> matrix;
-	#pragma unroll // GCC unroll 4
-	for ( uint_fast8_t c = 0; c < 4; ++c ) 
-		#pragma unroll // GCC unroll 4
-		for ( uint_fast8_t r = 0; r < 4; ++r ) 
-			matrix[r+c*4] = (r == c ? 1 : 0);
+	pod::Matrix4t<T> matrix;
+	FOR_EACH_2D(4, 4, {
+		matrix(r, c) = (r == c ? T{1} : T{0});
+	});
 	return matrix;
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const T* list ) {
-	ALIGN16 pod::Matrix4t<T> matrix;
-//	memcpy(&matrix[0], list, sizeof(matrix));
-	#pragma unroll // GCC unroll 16
-	for ( uint_fast8_t i = 0; i < 16; ++i )
+	pod::Matrix4t<T> matrix;
+	FOR_EACH(16, {
 		matrix.components[i] = list[i];
+	});
 
-/*
-	for ( uint_fast8_t r = 0; r < 4; ++r ) 
-		for ( uint_fast8_t c = 0; c < 4; ++c ) 
-			matrix[r+c*4] = list[r+c*4];
-*/
 	return matrix;
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const uf::stl::vector<T>& list ) {
-	ALIGN16 pod::Matrix4t<T> matrix;
+	pod::Matrix4t<T> matrix;
 	if ( list.size() != 16 ) return matrix;
-//	memcpy(&matrix[0], &list[0], sizeof(matrix));
-	#pragma unroll // GCC unroll 16
-	for ( uint_fast8_t i = 0; i < 16; ++i )
+	FOR_EACH(16, {
 		matrix.components[i] = list[i];
+	});
 
-/*
-	#pragma unroll // GCC unroll 4
-	for ( uint_fast8_t r = 0; r < 4; ++r ) 
-		#pragma unroll // GCC unroll 4
-		for ( uint_fast8_t c = 0; c < 4; ++c ) 
-			matrix[r+c*4] = list[r+c*4];
-*/
 	return matrix;
 }
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::identityi(){
-	ALIGN16 pod::Matrix<typename T::type_t, T::columns, T::columns> matrix;
-
-	#pragma unroll // GCC unroll T::columns
-	for ( uint_fast8_t c = 0; c < T::columns; ++c ) 
-		#pragma unroll // GCC unroll T::rows
-		for ( uint_fast8_t r = 0; r < T::rows; ++r ) 
-			matrix[r+c*T::columns] = (r == c ? 1 : 0);
-
+	pod::Matrix<typename T::type_t, T::columns, T::columns> matrix;
+	FOR_EACH_2D(T::rows, T::columns, {
+		matrix(r, c) = (r == c ? 1 : 0);
+	});
 
 	return matrix;
 }
-// Arithmetic
-// 	Negation
-template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator-() const {
-	return uf::matrix::inverse(*this);
-}
-// 	Multiplication between two matrices
 template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::multiply(*this, matrix);
 }
-// 	Multiplication between two matrices
 template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( T scalar ) const {
 	return uf::matrix::multiplyAll(*this, scalar);
 }
-// 	Multiplication between two matrices
 template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator+( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::add(*this, matrix);
 }
-// 	Multiplication set between two matrices
 template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator *=( const Matrix<T,R,C>& matrix ) {
-	return uf::matrix::multiply(*this, matrix);
+inline pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator*=( const Matrix<T,R,C>& matrix ) {
+	return uf::matrix::multiply_(*this, matrix);
 }
-// 	Equality check between two matrices (equals)
 template<typename T, size_t R, size_t C>
 inline bool pod::Matrix<T,R,C>::operator==( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::equals( *this, matrix );
 }
-// 	Equality check between two matrices (not equals)
 template<typename T, size_t R, size_t C>
 inline bool pod::Matrix<T,R,C>::operator!=( const Matrix<T,R,C>& matrix ) const {
 	return !uf::matrix::equals( *this, matrix );
 }
-
-// 	Equality checking
-// 	Equality check between two matrices (less than)
-template<typename T> int uf::matrix::compareTo( const T& left, const T& right ) {
-	return memcmp( &left[0], &right[0], sizeof(left) );
-}
-// 	Equality check between two matrices (equals)
-template<typename T> bool uf::matrix::equals( const T& left, const T& right ) {
-	return uf::matrix::compareTo(left, right) == 0;
-}
 template<typename T> bool uf::matrix::equals( const T& left, const T& right, float eps ) {
-	bool equals = true;
-	for ( size_t i = 0; i < 16; ++i ) {
-		if ( abs(left[i] - right[i]) <= eps ) continue;
-		equals = false;
-		break;
-	}
-	return equals;
+	bool result = true;
+	FOR_EACH(T::rows * T::columns, {
+		if ( fabs(left[i] - right[i]) > eps ) result = false;
+	});
+	return result;
 }
-// 	Basic arithmetic
-// 	Multiplies two matrices of same type and size together
 template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<T,4,4>& left, const pod::Matrix<T,4,4>& right ) {
-	ALIGN16 pod::Matrix<T,4,4> res;
+	pod::Matrix<T,4,4> res;
+
 #if UF_USE_SIMD
 	auto row1 = uf::simd::load(&left[0]);
 	auto row2 = uf::simd::load(&left[4]);
 	auto row3 = uf::simd::load(&left[8]);
 	auto row4 = uf::simd::load(&left[12]);
-	#pragma unroll // GCC unroll 4
-	for( uint_fast8_t i = 0; i < 4; i++) {
+	FOR_EACH(4, {
 		auto brod1 = uf::simd::set(right[4*i + 0]);
 		auto brod2 = uf::simd::set(right[4*i + 1]);
 		auto brod3 = uf::simd::set(right[4*i + 2]);
@@ -178,7 +108,7 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 						uf::simd::mul(brod3, row3),
 						uf::simd::mul(brod4, row4)));
 		uf::simd::store(row, &res[4*i]);
-	}
+	});
 
 	return res;
 #elif UF_ENV_DREAMCAST
@@ -191,40 +121,15 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 //	MATH_Load_Matrix_Product( (ALL_FLOATS_STRUCT*) &left[0], (ALL_FLOATS_STRUCT*) &right[0] );
 //	MATH_Store_XMTRX( (ALL_FLOATS_STRUCT*) &res[0]);
 	return res;
-#elif 0
-	// 
-	float* dstPtr = &res[0];
-	const float* leftPtr = &right[0];
-
-	#pragma unroll // GCC unroll 4
-	for (uint_fast8_t i = 0; i < 4; ++i) {
-		#pragma unroll // GCC unroll 4
-		for (uint_fast8_t j = 0; j < 4; ++j) {
-			const float* rightPtr = &left[0] + j;
-
-			float sum = leftPtr[0] * rightPtr[0];
-			#pragma unroll // GCC unroll 3
-			for (uint_fast8_t n = 1; n < 4; ++n) {
-				rightPtr += 4;
-				sum += leftPtr[n] * rightPtr[0];
-			}
-			*dstPtr++ = sum;
+#else
+#if 1
+	FOR_EACH_2D(4, 4, {
+		T sum = T{0};
+		for (size_t k = 0; k < 4; ++k) {
+			sum += left(r, k) * right(k, c);
 		}
-		leftPtr += 4;
-	}
-	return res;
-#elif 0
-	// don't know if it's more performant than below
-	uint_fast8_t i = 0;
-
-	#pragma unroll // GCC unroll 4
-	for ( uint_fast8_t c = 0; c < 4; c++ ) {
-		#pragma unroll // GCC unroll 4
-		for ( uint_fast8_t r = 0; r < 4; r++ ) {
-			res[i++] = uf::vector::dot( { right[0+c*4], right[1+c*4], right[2+c*4], right[3+c*4] }, { left[r+0*4], left[r+1*4], left[r+2*4], left[r+3*4] } );
-		}
-	}
-
+		res(r, c) = sum;
+	});
 	return res;
 #else
 	// it works
@@ -249,22 +154,23 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 	dst3 = srcA0 * srcB3[0] + srcA1 * srcB3[1] + srcA2 * srcB3[2] + srcA3 * srcB3[3];
 	return res;
 #endif
+#endif
 }
 template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( const T& left, const U& right ) {
-	ALIGN16 pod::Matrix<typename T::type_t,T::rows,T::columns> res;
-#if 1
+	pod::Matrix<typename T::type_t,T::rows,T::columns> res;
+
 	float* dstPtr = &res[0];
-	const float* leftPtr = &right[0];
+	const float* leftPtr = &left[0];
 
 	#pragma unroll // GCC unroll T::rows
-	for (uint_fast8_t i = 0; i < T::rows; ++i) {
+	for ( auto i = 0; i < T::rows; ++i) {
 		#pragma unroll // GCC unroll T::columns
-		for (uint_fast8_t j = 0; j < T::columns; ++j) {
-			const float* rightPtr = &left[0] + j;
+		for ( auto j = 0; j < T::columns; ++j) {
+			const float* rightPtr = &right[0] + j;
 
 			float sum = leftPtr[0] * rightPtr[0];
 			#pragma unroll // GCC unroll T::columns - 1
-			for (uint_fast8_t n = 1; n < T::columns; ++n) {
+			for ( auto n = 1; n < T::columns; ++n) {
 				rightPtr += T::columns;
 				sum += leftPtr[n] * rightPtr[0];
 			}
@@ -273,51 +179,35 @@ template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::
 		leftPtr += T::columns;
 	}
 
-#else
-	uint_fast8_t i = 0;
-	#pragma unroll // GCC unroll
-	for ( uint_fast8_t col = 0; col < R; col++ ) {
-		#pragma unroll // GCC unroll
-		for ( uint_fast8_t row = 0; row < C; row++ ) {
-			auto& sum = res[i++];
-			#pragma unroll // GCC unroll
-			for ( uint_fast8_t i = 0; i < C; i++ )
-				sum += right[i + col * C] * left[row + i * R];
-		}
-	}
-#endif
 	return res;
 }
 template<typename T> T /*UF_API*/ uf::matrix::multiplyAll( const T& m, typename T::type_t scalar ) {
-	ALIGN16 T matrix;
-	#pragma unroll // GCC unroll T::rows * T::columns
-	for ( uint_fast8_t i = 0; i < T::rows * T::columns; ++i )
+	T matrix;
+
+	FOR_EACH(T::rows * T::columns, {
 		matrix[i] = m[i] * scalar;
+	});
 
 	return matrix;
 }
 template<typename T> T /*UF_API*/ uf::matrix::add( const T& lhs, const T& rhs ) {
-	ALIGN16 T matrix;
-	#pragma unroll // GCC unroll T::rows * T::columns
-	for ( uint_fast8_t i = 0; i < T::rows * T::columns; ++i )
+	T matrix;
+
+	FOR_EACH(T::rows * T::columns, {
 		matrix[i] = lhs[i] + rhs[i];
+	});
 
 	return matrix;
 }
-// 	Transpose matrix
 template<typename T> T uf::matrix::transpose( const T& matrix ) {
-	ALIGN16 T transpose;
+	T transpose;
 
-	#pragma unroll // GCC unroll T::rows
-	for ( typename T::type_t r = 0; r < T::rows; ++r )
-		#pragma unroll // GCC unroll T::columns
-		for ( typename T::type_t c = 0; c < T::columns; ++c )
-			transpose[c * T::rows + r] = matrix[r * T::columns + c];
-
+	FOR_EACH_2D(T::rows, T::columns, {
+		transpose(c, r) = matrix(r, c);
+	});
 
 	return transpose;
 }
-//
 template<typename T> pod::Matrix2t<T> uf::matrix::inverse( const pod::Matrix2t<T>& m ) {
 	T det = m[0] * m[3] - m[1] * m[2];
 	if ( std::fabs(det) < 1e-12f ) return m;
@@ -331,98 +221,37 @@ template<typename T> pod::Matrix2t<T> uf::matrix::inverse( const pod::Matrix2t<T
 }
 
 template<typename T> pod::Matrix3t<T> uf::matrix::inverse( const pod::Matrix3t<T>& m ) {
-// matrix elements
 	const T* a = &m[0];
-	T det = a[0]*(a[4]*a[8] - a[5]*a[7])
-		  - a[1]*(a[3]*a[8] - a[5]*a[6])
-		  + a[2]*(a[3]*a[7] - a[4]*a[6]);
-
-	if (std::fabs(det) < 1e-12f) return m; // singular
-
+	T det = a[0]*(a[4]*a[8] - a[5]*a[7]) - a[1]*(a[3]*a[8] - a[5]*a[6]) + a[2]*(a[3]*a[7] - a[4]*a[6]);
+	if ( std::fabs(det) < 1e-12f ) return m; // singular
 	T invDet = static_cast<T>(1) / det;
-
 	return pod::Matrix3t<T>{
-		(a[4]*a[8] - a[5]*a[7]) * invDet,
-		(a[2]*a[7] - a[1]*a[8]) * invDet,
-		(a[1]*a[5] - a[2]*a[4]) * invDet,
-
-		(a[5]*a[6] - a[3]*a[8]) * invDet,
-		(a[0]*a[8] - a[2]*a[6]) * invDet,
-		(a[2]*a[3] - a[0]*a[5]) * invDet,
-
-		(a[3]*a[7] - a[4]*a[6]) * invDet,
-		(a[1]*a[6] - a[0]*a[7]) * invDet,
-		(a[0]*a[4] - a[1]*a[3]) * invDet,
+		(a[4]*a[8] - a[5]*a[7]) * invDet, (a[2]*a[7] - a[1]*a[8]) * invDet, (a[1]*a[5] - a[2]*a[4]) * invDet,
+		(a[5]*a[6] - a[3]*a[8]) * invDet, (a[0]*a[8] - a[2]*a[6]) * invDet, (a[2]*a[3] - a[0]*a[5]) * invDet,
+		(a[3]*a[7] - a[4]*a[6]) * invDet, (a[1]*a[6] - a[0]*a[7]) * invDet, (a[0]*a[4] - a[1]*a[3]) * invDet,
 	};
 }
 
 template<typename T> pod::Matrix4t<T> uf::matrix::inverse( const pod::Matrix4t<T>& m ) {
 	const T* a = &m[0];
-	ALIGN16 pod::Matrix4t<T> inv;
+	pod::Matrix4t<T> inv;
 
-	inv[0]  =   a[5] * (a[10]*a[15] - a[11]*a[14]) -
-				a[9] * (a[6]*a[15]  - a[7]*a[14]) +
-				a[13]* (a[6]*a[11]  - a[7]*a[10]);
-
-	inv[4]  = - a[4] * (a[10]*a[15] - a[11]*a[14]) +
-				a[8] * (a[6]*a[15]  - a[7]*a[14]) -
-				a[12]* (a[6]*a[11]  - a[7]*a[10]);
-
-	inv[8]  =   a[4] * (a[9]*a[15]  - a[11]*a[13]) -
-				a[8] * (a[5]*a[15]  - a[7]*a[13]) +
-				a[12]* (a[5]*a[11]  - a[7]*a[9]);
-
-	inv[12] = - a[4] * (a[9]*a[14]  - a[10]*a[13]) +
-				a[8] * (a[5]*a[14]  - a[6]*a[13]) -
-				a[12]* (a[5]*a[10]  - a[6]*a[9]);
-
-	inv[1]  = - a[1] * (a[10]*a[15] - a[11]*a[14]) +
-				a[9] * (a[2]*a[15]  - a[3]*a[14]) -
-				a[13]* (a[2]*a[11]  - a[3]*a[10]);
-
-	inv[5]  =   a[0] * (a[10]*a[15] - a[11]*a[14]) -
-				a[8] * (a[2]*a[15]  - a[3]*a[14]) +
-				a[12]* (a[2]*a[11]  - a[3]*a[10]);
-
-	inv[9]  = - a[0] * (a[9]*a[15]  - a[11]*a[13]) +
-				a[8] * (a[1]*a[15]  - a[3]*a[13]) -
-				a[12]* (a[1]*a[11]  - a[3]*a[9]);
-
-	inv[13] =   a[0] * (a[9]*a[14]  - a[10]*a[13]) -
-				a[8] * (a[1]*a[14]  - a[2]*a[13]) +
-				a[12]* (a[1]*a[10]  - a[2]*a[9]);
-
-	inv[2]  =   a[1] * (a[6]*a[15]  - a[7]*a[14]) -
-				a[5] * (a[2]*a[15]  - a[3]*a[14]) +
-				a[13]* (a[2]*a[7]   - a[3]*a[6]);
-
-	inv[6]  = - a[0] * (a[6]*a[15]  - a[7]*a[14]) +
-				a[4] * (a[2]*a[15]  - a[3]*a[14]) -
-				a[12]* (a[2]*a[7]   - a[3]*a[6]);
-
-	inv[10] =   a[0] * (a[5]*a[15]  - a[7]*a[13]) -
-				a[4] * (a[1]*a[15]  - a[3]*a[13]) +
-				a[12]* (a[1]*a[7]   - a[3]*a[5]);
-
-	inv[14] = - a[0] * (a[5]*a[14]  - a[6]*a[13]) +
-				a[4] * (a[1]*a[14]  - a[2]*a[13]) -
-				a[12]* (a[1]*a[6]   - a[2]*a[5]);
-
-	inv[3]  = - a[1] * (a[6]*a[11]  - a[7]*a[10]) +
-				a[5] * (a[2]*a[11]  - a[3]*a[10]) -
-				a[9] * (a[2]*a[7]   - a[3]*a[6]);
-
-	inv[7]  =   a[0] * (a[6]*a[11]  - a[7]*a[10]) -
-				a[4] * (a[2]*a[11]  - a[3]*a[10]) +
-				a[8] * (a[2]*a[7]   - a[3]*a[6]);
-
-	inv[11] = - a[0] * (a[5]*a[11]  - a[7]*a[9]) +
-				a[4] * (a[1]*a[11]  - a[3]*a[9]) -
-				a[8] * (a[1]*a[7]   - a[3]*a[5]);
-
-	inv[15] =   a[0] * (a[5]*a[10]  - a[6]*a[9]) -
-				a[4] * (a[1]*a[10]  - a[2]*a[9]) +
-				a[8] * (a[1]*a[6]   - a[2]*a[5]);
+	inv[0]  =   a[5] * (a[10]*a[15] - a[11]*a[14]) - a[9] * (a[6]*a[15]  - a[7]*a[14]) + a[13]* (a[6]*a[11]  - a[7]*a[10]);
+	inv[4]  = - a[4] * (a[10]*a[15] - a[11]*a[14]) + a[8] * (a[6]*a[15]  - a[7]*a[14]) - a[12]* (a[6]*a[11]  - a[7]*a[10]);
+	inv[8]  =   a[4] * (a[9]*a[15]  - a[11]*a[13]) - a[8] * (a[5]*a[15]  - a[7]*a[13]) + a[12]* (a[5]*a[11]  - a[7]*a[9]);
+	inv[12] = - a[4] * (a[9]*a[14]  - a[10]*a[13]) + a[8] * (a[5]*a[14]  - a[6]*a[13]) - a[12]* (a[5]*a[10]  - a[6]*a[9]);
+	inv[1]  = - a[1] * (a[10]*a[15] - a[11]*a[14]) + a[9] * (a[2]*a[15]  - a[3]*a[14]) - a[13]* (a[2]*a[11]  - a[3]*a[10]);
+	inv[5]  =   a[0] * (a[10]*a[15] - a[11]*a[14]) - a[8] * (a[2]*a[15]  - a[3]*a[14]) + a[12]* (a[2]*a[11]  - a[3]*a[10]);
+	inv[9]  = - a[0] * (a[9]*a[15]  - a[11]*a[13]) + a[8] * (a[1]*a[15]  - a[3]*a[13]) - a[12]* (a[1]*a[11]  - a[3]*a[9]);
+	inv[13] =   a[0] * (a[9]*a[14]  - a[10]*a[13]) - a[8] * (a[1]*a[14]  - a[2]*a[13]) + a[12]* (a[1]*a[10]  - a[2]*a[9]);
+	inv[2]  =   a[1] * (a[6]*a[15]  - a[7]*a[14]) - a[5] * (a[2]*a[15]  - a[3]*a[14]) + a[13]* (a[2]*a[7]   - a[3]*a[6]);
+	inv[6]  = - a[0] * (a[6]*a[15]  - a[7]*a[14]) + a[4] * (a[2]*a[15]  - a[3]*a[14]) - a[12]* (a[2]*a[7]   - a[3]*a[6]);
+	inv[10] =   a[0] * (a[5]*a[15]  - a[7]*a[13]) - a[4] * (a[1]*a[15]  - a[3]*a[13]) + a[12]* (a[1]*a[7]   - a[3]*a[5]);
+	inv[14] = - a[0] * (a[5]*a[14]  - a[6]*a[13]) + a[4] * (a[1]*a[14]  - a[2]*a[13]) - a[12]* (a[1]*a[6]   - a[2]*a[5]);
+	inv[3]  = - a[1] * (a[6]*a[11]  - a[7]*a[10]) + a[5] * (a[2]*a[11]  - a[3]*a[10]) - a[9] * (a[2]*a[7]   - a[3]*a[6]);
+	inv[7]  =   a[0] * (a[6]*a[11]  - a[7]*a[10]) - a[4] * (a[2]*a[11]  - a[3]*a[10]) + a[8] * (a[2]*a[7]   - a[3]*a[6]);
+	inv[11] = - a[0] * (a[5]*a[11]  - a[7]*a[9]) + a[4] * (a[1]*a[11]  - a[3]*a[9]) - a[8] * (a[1]*a[7]   - a[3]*a[5]);
+	inv[15] =   a[0] * (a[5]*a[10]  - a[6]*a[9]) - a[4] * (a[1]*a[10]  - a[2]*a[9]) + a[8] * (a[1]*a[6]   - a[2]*a[5]);
 
 	// determinant
 	T det = a[0]*inv[0] + a[1] * inv[4] + a[2] * inv[8] + a[3] * inv[12];
@@ -433,171 +262,184 @@ template<typename T> pod::Matrix4t<T> uf::matrix::inverse( const pod::Matrix4t<T
 
 	return inv;
 }
-template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w, bool div ) {
-	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w }, div );
+template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& v, T w, bool div ) {
+	auto res4 = uf::matrix::multiply(mat, pod::Vector4t<T>{ v[0], v[1], v[2], w }, div);
+	return pod::Vector3t<T>{ res4[0], res4[1], res4[2] };
 }
 template<typename T>
 pod::Vector2t<T> uf::matrix::multiply(const pod::Matrix2t<T>& mat, const pod::Vector2t<T>& v ) {
 	return pod::Vector2t<T>{
-		v[0]* mat[0] + v[1]* mat[2],
-		v[0]* mat[1] + v[1]* mat[3],
-	};
+		v[0] * mat(0,0) + v[1] * mat(0,1),
+		v[0] * mat(1,0) + v[1] * mat(1,1)
+    };
 }
 
 template<typename T>
 pod::Vector3t<T> uf::matrix::multiply(const pod::Matrix3t<T>& mat, const pod::Vector3t<T>& v ) {
 	return pod::Vector3t<T>{
-		v[0]* mat[0] + v[1]* mat[3] + v[2] * mat[6],
-		v[0]* mat[1] + v[1]* mat[4] + v[2] * mat[7],
-		v[0]* mat[2] + v[1]* mat[5] + v[2] * mat[8],
+		v[0] * mat(0,0) + v[1] * mat(0,1) + v[2] * mat(0,2),
+		v[0] * mat(1,0) + v[1] * mat(1,1) + v[2] * mat(1,2),
+		v[0] * mat(2,0) + v[1] * mat(2,1) + v[2] * mat(2,2)
 	};
 }
-template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool div ) {
+template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& v, bool div ) {
 #if UF_ENV_DREAMCAST
 	MATH_Load_XMTRX( (ALL_FLOATS_STRUCT*) &mat[0] );
-	auto t = MATH_Matrix_Transform( vector[0], vector[1], vector[2], vector[3] );
+	auto t = MATH_Matrix_Transform( v[0], v[1], v[2], v[3] );
 	auto res = *((pod::Vector4t<T>*) &t);
 	if ( div && res.w > 0 ) res /= res.w;
 	return res;
 #else
-	ALIGN16 auto res = pod::Vector4t<T>{
-		vector[0] * mat[0] + vector[1] * mat[4] + vector[2] * mat[8] + vector[3] * mat[12],
-		vector[0] * mat[1] + vector[1] * mat[5] + vector[2] * mat[9] + vector[3] * mat[13],
-		vector[0] * mat[2] + vector[1] * mat[6] + vector[2] * mat[10] + vector[3] * mat[14],
-		vector[0] * mat[3] + vector[1] * mat[7] + vector[2] * mat[11] + vector[3] * mat[15]
+	auto res = pod::Vector4t<T>{
+		v[0] * mat(0,0) + v[1] * mat(0,1) + v[2] * mat(0,2) + v[3] * mat(0,3),
+		v[0] * mat(1,0) + v[1] * mat(1,1) + v[2] * mat(1,2) + v[3] * mat(1,3),
+		v[0] * mat(2,0) + v[1] * mat(2,1) + v[2] * mat(2,2) + v[3] * mat(2,3),
+		v[0] * mat(3,0) + v[1] * mat(3,1) + v[2] * mat(3,2) + v[3] * mat(3,3)
 	};
 	if ( div && res.w > 0 ) res /= res.w;
 	return res;
 #endif
 }
-// 	Writes to first value
-template<typename T> T& uf::matrix::invert( T& matrix ) {
-	return matrix = uf::matrix::inverse((const T&) matrix);
+
+// functions that serve as the basis to creating SRT matrices, specifically for applying to an identity matrix
+template<typename T> T uf::matrix::translate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+	T res = matrix;
+	res(0,3) = vector.x;
+	res(1,3) = vector.y;
+	res(2,3) = vector.z;
+	return res;
+}
+template<typename T> T uf::matrix::rotate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+    T res = matrix;
+
+	if (vector.x != 0) {
+		T Rx = uf::matrix::identity<T>();
+		Rx(1,1) = cos(vector.x); Rx(1,2) = -sin(vector.x);
+		Rx(2,1) = sin(vector.x); Rx(2,2) = cos(vector.x);
+		res = uf::matrix::multiply(res, Rx);
+	}
+	if (vector.y != 0) {
+		T Ry = uf::matrix::identity<T>();
+		Ry(0,0) = cos(vector.y); Ry(0,2) = sin(vector.y);
+		Ry(2,0) = -sin(vector.y); Ry(2,2) = cos(vector.y);
+		res = uf::matrix::multiply(res, Ry);
+	}
+	if (vector.z != 0) {
+		T Rz = uf::matrix::identity<T>();
+		Rz(0,0) = cos(vector.z); Rz(0,1) = -sin(vector.z);
+		Rz(1,0) = sin(vector.z); Rz(1,1) = cos(vector.z);
+		res = uf::matrix::multiply(res, Rz);
+	}
+    return res;
+}
+template<typename T> T uf::matrix::scale( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+	T res = matrix;
+	res(0,0) = vector.x;
+	res(1,1) = vector.y;
+	res(2,2) = vector.z;
+	return res;
 }
 
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply_( T& left, const T& right ) {
 	return left = uf::matrix::multiply((const T&) left, right);
 }
 template<typename T> T& uf::matrix::translate_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	matrix[12] = vector.x;
-	matrix[13] = vector.y;
-	matrix[14] = vector.z;
-	return matrix;
+	return matrix = uf::matrix::translate((const T&) matrix, vector);
 }
 template<typename T> T& uf::matrix::rotate_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	if ( vector.x != 0 ) {	
-		matrix[5] = cos( vector.x );
-		matrix[6] = sin( vector.x );
-		matrix[9] = -1 * sin( vector.x );
-		matrix[10] = cos( vector.x );
-	}
-	
-	if ( vector.y != 0 ) {	
-		matrix[0] = cos( vector.y );
-		matrix[2] = -1 * sin( vector.y );
-		matrix[8] = sin( vector.y );
-		matrix[10] = cos( vector.y );
-	}
-
-	if ( vector.z != 0 ) {	
-		matrix[0] = cos( vector.z );
-		matrix[1] = sin( vector.z );
-		matrix[4] = -1 * sin( vector.z );
-		matrix[5] = cos( vector.z );
-	}
-	return matrix;
+	return matrix = uf::matrix::rotate((const T&) matrix, vector);
 }
 template<typename T> T& uf::matrix::scale_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	matrix[0] = vector.x;
-	matrix[5] = vector.y;
-	matrix[10] = vector.z;
-	return matrix;
+	return matrix = uf::matrix::scale((const T&) matrix, vector);
 }
-// 	Complex arithmetic
-template<typename T> T uf::matrix::translate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	ALIGN16 T res = matrix;
-	res[12] = vector.x;
-	res[13] = vector.y;
-	res[14] = vector.z;
-	return res;
+template<typename T> T& uf::matrix::inverse_( T& matrix ) {
+	return matrix = uf::matrix::inverse((const T&) matrix);
 }
-template<typename T> T uf::matrix::rotate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	ALIGN16 T res = matrix;
-	if ( vector.x != 0 ) {	
-		res[5] = cos( vector.x );
-		res[6] = sin( vector.x );
-		res[9] = -1 * sin( vector.x );
-		res[10] = cos( vector.x );
-	}
-	
-	if ( vector.y != 0 ) {	
-		res[0] = cos( vector.y );
-		res[2] = -1 * sin( vector.y );
-		res[8] = sin( vector.y );
-		res[10] = cos( vector.y );
-	}
 
-	if ( vector.z != 0 ) {	
-		res[0] = cos( vector.z );
-		res[1] = sin( vector.z );
-		res[4] = -1 * sin( vector.z );
-		res[5] = cos( vector.z );
-	}
-	return res;
-}
-template<typename T> T uf::matrix::scale( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	ALIGN16 T res = matrix;
-	res[0] = vector.x;
-	res[5] = vector.y;
-	res[10] = vector.z;
-	return res;
-}
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t, T f, T n ) {
-	ALIGN16 pod::Matrix4t<T> m = uf::matrix::identity();
-	m[0*4+0] = 2 / (r - l);
-	m[1*4+1] = 2 / (t - b);
-	m[2*4+2] = - 2 / (f - n);
-	m[3*4+0] = - (r + l) / (r - l);
-	m[3*4+1] = - (t + b) / (t - b);
-	m[3*4+2] = - (f + n) / (f - n);
+	pod::Matrix4t<T> m = uf::matrix::identity();
+    m(0,0) = static_cast<T>(2) / (r - l);
+    m(1,1) = static_cast<T>(2) / (t - b);
+    m(2,2) = static_cast<T>(-2) / (f - n);
+
+    // Translation terms go in the last column (col = 3)
+    m(0,3) = - (r + l) / (r - l);
+    m(1,3) = - (t + b) / (t - b);
+    m(2,3) = - (f + n) / (f - n);
 	return m;
-/*
-	uf::stl::vector<T> m = {
-		2 / (r - l), 0, 0, 0,
-		0, 2 / (t - b), 0, 0,
-		0, 0, -2 / (f - n), 0,
-		-(r + l) / (r - l), -(t + b) / (t - b), -(f + n) / (f - n), 1,
-	};
-	return uf::matrix::initialize(m);
-*/
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t ) {
-	return pod::Matrix4t<T>({
-		2 / (r - l), 0, 0, 0,
-		0, 2 / (t - b), 0, 0,
-		0, 0, 1, 0,
-		-(r + l) / (r - l), -(t+b)/(t-b), 0, 1
-	});
+	pod::Matrix4t<T> m = uf::matrix::identity();
+	m(0,0) = static_cast<T>(2) / (r - l);
+	m(1,1) = static_cast<T>(2) / (t - b);
+	m(2,2) = static_cast<T>(1);
+
+	m(0,3) = - (r + l) / (r - l);
+	m(1,3) = - (t + b) / (t - b);
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T zfar ) {
+	if (uf::matrix::reverseInfiniteProjection) {
+		T f = static_cast<T>(1) / tan(static_cast<T>(0.5) * fov);
+	#if UF_USE_OPENGL
+		pod::Matrix4t<T> m = uf::matrix::identity<T>();
+		m(0,0) = f / raidou;
+		m(1,1) = f;
+		m(2,2) = 0;
+		m(2,3) = znear;
+		m(3,2) = 1;
+		m(3,3) = 0;
+		return m;
+	#elif UF_USE_VULKAN
+		pod::Matrix4t<T> m = uf::matrix::identity<T>();
+		m(0,0) = f / raidou;
+		m(1,1) = -f; // Vulkan flips Y
+		m(2,2) = 0;
+		m(2,3) = znear;
+		m(3,2) = 1;
+		m(3,3) = 0;
+		return m;
+	#endif
+	} else {
+		T range = znear - zfar;
+		T f = tan(static_cast<T>(0.5) * fov);
+
+		T Sx = static_cast<T>(1) / (f * raidou);
+		T Sy = static_cast<T>(1) / f;
+		T Sz = (zfar + znear) / range;
+		T Pz = (static_cast<T>(2) * zfar * znear) / range;
+
+	#if UF_USE_VULKAN
+		Sy = -Sy; // Vulkan NDC has inverted Y
+	#endif
+
+		pod::Matrix4t<T> m = uf::matrix::identity<T>();
+		m(0,0) = Sx;
+		m(1,1) = Sy;
+		m(2,2) = Sz;
+		m(2,3) = Pz;
+		m(3,2) = -1;
+		m(3,3) = 0;
+		return m;
+	}
+#if 0
 	if ( uf::matrix::reverseInfiniteProjection ) {
 		T f = static_cast<T>(1) / tan( static_cast<T>(0.5) * fov );
 	#if UF_USE_OPENGL
 		return pod::Matrix4t<T>({
-			f / raidou, 	0, 	 	0, 		0,
-			0, 			 	f, 	 	0, 		0,
-			0,	   		0,		0, 		1,
-			0,	   		0,   znear, 	0
+			f / raidou, 0, 0, 0,
+			0, f, 0, 0,
+			0, 0, 0, 1,
+			0, 0, znear, 0
 		});
 	#elif UF_USE_VULKAN
 		return pod::Matrix4t<T>({
-			f / raidou, 	0, 	 	0, 		0,
-			0, 				-f, 	0, 		0,
-			0,	   		0,		0, 		1,
-			0,	   		0,   znear, 	0
+			f / raidou, 0, 0, 0,
+			0, -f, 0, 0,
+			0, 0, 0, 1,
+			0, 0, znear, 0
 		});
 	#endif
 	} else {
@@ -618,17 +460,18 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 			 0, 	 0, 	Pz, 	  0
 		});
 	}
+#endif
 }
 template<typename T> T& uf::matrix::copy( T& destination, const T& source ) {
 	#pragma unroll // GCC unroll 16
-	for ( uint_fast8_t i = 0; i < 16; ++i )
+	for ( auto i = 0; i < 16; ++i )
 		destination[i] = source[i];
 
 	return destination;
 }
 template<typename T> T& uf::matrix::copy( T& destination, typename T::type_t* const source ) {
 	#pragma unroll // GCC unroll 16
-	for ( uint_fast8_t i = 0; i < 16; ++i )
+	for ( auto i = 0; i < 16; ++i )
 		destination[i] = source[i];
 
 	return destination;
@@ -650,11 +493,11 @@ ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m, con
 	ext::json::Value json;
 	if ( settings.quantize )
 		#pragma unroll // GCC unroll R*C
-		for ( uint_fast8_t i = 0; i < R*C; ++i )
+		for ( auto i = 0; i < R*C; ++i )
 			json[i] = uf::math::quantizeShort( m[i] );
 	else
 		#pragma unroll // GCC unroll R*C
-		for ( uint_fast8_t i = 0; i < R*C; ++i )
+		for ( auto i = 0; i < R*C; ++i )
 			json[i] = m[i];
 
 	return json;
@@ -663,10 +506,10 @@ template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, pod::Matrix<T,R,C>& m ) {
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < R*C && i < json.size(); ++i )
+		for ( auto i = 0; i < R*C && i < json.size(); ++i )
 			m[i] = json[i].as<T>(m[i]);
 	else if ( ext::json::isObject(json) ) {
-		uint_fast8_t i = 0;
+		auto i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
 			if ( i >= R*C ) return;
 			m[i] = c.as<T>(m[i]);
@@ -678,13 +521,13 @@ pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json,
 
 template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, const pod::Matrix<T,R,C>& _m ) {
-	ALIGN16 pod::Matrix<T,R,C> m = _m;
+	pod::Matrix<T,R,C> m = _m;
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < R*C && i < json.size(); ++i )
+		for ( auto i = 0; i < R*C && i < json.size(); ++i )
 			m[i] = json[i].as<T>(_m[i]);
 	else if ( ext::json::isObject(json) ) {
-		uint_fast8_t i = 0;
+		auto i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
 			if ( i >= R*C ) return;
 			m[i] = c.as<T>(_m[i]);
@@ -699,9 +542,9 @@ uf::stl::string /*UF_API*/ uf::matrix::toString( const pod::Matrix<T,R,C>& m ) {
 	uf::stl::stringstream ss;
 	ss << "Matrix(\n\t";
 	#pragma unroll // GCC unroll C
-	for ( uint_fast8_t c = 0; c < C; ++c ) {
+	for ( auto c = 0; c < C; ++c ) {
 		#pragma unroll // GCC unroll R
-		for ( uint_fast8_t r = 0; r < R; ++r ) {
+		for ( auto r = 0; r < R; ++r ) {
 			ss << m[r+c*C] << ", ";
 		}
 		if ( c + 1 < C ) ss << "\n\t";
@@ -709,7 +552,3 @@ uf::stl::string /*UF_API*/ uf::matrix::toString( const pod::Matrix<T,R,C>& m ) {
 	ss << "\n)";
 	return ss.str();
 }
-
-#if !__clang__ && __GNUC__
-	#pragma GCC pop_options
-#endif

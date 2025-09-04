@@ -1,376 +1,567 @@
-#if !__clang__ && __GNUC__
-	#pragma GCC push_options
-	#pragma GCC optimize ("unroll-loops")
-#endif
+template<typename T>
+constexpr bool simd_able_v = std::is_same_v<T, float> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>;
 
-// having this as an static const in-class variable doesn't work for some reason
-#define SIMD_ABLE(T) std::is_same<T, float>::value || std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value
+template<size_t N, typename F>
+constexpr void for_each_index(F&& f) {
+	[&]<std::size_t... I>(std::index_sequence<I...>) {
+		(f(std::integral_constant<std::size_t, I>{}), ...);
+	}(std::make_index_sequence<N>{});
+}
 
 #if UF_USE_SIMD
 	#include "simd.h"
 #endif
-#include "redundancy.inl"
-// 	Equality checking
+
+// #define FOR_EACH( N, F ) for ( auto i = 0; i < N; ++i ) F;
+#define FOR_EACH( N, F ) for_each_index<N>([&](auto i) F )
+
+template<typename T, typename Op>
+T elementwise( const T& left, const T& right, Op&& op ) {
+	alignas(16) T res;
+	FOR_EACH(T::size, {
+		res[i] = op(left[i], right[i]);
+	});
+	return res;
+}
+
 template<typename T>
-pod::Vector1t<T> /*UF_API*/ uf::vector::create( T x ) { pod::Vector1t<T> vec; vec.x = x; return vec; }
+pod::Vector1t<T> uf::vector::create( T x ) {
+	return pod::Vector1t<T>{ x };
+}
 template<typename T>
-pod::Vector2t<T> /*UF_API*/ uf::vector::create( T x, T y ) { pod::Vector2t<T> vec; vec.x = x, vec.y = y; return vec; }
+pod::Vector2t<T> uf::vector::create( T x, T y ) {
+	return pod::Vector2t<T>{ x, y };
+}
 template<typename T>
-pod::Vector3t<T> /*UF_API*/ uf::vector::create( T x, T y, T z ) { pod::Vector3t<T> vec; vec.x = x, vec.y = y, vec.z = z; return vec; }
+pod::Vector3t<T> uf::vector::create( T x, T y, T z ) {
+	return pod::Vector3t<T>{ x, y, z };
+}
 template<typename T>
-pod::Vector4t<T> /*UF_API*/ uf::vector::create( T x, T y, T z, T w ) { pod::Vector4t<T> vec; vec.x = x, vec.y = y, vec.z = z, vec.w = w; return vec; }
+pod::Vector4t<T> uf::vector::create( T x, T y, T z, T w ) {
+	return pod::Vector4t<T>{ x, y, z, w };
+}
 template<typename T, size_t N>
-pod::Vector<T, N> /*UF_API*/ uf::vector::copy( const pod::Vector<T, N>& v ) { return v; }
+pod::Vector<T, N> uf::vector::copy( const pod::Vector<T, N>& v ) {
+	return v;
+}
 template<typename T, size_t N, typename U>
-pod::Vector<T, N> /*UF_API*/ uf::vector::cast( const U& from ) {
-	ALIGN16 pod::Vector<T, N> to;
+pod::Vector<T, N> uf::vector::cast( const U& from ) {
+	alignas(16) pod::Vector<T, N> to;
 	#pragma unroll // GCC unroll N
 	for ( auto i = 0; i < N && i < U::size; ++i )
 		to[i] = from[i];
 	return to;
 }
-// 	Equality checking
-template<typename T> 														// 	Equality check between two vectors (less than)
-int /*UF_API*/ uf::vector::compareTo( const T& left, const T& right ) {
-	return memcmp( &left, &right, T::size );
+template<typename T>
+bool uf::vector::equals( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::equals( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] == right[i]) ) result = false;
+	});
+	return result;
+#endif
 }
-template<typename T> 														// 	Equality check between two vectors (equals)
-bool /*UF_API*/ uf::vector::equals( const T& left, const T& right ) {
-//	return uf::vector::compareTo(left, right) == 0;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
-		if ( left[i] != right[i] ) return false;
-	return true;
+template<typename T>
+bool uf::vector::notEquals( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::notEquals( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] != right[i]) ) result = false;
+	});
+	return result;
+#endif
 }
-template<typename T> 														//
-bool /*UF_API*/ uf::vector::isValid( const T& v ) {
+template<typename T>
+bool uf::vector::less( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::less( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] < right[i]) ) result = false;
+	});
+	return result;
+#endif
+}
+template<typename T>
+bool uf::vector::lessEquals( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::lessEquals( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] <= right[i]) ) result = false;
+	});
+	return result;
+#endif
+}
+template<typename T>
+bool uf::vector::greater( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::greater( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] > right[i]) ) result = false;
+	});
+	return result;
+#endif
+}
+template<typename T>
+bool uf::vector::greaterEquals( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::all( uf::simd::greaterEquals( left, right ) );
+	}
+#else
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] >= right[i]) ) result = false;
+	});
+	return result;
+#endif
+}
+template<typename T>
+bool uf::vector::isValid( const T& v ) {
 	return uf::vector::equals( v, v );
 }
-// Basic arithmetic
-template<typename T> 														// Adds two vectors of same type and size together
-T /*UF_API*/ uf::vector::add( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::add( const T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add( left, right );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = left[i] + right[i];
+	});
 	return res;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::add( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T uf::vector::add( const T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add( vector, scalar );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = vector[i] + scalar;
+	});
 	return res;
 }
-template<typename T> 														// Subtracts two vectors of same type and size together
-T /*UF_API*/ uf::vector::subtract( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::add( typename T::type_t scalar, const T& vector ) {
+	return uf::vector::add( vector, scalar );
+}
+template<typename T>
+T uf::vector::subtract( const T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::sub( left, right );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = left[i] - right[i];
+	});
 	return res;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::subtract( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T uf::vector::subtract( const T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::sub( vector, scalar );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = vector[i] - scalar;
+	});
 	return res;
 }
-template<typename T> 														// Multiplies two vectors of same type and size together
-T /*UF_API*/ uf::vector::multiply( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::subtract( typename T::type_t scalar, const T& vector ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::sub( scalar, vector );
+	}
+#endif
+	alignas(16) T res;
+	FOR_EACH(T::size, {
+		res[i] = scalar - vector[i];
+	});
+	return res;
+}
+template<typename T>
+T uf::vector::multiply( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::mul( left, right );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = left[i] * right[i];
+	});
 	return res;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::multiply( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T uf::vector::multiply( const T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::mul( vector, scalar );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = vector[i] * scalar;
+	});
 	return res;
 }
-template<typename T> 														// Divides two vectors of same type and size together
-T /*UF_API*/ uf::vector::divide( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::multiply( typename T::type_t scalar, const T& vector ) {
+	return uf::vector::multiply( vector, scalar );
+}
+template<typename T>
+T uf::vector::divide( const T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::div( left, right );
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 T res;
-		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < T::size; ++i )
-			res[i] = MATH_Fast_Divide(left[i], right[i]);
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T res;
+		FOR_EACH(T::size, {
+			res[i] = MATH_Fast_Divide( left[i], right[i] );
+		});
 		return res;
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = left[i] / right[i];
+	});
 	return res;
 }
-template<typename T> 														// Divides this vector by a scalar
-T /*UF_API*/ uf::vector::divide( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T uf::vector::divide( const T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::div( vector, scalar );
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 T res;
-		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < T::size; ++i )
-			res[i] = MATH_Fast_Divide(vector[i], scalar);
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T res;
+		FOR_EACH(T::size, {
+			res[i] = MATH_Fast_Divide( vector[i], scalar );
+		});
 		return res;
 	}
 #endif
-	ALIGN16 T res;
-	scalar = 1.0 / scalar;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	scalar = static_cast<typename T::type_t>(1) / scalar;
+	FOR_EACH(T::size, {
 		res[i] = vector[i] * scalar;
+	});
 	return res;
 }
-template<typename T> 														// Compute the sum of all components 
-typename T::type_t /*UF_API*/ uf::vector::sum( const T& vector ) {
-	typename T::type_t res = 0;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
-		res += vector[i];
-	return res;
-}
-template<typename T> 														// Compute the product of all components 
-typename T::type_t /*UF_API*/ uf::vector::product( const T& vector ) {
-	typename T::type_t res = 0;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
-		res *= vector[i];
-	return res;
-}
-template<typename T> 														// Flip sign of all components
-T /*UF_API*/ uf::vector::negate( const T& vector ) {
+template<typename T>
+T uf::vector::divide( typename T::type_t scalar, const T& vector ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::div( scalar, vector );
+	}
+#elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T res;
+		FOR_EACH(T::size, {
+			res[i] = MATH_Fast_Divide( scalar, vector[i] );
+		});
+		return res;
+	}
+#endif
+	alignas(16) T res;
+	scalar = static_cast<T>(1) / scalar;
+	FOR_EACH(T::size, {
+		res[i] = scalar / vector[i];
+	});
+	return res;
+}
+template<typename T>
+typename T::type_t uf::vector::sum( const T& vector ) {
+	auto res = 0;
+	FOR_EACH(T::size, {
+		res += vector[i];
+	});
+	return res;
+}
+template<typename T>
+typename T::type_t uf::vector::product( const T& vector ) {
+	auto res = 1;
+	FOR_EACH(T::size, {
+		res *= vector[i];
+	});
+	return res;
+}
+template<typename T>
+T uf::vector::negate( const T& vector ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::mul( vector, -1.f );
 	}
 #endif
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	alignas(16) T res;
+	FOR_EACH(T::size, {
 		res[i] = -vector[i];
+	});
 	return res;
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::abs( const T& vector ) {
-	T res;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = std::abs( vector[i] );
+template<typename T>
+T uf::vector::abs( const T& vector ) {
+	alignas(16) T res;
+	FOR_EACH(T::size, {
+		res[i] = std::abs( vector[i] );
+	});
 	return res;
 }
-// Writes to first value
-template<typename T> 														// Adds two vectors of same type and size together
-T& /*UF_API*/ uf::vector::add_( T& left, const T& right ) {
+template<typename T>
+T& uf::vector::add_( T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return left = uf::vector::add( (const T&) left, right );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		left[i] += right[i];
+	});
 	return left;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::add_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T& uf::vector::add_( T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return vector = uf::vector::add( (const T&) vector, scalar );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		vector[i] += scalar;
+	});
 	return vector;
 }
-template<typename T> 														// Subtracts two vectors of same type and size together
-T& /*UF_API*/ uf::vector::subtract_( T& left, const T& right ) {
+template<typename T>
+T& uf::vector::add_( typename T::type_t scalar, T& vector ) {
+	return uf::vector::add_( vector, scalar );
+}
+template<typename T>
+T& uf::vector::subtract_( T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return left = uf::vector::subtract( (const T&) left, right );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		left[i] -= right[i];
+	});
 	return left;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::subtract_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T& uf::vector::subtract_( T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return vector = uf::vector::subtract( (const T&) vector, scalar );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		vector[i] -= scalar;
+	});
 	return vector;
 }
-template<typename T> 														// Multiplies two vectors of same type and size together
-T& /*UF_API*/ uf::vector::multiply_( T& left, const T& right ) {
+template<typename T>
+T& uf::vector::subtract_( typename T::type_t scalar, T& vector ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return vector = uf::vector::subtract( scalar, (const T&) vector );
+	}
+#endif
+	FOR_EACH(T::size, {
+		vector[i] = scalar - vector[i];
+	});
+	return vector;
+}
+template<typename T>
+T& uf::vector::multiply_( T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return left = uf::vector::multiply( (const T&) left, right );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		left[i] *= right[i];
+	});
 	return left;
 }
-template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::multiply_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T& uf::vector::multiply_( T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return vector = uf::vector::multiply( (const T&) vector, scalar );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		vector[i] *= scalar;
+	});
 	return vector;
 }
-template<typename T> 														// Divides two vectors of same type and size together
-T& /*UF_API*/ uf::vector::divide_( T& left, const T& right ) {
+template<typename T>
+T& uf::vector::multiply_( typename T::type_t scalar, T& vector ) {
+	return uf::vector::multiply_( scalar, vector );
+}
+template<typename T>
+T& uf::vector::divide_( T& left, const T& right ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return left = uf::vector::divide( (const T&) left, right );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		left[i] /= right[i];
+	});
 	return left;
 }
-template<typename T> 														// Divides this vector by a scalar
-T& /*UF_API*/ uf::vector::divide_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
+template<typename T>
+T& uf::vector::divide_( T& vector, typename T::type_t scalar ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return vector = uf::vector::divide( (const T&) vector, scalar );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		vector[i] /= scalar;
+	});
 	return vector;
 }
-template<typename T> 														// Flip sign of all components
-T& /*UF_API*/ uf::vector::negate_( T& vector ) {
+template<typename T>
+T& uf::vector::divide_( typename T::type_t scalar, T& vector ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return vector = uf::vector::divide( scalar, (const T&) vector );
+	}
+#endif
+	FOR_EACH(T::size, {
+		vector[i] = scalar / vector[i];
+	});
+	return vector;
+}
+template<typename T>
+T& uf::vector::negate_( T& vector ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return vector = uf::vector::negate( (const T&) vector );
 	}
 #endif
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
+	FOR_EACH(T::size, {
 		vector[i] = -vector[i];
+	});
 	return vector;
 }
-template<typename T> 														// Normalizes a vector
-T& /*UF_API*/ uf::vector::normalize_( T& vector ) {
+template<typename T>
+T& uf::vector::normalize_( T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
-	if ( norm == 0 ) return vector;	
-	return vector = uf::vector::divide((const T&) vector, norm);
+	return ( norm == 0 ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::min( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::min( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::min( left, right );
+	}
+#endif
 	T res = left;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = std::min( left[i], right[i] );
+	FOR_EACH(T::size, {
+		res[i] = std::min( left[i], right[i] );
+	});
 	return res;
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::max( const T& left, const T& right ) {
+template<typename T>
+T uf::vector::max( const T& left, const T& right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		return uf::simd::max( left, right );
+	}
+#endif
 	T res;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = std::max( left[i], right[i] );
+	FOR_EACH(T::size, {
+		res[i] = std::max( left[i], right[i] );
+	});
 	return res;
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::ceil( const T& vector ) {
+template<typename T>
+T uf::vector::clamp( const T& vector, const T& min, const T& max ) {
+	return uf::vector::max( min, uf::vector::min( vector, max ) );
+}
+template<typename T>
+T uf::vector::ceil( const T& vector ) {
 	T res;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = std::ceil( vector[i] );
+	FOR_EACH(T::size, {
+		res[i] = std::ceil( vector[i] );
+	});
 	return res;
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::floor( const T& vector ) {
+template<typename T>
+T uf::vector::floor( const T& vector ) {
 	T res;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = std::floor( vector[i] );
+	FOR_EACH(T::size, {
+		res[i] = std::floor( vector[i] );
+	});
 	return res;
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::round( const T& vector ) {
+template<typename T>
+T uf::vector::round( const T& vector ) {
 	T res;
-	for ( auto i = 0; i < T::size; ++i ) res[i] = ::round( vector[i] );
+	FOR_EACH(T::size, {
+		res[i] = ::round( vector[i] );
+	});
 	return res;
 }
-// Complex arithmetic
-template<typename T> 														// Compute the dot product between two vectors
-typename T::type_t /*UF_API*/ uf::vector::dot( const T& left, const T& right ) {
+template<typename T>
+typename T::type_t uf::vector::dot( const T& left, const T& right ) {
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return MATH_fipr( UF_EZ_VEC4(left, T::size), UF_EZ_VEC4(right, T::size) );
 	}
 #elif UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::dot( left, right );
 	}
 #endif
 	return uf::vector::sum(uf::vector::multiply(left, right));
 }
-template<typename T> 														// Compute the angle between two vectors
-float /*UF_API*/ uf::vector::angle( const T& a, const T& b ) {
+template<typename T>
+float uf::vector::angle( const T& a, const T& b ) {
 	auto dot = uf::vector::dot(a, b);
 	if ( dot < -1.0f ) dot = -1.0f;
 	if ( dot > 1.0f ) dot = 1.0f;
 	return acos(dot);
 }
-template<typename T> 														// Compute the angle between two vectors
-float /*UF_API*/ uf::vector::signedAngle( const T& a, const T& b, const T& axis ) {
+template<typename T>
+float uf::vector::signedAngle( const T& a, const T& b, const T& axis ) {
 	auto unsignedAngle = uf::vector::angle(a, b);
 	float cross_x = a.y * b.z - a.z * b.y;
 	float cross_y = a.z * b.x - a.x * b.z;
@@ -378,46 +569,46 @@ float /*UF_API*/ uf::vector::signedAngle( const T& a, const T& b, const T& axis 
 	float sign = (axis.x * cross_x + axis.y * cross_y + axis.z * cross_z) >= 0.0f ? 1.0f : -1.0f;
 	return unsignedAngle * sign;
 }
-template<typename T> 														// Linearly interpolate between two vectors
-T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta, bool clamp ) {
+template<typename T>
+T uf::vector::lerp( const T& from, const T& to, double delta, bool clamp ) {
 	delta = fmax( 0, fmin(1,delta) );
 	// from + ( ( to - from ) * delta )
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 T res;
-		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < T::size; ++i )
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T res;
+		FOR_EACH(T::size, {
 			res[i] = MATH_Lerp( from[i], to[i], delta );
+		});
 		return res;
 	}
 #elif UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add(from, uf::simd::mul( uf::simd::sub(to, from), (float) delta) );
 	}
 #endif
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
 }
-template<typename T> 														// Linearly interpolate between two vectors
-T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, const T& delta, bool clamp ) {
+template<typename T>
+T uf::vector::lerp( const T& from, const T& to, const T& delta, bool clamp ) {
 	//delta = fmax( 0, fmin(1,delta) );
 	// from + ( ( to - from ) * delta )
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 T res;
-		#pragma unroll // GCC unroll T::size
-		for ( auto i = 0; i < T::size; ++i )
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T res;
+		FOR_EACH(T::size, {
 			res[i] = MATH_Lerp( from[i], to[i], delta[i] );
+		});
 		return res;
 	}
 #elif UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add(from, uf::simd::mul( uf::simd::sub(to, from), delta) );
 	}
 #endif
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
 }
-template<typename T> 														// Spherically interpolate between two vectors
-T /*UF_API*/ uf::vector::slerp( const T& from, const T& to, double delta, bool clamp ) {
+template<typename T>
+T uf::vector::slerp( const T& from, const T& to, double delta, bool clamp ) {
 	if ( clamp ) delta = fmax( 0, fmin(1,delta) );
 	typename T::type_t dot = uf::vector::dot(from, to);
 	typename T::type_t theta = acos(dot);
@@ -426,81 +617,75 @@ T /*UF_API*/ uf::vector::slerp( const T& from, const T& to, double delta, bool c
 	typename T::type_t w1 = sin((1.0f - delta) * theta / sTheta);
 	typename T::type_t w2 = sin( delta * theta / sTheta );
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add( uf::simd::mul( from, w1 ), uf::simd::mul( to, w2 ) );
 	}
 #endif
 	return uf::vector::add(uf::vector::multiply(from, w1), uf::vector::multiply(to, w2));
 }
-template<typename T> 														// 
-T /*UF_API*/ uf::vector::mix( const T& x, const T& y, double a, bool clamp ) {
+template<typename T>
+T uf::vector::mix( const T& x, const T& y, double a, bool clamp ) {
 	if ( clamp ) a = fmax( 0, fmin(1,a) );
 	// x * (1.0 - a) + y * a
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add( uf::simd::mul( x, 1.0f - (float) a ), uf::simd::mul( y, (float) a ) );
 	}
 #endif
 	return uf::vector::add( uf::vector::multiply( x, 1 - a ), uf::vector::multiply( y, a ) );
 }
-template<typename T> 														// Compute the distance between two vectors (doesn't sqrt)
-typename T::type_t /*UF_API*/ uf::vector::distanceSquared( const T& a, const T& b ) {
+template<typename T>
+typename T::type_t uf::vector::distanceSquared( const T& a, const T& b ) {
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 T delta = uf::vector::subtract(b, a);
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) T delta = uf::vector::subtract(b, a);
 		return MATH_Sum_of_Squares( UF_EZ_VEC4( delta, T::size ) );
 	}
 #elif UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		uf::simd::value<typename T::type_t> delta = uf::simd::sub( b, a );
-	//	return uf::vector::sum( uf::simd::vector( uf::simd::mul( delta, delta ) ) );
 		return uf::simd::dot( delta, delta );
 	}
 #endif
-	ALIGN16 T delta = uf::vector::subtract(b, a);
+	alignas(16) T delta = uf::vector::subtract( b, a );
 	return uf::vector::dot( delta, delta );
-/*
-	ALIGN16 T delta = uf::vector::subtract(b, a);
-	uf::vector::multiply( delta, delta );
-	return uf::vector::sum(delta);
-*/
 }
-template<typename T> 														// Compute the distance between two vectors
-typename T::type_t /*UF_API*/ uf::vector::distance( const T& a, const T& b ) {
+template<typename T>
+typename T::type_t uf::vector::distance( const T& a, const T& b ) {
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return MATH_Fast_Sqrt(uf::vector::distanceSquared(a,b));
 	}
 #endif
-	return sqrt(uf::vector::distanceSquared(a,b));
+	return sqrt( uf::vector::distanceSquared( a, b ) );
 }
-template<typename T> 														// Gets the magnitude of the vector
-typename T::type_t /*UF_API*/ uf::vector::magnitude( const T& vector ) {
+template<typename T>
+typename T::type_t uf::vector::magnitude( const T& vector ) {
 	return uf::vector::dot(vector, vector);
 }
-template<typename T> 														// Compute the norm of the vector
-typename T::type_t /*UF_API*/ uf::vector::norm( const T& vector ) {
+template<typename T>
+typename T::type_t uf::vector::norm( const T& vector ) {
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return MATH_Fast_Sqrt( uf::vector::magnitude(vector) );
 	}
 #endif
 	return sqrt( uf::vector::magnitude(vector) );
 }
-template<typename T> 														// Normalizes a vector
-T /*UF_API*/ uf::vector::normalize( const T& vector ) {
+template<typename T>
+T uf::vector::normalize( const T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
 	if ( norm == 0 ) return vector;	
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::vector::multiply(vector, MATH_fsrra(norm));
 	}
 #endif
 	return uf::vector::divide(vector, norm);
 }
 
-template<typename T> 														// Clamps the length of a vector
-T /*UF_API*/ uf::vector::clampMagnitude( const T& v, float maxMag ) {
+template<typename T>
+T uf::vector::clampMagnitude( const T& v, float maxMag ) {
 	T res = v;
 	float mag = uf::vector::magnitude( res );
 	if ( mag > maxMag ) {
@@ -510,22 +695,22 @@ T /*UF_API*/ uf::vector::clampMagnitude( const T& v, float maxMag ) {
 	return res;
 }
 
-template<typename T> 														// Normalizes a vector
-void /*UF_API*/ uf::vector::orthonormalize( T& normal, T& tangent ) {
+template<typename T>
+void uf::vector::orthonormalize( T& normal, T& tangent ) {
 	normal = uf::vector::normalize( normal );
-	ALIGN16 T norm = normal;
-	ALIGN16 T tan = uf::vector::normalize( tangent );
+	alignas(16) T norm = normal;
+	alignas(16) T tan = uf::vector::normalize( tangent );
 	tangent = uf::vector::subtract( tan, uf::vector::multiply( norm, uf::vector::dot( norm, tan ) ) );
 	tangent = uf::vector::normalize( tangent );
 }
-template<typename T> 														// Normalizes a vector
-T /*UF_API*/ uf::vector::orthonormalize( const T& x, const T& y ) {
+template<typename T>
+T uf::vector::orthonormalize( const T& x, const T& y ) {
 	return uf::vector::normalize( uf::vector::subtract( x, uf::vector::multiply( y, uf::vector::dot( y, x ) ) ) );
 }
-template<typename T> 														// Normalizes a vector
-T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
+template<typename T>
+T uf::vector::cross( const T& a, const T& b ) {
 #if UF_USE_SIMD
-	if ( SIMD_ABLE(T) ) {
+	if constexpr ( simd_able_v<typename T::type_t> ) {
 		uf::simd::value<typename T::type_t> x = a;
 		uf::simd::value<typename T::type_t> y = b;
 		#if SSE_INSTR_SET >= 7
@@ -546,20 +731,29 @@ T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
 		#endif
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if ( SIMD_ABLE(T) ) {
-		ALIGN16 auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
+	if constexpr ( simd_able_v<typename T::type_t> ) {
+		alignas(16) auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
 		return *((T*) &res);
 	}
 #endif
-	ALIGN16 T res{
+	alignas(16) T res{
 		a.y * b.z - b.y * a.z,
 		a.z * b.x - b.z * a.x,
 		a.x * b.y - b.x * a.y
 	};
 	return res;
 }
-template<typename T> 														// Normalizes a vector
-uf::stl::string /*UF_API*/ uf::vector::toString( const T& v ) {
+template<typename T>
+typename T::type_t uf::vector::mips( const T& size ) {
+	uint32_t max = 0;
+	FOR_EACH(T::size, {
+		max = std::max( max, size[i] );
+	});
+	return static_cast<uint32_t>(std::floor(std::log2(max))) + 1;
+}
+
+template<typename T>
+uf::stl::string uf::vector::toString( const T& v ) {
 	uf::stl::stringstream ss;
 	ss << "Vector(";
 	#pragma unroll // GCC unroll T::size
@@ -572,7 +766,7 @@ uf::stl::string /*UF_API*/ uf::vector::toString( const T& v ) {
 }
 
 template<typename T, size_t N>
-ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& settings ) {
+ext::json::Value uf::vector::encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json;
 	if ( settings.quantize )
 		#pragma unroll // GCC unroll T::size
@@ -585,7 +779,7 @@ ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v, const
 	return json;
 }
 template<typename T, size_t N>
-pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, pod::Vector<T,N>& v ) {
+pod::Vector<T,N>& uf::vector::decode( const ext::json::Value& json, pod::Vector<T,N>& v ) {
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
 		for ( auto i = 0; i < N && i < json.size(); ++i )
@@ -601,7 +795,7 @@ pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, p
 	return v;
 }
 template<typename T, size_t N>
-pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, const pod::Vector<T,N>& _v ) {
+pod::Vector<T,N> uf::vector::decode( const ext::json::Value& json, const pod::Vector<T,N>& _v ) {
 	pod::Vector<T,N> v = _v;
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
@@ -617,15 +811,3 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	}
 	return v;
 }
-
-template<typename T>
-typename T::type_t /*UF_API*/ uf::vector::mips( const T& size ) {
-	typename T::type_t max = 0;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i ) max = std::max(max, size[i]);
-	return static_cast<uint32_t>(std::floor(std::log2(max))) + 1;
-}
-
-#if !__clang__ && __GNUC__
-	#pragma GCC pop_options
-#endif

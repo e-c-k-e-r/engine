@@ -148,7 +148,7 @@ namespace {
 		}
 
 		residual = rhs - uf::matrix::multiply( K, lambda );
-		pod::Matrix<T,N> Kinv = uf::matrix::invert( K );
+		pod::Matrix<T,N> Kinv = uf::matrix::inverse( K );
 		pod::Vector<T,N> dLambda = uf::matrix::multiply( Kinv, residual );
 
 		for ( auto i = 0; i < N; i++ ) {
