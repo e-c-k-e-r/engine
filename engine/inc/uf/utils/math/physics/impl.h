@@ -28,9 +28,9 @@ namespace pod {
 	};
 
 	struct SupportPoint {
-		alignas(16) pod::Vector3f p;
-		alignas(16) pod::Vector3f pA;
-		alignas(16) pod::Vector3f pB;
+		/*alignas(16)*/ pod::Vector3f p;
+		/*alignas(16)*/ pod::Vector3f pA;
+		/*alignas(16)*/ pod::Vector3f pB;
 	};
 
 	struct Simplex {
@@ -39,7 +39,7 @@ namespace pod {
 
 	struct Face {
 		pod::SupportPoint a, b, c;
-		alignas(16) pod::Vector3f normal;
+		/*alignas(16)*/ pod::Vector3f normal;
 		float distance;
 	};
 
@@ -62,7 +62,7 @@ namespace pod {
 		typedef uf::stl::unordered_set<pair_t, PairHash, PairEq> pairs_t;
 		
 		struct Node {
-			alignas(16) pod::AABB bounds = {};
+			/*alignas(16)*/ pod::AABB bounds = {};
 			int32_t left = -1;
 			int32_t right = -1;
 			int32_t start = 0;
@@ -71,7 +71,7 @@ namespace pod {
 			bool asleep = false;
 		};
 		struct FlatNode {
-			alignas(16) pod::AABB bounds = {};
+			/*alignas(16)*/ pod::AABB bounds = {};
 			int32_t start = -1;
 			int32_t count = -1;
 			int32_t skipIndex = -1;
@@ -171,23 +171,23 @@ namespace pod {
 		float mass = 1.0f;
 		float inverseMass = 1.0f;
 
-		alignas(16) pod::Vector3f offset = {};
+		/*alignas(16)*/ pod::Vector3f offset = {};
 
-		alignas(16) pod::Vector3f velocity = {};
-		alignas(16) pod::Vector3f forceAccumulator = {};
+		/*alignas(16)*/ pod::Vector3f velocity = {};
+		/*alignas(16)*/ pod::Vector3f forceAccumulator = {};
 
-		alignas(16) pod::Vector3f angularVelocity = {};
-		alignas(16) pod::Vector3f torqueAccumulator = {};
+		/*alignas(16)*/ pod::Vector3f angularVelocity = {};
+		/*alignas(16)*/ pod::Vector3f torqueAccumulator = {};
 
-		alignas(16) pod::Vector3f inertiaTensor = { 1, 1, 1 };
-		alignas(16) pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
+		/*alignas(16)*/ pod::Vector3f inertiaTensor = { 1, 1, 1 };
+		/*alignas(16)*/ pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
 
-		alignas(16) pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+		/*alignas(16)*/ pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
 
-		alignas(16) pod::AABB bounds;
-		alignas(16) pod::Collider collider;
-		alignas(16) pod::PhysicsMaterial material;
-		alignas(16) pod::Activity activity;
+		/*alignas(16)*/ pod::AABB bounds;
+		/*alignas(16)*/ pod::Collider collider;
+		/*alignas(16)*/ pod::PhysicsMaterial material;
+		/*alignas(16)*/ pod::Activity activity;
 	};
 
 	struct Contact {

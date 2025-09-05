@@ -9,7 +9,7 @@ template<typename T> pod::Quaternion<T> uf::quaternion::identity() {
 	return pod::Quaternion<T>{ 0, 0, 0, 1 };
 }
 template<typename T> T uf::quaternion::multiply( const T& q1, const T& q2 ) {
-#if 0 && UF_USE_SIMD
+#if UF_USE_SIMD
 	if constexpr (std::is_same_v<typename T::type_t, float>) {
 		return uf::simd::quatMul( q1 , q2 );
 	}
@@ -22,9 +22,9 @@ template<typename T> T uf::quaternion::multiply( const T& q1, const T& q2 ) {
 	};
 }
 template<typename T> pod::Vector3t<T> uf::quaternion::rotate( const pod::Quaternion<T>& Q, const pod::Vector3t<T>& v ) {
-#if 0 && UF_USE_SIMD
+#if UF_USE_SIMD
 	if constexpr (std::is_same_v<T,float>) {
-		return uf::simd::quatRot( Q, v );
+		return uf::simd::quatRot_3f( Q, v );
 	}
 #endif
 	pod::Vector3t<T> q = { Q.x, Q.y, Q.z };

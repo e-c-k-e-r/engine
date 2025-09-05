@@ -81,6 +81,11 @@ inline bool pod::Matrix<T,R,C>::operator!=( const Matrix<T,R,C>& matrix ) const 
 	return !uf::matrix::equals( *this, matrix );
 }
 template<typename T> bool uf::matrix::equals( const T& left, const T& right, float eps ) {
+#if UF_USE_SIMD
+	if constexpr (std::is_same_v<T,float>) {
+		return uf::simd::matEquals( left, right, eps );
+	}
+#endif
 	bool result = true;
 	FOR_EACH(T::rows * T::columns, {
 		if ( fabs(left[i] - right[i]) > eps ) result = false;
@@ -91,27 +96,11 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 	pod::Matrix<T,4,4> res;
 
 #if UF_USE_SIMD
-	auto row1 = uf::simd::load(&left[0]);
-	auto row2 = uf::simd::load(&left[4]);
-	auto row3 = uf::simd::load(&left[8]);
-	auto row4 = uf::simd::load(&left[12]);
-	FOR_EACH(4, {
-		auto brod1 = uf::simd::set(right[4*i + 0]);
-		auto brod2 = uf::simd::set(right[4*i + 1]);
-		auto brod3 = uf::simd::set(right[4*i + 2]);
-		auto brod4 = uf::simd::set(right[4*i + 3]);
-		auto row = uf::simd::add(
-					uf::simd::add(
-						uf::simd::mul(brod1, row1),
-						uf::simd::mul(brod2, row2)),
-					uf::simd::add(
-						uf::simd::mul(brod3, row3),
-						uf::simd::mul(brod4, row4)));
-		uf::simd::store(row, &res[4*i]);
-	});
-
-	return res;
-#elif UF_ENV_DREAMCAST
+	if constexpr (std::is_same_v<T,float>) {
+		return uf::simd::matMult( left, right );
+	}
+#endif
+#if UF_ENV_DREAMCAST
 // 	kallistios has dedicated SH4 asm for these or something
 	mat_load( (matrix_t*) &left[0] );
 	mat_apply( (matrix_t*) &right[0] );
@@ -122,7 +111,6 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 //	MATH_Store_XMTRX( (ALL_FLOATS_STRUCT*) &res[0]);
 	return res;
 #else
-#if 1
 	FOR_EACH_2D(4, 4, {
 		T sum = T{0};
 		for (size_t k = 0; k < 4; ++k) {
@@ -131,29 +119,6 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 		res(r, c) = sum;
 	});
 	return res;
-#else
-	// it works
-	const pod::Vector<T,4>& srcA0 = *((pod::Vector<T,4>*) &left[0]);
-	const pod::Vector<T,4>& srcA1 = *((pod::Vector<T,4>*) &left[4]);
-	const pod::Vector<T,4>& srcA2 = *((pod::Vector<T,4>*) &left[8]);
-	const pod::Vector<T,4>& srcA3 = *((pod::Vector<T,4>*) &left[12]);
-
-	const pod::Vector<T,4>& srcB0 = *((pod::Vector<T,4>*) &right[0]);
-	const pod::Vector<T,4>& srcB1 = *((pod::Vector<T,4>*) &right[4]);
-	const pod::Vector<T,4>& srcB2 = *((pod::Vector<T,4>*) &right[8]);
-	const pod::Vector<T,4>& srcB3 = *((pod::Vector<T,4>*) &right[12]);
-	
-	pod::Vector<T,4>& dst0 = *((pod::Vector<T,4>*) &res[0]);
-	pod::Vector<T,4>& dst1 = *((pod::Vector<T,4>*) &res[4]);
-	pod::Vector<T,4>& dst2 = *((pod::Vector<T,4>*) &res[8]);
-	pod::Vector<T,4>& dst3 = *((pod::Vector<T,4>*) &res[12]);
-
-	dst0 = srcA0 * srcB0[0] + srcA1 * srcB0[1] + srcA2 * srcB0[2] + srcA3 * srcB0[3];
-	dst1 = srcA0 * srcB1[0] + srcA1 * srcB1[1] + srcA2 * srcB1[2] + srcA3 * srcB1[3];
-	dst2 = srcA0 * srcB2[0] + srcA1 * srcB2[1] + srcA2 * srcB2[2] + srcA3 * srcB2[3];
-	dst3 = srcA0 * srcB3[0] + srcA1 * srcB3[1] + srcA2 * srcB3[2] + srcA3 * srcB3[3];
-	return res;
-#endif
 #endif
 }
 template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( const T& left, const U& right ) {
@@ -200,8 +165,12 @@ template<typename T> T /*UF_API*/ uf::matrix::add( const T& lhs, const T& rhs ) 
 	return matrix;
 }
 template<typename T> T uf::matrix::transpose( const T& matrix ) {
+#if UF_USE_SIMD
+	if constexpr (std::is_same_v<T,float> && T::rows == 4 && T::columns == 4 ) {
+		return uf::simd::matTranspose( matrix );
+	}
+#endif
 	T transpose;
-
 	FOR_EACH_2D(T::rows, T::columns, {
 		transpose(c, r) = matrix(r, c);
 	});
@@ -283,6 +252,13 @@ pod::Vector3t<T> uf::matrix::multiply(const pod::Matrix3t<T>& mat, const pod::Ve
 	};
 }
 template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& v, bool div ) {
+#if UF_USE_SIMD
+	if constexpr (std::is_same_v<T,float>) {
+		pod::Vector4t<T> res = uf::simd::matMult( mat, v );
+		if ( div && res.w > 0 ) res /= res.w;
+		return res;
+	}
+#endif
 #if UF_ENV_DREAMCAST
 	MATH_Load_XMTRX( (ALL_FLOATS_STRUCT*) &mat[0] );
 	auto t = MATH_Matrix_Transform( v[0], v[1], v[2], v[3] );
@@ -463,17 +439,15 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 #endif
 }
 template<typename T> T& uf::matrix::copy( T& destination, const T& source ) {
-	#pragma unroll // GCC unroll 16
-	for ( auto i = 0; i < 16; ++i )
+	FOR_EACH(T::rows * T::columns, {
 		destination[i] = source[i];
-
+	});
 	return destination;
 }
 template<typename T> T& uf::matrix::copy( T& destination, typename T::type_t* const source ) {
-	#pragma unroll // GCC unroll 16
-	for ( auto i = 0; i < 16; ++i )
+	FOR_EACH(T::rows * T::columns, {
 		destination[i] = source[i];
-
+	});
 	return destination;
 }
 

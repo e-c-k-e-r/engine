@@ -17,7 +17,7 @@ constexpr void for_each_index(F&& f) {
 
 template<typename T, typename Op>
 T elementwise( const T& left, const T& right, Op&& op ) {
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = op(left[i], right[i]);
 	});
@@ -46,7 +46,7 @@ pod::Vector<T, N> uf::vector::copy( const pod::Vector<T, N>& v ) {
 }
 template<typename T, size_t N, typename U>
 pod::Vector<T, N> uf::vector::cast( const U& from ) {
-	alignas(16) pod::Vector<T, N> to;
+	pod::Vector<T, N> to;
 	#pragma unroll // GCC unroll N
 	for ( auto i = 0; i < N && i < U::size; ++i )
 		to[i] = from[i];
@@ -147,7 +147,7 @@ T uf::vector::add( const T& left, const T& right ) {
 		return uf::simd::add( left, right );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = left[i] + right[i];
 	});
@@ -160,7 +160,7 @@ T uf::vector::add( const T& vector, typename T::type_t scalar ) {
 		return uf::simd::add( vector, scalar );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = vector[i] + scalar;
 	});
@@ -177,7 +177,7 @@ T uf::vector::subtract( const T& left, const T& right ) {
 		return uf::simd::sub( left, right );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = left[i] - right[i];
 	});
@@ -190,7 +190,7 @@ T uf::vector::subtract( const T& vector, typename T::type_t scalar ) {
 		return uf::simd::sub( vector, scalar );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = vector[i] - scalar;
 	});
@@ -203,7 +203,7 @@ T uf::vector::subtract( typename T::type_t scalar, const T& vector ) {
 		return uf::simd::sub( scalar, vector );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = scalar - vector[i];
 	});
@@ -216,7 +216,7 @@ T uf::vector::multiply( const T& left, const T& right ) {
 		return uf::simd::mul( left, right );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = left[i] * right[i];
 	});
@@ -229,7 +229,7 @@ T uf::vector::multiply( const T& vector, typename T::type_t scalar ) {
 		return uf::simd::mul( vector, scalar );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = vector[i] * scalar;
 	});
@@ -247,14 +247,14 @@ T uf::vector::divide( const T& left, const T& right ) {
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T res;
+		T res;
 		FOR_EACH(T::size, {
 			res[i] = MATH_Fast_Divide( left[i], right[i] );
 		});
 		return res;
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = left[i] / right[i];
 	});
@@ -268,14 +268,14 @@ T uf::vector::divide( const T& vector, typename T::type_t scalar ) {
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T res;
+		T res;
 		FOR_EACH(T::size, {
 			res[i] = MATH_Fast_Divide( vector[i], scalar );
 		});
 		return res;
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	scalar = static_cast<typename T::type_t>(1) / scalar;
 	FOR_EACH(T::size, {
 		res[i] = vector[i] * scalar;
@@ -290,14 +290,14 @@ T uf::vector::divide( typename T::type_t scalar, const T& vector ) {
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T res;
+		T res;
 		FOR_EACH(T::size, {
 			res[i] = MATH_Fast_Divide( scalar, vector[i] );
 		});
 		return res;
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	scalar = static_cast<T>(1) / scalar;
 	FOR_EACH(T::size, {
 		res[i] = scalar / vector[i];
@@ -327,7 +327,7 @@ T uf::vector::negate( const T& vector ) {
 		return uf::simd::mul( vector, -1.f );
 	}
 #endif
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = -vector[i];
 	});
@@ -335,7 +335,7 @@ T uf::vector::negate( const T& vector ) {
 }
 template<typename T>
 T uf::vector::abs( const T& vector ) {
-	alignas(16) T res;
+	T res;
 	FOR_EACH(T::size, {
 		res[i] = std::abs( vector[i] );
 	});
@@ -575,7 +575,7 @@ T uf::vector::lerp( const T& from, const T& to, double delta, bool clamp ) {
 	// from + ( ( to - from ) * delta )
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T res;
+		T res;
 		FOR_EACH(T::size, {
 			res[i] = MATH_Lerp( from[i], to[i], delta );
 		});
@@ -594,7 +594,7 @@ T uf::vector::lerp( const T& from, const T& to, const T& delta, bool clamp ) {
 	// from + ( ( to - from ) * delta )
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T res;
+		T res;
 		FOR_EACH(T::size, {
 			res[i] = MATH_Lerp( from[i], to[i], delta[i] );
 		});
@@ -638,16 +638,16 @@ template<typename T>
 typename T::type_t uf::vector::distanceSquared( const T& a, const T& b ) {
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) T delta = uf::vector::subtract(b, a);
+		T delta = uf::vector::subtract(b, a);
 		return MATH_Sum_of_Squares( UF_EZ_VEC4( delta, T::size ) );
 	}
 #elif UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		uf::simd::value<typename T::type_t> delta = uf::simd::sub( b, a );
+		uf::simd::vector<typename T::type_t> delta = uf::simd::sub( b, a );
 		return uf::simd::dot( delta, delta );
 	}
 #endif
-	alignas(16) T delta = uf::vector::subtract( b, a );
+	T delta = uf::vector::subtract( b, a );
 	return uf::vector::dot( delta, delta );
 }
 template<typename T>
@@ -674,10 +674,15 @@ typename T::type_t uf::vector::norm( const T& vector ) {
 }
 template<typename T>
 T uf::vector::normalize( const T& vector ) {
+#if UF_USE_SIMD
+	if constexpr ( std::is_same_v<T,float> ) {
+		return uf::simd::normalize( vector );
+	}
+#endif
 	typename T::type_t norm = uf::vector::norm(vector);
 	if ( norm == 0 ) return vector;	
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if constexpr ( simd_able_v<typename T::type_t> ) {
+	if constexpr ( std::is_same_v<T,float> ) {
 		return uf::vector::multiply(vector, MATH_fsrra(norm));
 	}
 #endif
@@ -698,8 +703,8 @@ T uf::vector::clampMagnitude( const T& v, float maxMag ) {
 template<typename T>
 void uf::vector::orthonormalize( T& normal, T& tangent ) {
 	normal = uf::vector::normalize( normal );
-	alignas(16) T norm = normal;
-	alignas(16) T tan = uf::vector::normalize( tangent );
+	T norm = normal;
+	T tan = uf::vector::normalize( tangent );
 	tangent = uf::vector::subtract( tan, uf::vector::multiply( norm, uf::vector::dot( norm, tan ) ) );
 	tangent = uf::vector::normalize( tangent );
 }
@@ -711,32 +716,15 @@ template<typename T>
 T uf::vector::cross( const T& a, const T& b ) {
 #if UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		uf::simd::value<typename T::type_t> x = a;
-		uf::simd::value<typename T::type_t> y = b;
-		#if SSE_INSTR_SET >= 7
-			uf::simd::value<typename T::type_t> tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
-			uf::simd::value<typename T::type_t> tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
-			tmp1 = _mm_mul_ps(tmp1,y);
-			uf::simd::value<typename T::type_t> tmp2 = _mm_fmsub_ps( tmp0,x, tmp1 );
-			uf::simd::value<typename T::type_t> res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
-			return res;
-		#else
-			uf::simd::value<typename T::type_t> tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
-			uf::simd::value<typename T::type_t> tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
-			tmp0 = _mm_mul_ps(tmp0,x);
-			tmp1 = _mm_mul_ps(tmp1,y);
-			uf::simd::value<typename T::type_t> tmp2 = _mm_sub_ps(tmp0,tmp1);
-			uf::simd::value<typename T::type_t> res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
-			return res;
-		#endif
+		return uf::simd::cross( a, b );
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		alignas(16) auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
+		auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
 		return *((T*) &res);
 	}
 #endif
-	alignas(16) T res{
+	T res{
 		a.y * b.z - b.y * a.z,
 		a.z * b.x - b.z * a.x,
 		a.x * b.y - b.x * a.y

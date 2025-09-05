@@ -1,94 +1,81 @@
 namespace uf {
 	namespace simd {
-		inline value<float> /*UF_API*/ quatMul( value<float>, value<float> );
-		inline value<float> /*UF_API*/ quatRot( value<float>, value<float> );
-		inline pod::Matrix4f /*UF_API*/ quatMat( value<float> );
+		inline vector<float> /*UF_API*/ quatMul( vector<float>, vector<float> );
+		inline vector<float> /*UF_API*/ quatRot_3f( vector<float>, vector<float> );
+		inline pod::Matrix4f /*UF_API*/ quatMat( vector<float> );
 	}
 }
 
-inline uf::simd::value<float> uf::simd::quatMul( uf::simd::value<float> Q1, uf::simd::value<float> Q2 ) {
-	//__m128 Q1 = q1;
-	//__m128 Q2 = q2;
+inline uf::simd::vector<float> uf::simd::quatMul( uf::simd::vector<float> Q1, uf::simd::vector<float> Q2 ) {
+	// broadcast q1 components
+	__m128 x1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(0,0,0,0));
+	__m128 y1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(1,1,1,1));
+	__m128 z1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(2,2,2,2));
+	__m128 w1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(3,3,3,3));
 
-	// Broadcast q1.w, q1.x, q1.y, q1.z
-	__m128 q1w = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(3,3,3,3));
-	__m128 q1x = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(0,0,0,0));
-	__m128 q1y = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(1,1,1,1));
-	__m128 q1z = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(2,2,2,2));
+	// broadcast q2 components
+	__m128 x2 = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(0,0,0,0));
+	__m128 y2 = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(1,1,1,1));
+	__m128 z2 = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(2,2,2,2));
+	__m128 w2 = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(3,3,3,3));
 
-	// Shuffle q2 into (x,y,z,w) permutations
-	__m128 q2xyzw = Q2; // (x,y,z,w)
-	__m128 q2wzyx = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(0,1,2,3)); // (w,z,y,x)
-	__m128 q2yzxw = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(3,0,2,1)); // (y,z,x,w)
-	__m128 q2zxyw = _mm_shuffle_ps(Q2, Q2, _MM_SHUFFLE(3,1,0,2)); // (z,x,y,w)
+	// compute each component
+	__m128 X = _mm_add_ps(
+		_mm_add_ps(_mm_mul_ps(w1, x2), _mm_mul_ps(x1, w2)),
+		_mm_sub_ps(_mm_mul_ps(y1, z2), _mm_mul_ps(z1, y2))
+	);
 
-	// Compute terms
-	__m128 t0 = _mm_mul_ps(q1w, q2xyzw); // w1 * (x2,y2,z2,w2)
-	__m128 t1 = _mm_mul_ps(q1x, q2wzyx); // x1 * (w2,z2,y2,x2)
-	__m128 t2 = _mm_mul_ps(q1y, q2yzxw); // y1 * (y2,z2,x2,w2)
-	__m128 t3 = _mm_mul_ps(q1z, q2zxyw); // z1 * (z2,x2,y2,w2)
+	__m128 Y = _mm_add_ps(
+		_mm_add_ps(_mm_mul_ps(w1, y2), _mm_mul_ps(y1, w2)),
+		_mm_sub_ps(_mm_mul_ps(z1, x2), _mm_mul_ps(x1, z2))
+	);
 
-	// Signs: (+,+,+,+), (+,-,+,-), (-,+,-,+), (+,-,-,+)
-	const __m128 sign1 = _mm_set_ps( 1.f,-1.f, 1.f,-1.f);
-	const __m128 sign2 = _mm_set_ps(-1.f, 1.f,-1.f, 1.f);
-	const __m128 sign3 = _mm_set_ps( 1.f,-1.f,-1.f, 1.f);
+	__m128 Z = _mm_add_ps(
+		_mm_add_ps(_mm_mul_ps(w1, z2), _mm_mul_ps(z1, w2)),
+		_mm_sub_ps(_mm_mul_ps(x1, y2), _mm_mul_ps(y1, x2))
+	);
 
-	t1 = _mm_mul_ps(t1, sign1);
-	t2 = _mm_mul_ps(t2, sign2);
-	t3 = _mm_mul_ps(t3, sign3);
+	__m128 W = _mm_sub_ps(
+		_mm_mul_ps(w1, w2),
+		_mm_add_ps(
+			_mm_add_ps(_mm_mul_ps(x1, x2), _mm_mul_ps(y1, y2)),
+			_mm_mul_ps(z1, z2)
+		)
+	);
 
-	__m128 result = _mm_add_ps(_mm_add_ps(t0, t1), _mm_add_ps(t2, t3));
+	// pack back into (x,y,z,w)
+	__m128 result = _mm_movelh_ps(_mm_unpacklo_ps(X, Y), _mm_unpacklo_ps(Z, W));
 	return result;
 }
-inline uf::simd::value<float> uf::simd::quatRot( uf::simd::value<float> Q, uf::simd::value<float> V ) {
-	//__m128 Q = q; // (x,y,z,w)
-	//__m128 V = v; // (vx,vy,vz,0)
-
-	// Extract q.xyz and q.w
+inline uf::simd::vector<float> uf::simd::quatRot_3f( uf::simd::vector<float> Q, uf::simd::vector<float> V ) {
+	// extract q.xyz and q.w
 	__m128 qxyz = _mm_and_ps(Q, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))); // mask out w
 	__m128 qw   = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(3,3,3,3));
-
-	// dot(q.xyz, v)
-#if SSE_INSTR_SET >= 4
-	__m128 dot_qv = _mm_dp_ps(qxyz, V, 0x71); // result in lowest lane
-#else
-	__m128 mul = _mm_mul_ps(qxyz, V);
-	__m128 shuf = _mm_movehdup_ps(mul);
-	__m128 sums = _mm_add_ps(mul, shuf);
-	shuf = _mm_movehl_ps(shuf, sums);
-	sums = _mm_add_ss(sums, shuf);
-	__m128 dot_qv = sums;
-#endif
-	__m128 term1 = _mm_mul_ps(_mm_mul_ps(dot_qv, _mm_set1_ps(2.0f)), qxyz);
-
-	// dot(q.xyz, q.xyz)
-#if SSE_INSTR_SET >= 4
-	__m128 dot_qq = _mm_dp_ps(qxyz, qxyz, 0x71);
-#else
-	__m128 mul2 = _mm_mul_ps(qxyz, qxyz);
-	__m128 shuf2 = _mm_movehdup_ps(mul2);
-	__m128 sums2 = _mm_add_ps(mul2, shuf2);
-	shuf2 = _mm_movehl_ps(shuf2, sums2);
-	sums2 = _mm_add_ss(sums2, shuf2);
-	__m128 dot_qq = sums2;
-#endif
-	__m128 w2 = _mm_mul_ps(qw, qw);
-	__m128 coeff = _mm_sub_ps(w2, dot_qq);
-	__m128 term2 = _mm_mul_ps(coeff, V);
 
 	// cross(q.xyz, v)
 	__m128 q_yzx = _mm_shuffle_ps(qxyz, qxyz, _MM_SHUFFLE(3,0,2,1));
 	__m128 v_yzx = _mm_shuffle_ps(V, V, _MM_SHUFFLE(3,0,2,1));
-	__m128 cross = _mm_sub_ps(_mm_mul_ps(qxyz, v_yzx), _mm_mul_ps(q_yzx, V));
-	cross = _mm_shuffle_ps(cross, cross, _MM_SHUFFLE(3,0,2,1));
-	__m128 term3 = _mm_mul_ps(_mm_mul_ps(cross, qw), _mm_set1_ps(2.0f));
+	__m128 cross1 = _mm_sub_ps(_mm_mul_ps(qxyz, v_yzx), _mm_mul_ps(q_yzx, V));
+	cross1 = _mm_shuffle_ps(cross1, cross1, _MM_SHUFFLE(3,0,2,1));
 
-	// Final result
-	__m128 result = _mm_add_ps(_mm_add_ps(term1, term2), term3);
+	// 2 * w * cross(q,v)
+	__m128 term1 = _mm_mul_ps(_mm_mul_ps(cross1, qw), _mm_set1_ps(2.0f));
+
+	// cross(q, cross(q,v))
+	__m128 c1_yzx = _mm_shuffle_ps(cross1, cross1, _MM_SHUFFLE(3,0,2,1));
+	__m128 cross2 = _mm_sub_ps(_mm_mul_ps(qxyz, c1_yzx), _mm_mul_ps(q_yzx, cross1));
+	cross2 = _mm_shuffle_ps(cross2, cross2, _MM_SHUFFLE(3,0,2,1));
+
+	// 2 * cross(q, cross(q,v))
+	__m128 term2 = _mm_mul_ps(cross2, _mm_set1_ps(2.0f));
+
+	// v + term1 + term2
+	__m128 result = _mm_add_ps(_mm_add_ps(V, term1), term2);
 
 	return result;
 }
-inline pod::Matrix4f uf::simd::quatMat( uf::simd::value<float> Q ) {
+
+inline pod::Matrix4f uf::simd::quatMat( uf::simd::vector<float> Q ) {
 	// Shuffle out components
 	__m128 qx = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(0,0,0,0));
 	__m128 qy = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(1,1,1,1));
