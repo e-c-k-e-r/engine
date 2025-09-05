@@ -7,28 +7,28 @@
 #endif
 
 #define DEFINE_SIMD(T)\
-	inline vector<T> /*UF_API*/ load( const T* );\
-	inline void /*UF_API*/ store( vector<T>, T* );\
-	inline vector<T> /*UF_API*/ set( T );\
-	inline vector<T> /*UF_API*/ set( T, T, T, T );\
-	inline vector<T> /*UF_API*/ add( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ sub( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ mul( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ div( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ min( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ max( vector<T>, vector<T> );\
-	inline bool /*UF_API*/ all( vector<T> );\
-	inline bool /*UF_API*/ any( vector<T> );\
-	inline vector<T> /*UF_API*/ less( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ lessEquals( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ greater( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ greaterEquals( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ equals( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ notEquals( vector<T>, vector<T> );\
-	inline vector<T> /*UF_API*/ sqrt( vector<T> );\
-	inline vector<T> /*UF_API*/ hadd( vector<T>, vector<T> );\
-	inline T /*UF_API*/ dot( vector<T>, vector<T> );\
-	template<size_t N = 4> inline pod::Vector<T,N> cast( const vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ load( const T* );\
+	FORCE_INLINE void /*UF_API*/ store( vector<T>, T* );\
+	FORCE_INLINE vector<T> /*UF_API*/ set( T );\
+	FORCE_INLINE vector<T> /*UF_API*/ set( T, T, T, T );\
+	FORCE_INLINE vector<T> /*UF_API*/ add( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ sub( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ mul( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ div( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ min( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ max( vector<T>, vector<T> );\
+	FORCE_INLINE bool /*UF_API*/ all( vector<T> );\
+	FORCE_INLINE bool /*UF_API*/ any( vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ less( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ lessEquals( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ greater( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ greaterEquals( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ equals( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ notEquals( vector<T>, vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ sqrt( vector<T> );\
+	FORCE_INLINE vector<T> /*UF_API*/ hadd( vector<T>, vector<T> );\
+	FORCE_INLINE T /*UF_API*/ dot( vector<T>, vector<T> );\
+	template<size_t N = 4> FORCE_INLINE pod::Vector<T,N> cast( const vector<T> );\
 
 namespace uf {
 	namespace simd {
@@ -68,38 +68,38 @@ namespace uf {
 		//	__m128 m;
 			typedef typename traits<T>::value value_type;
 			value_type m;
-			inline vector();
-			inline vector(const T* f);
-			inline vector(T f);
-			inline vector(T f0, T f1, T f2, T f3);
-			inline vector(bool f0, bool f1, bool f2, bool f3);
-			inline vector(const value_type& rhs);
-			inline vector(const vector& rhs);
+			FORCE_INLINE vector();
+			FORCE_INLINE vector(const T* f);
+			FORCE_INLINE vector(T f);
+			FORCE_INLINE vector(T f0, T f1, T f2, T f3);
+			FORCE_INLINE vector(bool f0, bool f1, bool f2, bool f3);
+			FORCE_INLINE vector(const value_type& rhs);
+			FORCE_INLINE vector(const vector& rhs);
 
-			inline vector(const pod::Vector<T,1>& rhs);
-			inline vector(const pod::Vector<T,2>& rhs);
-			inline vector(const pod::Vector<T,3>& rhs);
-			inline vector(const pod::Vector<T,4>& rhs);
+			FORCE_INLINE vector(const pod::Vector<T,1>& rhs);
+			FORCE_INLINE vector(const pod::Vector<T,2>& rhs);
+			FORCE_INLINE vector(const pod::Vector<T,3>& rhs);
+			FORCE_INLINE vector(const pod::Vector<T,4>& rhs);
 
-			inline vector operator+( const vector& rhs );
-			inline vector operator-( const vector& rhs );
-			inline vector operator*( const vector& rhs );
-			inline vector operator/( const vector& rhs );
+			FORCE_INLINE vector operator+( const vector& rhs );
+			FORCE_INLINE vector operator-( const vector& rhs );
+			FORCE_INLINE vector operator*( const vector& rhs );
+			FORCE_INLINE vector operator/( const vector& rhs );
 
-			inline vector operator<( const vector& rhs );
-			inline vector operator<=( const vector& rhs );
-			inline vector operator>( const vector& rhs );
-			inline vector operator>=( const vector& rhs );
-			inline vector operator==( const vector& rhs );
-			inline vector operator!=( const vector& rhs );
+			FORCE_INLINE vector operator<( const vector& rhs );
+			FORCE_INLINE vector operator<=( const vector& rhs );
+			FORCE_INLINE vector operator>( const vector& rhs );
+			FORCE_INLINE vector operator>=( const vector& rhs );
+			FORCE_INLINE vector operator==( const vector& rhs );
+			FORCE_INLINE vector operator!=( const vector& rhs );
 			
-			inline vector& operator=(const value_type& rhs);
-			inline vector& operator=(const vector& rhs);
-			inline vector& operator=(const pod::Vector<T,4>& rhs);
+			FORCE_INLINE vector& operator=(const value_type& rhs);
+			FORCE_INLINE vector& operator=(const vector& rhs);
+			FORCE_INLINE vector& operator=(const pod::Vector<T,4>& rhs);
 
-			inline operator value_type() const;
+			FORCE_INLINE operator value_type() const;
 			
-			template<size_t N> inline operator pod::Vector<T,N>() const;
+			template<size_t N> FORCE_INLINE operator pod::Vector<T,N>() const;
 		};
 
 		DEFINE_SIMD(float);
@@ -117,13 +117,13 @@ namespace uf {
 	*/
 
 		// specializations
-		inline vector<float> /*UF_API*/ set_f( bool, bool, bool, bool );
-		inline vector<int32_t> /*UF_API*/ set_i( bool, bool, bool, bool );
-		inline vector<uint32_t> /*UF_API*/ set_ui( bool, bool, bool, bool );
+		FORCE_INLINE vector<float> /*UF_API*/ set_f( bool, bool, bool, bool );
+		FORCE_INLINE vector<int32_t> /*UF_API*/ set_i( bool, bool, bool, bool );
+		FORCE_INLINE vector<uint32_t> /*UF_API*/ set_ui( bool, bool, bool, bool );
 
-		inline vector<float> /*UF_API*/ cross( vector<float> x, vector<float> y );
-		inline vector<float> /*UF_API*/ normalize( vector<float> x );
-		inline vector<float> /*UF_API*/ normalize_fast( vector<float> x );
+		FORCE_INLINE vector<float> /*UF_API*/ cross( vector<float> x, vector<float> y );
+		FORCE_INLINE vector<float> /*UF_API*/ normalize( vector<float> x );
+		FORCE_INLINE vector<float> /*UF_API*/ normalize_fast( vector<float> x );
 	}
 }
 

@@ -169,33 +169,33 @@ namespace uf {
 	using type_t = T;\
 	using container_t = T*;\
 	static constexpr size_t size = N;\
-	inline T& operator[](size_t i) { return components[i]; }\
-	inline const T& operator[](size_t i) const { return components[i]; }\
-	inline Vector<T,N> operator-() const { return uf::vector::negate(*this); } \
-	inline Vector<T,N> operator+(const Vector<T,N>& rhs) const { return uf::vector::add(*this, rhs); } \
-	inline Vector<T,N> operator-(const Vector<T,N>& rhs) const { return uf::vector::subtract(*this, rhs); } \
-	inline Vector<T,N> operator*(const Vector<T,N>& rhs) const { return uf::vector::multiply(*this, rhs); } \
-	inline Vector<T,N> operator/(const Vector<T,N>& rhs) const { return uf::vector::divide(*this, rhs); } \
-	inline Vector<T,N> operator+(type_t scalar) const { return uf::vector::add(*this, scalar); } \
-	inline Vector<T,N> operator-(type_t scalar) const { return uf::vector::subtract(*this, scalar); } \
-	inline Vector<T,N> operator*(type_t scalar) const { return uf::vector::multiply(*this, scalar); } \
-	inline Vector<T,N> operator/(type_t scalar) const { return uf::vector::divide(*this, scalar); } \
-	inline Vector<T,N>& operator+=(const Vector<T,N>& rhs) { return uf::vector::add_(*this, rhs); } \
-	inline Vector<T,N>& operator-=(const Vector<T,N>& rhs) { return uf::vector::subtract_(*this, rhs); } \
-	inline Vector<T,N>& operator*=(const Vector<T,N>& rhs) { return uf::vector::multiply_(*this, rhs); } \
-	inline Vector<T,N>& operator/=(const Vector<T,N>& rhs) { return uf::vector::divide_(*this, rhs); } \
-	inline Vector<T,N>& operator+=(type_t scalar) { return uf::vector::add_(*this, scalar); } \
-	inline Vector<T,N>& operator-=(type_t scalar) { return uf::vector::subtract_(*this, scalar); } \
-	inline Vector<T,N>& operator*=(type_t scalar) { return uf::vector::multiply_(*this, scalar); } \
-	inline Vector<T,N>& operator/=(type_t scalar) { return uf::vector::divide_(*this, scalar); } \
-	inline bool operator==(const Vector<T,N>& rhs) const { return uf::vector::equals(*this, rhs); } \
-	inline bool operator!=(const Vector<T,N>& rhs) const { return uf::vector::notEquals(*this, rhs); } \
-	inline bool operator<(const Vector<T,N>& rhs) const { return uf::vector::less(*this, rhs); } \
-	inline bool operator<=(const Vector<T,N>& rhs) const { return uf::vector::lessEquals(*this, rhs); } \
-	inline bool operator>(const Vector<T,N>& rhs) const { return uf::vector::greater(*this, rhs); } \
-	inline bool operator>=(const Vector<T,N>& rhs) const { return uf::vector::greaterEquals(*this, rhs); } \
-	inline explicit operator bool() const { return uf::vector::notEquals(*this, Vector<T,N>{}); } \
-	template<typename U, size_t M> inline operator Vector<U,M>() const { return uf::vector::cast<U,M>(*this); }
+	FORCE_INLINE T& operator[](size_t i) { return components[i]; }\
+	FORCE_INLINE const T& operator[](size_t i) const { return components[i]; }\
+	FORCE_INLINE Vector<T,N> operator-() const { return uf::vector::negate(*this); } \
+	FORCE_INLINE Vector<T,N> operator+(const Vector<T,N>& rhs) const { return uf::vector::add(*this, rhs); } \
+	FORCE_INLINE Vector<T,N> operator-(const Vector<T,N>& rhs) const { return uf::vector::subtract(*this, rhs); } \
+	FORCE_INLINE Vector<T,N> operator*(const Vector<T,N>& rhs) const { return uf::vector::multiply(*this, rhs); } \
+	FORCE_INLINE Vector<T,N> operator/(const Vector<T,N>& rhs) const { return uf::vector::divide(*this, rhs); } \
+	FORCE_INLINE Vector<T,N> operator+(type_t scalar) const { return uf::vector::add(*this, scalar); } \
+	FORCE_INLINE Vector<T,N> operator-(type_t scalar) const { return uf::vector::subtract(*this, scalar); } \
+	FORCE_INLINE Vector<T,N> operator*(type_t scalar) const { return uf::vector::multiply(*this, scalar); } \
+	FORCE_INLINE Vector<T,N> operator/(type_t scalar) const { return uf::vector::divide(*this, scalar); } \
+	FORCE_INLINE Vector<T,N>& operator+=(const Vector<T,N>& rhs) { return uf::vector::add_(*this, rhs); } \
+	FORCE_INLINE Vector<T,N>& operator-=(const Vector<T,N>& rhs) { return uf::vector::subtract_(*this, rhs); } \
+	FORCE_INLINE Vector<T,N>& operator*=(const Vector<T,N>& rhs) { return uf::vector::multiply_(*this, rhs); } \
+	FORCE_INLINE Vector<T,N>& operator/=(const Vector<T,N>& rhs) { return uf::vector::divide_(*this, rhs); } \
+	FORCE_INLINE Vector<T,N>& operator+=(type_t scalar) { return uf::vector::add_(*this, scalar); } \
+	FORCE_INLINE Vector<T,N>& operator-=(type_t scalar) { return uf::vector::subtract_(*this, scalar); } \
+	FORCE_INLINE Vector<T,N>& operator*=(type_t scalar) { return uf::vector::multiply_(*this, scalar); } \
+	FORCE_INLINE Vector<T,N>& operator/=(type_t scalar) { return uf::vector::divide_(*this, scalar); } \
+	FORCE_INLINE bool operator==(const Vector<T,N>& rhs) const { return uf::vector::equals(*this, rhs); } \
+	FORCE_INLINE bool operator!=(const Vector<T,N>& rhs) const { return uf::vector::notEquals(*this, rhs); } \
+	FORCE_INLINE bool operator<(const Vector<T,N>& rhs) const { return uf::vector::less(*this, rhs); } \
+	FORCE_INLINE bool operator<=(const Vector<T,N>& rhs) const { return uf::vector::lessEquals(*this, rhs); } \
+	FORCE_INLINE bool operator>(const Vector<T,N>& rhs) const { return uf::vector::greater(*this, rhs); } \
+	FORCE_INLINE bool operator>=(const Vector<T,N>& rhs) const { return uf::vector::greaterEquals(*this, rhs); } \
+	FORCE_INLINE explicit operator bool() const { return uf::vector::notEquals(*this, Vector<T,N>{}); } \
+	template<typename U, size_t M> FORCE_INLINE operator Vector<U,M>() const { return uf::vector::cast<U,M>(*this); }
 
 namespace pod {
 	template<typename T, size_t N>

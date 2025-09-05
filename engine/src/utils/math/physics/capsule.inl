@@ -104,6 +104,9 @@ namespace {
 	}
 	bool capsuleMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( CAPSULE, MESH );
-		return meshCapsule( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::meshCapsule( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 }

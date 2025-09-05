@@ -16,11 +16,11 @@ namespace pod {
 		static const size_t columns = C;
 	// 	Overload access
 		// Accessing via subscripts
-		inline T& operator[](size_t i);
-		inline const T& operator[](size_t i) const;
+		FORCE_INLINE T& operator[](size_t i);
+		FORCE_INLINE const T& operator[](size_t i) const;
 		
-		inline T& operator()(size_t r, size_t c);
-		inline const T& operator()(size_t r, size_t c) const;
+		FORCE_INLINE T& operator()(size_t r, size_t c);
+		FORCE_INLINE const T& operator()(size_t r, size_t c) const;
 
 		// Arithmetic
 		Matrix<T,R,C> operator*( const Matrix<T,R,C>& matrix ) const;
@@ -86,18 +86,18 @@ namespace uf {
 
 		template<typename T=NUM> pod::Matrix4t<T> /*UF_API*/ orthographic( T, T, T, T, T, T );
 		template<typename T=NUM> pod::Matrix4t<T> /*UF_API*/ orthographic( T, T, T, T );
-		template<typename T=NUM> pod::Matrix4t<T> inline /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt, const pod::Vector2t<T>& nf ) {
+		template<typename T=NUM> pod::Matrix4t<T> FORCE_INLINE /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt, const pod::Vector2t<T>& nf ) {
 			return orthographic<T>( lr.x, lr.y, bt.x, bt.y, nf.x, nf.y );
 		}
-		template<typename T=NUM> pod::Matrix4t<T> inline /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt ) {
+		template<typename T=NUM> pod::Matrix4t<T> FORCE_INLINE /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt ) {
 			return orthographic<T>( lr.x, lr.y, bt.x, bt.y );
 		}
 
 		template<typename T=NUM> pod::Matrix4t<T> /*UF_API*/ perspective( T, T, T, T );
-		template<typename T=NUM> pod::Matrix4t<T> inline /*UF_API*/ perspective( T fov, T raidou, const pod::Vector2f& range ) {
+		template<typename T=NUM> pod::Matrix4t<T> FORCE_INLINE /*UF_API*/ perspective( T fov, T raidou, const pod::Vector2f& range ) {
 			return perspective( fov, raidou, range.x, range.y );
 		}
-		template<typename T=NUM> pod::Matrix4t<T> inline /*UF_API*/ perspective( T fov, const pod::Vector2ui& size, const pod::Vector2f& range ) {
+		template<typename T=NUM> pod::Matrix4t<T> FORCE_INLINE /*UF_API*/ perspective( T fov, const pod::Vector2ui& size, const pod::Vector2f& range ) {
 			return perspective( fov, (T) size.x / (T) size.y, range.x, range.y );
 		}
 	// 	Setting

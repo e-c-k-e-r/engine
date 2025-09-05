@@ -18,17 +18,17 @@ namespace {
 	int broadphaseBvhCapacity = 1;
 	int meshBvhCapacity = 1;
 
-	bool flattenBvhBodies = true;
+	bool flattenBvhBodies = false; // bugged
 	bool flattenBvhMeshes = true;
 	
 	// it actually seems slower to use these......
 	bool useBvhSahBodies = false;
 	bool useBvhSahMeshes = false;
 
-	bool useSplitBvhs = false; // currently bugged if enabled
+	bool useSplitBvhs = true; // currently bugged if enabled
 
 	int solverIterations = 10;
-	float baumgarteCorrectionPercent = 0.02f;
+	float baumgarteCorrectionPercent = 0.2f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
@@ -39,7 +39,7 @@ namespace {
 		.displacementThreshold = 0.25f,
 		.overlapThreshold = 2.0f,
 		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 3600,
+		.maxFramesBeforeRebuild = 600,
 	};
 }
 
@@ -122,31 +122,26 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	auto& dynamicBvh = world.dynamicBvh;
 	auto& staticBvh = world.staticBvh;
 
-	uf::stl::vector<pod::PhysicsBody*> staticBodies;
-	uf::stl::vector<pod::PhysicsBody*> dynamicBodies;
-
 	if ( bodies.empty() ) return;
 
 	++::frameCounter;
 
 	for ( auto* body : bodies ) {
-		( body->isStatic ? staticBodies : dynamicBodies ).emplace_back(body);
-
 		if ( !body->activity.awake ) continue;
 		::integrate( *body, dt );
 	}
 
 	// rebuild static bvh if diry
 	if ( staticBvh.dirty && ::useSplitBvhs ) {
-		::buildBroadphaseBVH( staticBvh, staticBodies, ::broadphaseBvhCapacity ); // (re)build
+		::buildBroadphaseBVH( staticBvh, bodies, ::broadphaseBvhCapacity, ::useSplitBvhs, true ); // (re)build
 	}
 
-	switch ( ::decideBVHUpdate( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies, ::bvhUpdatePolicy, ::frameCounter ) ) {
+	switch ( ::decideBVHUpdate( dynamicBvh, bodies, ::bvhUpdatePolicy, ::frameCounter ) ) {
 		case pod::BVH::UpdatePolicy::Decision::REBUILD: {
-			::buildBroadphaseBVH( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies, ::broadphaseBvhCapacity ); // (re)build
+			::buildBroadphaseBVH( dynamicBvh, bodies, ::broadphaseBvhCapacity, ::useSplitBvhs, false ); // (re)build
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::REFIT: {
-			::refitBVH( dynamicBvh, ::useSplitBvhs ? dynamicBodies : bodies ); // refit
+			::refitBVH( dynamicBvh, bodies ); // refit
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::NONE:
 		default:
@@ -157,7 +152,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	// query for overlaps
 	pod::BVH::pairs_t pairs;
 	::queryOverlaps( dynamicBvh, pairs );
-	if ( ::useSplitBvhs ) ::queryOverlaps( dynamicBvh, staticBvh, pairs );
+	if ( ::useSplitBvhs ) {
+		::queryOverlaps( dynamicBvh, staticBvh, pairs );
+	}
 
 	// build islands
 	uf::stl::vector<pod::Island> islands;
@@ -169,7 +166,8 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	// iterate overlaps
 	uf::stl::vector<pod::Manifold> manifolds;
 	manifolds.reserve(::reserveCount);
-	for ( auto& [ia, ib] : pairs ) {
+
+	for ( auto [ia, ib] : pairs ) {
 		auto& a = *bodies[ia];
 		auto& b = *bodies[ib];
 
@@ -196,6 +194,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			// wake up bodies
 			if ( a.activity.awake && !b.activity.awake ) ::wakeBody( b );
 			if ( b.activity.awake && !a.activity.awake ) ::wakeBody( a );
+
 			// store manifold
 			manifolds.emplace_back(manifold);
 		}
@@ -209,7 +208,8 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
 
 	// recompute bounds for further queries
-	for ( auto* body : dynamicBodies ) {
+	for ( auto* body : bodies ) {
+		if ( body->isStatic ) continue;
 		body->bounds = ::computeAABB( *body );
 	}
 }
@@ -476,7 +476,7 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	rayHit.contact.penetration = maxDistance;
 
 	auto& dynamicBvh = world.dynamicBvh;
-	auto& staticBvh = world.dynamicBvh;
+	auto& staticBvh = world.staticBvh;
 	auto& bodies = world.bodies;
 
 	uf::stl::vector<int32_t> candidates;
@@ -485,7 +485,9 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 
 	for ( auto i : candidates ) {
 		auto* b = bodies[i];
+		
 		if ( body == b ) continue;
+
 		switch ( b->collider.type ) {
 			case pod::ShapeType::AABB: rayAabb( ray, *b, rayHit ); break;
 			case pod::ShapeType::SPHERE: raySphere( ray, *b, rayHit ); break;

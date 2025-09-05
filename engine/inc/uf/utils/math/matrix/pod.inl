@@ -5,19 +5,19 @@
 #define INDEX( R, C, r, c ) COL_MAJOR_INDEX( R, C, r, c )
 
 template<typename T, size_t R, size_t C>
-inline T& pod::Matrix<T,R,C>::operator[](size_t i) {
+FORCE_INLINE T& pod::Matrix<T,R,C>::operator[](size_t i) {
 	return this->components[i];
 }
 template<typename T, size_t R, size_t C>
-inline const T& pod::Matrix<T,R,C>::operator[](size_t i) const {
+FORCE_INLINE const T& pod::Matrix<T,R,C>::operator[](size_t i) const {
 	return this->components[i];
 }
 template<typename T, size_t R, size_t C>
-inline T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) {
+FORCE_INLINE T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) {
 	return this->components[INDEX( R, C, r, c )];
 }
 template<typename T, size_t R, size_t C>
-inline const T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) const {
+FORCE_INLINE const T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) const {
 	return this->components[INDEX( R, C, r, c )];
 }
 
@@ -57,27 +57,27 @@ template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf:
 	return matrix;
 }
 template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( const Matrix<T,R,C>& matrix ) const {
+FORCE_INLINE pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::multiply(*this, matrix);
 }
 template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( T scalar ) const {
+FORCE_INLINE pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( T scalar ) const {
 	return uf::matrix::multiplyAll(*this, scalar);
 }
 template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator+( const Matrix<T,R,C>& matrix ) const {
+FORCE_INLINE pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator+( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::add(*this, matrix);
 }
 template<typename T, size_t R, size_t C>
-inline pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator*=( const Matrix<T,R,C>& matrix ) {
+FORCE_INLINE pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator*=( const Matrix<T,R,C>& matrix ) {
 	return uf::matrix::multiply_(*this, matrix);
 }
 template<typename T, size_t R, size_t C>
-inline bool pod::Matrix<T,R,C>::operator==( const Matrix<T,R,C>& matrix ) const {
+FORCE_INLINE bool pod::Matrix<T,R,C>::operator==( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::equals( *this, matrix );
 }
 template<typename T, size_t R, size_t C>
-inline bool pod::Matrix<T,R,C>::operator!=( const Matrix<T,R,C>& matrix ) const {
+FORCE_INLINE bool pod::Matrix<T,R,C>::operator!=( const Matrix<T,R,C>& matrix ) const {
 	return !uf::matrix::equals( *this, matrix );
 }
 template<typename T> bool uf::matrix::equals( const T& left, const T& right, float eps ) {

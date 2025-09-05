@@ -1,12 +1,12 @@
 namespace uf {
 	namespace simd {
-		inline vector<float> /*UF_API*/ quatMul( vector<float>, vector<float> );
-		inline vector<float> /*UF_API*/ quatRot_3f( vector<float>, vector<float> );
-		inline pod::Matrix4f /*UF_API*/ quatMat( vector<float> );
+		FORCE_INLINE vector<float> /*UF_API*/ quatMul( vector<float>, vector<float> );
+		FORCE_INLINE vector<float> /*UF_API*/ quatRot_3f( vector<float>, vector<float> );
+		FORCE_INLINE pod::Matrix4f /*UF_API*/ quatMat( vector<float> );
 	}
 }
 
-inline uf::simd::vector<float> uf::simd::quatMul( uf::simd::vector<float> Q1, uf::simd::vector<float> Q2 ) {
+FORCE_INLINE uf::simd::vector<float> uf::simd::quatMul( uf::simd::vector<float> Q1, uf::simd::vector<float> Q2 ) {
 	// broadcast q1 components
 	__m128 x1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(0,0,0,0));
 	__m128 y1 = _mm_shuffle_ps(Q1, Q1, _MM_SHUFFLE(1,1,1,1));
@@ -47,7 +47,7 @@ inline uf::simd::vector<float> uf::simd::quatMul( uf::simd::vector<float> Q1, uf
 	__m128 result = _mm_movelh_ps(_mm_unpacklo_ps(X, Y), _mm_unpacklo_ps(Z, W));
 	return result;
 }
-inline uf::simd::vector<float> uf::simd::quatRot_3f( uf::simd::vector<float> Q, uf::simd::vector<float> V ) {
+FORCE_INLINE uf::simd::vector<float> uf::simd::quatRot_3f( uf::simd::vector<float> Q, uf::simd::vector<float> V ) {
 	// extract q.xyz and q.w
 	__m128 qxyz = _mm_and_ps(Q, _mm_castsi128_ps(_mm_set_epi32(0, -1, -1, -1))); // mask out w
 	__m128 qw   = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(3,3,3,3));
@@ -75,7 +75,7 @@ inline uf::simd::vector<float> uf::simd::quatRot_3f( uf::simd::vector<float> Q, 
 	return result;
 }
 
-inline pod::Matrix4f uf::simd::quatMat( uf::simd::vector<float> Q ) {
+FORCE_INLINE pod::Matrix4f uf::simd::quatMat( uf::simd::vector<float> Q ) {
 	// Shuffle out components
 	__m128 qx = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(0,0,0,0));
 	__m128 qy = _mm_shuffle_ps(Q, Q, _MM_SHUFFLE(1,1,1,1));

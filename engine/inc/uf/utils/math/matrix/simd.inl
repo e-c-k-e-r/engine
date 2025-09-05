@@ -6,19 +6,19 @@ namespace uf {
 			typedef typename traits<T>::value value_type;
 			value_type m[4]; // 4 x 4
 
-			inline matrix_value();
-			inline matrix_value(const pod::Matrix<T,4>& rhs);
+			FORCE_INLINE matrix_value();
+			FORCE_INLINE matrix_value(const pod::Matrix<T,4>& rhs);
 
-			inline bool operator==(const matrix_value&) const;
-			inline operator pod::Matrix<T,4>() const;
+			FORCE_INLINE bool operator==(const matrix_value&) const;
+			FORCE_INLINE operator pod::Matrix<T,4>() const;
 		};
 	}
 
 	namespace simd {
-		inline uf::simd::matrix_value<float> matMult( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B );
-		inline uf::simd::vector<float> matMult( const uf::simd::matrix_value<float>& A, uf::simd::vector<float> B );
-		inline uf::simd::matrix_value<float> matTranspose( const uf::simd::matrix_value<float>& M );
-		inline bool matEquals( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B, float eps );
+		FORCE_INLINE uf::simd::matrix_value<float> matMult( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B );
+		FORCE_INLINE uf::simd::vector<float> matMult( const uf::simd::matrix_value<float>& A, uf::simd::vector<float> B );
+		FORCE_INLINE uf::simd::matrix_value<float> matTranspose( const uf::simd::matrix_value<float>& M );
+		FORCE_INLINE bool matEquals( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B, float eps );
 	}
 }
 
@@ -181,20 +181,20 @@ namespace {
 }
 
 template<typename T>
-inline uf::simd::matrix_value<T>::matrix_value() {}
+FORCE_INLINE uf::simd::matrix_value<T>::matrix_value() {}
 template<typename T>
-inline uf::simd::matrix_value<T>::matrix_value( const pod::Matrix<T,4>& mat ) {
+FORCE_INLINE uf::simd::matrix_value<T>::matrix_value( const pod::Matrix<T,4>& mat ) {
 	m[0] = _mm_loadu_ps(&mat[0]);
 	m[1] = _mm_loadu_ps(&mat[4]);
 	m[2] = _mm_loadu_ps(&mat[8]);
 	m[3] = _mm_loadu_ps(&mat[12]);
 }
 template<typename T>
-inline bool uf::simd::matrix_value<T>::operator==(const matrix_value& rhs) const {
+FORCE_INLINE bool uf::simd::matrix_value<T>::operator==(const matrix_value& rhs) const {
 	return uf::simd::matEquals( *this, rhs );
 }
 template<typename T>
-inline uf::simd::matrix_value<T>::operator pod::Matrix<T,4>() const {
+FORCE_INLINE uf::simd::matrix_value<T>::operator pod::Matrix<T,4>() const {
 	pod::Matrix4f mat;
 	_mm_storeu_ps(&mat[0],  m[0]);
 	_mm_storeu_ps(&mat[4],  m[1]);
@@ -203,18 +203,18 @@ inline uf::simd::matrix_value<T>::operator pod::Matrix<T,4>() const {
 	return mat;
 }
 
-inline uf::simd::matrix_value<float> uf::simd::matMult( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B ) {
+FORCE_INLINE uf::simd::matrix_value<float> uf::simd::matMult( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B ) {
 	return ::matMult_impl( A, B );
 }
-inline uf::simd::vector<float> uf::simd::matMult( const uf::simd::matrix_value<float>& M, uf::simd::vector<float> vec ) {
+FORCE_INLINE uf::simd::vector<float> uf::simd::matMult( const uf::simd::matrix_value<float>& M, uf::simd::vector<float> vec ) {
 	return ::matMult_impl( M, vec );
 }
-inline uf::simd::matrix_value<float> uf::simd::matTranspose( const uf::simd::matrix_value<float>& M ) {
+FORCE_INLINE uf::simd::matrix_value<float> uf::simd::matTranspose( const uf::simd::matrix_value<float>& M ) {
 	uf::simd::matrix_value<float> R = M;
 	_MM_TRANSPOSE4_PS(R.m[0], R.m[1], R.m[2], R.m[3]);
 	return R;
 }
-inline bool uf::simd::matEquals( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B, float eps ) {
+FORCE_INLINE bool uf::simd::matEquals( const uf::simd::matrix_value<float>& A, const uf::simd::matrix_value<float>& B, float eps ) {
 	bool result = true;
 	__m128 e = _mm_set1_ps(eps);
 	FOR_EACH(4, {

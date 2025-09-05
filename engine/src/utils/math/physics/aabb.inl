@@ -235,18 +235,30 @@ namespace {
 
 	bool aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, SPHERE );
-		return ::sphereAabb( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::sphereAabb( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 	bool aabbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, PLANE );
-		return ::planeAabb( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::planeAabb( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 	bool aabbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, CAPSULE );
-		return ::capsuleAabb( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::capsuleAabb( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 	bool aabbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, MESH );
-		return ::meshAabb( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::meshAabb( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 }

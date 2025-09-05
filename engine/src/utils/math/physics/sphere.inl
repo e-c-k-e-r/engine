@@ -53,14 +53,23 @@ namespace {
 	}
 	bool spherePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, PLANE );
-		return planeSphere( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::planeSphere( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 	bool sphereCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, CAPSULE );
-		return capsuleSphere( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::capsuleSphere( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 	bool sphereMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( SPHERE, MESH );
-		return meshSphere( b, a, manifold, eps );
+		auto start = manifold.points.size();
+		if ( !::meshSphere( b, a, manifold, eps ) ) return false;
+		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
+		return true;
 	}
 }

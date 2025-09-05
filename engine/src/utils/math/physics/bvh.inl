@@ -161,7 +161,7 @@ namespace {
 		return index;
 	}
 
-	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int capacity = 2 ) {
+	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int capacity = 2, bool filters = false, bool filterType = false ) {
 		if ( bodies.empty() ) return;
 
 		bvh.indices.clear();
@@ -169,18 +169,21 @@ namespace {
 		bvh.indices.reserve(bodies.size());
 
 		// stores bounds
-		uf::stl::vector<pod::AABB> bounds;
-		bounds.reserve(bodies.size());
+		uf::stl::vector<pod::AABB> bounds(bodies.size(), { {FLT_MAX, FLT_MAX, FLT_MAX}, {-FLT_MAX, -FLT_MAX, -FLT_MAX} });
 
 		// populate initial indices and bounds
 		for ( auto i = 0; i < bodies.size(); ++i ) {
-			bounds.emplace_back(::computeAABB( *bodies[i] ));
-			bvh.indices.emplace_back(i); // i => bodies[i]
+			if ( filters && bodies[i]->isStatic != filterType ) continue;
+
+			bounds[i] = ::computeAABB(*bodies[i]);
+			bvh.indices.emplace_back(i);
 		}
 
+		if ( bvh.indices.empty() ) return; // inserted nothing
+
 		// recursively build BVH from indices
-		if ( ::useBvhSahBodies ) ::buildBVHNode_SAH( bvh, bounds, 0, bodies.size(), capacity );
-		else ::buildBVHNode( bvh, bounds, 0, bodies.size(), capacity );
+		if ( ::useBvhSahBodies ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
+		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 		// flatten if requested
 		if ( ::flattenBvhBodies ) ::flattenBVH( bvh, 0 );
 
@@ -221,8 +224,8 @@ namespace {
 		}
 
 		// recursively build BVH from indices
-		if ( ::useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, triangles, capacity );
-		else ::buildBVHNode( bvh, bounds, 0, triangles, capacity );
+		if ( ::useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
+		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 		// flatten if requested
 		if ( ::flattenBvhMeshes ) ::flattenBVH( bvh, 0 );
 
@@ -233,14 +236,19 @@ namespace {
 
 namespace {
 	pod::BVH::UpdatePolicy::Decision decideBVHUpdate( const pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, const pod::BVH::UpdatePolicy& policy, int frameCounter ) {
-		if ( bvh.indices.empty() || bvh.nodes.empty() || bvh.dirty ) return pod::BVH::UpdatePolicy::Decision::REBUILD;
+		if ( bvh.indices.empty() || bvh.nodes.empty() || bvh.dirty ) {
+			UF_MSG_DEBUG("Force rebuild, bvh.indices.empty={}, bvh.nodes.empty={}, bvh.dirty={}", bvh.indices.empty(), bvh.nodes.empty(), bvh.dirty );
+			return pod::BVH::UpdatePolicy::Decision::REBUILD;
+		}
 		if ( bodies.empty() ) return pod::BVH::UpdatePolicy::Decision::NONE;
 
 		int dirtyCount = 0;
 		float oldRootArea = ::aabbSurfaceArea( bvh.nodes[0].bounds );
 
 		// check each body
-		for ( const auto* body : bodies ) {
+		for ( auto idx : bvh.indices ) {
+			const auto* body = bodies[idx];
+
 			pod::AABB newBounds = ::computeAABB(*body);
 			pod::AABB oldBounds = body->bounds;
 
@@ -258,13 +266,14 @@ namespace {
 		float dirtyRatio = (float) dirtyCount / (float) bodies.size();
 
 		// compute new root bounds
-		pod::AABB newRoot = bodies[0]->bounds;
-		for ( auto i = 1; i < bodies.size(); ++i ) {
-			newRoot = ::mergeAabb(newRoot, bodies[i]->bounds);
+		pod::AABB newRoot = bodies[bvh.indices[0]]->bounds;
+		for ( auto i = 1; i < bvh.indices.size(); ++i ) {
+			newRoot = ::mergeAabb(newRoot, bodies[bvh.indices[i]]->bounds);
 		}
 
 		float newRootArea = ::aabbSurfaceArea( newRoot );
 		if ( dirtyRatio > policy.dirtyRatioThreshold || newRootArea > oldRootArea * policy.overlapThreshold || frameCounter % policy.maxFramesBeforeRebuild == 0 ) {
+			UF_MSG_DEBUG( "Rebuild, dirtyRatio={}, oldRootArea={}, newRootArea={}, frameCounter={}", dirtyRatio, oldRootArea, newRootArea, frameCounter );
 			return pod::BVH::UpdatePolicy::Decision::REBUILD;
 		}
 		if ( dirtyCount > 0 ) return pod::BVH::UpdatePolicy::Decision::REFIT;
@@ -445,6 +454,8 @@ namespace {
 				for ( auto j = 0; j < nodeB.count; ++j ) {
 					int bodyA = bvhA.indices[nodeA.start + i];
 					int bodyB = bvhB.indices[nodeB.start + j];
+					if ( bodyA == bodyB ) continue;
+					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
 					pairs.emplace(bodyA, bodyB);
 				}

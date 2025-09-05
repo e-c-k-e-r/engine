@@ -7,6 +7,10 @@
 #define S_1(x) #x
 #define S_2(x) S_1(x)
 
+// negligible increase in the lib size, mainly to ensure SIMD intrinsics do inline
+#define FORCE_INLINE __attribute__((always_inline)) inline
+// #define FORCE_INLINE inline
+
 #define TIMER(x, ...)\
 	static bool first = true;\
 	static uf::Timer<long long> timer(false);\
