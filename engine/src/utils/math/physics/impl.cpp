@@ -39,7 +39,7 @@ namespace {
 		.displacementThreshold = 0.25f,
 		.overlapThreshold = 2.0f,
 		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 600,
+		.maxFramesBeforeRebuild = 60,
 	};
 }
 
@@ -113,7 +113,7 @@ void uf::physics::impl::terminate( pod::World& world ) {
 // Implementation
 void uf::physics::impl::substep( pod::World& world, float dt, int32_t substeps ) {
 	float h = dt / substeps;
-	for ( auto i=0; i < substeps; ++i) {
+	for ( auto i = 0; i < substeps; ++i ) {
 		uf::physics::impl::step( world, h );
 	}
 }

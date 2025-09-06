@@ -1333,7 +1333,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 
-		pod::Instance::Bounds bounds;
+		pod::Instance::Bounds bounds = {};
 		// setup instances
 		for ( auto i = 0; i < primitives.size(); ++i ) {
 			auto& primitive = primitives[i];
@@ -1373,8 +1373,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
 
 				if ( type != "mesh" ) {
-					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
-					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
+					auto min = bounds.min; // uf::matrix::multiply<float>( model, bounds.min, 1.0f );
+					auto max = bounds.max; // uf::matrix::multiply<float>( model, bounds.max, 1.0f );
 
 					pod::Vector3f center = (max + min) * 0.5f;
 					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
@@ -1614,7 +1614,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	
 	ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
 
-	pod::Vector3f controllerPosition;
+	pod::Vector3f controllerPosition = {};
 	auto& controller = scene.getController();
 	if ( controller.getName() != "Scene" ) {
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
