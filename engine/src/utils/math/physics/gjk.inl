@@ -3,7 +3,7 @@ namespace {
 		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::SPHERE: {
-				return transform.position + uf::vector::normalize( dir ) * body.collider.u.sphere.radius;
+				return transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
 			} break;
 			case pod::ShapeType::AABB: {
 				return {
@@ -14,13 +14,13 @@ namespace {
 			} break;
 			case pod::ShapeType::CAPSULE: {
 				auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
-				auto p1 = transform.position + up * body.collider.u.capsule.halfHeight;
-				auto p2 = transform.position - up * body.collider.u.capsule.halfHeight;
+				auto p1 = transform.position + up * body.collider.capsule.halfHeight;
+				auto p2 = transform.position - up * body.collider.capsule.halfHeight;
 				auto end = ( uf::vector::dot( dir, p1 ) > uf::vector::dot( dir, p2 ) ) ? p1 : p2; // get closest end
-				return end + uf::vector::normalize( dir ) * body.collider.u.capsule.radius;
+				return end + uf::vector::normalize( dir ) * body.collider.capsule.radius;
 			}
 			case pod::ShapeType::TRIANGLE: {
-				const auto& tri = body.collider.u.triangle;
+				const auto& tri = body.collider.triangle;
 				float d0 = uf::vector::dot( tri.points[0], dir );
 				float d1 = uf::vector::dot( tri.points[1], dir );
 				float d2 = uf::vector::dot( tri.points[2], dir );

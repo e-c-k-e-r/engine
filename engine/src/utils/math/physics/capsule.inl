@@ -6,7 +6,7 @@ namespace {
 		auto [ B1, B2 ] = ::getCapsuleSegment( b );
 
 		auto [ pA, pB ] = ::closestSegmentSegment( A1, A2, B1, B2 );
-		float r = a.collider.u.capsule.radius + b.collider.u.capsule.radius;
+		float r = a.collider.capsule.radius + b.collider.capsule.radius;
 		
 		auto delta = pB - pA;
 		float dist2 = uf::vector::dot(delta, delta);
@@ -26,7 +26,7 @@ namespace {
 		const auto& box = b;
 
 		auto [ p1, p2 ] = ::getCapsuleSegment( capsule );
-		float r = capsule.collider.u.capsule.radius;
+		float r = capsule.collider.capsule.radius;
 
 		auto closestPoint = ::closestPointSegmentAabb( p1, p2, box.bounds );
 		auto closestSegment = ::closestPointOnSegment( closestPoint, p1, p2 );
@@ -48,11 +48,11 @@ namespace {
 		const auto& capsule = a;
 		const auto& plane = b;
 
-		const auto& normal = plane.collider.u.plane.normal;
-		float o = plane.collider.u.plane.offset;
+		const auto& normal = plane.collider.plane.normal;
+		float o = plane.collider.plane.offset;
 
 		auto [ p1, p2 ] = ::getCapsuleSegment( capsule );
-		float r = capsule.collider.u.capsule.radius;
+		float r = capsule.collider.capsule.radius;
 
 		// the "foot" is just whichever end of the capsule is closest to the normal
 		auto foot = ( uf::vector::dot( normal, p1 ) < uf::vector::dot( normal, p2 ) ) ? p1 : p2;
@@ -85,7 +85,7 @@ namespace {
 		auto [ p1, p2 ] = ::getCapsuleSegment( capsule );
 
 		auto sphereCenter = ::getPosition( sphere );
-		float r = capsule.collider.u.capsule.radius + sphere.collider.u.sphere.radius;
+		float r = capsule.collider.capsule.radius + sphere.collider.sphere.radius;
 
 		// closest point on capsule segment to sphere center
 		auto closest = ::closestPointOnSegment( sphereCenter, p1, p2 );
@@ -97,7 +97,7 @@ namespace {
 
 		float penetration = r - dist;
 		auto normal = ::normalizeDelta( delta, dist, eps );
-		auto contact = closest + normal * (capsule.collider.u.capsule.radius - penetration * 0.5f );
+		auto contact = closest + normal * (capsule.collider.capsule.radius - penetration * 0.5f );
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;

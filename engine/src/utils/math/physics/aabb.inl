@@ -21,7 +21,7 @@ namespace {
 
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body ) {
 		const auto transform = ::getTransform( body );
-		const auto& capsule = body.collider.u.capsule;
+		const auto& capsule = body.collider.capsule;
 		const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
 
 		// segment defines the cylinder axis only (ignore spherical ends)
@@ -35,25 +35,25 @@ namespace {
 		switch ( body.collider.type ) {
 			case pod::ShapeType::AABB: {
 				return {
-					transform.position + body.collider.u.aabb.min,
-					transform.position + body.collider.u.aabb.max,
+					transform.position + body.collider.aabb.min,
+					transform.position + body.collider.aabb.max,
 				};
 			} break;
 			case pod::ShapeType::SPHERE: {
 				return {
-					transform.position - body.collider.u.sphere.radius,
-					transform.position + body.collider.u.sphere.radius,
+					transform.position - body.collider.sphere.radius,
+					transform.position + body.collider.sphere.radius,
 				};
 			} break;
 			case pod::ShapeType::CAPSULE: {
 				auto [ p1, p2 ] = ::getCapsuleSegment( body );
-				return ::computeSegmentAABB( p1, p2, body.collider.u.capsule.radius );
+				return ::computeSegmentAABB( p1, p2, body.collider.capsule.radius );
 			} break;
 			case pod::ShapeType::MESH: {
-				if ( body.collider.u.mesh.bvh && !body.collider.u.mesh.bvh->nodes.empty() )
+				if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->nodes.empty() )
 					return {
-						transform.position + body.collider.u.mesh.bvh->nodes[0].bounds.min,
-						transform.position + body.collider.u.mesh.bvh->nodes[0].bounds.max,
+						transform.position + body.collider.mesh.bvh->nodes[0].bounds.min,
+						transform.position + body.collider.mesh.bvh->nodes[0].bounds.max,
 					};
 			} break;
 			default: {
@@ -193,7 +193,7 @@ namespace {
 		auto overlaps = uf::vector::min( A.max, B.max ) - uf::vector::max( A.min, B.min );
 
 		// determine collision axis = smallest overlap
-		int axis = -1;
+		auto axis = -1;
 		float minOverlap = FLT_MAX;
 		for ( auto i = 0; i < 3; ++i ) {
 			if ( overlaps[i] < minOverlap ) {

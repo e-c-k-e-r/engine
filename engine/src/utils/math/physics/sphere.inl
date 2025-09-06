@@ -3,7 +3,7 @@ namespace {
 		ASSERT_COLLIDER_TYPES( SPHERE, SPHERE );
 
 		auto delta = ::getPosition( b ) - ::getPosition( a );
-		float r = a.collider.u.sphere.radius + b.collider.u.sphere.radius;
+		float r = a.collider.sphere.radius + b.collider.sphere.radius;
 
 		float dist2 = uf::vector::dot(delta, delta);
 		if ( dist2 > r * r ) return false;
@@ -11,7 +11,7 @@ namespace {
 		
 		float penetration = r - dist;
 		auto normal = ::normalizeDelta( delta, dist, eps );
-		auto contact = ::getPosition( a ) + (normal * a.collider.u.sphere.radius);
+		auto contact = ::getPosition( a ) + (normal * a.collider.sphere.radius);
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;
@@ -23,7 +23,7 @@ namespace {
 		const auto& aabb = b;
 
 		auto center = ::getPosition( sphere );
-		float r = sphere.collider.u.sphere.radius;
+		float r = sphere.collider.sphere.radius;
 
 		auto& bounds = aabb.bounds;
 		auto closest = pod::Vector3f{

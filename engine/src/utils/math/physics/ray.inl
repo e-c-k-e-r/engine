@@ -76,7 +76,7 @@ namespace {
 	}
 	bool raySphere( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		auto center = ::getPosition(body);
-		float r = body.collider.u.sphere.radius;
+		float r = body.collider.sphere.radius;
 
 		// vector from sphere center to ray origin
 		auto oc = ray.origin - center;
@@ -109,8 +109,8 @@ namespace {
 		return true;
 	}
 	bool rayPlane( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit, float eps = EPS(1e-6f) ) {
-		auto& normal = body.collider.u.plane.normal;
-		float offset = body.collider.u.plane.offset;
+		auto& normal = body.collider.plane.normal;
+		float offset = body.collider.plane.offset;
 
 		float denom = uf::vector::dot( normal, ray.direction );
 		if ( fabs(denom) < eps ) return false; // parallel
@@ -129,7 +129,7 @@ namespace {
 	}
 	bool rayCapsule( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		auto [ p1, p2 ] = ::getCapsuleSegment( body );
-		float r = body.collider.u.capsule.radius;
+		float r = body.collider.capsule.radius;
 
 		auto d = p2 - p1;			// segment direction
 		auto m = ray.origin - p1;
@@ -193,8 +193,8 @@ namespace {
 	}
 	
 	bool rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
-		const auto& meshData = *body.collider.u.mesh.mesh;
-		const auto& bvh  = *body.collider.u.mesh.bvh;
+		const auto& meshData = *body.collider.mesh.mesh;
+		const auto& bvh  = *body.collider.mesh.bvh;
 
 		const auto transform = ::getTransform( body );
 

@@ -133,7 +133,7 @@ namespace {
 		// clip edges of A against plane of B
 		const pod::Vector3f At[3] = { A.points[0], A.points[1], A.points[2] };
 		for ( auto i = 0; i < 3; ++i ) {
-			int j = ( i + 1 ) % 3;
+			auto j = ( i + 1 ) % 3;
 			pod::Vector3f p;
 			if ( intersectSegmentPlane( At[i], At[j], nB, dB, p ) ) {
 				// check if intersection lies inside triangle B
@@ -144,7 +144,7 @@ namespace {
 		// clip edges of B against plane of A
 		const pod::Vector3f Bt[3] = { B.points[0], B.points[1], B.points[2] };
 		for ( auto i = 0; i < 3; ++i ) {
-			int j = ( i + 1 ) % 3;
+			auto j = ( i + 1 ) % 3;
 			pod::Vector3f p;
 			if ( intersectSegmentPlane( Bt[i], Bt[j], nA, dA, p ) ) {
 				if ( ::pointInTriangle( p, A ) ) checkAndPush(p);
@@ -264,7 +264,7 @@ namespace {
 	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& sphere = body;
 
-		float r = sphere.collider.u.sphere.radius;
+		float r = sphere.collider.sphere.radius;
 		auto center = ::getPosition( sphere );
 		auto closest = ::closestPointOnTriangle( center, tri.points[0], tri.points[1], tri.points[2] );
 
@@ -290,8 +290,8 @@ namespace {
 	// to-do: implement
 	bool trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& plane = body;
-		auto normal = plane.collider.u.plane.normal;
-		float d = plane.collider.u.plane.offset;
+		auto normal = plane.collider.plane.normal;
+		float d = plane.collider.plane.offset;
 
 		bool hit = false;
 		pod::Vector3f dist;
@@ -335,7 +335,7 @@ namespace {
 	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& capsule = body;
 
-		float r = capsule.collider.u.capsule.radius;
+		float r = capsule.collider.capsule.radius;
 		auto [ p1, p2 ] = ::getCapsuleSegment( capsule );
 		auto bounds = ::computeSegmentAABB( p1, p2, r );
 
@@ -363,22 +363,22 @@ namespace {
 
 	bool triangleTriangle( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, TRIANGLE );
-		return ::triangleTriangle( a.collider.u.triangle, b.collider.u.triangle, manifold, eps );
+		return ::triangleTriangle( a.collider.triangle, b.collider.triangle, manifold, eps );
 	}
 	bool triangleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, AABB );
-		return ::triangleAabb( a.collider.u.triangle, b, manifold, eps );
+		return ::triangleAabb( a.collider.triangle, b, manifold, eps );
 	}
 	bool triangleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, SPHERE );
-		return ::triangleSphere( a.collider.u.triangle, b, manifold, eps );
+		return ::triangleSphere( a.collider.triangle, b, manifold, eps );
 	}
 	bool trianglePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, PLANE );
-		return ::trianglePlane( a.collider.u.triangle, b, manifold, eps );
+		return ::trianglePlane( a.collider.triangle, b, manifold, eps );
 	}
 	bool triangleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, CAPSULE );
-		return ::triangleCapsule( a.collider.u.triangle, b, manifold, eps );
+		return ::triangleCapsule( a.collider.triangle, b, manifold, eps );
 	}
 }

@@ -43,7 +43,7 @@ namespace {
 
 	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt );
 
-	int flattenBVH( pod::BVH& bvh, int nodeID );
+	int32_t flattenBVH( pod::BVH& bvh, int32_t nodeID );
 
 	void traverseNodePair( const pod::BVH& bvh, int32_t leftID, int32_t rightID, pod::BVH::pairs_t& pairs );
 	void traverseNodePair( const pod::BVH& a, int32_t nodeA, const pod::BVH& b, int32_t nodeB, pod::BVH::pairs_t& out );

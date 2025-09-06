@@ -11,12 +11,12 @@ namespace {
 	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 	bool fixedStep = true;
 	
-	int substeps = 0;
-	int reserveCount = 32;
+	int32_t substeps = 0;
+	int32_t reserveCount = 32;
 
 	// increasing these make things lag
-	int broadphaseBvhCapacity = 1;
-	int meshBvhCapacity = 1;
+	int32_t broadphaseBvhCapacity = 1;
+	int32_t meshBvhCapacity = 1;
 
 	bool flattenBvhBodies = false; // bugged
 	bool flattenBvhMeshes = true;
@@ -27,12 +27,12 @@ namespace {
 
 	bool useSplitBvhs = true; // currently bugged if enabled
 
-	int solverIterations = 10;
+	int32_t solverIterations = 10;
 	float baumgarteCorrectionPercent = 0.2f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
-	int manifoldCacheLifetime = 6;
+	int32_t manifoldCacheLifetime = 6;
 
 	uint32_t frameCounter = 0;
 	pod::BVH::UpdatePolicy bvhUpdatePolicy = {
@@ -111,7 +111,7 @@ void uf::physics::impl::terminate( pod::World& world ) {
 }
 
 // Implementation
-void uf::physics::impl::substep( pod::World& world, float dt, int substeps ) {
+void uf::physics::impl::substep( pod::World& world, float dt, int32_t substeps ) {
 	float h = dt / substeps;
 	for ( auto i=0; i < substeps; ++i) {
 		uf::physics::impl::step( world, h );
@@ -131,7 +131,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		::integrate( *body, dt );
 	}
 
-	// rebuild static bvh if diry
+	// rebuild static bvh if dirty
 	if ( staticBvh.dirty && ::useSplitBvhs ) {
 		::buildBroadphaseBVH( staticBvh, bodies, ::broadphaseBvhCapacity, ::useSplitBvhs, true ); // (re)build
 	}
@@ -144,9 +144,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			::refitBVH( dynamicBvh, bodies ); // refit
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::NONE:
-		default:
+		default: {
 			// no-op
-		break;
+		} break;
 	}
 
 	// query for overlaps
@@ -156,33 +156,34 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		::queryOverlaps( dynamicBvh, staticBvh, pairs );
 	}
 
-	// build islands
+	// build islands from overlaps
 	uf::stl::vector<pod::Island> islands;
 	::buildIslands( pairs, bodies, islands );
 
-	// update sleep state per island
-	for ( auto& island : islands ) ::updateIsland( island, dt );
+	// iterate islands
+	#pragma omp parallel for schedule(dynamic)
+	for ( auto& island : islands ) {
+		uf::stl::vector<pod::Manifold> manifolds;
+		manifolds.reserve(::reserveCount);
 
-	// iterate overlaps
-	uf::stl::vector<pod::Manifold> manifolds;
-	manifolds.reserve(::reserveCount);
+		// sleeping island, skip
+		if ( !::updateIsland( island, bodies, dt ) ) continue;
+		// iterate overlap pairs
+		for ( auto& [ ia, ib ] : island.pairs ) {
+			auto& a = *bodies[ia];
+			auto& b = *bodies[ib];
 
-	for ( auto [ia, ib] : pairs ) {
-		auto& a = *bodies[ia];
-		auto& b = *bodies[ib];
+			pod::Manifold manifold;
+			// did not collide
+			if ( !::generateContacts( a, b, manifold, dt ) ) continue;
 
-		// could be also pruned in the broadphase, but traversal needs to be agnostic between a BVH for bodies or a BVH for triangles
-		if ( !::shouldCollide( a, b ) ) continue;
-
-		pod::Manifold manifold;
-		if ( ::generateContacts( a, b, manifold, dt ) ) {
 			// bodies with meshes already reorient the normal to the triangle's center
 			// do not do it for meshes because it'll reorient to the mesh's origin
 			if ( a.collider.type != pod::ShapeType::MESH && b.collider.type != pod::ShapeType::MESH ) {
 				for ( auto& c : manifold.points ) c.normal = ::orientNormalToAB( a, b, c.normal );
 			}
 			// retrieve accumulated impulses
-			if ( ::warmupSolver )  ::retrieveContacts( manifold, ::manifoldsCache[::makePairKey( a, b )] );
+			if ( ::warmupSolver ) ::retrieveContacts( manifold, ::manifoldsCache[::makePairKey( a, b )] );
 			// merge similar contacts from a mesh to ensure continuity
 			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) {
 				::mergeContacts( manifold );
@@ -198,19 +199,13 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			// store manifold
 			manifolds.emplace_back(manifold);
 		}
-	}
 
-	// pass manifolds to solver
-	::solveContacts( manifolds, dt );
-	// do position correction
-	::solvePositions( manifolds, dt );
-
-	if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
-
-	// recompute bounds for further queries
-	for ( auto* body : bodies ) {
-		if ( body->isStatic ) continue;
-		body->bounds = ::computeAABB( *body );
+		// pass manifolds to solver
+		::solveContacts( manifolds, dt );
+		// do position correction
+		::solvePositions( manifolds, dt );
+		// cache manifold positions
+		if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
 	}
 }
 
@@ -265,7 +260,7 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
-			pod::Vector3f extents = (body.collider.u.aabb.max - body.collider.u.aabb.min);
+			pod::Vector3f extents = (body.collider.aabb.max - body.collider.aabb.min);
 			extents *= extents; // square it;
 
 			body.inertiaTensor = extents * (body.mass / 12.0f);
@@ -274,14 +269,14 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			body.inverseInertiaTensor = { 1.0f / body.inertiaTensor.x, 1.0f / body.inertiaTensor.y, 1.0f / body.inertiaTensor.z };
 		} break;
 		case pod::ShapeType::SPHERE: {
-			float I = 0.4f * body.mass * body.collider.u.sphere.radius * body.collider.u.sphere.radius;
+			float I = 0.4f * body.mass * body.collider.sphere.radius * body.collider.sphere.radius;
 			float invI = 1.0f / I;
 			body.inertiaTensor = { I, I, I };
 			body.inverseInertiaTensor = { invI, invI, invI };
 		} break;
 		case pod::ShapeType::CAPSULE: {
-			float r = body.collider.u.capsule.radius;
-			float h = body.collider.u.capsule.halfHeight * 2.0f; // full cyl height
+			float r = body.collider.capsule.radius;
+			float h = body.collider.capsule.halfHeight * 2.0f; // full cyl height
 			float m = body.mass;
 
 			float Ixx = 0.25f * m * r * r + (1.0f/12.0f) * m * h * h;
@@ -359,7 +354,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::AABB;
-	body.collider.u.aabb = aabb;
+	body.collider.aabb = aabb;
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
 	return body;
@@ -367,7 +362,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::SPHERE;
-	body.collider.u.sphere = sphere;
+	body.collider.sphere = sphere;
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
 	return body;
@@ -375,7 +370,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::PLANE;
-	body.collider.u.plane = plane;
+	body.collider.plane = plane;
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
 	return body;
@@ -383,7 +378,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::CAPSULE;
-	body.collider.u.capsule = capsule;
+	body.collider.capsule = capsule;
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
 	return body;
@@ -391,7 +386,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const pod::TriangleWithNormal& tri, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::TRIANGLE;
-	body.collider.u.triangle = tri;
+	body.collider.triangle = tri;
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
 	return body;
@@ -399,10 +394,10 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::MESH;
-	body.collider.u.mesh.mesh = &mesh;
+	body.collider.mesh.mesh = &mesh;
 
-	body.collider.u.mesh.bvh = new pod::BVH;
-	auto& bvh = *body.collider.u.mesh.bvh;
+	body.collider.mesh.bvh = new pod::BVH;
+	auto& bvh = *body.collider.mesh.bvh;
 	::buildMeshBVH( bvh, mesh, ::meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
@@ -461,7 +456,7 @@ void uf::physics::impl::destroy( pod::PhysicsBody& body ) {
 
 	// remove any pointered collider data
 	if ( body.collider.type == pod::ShapeType::MESH ) {
-		if ( body.collider.u.mesh.bvh ) delete body.collider.u.mesh.bvh;
+		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
 	}
 }
 

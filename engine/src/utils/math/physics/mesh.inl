@@ -19,8 +19,8 @@ namespace {
 		const auto& mesh = a;
 		const auto& aabb = b;
 
-		const auto& bvh  = *mesh.collider.u.mesh.bvh;
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
+		const auto& bvh  = *mesh.collider.mesh.bvh;
+		const auto& meshData = *mesh.collider.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( aabb.bounds, ::getTransform( mesh ) );
@@ -42,8 +42,8 @@ namespace {
 		const auto& mesh = a;
 		const auto& sphere = b;
 
-		const auto& bvh  = *mesh.collider.u.mesh.bvh;
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
+		const auto& bvh  = *mesh.collider.mesh.bvh;
+		const auto& meshData = *mesh.collider.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( sphere.bounds, ::getTransform( mesh ) );		
@@ -67,8 +67,8 @@ namespace {
 		const auto& mesh = a;
 		const auto& plane = b;
 
-		const auto& bvh  = *mesh.collider.u.mesh.bvh;
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
+		const auto& bvh  = *mesh.collider.mesh.bvh;
+		const auto& meshData = *mesh.collider.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( plane.bounds, ::getTransform( mesh ) );		
@@ -91,8 +91,8 @@ namespace {
 		const auto& mesh = a;
 		const auto& capsule = b;
 
-		const auto& bvh  = *mesh.collider.u.mesh.bvh;
-		const auto& meshData = *mesh.collider.u.mesh.mesh;
+		const auto& bvh  = *mesh.collider.mesh.bvh;
+		const auto& meshData = *mesh.collider.mesh.mesh;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( capsule.bounds, ::getTransform( mesh ) );		
@@ -113,11 +113,11 @@ namespace {
 	bool meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, MESH );
 
-		const auto& bvhA = *a.collider.u.mesh.bvh;
-		const auto& meshA = *a.collider.u.mesh.mesh;
+		const auto& bvhA = *a.collider.mesh.bvh;
+		const auto& meshA = *a.collider.mesh.mesh;
 		
-		const auto& meshB = *b.collider.u.mesh.mesh;
-		const auto& bvhB = *b.collider.u.mesh.bvh;
+		const auto& meshB = *b.collider.mesh.mesh;
+		const auto& bvhB = *b.collider.mesh.bvh;
 
 		// compute overlaps between one BVH and another BVH
 		pod::BVH::pairs_t pairs;

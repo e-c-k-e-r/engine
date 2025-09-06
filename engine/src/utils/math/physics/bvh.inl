@@ -1,6 +1,6 @@
 // BVH
 namespace {
-	int buildBVHNode( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, int start, int end, int capacity = 2 ) {
+	int32_t buildBVHNode( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, int32_t start, int32_t end, int32_t capacity = 2 ) {
 		pod::BVH::Node node{};
 		node.left  = -1;
 		node.right = -1;
@@ -11,19 +11,19 @@ namespace {
 		// compute bounds of this node
 		for ( auto i = start + 1; i < end; ++i) node.bounds = ::mergeAabb( node.bounds, bounds[bvh.indices[i]] );
 
-		int count = end - start;
+		int32_t count = end - start;
 		if ( count <= capacity ) {
 			// leaf
 			node.start = start;
 			node.count = count;
-			int index = (int) bvh.nodes.size();
+			int32_t index = (int32_t) bvh.nodes.size();
 			bvh.nodes.emplace_back(node);
 			return index;
 		}
 
 		// choose split axis by largest extent
 		auto extent = node.bounds.max - node.bounds.min;
-		int axis = (extent.x > extent.y && extent.x > extent.z) ? 0 : (extent.y > extent.z ? 1 : 2);
+		auto axis = (extent.x > extent.y && extent.x > extent.z) ? 0 : (extent.y > extent.z ? 1 : 2);
 
 		// sort indices by centroid along axis
 		std::sort( bvh.indices.begin() + start, bvh.indices.begin() + end, [&](uint32_t a, uint32_t b) {
@@ -32,8 +32,8 @@ namespace {
 			return ca < cb;
 		});
 
-		int mid = ( start + end ) / 2;
-		int index = (int) bvh.nodes.size();
+		int32_t mid = ( start + end ) / 2;
+		int32_t index = (int32_t) bvh.nodes.size();
 		bvh.nodes.emplace_back( node ); // insert now, gets filled later
 
 		node.left = ::buildBVHNode( bvh, bounds, start, mid, capacity );
@@ -42,10 +42,10 @@ namespace {
 		return index;
 	}
 
-	int buildBVHNode_SAH( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, int start, int end, int capacity = 4 ) {
+	int32_t buildBVHNode_SAH( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, int32_t start, int32_t end, int32_t capacity = 4 ) {
 		struct Bin {
 			pod::AABB bounds;
-			int count = 0;
+			int32_t count = 0;
 		};
 
 		pod::BVH::Node node{};
@@ -57,20 +57,20 @@ namespace {
 
 		for ( auto i = start + 1; i < end; ++i ) node.bounds = ::mergeAabb( node.bounds, bounds[bvh.indices[i]] );
 
-		int count = end - start;
+		int32_t count = end - start;
 		if ( count <= capacity ) {
 			node.count = count;
-			int index = (int) bvh.nodes.size();
+			int32_t index = (int32_t) bvh.nodes.size();
 			bvh.nodes.emplace_back(node);
 			return index;
 		}
 
-		constexpr int numBins = 16;
+		constexpr auto numBins = 16;
 		static thread_local Bin bins[numBins];
 		for ( auto i = 0; i < numBins; i++ ) bins[i] = {};
 
 		auto extent = node.bounds.max - node.bounds.min;
-		int bestAxis = -1, bestSplit = -1;
+		auto bestAxis = -1, bestSplit = -1;
 		float bestCost = std::numeric_limits<float>::infinity();
 
 		for ( auto axis = 0; axis < 3; ++axis ) {
@@ -81,18 +81,18 @@ namespace {
 			float scale = (float) numBins / (maxC - minC);
 
 			for ( auto i = start; i < end; ++i ) {
-				int idx = bvh.indices[i];
+				int32_t idx = bvh.indices[i];
 				float c = ::aabbCenter( bounds[idx] )[axis];
-				int binID = std::min(numBins - 1, (int)((c - minC) * scale));
+				int32_t binID = std::min(numBins - 1, (int32_t)((c - minC) * scale));
 				bins[binID].count++;
 				bins[binID].bounds = ::mergeAabb( bins[binID].bounds, bounds[idx] );
 			}
 
 			pod::AABB leftBounds[numBins], rightBounds[numBins];
-			int leftCount[numBins] = {}, rightCount[numBins] = {};
+			int32_t leftCount[numBins] = {}, rightCount[numBins] = {};
 
 			pod::AABB acc;
-			int cnt = 0;
+			int32_t cnt = 0;
 			for ( auto i = 0; i < numBins; i++ ) {
 				if ( bins[i].count > 0 ) acc = (cnt == 0) ? bins[i].bounds : ::mergeAabb( acc, bins[i].bounds );
 				cnt += bins[i].count;
@@ -127,7 +127,7 @@ namespace {
 		// fallback: no valid split → make leaf
 		if ( bestAxis == -1 ) {
 			node.count = count;
-			int index = (int) bvh.nodes.size();
+			int32_t index = (int32_t) bvh.nodes.size();
 			bvh.nodes.emplace_back(node);
 			return index;
 		}
@@ -136,23 +136,23 @@ namespace {
 		float maxC = node.bounds.max[bestAxis];
 		float scale = (float) numBins / (maxC - minC);
 
-		auto midIt = std::partition( bvh.indices.begin() + start, bvh.indices.begin() + end, [&](int idx) {
+		auto midIt = std::partition( bvh.indices.begin() + start, bvh.indices.begin() + end, [&](int32_t idx) {
 			float c = ::aabbCenter( bounds[idx])[bestAxis ];
-			int binID = std::min(numBins - 1, (int)((c - minC) * scale));
+			int32_t binID = std::min(numBins - 1, (int32_t)((c - minC) * scale));
 			return binID <= bestSplit;
 		});
 
-		int mid = (int) ( midIt - bvh.indices.begin() );
+		int32_t mid = (int32_t) ( midIt - bvh.indices.begin() );
 
 		// if partition failed (all left or all right), force leaf
 		if ( mid == start || mid == end ) {
 			node.count = count;
-			int index = (int) bvh.nodes.size();
+			int32_t index = (int32_t) bvh.nodes.size();
 			bvh.nodes.emplace_back(node);
 			return index;
 		}
 
-		int index = (int) bvh.nodes.size();
+		int32_t index = (int32_t) bvh.nodes.size();
 		bvh.nodes.emplace_back(node);
 
 		node.left  = ::buildBVHNode_SAH( bvh, bounds, start, mid, capacity );
@@ -161,7 +161,7 @@ namespace {
 		return index;
 	}
 
-	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int capacity = 2, bool filters = false, bool filterType = false ) {
+	void buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, int32_t capacity = 2, bool filters = false, bool filterType = false ) {
 		if ( bodies.empty() ) return;
 
 		bvh.indices.clear();
@@ -175,7 +175,7 @@ namespace {
 		for ( auto i = 0; i < bodies.size(); ++i ) {
 			if ( filters && bodies[i]->isStatic != filterType ) continue;
 
-			bounds[i] = ::computeAABB(*bodies[i]);
+			bounds[i] = bodies[i]->bounds;
 			bvh.indices.emplace_back(i);
 		}
 
@@ -191,8 +191,8 @@ namespace {
 		bvh.dirty = false;
 	}
 
-	void buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, int capacity = 4 ) {
-		int triangles = mesh.index.count / 3;
+	void buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, int32_t capacity = 4 ) {
+		uint32_t triangles = mesh.index.count / 3;
 
 		bvh.indices.clear();
 		bvh.nodes.clear();
@@ -235,22 +235,23 @@ namespace {
 }
 
 namespace {
-	pod::BVH::UpdatePolicy::Decision decideBVHUpdate( const pod::BVH& bvh, const uf::stl::vector<pod::PhysicsBody*>& bodies, const pod::BVH::UpdatePolicy& policy, int frameCounter ) {
-		if ( bvh.indices.empty() || bvh.nodes.empty() || bvh.dirty ) {
-			UF_MSG_DEBUG("Force rebuild, bvh.indices.empty={}, bvh.nodes.empty={}, bvh.dirty={}", bvh.indices.empty(), bvh.nodes.empty(), bvh.dirty );
+	pod::BVH::UpdatePolicy::Decision decideBVHUpdate( const pod::BVH& bvh, uf::stl::vector<pod::PhysicsBody*>& bodies, const pod::BVH::UpdatePolicy& policy, size_t frameCounter ) {
+		// BVH is not built
+		if ( bvh.indices.empty() || bvh.nodes.empty() ) {
 			return pod::BVH::UpdatePolicy::Decision::REBUILD;
 		}
 		if ( bodies.empty() ) return pod::BVH::UpdatePolicy::Decision::NONE;
 
-		int dirtyCount = 0;
+		uint32_t dirtyCount = 0;
 		float oldRootArea = ::aabbSurfaceArea( bvh.nodes[0].bounds );
 
-		// check each body
+		// update/check each body
 		for ( auto idx : bvh.indices ) {
-			const auto* body = bodies[idx];
+			auto& body = *bodies[idx];
 
-			pod::AABB newBounds = ::computeAABB(*body);
-			pod::AABB oldBounds = body->bounds;
+			pod::AABB oldBounds = body.bounds;
+			body.bounds = ::computeAABB( body );
+			pod::AABB newBounds = body.bounds;
 
 			// compute displacement relative to size
 			pod::Vector3f oldCenter = ( oldBounds.min + oldBounds.max ) * 0.5f;
@@ -272,10 +273,11 @@ namespace {
 		}
 
 		float newRootArea = ::aabbSurfaceArea( newRoot );
-		if ( dirtyRatio > policy.dirtyRatioThreshold || newRootArea > oldRootArea * policy.overlapThreshold || frameCounter % policy.maxFramesBeforeRebuild == 0 ) {
-			UF_MSG_DEBUG( "Rebuild, dirtyRatio={}, oldRootArea={}, newRootArea={}, frameCounter={}", dirtyRatio, oldRootArea, newRootArea, frameCounter );
+		// BVH is too out of date, rebuild it
+		if ( bvh.dirty || dirtyRatio > policy.dirtyRatioThreshold || newRootArea > oldRootArea * policy.overlapThreshold || frameCounter % policy.maxFramesBeforeRebuild == 0 ) {
 			return pod::BVH::UpdatePolicy::Decision::REBUILD;
 		}
+		// bodies moved, refit the BVH instead
 		if ( dirtyCount > 0 ) return pod::BVH::UpdatePolicy::Decision::REFIT;
 		return pod::BVH::UpdatePolicy::Decision::NONE;
 	}
@@ -293,14 +295,14 @@ namespace {
 				// leaf node: recompute bounds from bodies
 				node.bounds = bounds[bvh.indices[node.start]];
 
-				for ( int j = 1; j < node.count; j++ ) {
+				for ( auto j = 1; j < node.count; j++ ) {
 					node.bounds = ::mergeAabb(node.bounds, bounds[bvh.indices[node.start + j]] );
 				}
 			}
 		}
 
 		// update internal nodes bottom-up
-		for ( int i = (int) bvh.nodes.size() - 1; i >= 0; i-- ) {
+		for ( int32_t i = (int32_t) bvh.nodes.size() - 1; i >= 0; i-- ) {
 			auto& node = bvh.nodes[i];
 			// internal node
 			if ( node.count == 0 ) {
@@ -321,19 +323,19 @@ namespace {
 				// leaf node: recompute bounds from bodies
 				auto nodeID = bvh.indices[node.start];
 
-				node.bounds = ::computeAABB( *bodies[nodeID] );
+				node.bounds = bodies[nodeID]->bounds;
 				node.asleep = !bodies[nodeID]->activity.awake;
 
-				for ( int j = 1; j < node.count; j++ ) {
+				for ( auto j = 1; j < node.count; j++ ) {
 					auto bodyID = bvh.indices[node.start + j];
-					node.bounds = ::mergeAabb(node.bounds, ::computeAABB( *bodies[bodyID] ) );
+					node.bounds = ::mergeAabb(node.bounds, bodies[bodyID]->bounds );
 					node.asleep = node.asleep && !bodies[bodyID]->activity.awake;
 				}
 			}
 		}
 
 		// update internal nodes bottom-up
-		for ( int i = (int) bvh.nodes.size() - 1; i >= 0; i-- ) {
+		for ( int32_t i = (int32_t) bvh.nodes.size() - 1; i >= 0; i-- ) {
 			auto& node = bvh.nodes[i];
 			// internal node
 			if ( node.count == 0 ) {
@@ -346,7 +348,7 @@ namespace {
 	}
 
 	void refitBVH( pod::BVH& bvh, const uf::Mesh& mesh ) {
-		int triangles = mesh.index.count / 3;
+		uint32_t triangles = mesh.index.count / 3;
 
 		uf::stl::vector<pod::AABB> bounds;
 		bounds.reserve( triangles );
@@ -373,12 +375,12 @@ namespace {
 }
 
 namespace {
-	int flattenBVH( pod::BVH& bvh, int nodeID ) {
+	int32_t flattenBVH( pod::BVH& bvh, int32_t nodeID ) {
 		if ( nodeID == 0 ) bvh.flattened.reserve(bvh.nodes.size());
 
 		const auto& node = bvh.nodes[nodeID];
 
-		int flatID = (int) bvh.flattened.size();
+		int32_t flatID = (int32_t) bvh.flattened.size();
 		bvh.flattened.emplace_back(); // placeholder
 
 		pod::BVH::FlatNode flat{};
@@ -401,8 +403,8 @@ namespace {
 			flat.start = -1;
 			flat.count = 0;
 
-			int leftID  = ::flattenBVH( bvh, node.left );
-			int rightID = ::flattenBVH( bvh, node.right );
+			int32_t leftID  = ::flattenBVH( bvh, node.left );
+			int32_t rightID = ::flattenBVH( bvh, node.right );
 
 			flat.skipIndex = rightID; // skip entire subtree
 			bvh.flattened[flatID] = flat;
@@ -413,7 +415,7 @@ namespace {
 
 namespace {
 	// collects a list of nodes that are overlapping with each other
-	void traverseNodePair(const pod::BVH& bvh, int nodeAID, int nodeBID, pod::BVH::pairs_t& pairs) {
+	void traverseNodePair(const pod::BVH& bvh, int32_t nodeAID, int32_t nodeBID, pod::BVH::pairs_t& pairs) {
 		const auto& nodeA = bvh.nodes[nodeAID];
 		const auto& nodeB = bvh.nodes[nodeBID];
 
@@ -422,8 +424,8 @@ namespace {
 		if ( nodeA.count > 0 && nodeB.count > 0 ) {
 			for ( auto i = 0; i < nodeA.count; ++i ) {
 				for ( auto j = 0; j < nodeB.count; ++j ) {
-					int bodyA = bvh.indices[nodeA.start + i];
-					int bodyB = bvh.indices[nodeB.start + j];
+					int32_t bodyA = bvh.indices[nodeA.start + i];
+					int32_t bodyB = bvh.indices[nodeB.start + j];
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
@@ -443,7 +445,7 @@ namespace {
 		}
 	}
 	// collects a list of nodes from each BVH that are overlapping with each other (for mesh v mesh)
-	void traverseNodePair( const pod::BVH& bvhA, int nodeAID, const pod::BVH& bvhB, int nodeBID, pod::BVH::pairs_t& pairs ) {
+	void traverseNodePair( const pod::BVH& bvhA, int32_t nodeAID, const pod::BVH& bvhB, int32_t nodeBID, pod::BVH::pairs_t& pairs ) {
 		const auto& nodeA = bvhA.nodes[nodeAID];
 		const auto& nodeB = bvhB.nodes[nodeBID];
 
@@ -452,8 +454,8 @@ namespace {
 		if ( nodeA.count > 0 && nodeB.count > 0 ) {
 			for ( auto i = 0; i < nodeA.count; ++i ) {
 				for ( auto j = 0; j < nodeB.count; ++j ) {
-					int bodyA = bvhA.indices[nodeA.start + i];
-					int bodyB = bvhB.indices[nodeB.start + j];
+					int32_t bodyA = bvhA.indices[nodeA.start + i];
+					int32_t bodyB = bvhB.indices[nodeB.start + j];
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
@@ -473,14 +475,14 @@ namespace {
 		}
 	}
 
-	void traverseBVH( const pod::BVH& bvh, int nodeID, pod::BVH::pairs_t& pairs ) {
+	void traverseBVH( const pod::BVH& bvh, int32_t nodeID, pod::BVH::pairs_t& pairs ) {
 		const auto& node = bvh.nodes[nodeID];
 
 		if ( node.count > 0 ) {
 			for ( auto i = 0; i < node.count; ++i ) {
 				for ( auto j = i + 1; j < node.count; ++j ) {
-					int bodyA = bvh.indices[node.start + i];
-					int bodyB = bvh.indices[node.start + j];
+					int32_t bodyA = bvh.indices[node.start + i];
+					int32_t bodyB = bvh.indices[node.start + j];
 
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
@@ -524,7 +526,7 @@ namespace {
 		stack.push(0);
 
 		while ( !stack.empty() ) {
-			int idx = stack.top(); stack.pop();
+			int32_t idx = stack.top(); stack.pop();
 			auto& node = bvh.nodes[idx];
 			if ( node.asleep || !::aabbOverlap( bounds, node.bounds ) ) continue;
 
@@ -541,7 +543,7 @@ namespace {
 	}
 	
 	// query a BVH with an AABB via recursion
-	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& outIndices, int nodeID ) {
+	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& outIndices, int32_t nodeID ) {
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, bounds, outIndices );
 
 		if ( nodeID == 0 ) outIndices.reserve(::reserveCount);
@@ -570,7 +572,7 @@ namespace {
 		stack.push(0);
 
 		while ( !stack.empty() ) {
-			int idx = stack.top(); stack.pop();
+			int32_t idx = stack.top(); stack.pop();
 			const auto& node = bvh.nodes[idx];
 
 			float tMin, tMax;
@@ -586,7 +588,7 @@ namespace {
 		}
 	}
 	// query a BVH with a ray via recursion
-	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& outIndices, int nodeID, float maxDist ) {
+	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& outIndices, int32_t nodeID, float maxDist ) {
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, ray, outIndices, maxDist );
 
 		if ( nodeID == 0 ) outIndices.reserve(::reserveCount);
@@ -615,11 +617,11 @@ namespace {
 
 		outPairs.reserve(::reserveCount);
 
-		for ( auto i = 0; i < (int) nodes.size(); ++i ) {
+		for ( auto i = 0; i < nodes.size(); ++i ) {
 			const auto& nodeA = nodes[i];
 			if ( nodeA.count <= 0 || nodeA.asleep ) continue;
 
-			for ( auto j = i + 1; j < (int) nodes.size(); ++j ) {
+			for ( auto j = i + 1; j < nodes.size(); ++j ) {
 				const auto& nodeB = nodes[j];
 				if ( nodeB.count <= 0 || nodeB.asleep ) continue;
 
@@ -650,11 +652,11 @@ namespace {
 		
 		outPairs.reserve(::reserveCount);
 
-		for ( auto i = 0; i < (int) nodesA.size(); ++i ) {
+		for ( auto i = 0; i < nodesA.size(); ++i ) {
 			const auto& nodeA = nodesA[i];
 			if ( nodeA.count <= 0 || nodeA.asleep ) continue;
 
-			for ( auto j = 0; j < (int) nodesB.size(); ++j ) {
+			for ( auto j = 0; j < nodesB.size(); ++j ) {
 				const auto& nodeB = nodesB[j];
 				if ( nodeB.count <= 0 || nodeB.asleep ) continue;
 
@@ -678,14 +680,14 @@ namespace {
 
 		outIndices.reserve(::reserveCount);
 
-		int idx = 0;
-		while ( idx < (int) nodes.size() ) {
+		int32_t idx = 0;
+		while ( idx < nodes.size() ) {
 			const auto& node = nodes[idx];
 
 			if ( !node.asleep && ::aabbOverlap( bounds, node.bounds ) ) {
 				// leaf
 				if ( node.count > 0 ) {
-					for ( int i = 0; i < node.count; ++i ) {
+					for ( auto i = 0; i < node.count; ++i ) {
 						outIndices.emplace_back( indices[node.start + i] );
 					}
 				}
@@ -702,14 +704,14 @@ namespace {
 
 		outIndices.reserve(::reserveCount);
 
-		int idx = 0;
-		while ( idx < (int) nodes.size() ) {
+		int32_t idx = 0;
+		while ( idx < nodes.size() ) {
 			const auto& node = nodes[idx];
 			float tMin, tMax;
 			if ( !node.asleep && ::rayAabbIntersect( ray, node.bounds, tMin, tMax ) && tMin <= maxDist ) {
 				// leaf
 				if ( node.count > 0 ) {
-					for ( int i = 0; i < node.count; ++i ) {
+					for ( auto i = 0; i < node.count; ++i ) {
 						outIndices.emplace_back( indices[node.start + i] );
 					}
 				}
@@ -723,47 +725,80 @@ namespace {
 }
 
 namespace {
+	struct UnionFind {
+		uf::stl::vector<int32_t> parent;
+		uf::stl::vector<int32_t> rank;
+
+		UnionFind( int32_t n ) {
+			parent.resize(n);
+			rank.resize(n, 0);
+			
+			for ( auto i = 0; i < n; i++ )
+				parent[i] = i;
+		}
+
+		int32_t find( int32_t x ) {
+			if ( parent[x] != x ) parent[x] = find(parent[x]);
+			return parent[x];
+		}
+
+		void unite( int32_t a, int32_t b ) {
+			int32_t rootA = find(a);
+			int32_t rootB = find(b);
+
+			if ( rootA == rootB ) return;
+
+			// union by rank
+			if ( rank[rootA] < rank[rootB] ) parent[rootA] = rootB;
+			else if ( rank[rootA] > rank[rootB] ) parent[rootB] = rootA;
+			else {
+				parent[rootB] = rootA;
+				rank[rootA]++;
+			}
+		}
+	};
 	void buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<pod::PhysicsBody*>& bodies, uf::stl::vector<pod::Island>& islands ) {
-		islands.reserve(::reserveCount);
+		UnionFind unionizer(bodies.size());
 
-		int n = (int) bodies.size();
-		uf::stl::vector<int32_t> visited(n, -1);
+		// union all pairs
+		for ( auto& [a, b] : pairs ) {
+			unionizer.unite(a, b);
+		}
 
-		for ( auto i = 0; i < n; i++ ) {
-			if ( visited[i] != -1 ) continue;
+		// map root to island index
+		uf::stl::unordered_map<int32_t, int32_t> rootToIsland;
 
-			// new island
-			pod::Island island = {};
-			uf::stl::stack<int32_t> stack;
-			stack.push(i);
+		islands.clear();
+		islands.reserve(bodies.size());
 
-			while ( !stack.empty() ) {
-				int idx = stack.top(); stack.pop();
-				if ( visited[idx] != -1 ) continue;
-				visited[idx] = (int) islands.size();
+		for ( auto i = 0; i < bodies.size(); i++ ) {
+			int32_t root = unionizer.find(i);
 
-				island.bodies.emplace_back( bodies[idx] );
-
-				// traverse neighbors
-				for ( auto& [a, b] : pairs ) {
-					int neighbor = -1;
-					if ( a == idx ) neighbor = b;
-					else if ( b == idx ) neighbor = a;
-					if ( neighbor != -1 && visited[neighbor] == -1 ) {
-						stack.push(neighbor);
-					}
-				}
+			if (rootToIsland.find(root) == rootToIsland.end()) {
+				rootToIsland[root] = (int32_t) islands.size();
+				islands.emplace_back();
 			}
 
-			islands.emplace_back( std::move( island ) );
+			int32_t islandID = rootToIsland[root];
+			islands[islandID].indices.emplace_back( i );
+		}
+
+		// collect pairs per island
+		for ( auto& [a, b] : pairs ) {
+			// do not insert these pairs if they're non-colliding
+			if ( !::shouldCollide( *bodies[a], *bodies[b] ) ) continue;
+
+			int32_t root = unionizer.find(a);
+			int32_t islandID = rootToIsland[root];
+			islands[islandID].pairs.emplace(a, b);
 		}
 	}
 
-	void updateIsland( pod::Island& island, float dt ) {
-		bool allStill = true;
+	bool updateIsland( pod::Island& island, uf::stl::vector<pod::PhysicsBody*>& bodies, float dt ) {
+		island.awake = false;
 
-		for ( auto* b : island.bodies ) {
-			auto& body = *b;
+		for ( auto idx : island.indices ) {
+			auto& body = *bodies[idx];
 			if ( !body.activity.awake ) continue;
 
 			float linSpeed = uf::vector::norm( body.velocity );
@@ -773,23 +808,18 @@ namespace {
 				body.activity.sleepTimer += dt;
 			} else {
 				body.activity.sleepTimer = 0.0f;
-				allStill = false;
+				island.awake = true;
 			}
 
 			if ( body.activity.sleepTimer < pod::Activity::sleepThreshold ) {
-				allStill = false;
+				island.awake = true;
 			}
 		}
 
-		// put entire island to sleep
-		if ( allStill ) {
-			island.awake = false;
-			for ( auto* b : island.bodies ) ::sleepBody( *b );
-		}
-		// at least one body is awake
-		else {
-			for ( auto* b : island.bodies ) ::wakeBody( *b );
-			island.awake = true;
-		}
+		// update bodies within island
+		for ( auto idx : island.indices )
+			(island.awake ? ::wakeBody : ::sleepBody)( *bodies[idx] );
+
+		return island.awake;
 	}
 }

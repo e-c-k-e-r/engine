@@ -131,7 +131,7 @@ namespace {
 					result.emplace_back(c);
 				} else {
 					// Replace weakest if this one is stronger
-					int weakest = 0;
+					auto weakest = 0;
 					for ( auto i = 1; i < 4; i++ ) {
 						if ( result[i].penetration < result[weakest].penetration ) weakest = i;
 					}
@@ -264,13 +264,9 @@ namespace {
 			uf::transform::rotate( *body.transform/*.reference*/, dq );
 		}
 
-		// update AABB
-		body.bounds = ::computeAABB( body );
-
 		// reset accumulators
 		body.forceAccumulator = {};
 		body.torqueAccumulator = {};
-
 
 		// apply rolling resistance
 		::applyRollingResistance( body, dt );

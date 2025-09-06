@@ -5,8 +5,8 @@ namespace {
 		const auto& plane = a;
 		const auto& aabb = b;
 
-		auto normal = uf::vector::normalize( plane.collider.u.plane.normal );
-		float offset = plane.collider.u.plane.offset;
+		auto normal = uf::vector::normalize( plane.collider.plane.normal );
+		float offset = plane.collider.plane.offset;
 
 		auto center = ::aabbCenter( aabb.bounds ); // center
 		auto extent = ::aabbExtent( aabb.bounds ); // half extents
@@ -27,11 +27,11 @@ namespace {
 		const auto& plane = a;
 		const auto& sphere = b;
 
-		auto& normal = plane.collider.u.plane.normal;
-		float offset = plane.collider.u.plane.offset;
+		auto& normal = plane.collider.plane.normal;
+		float offset = plane.collider.plane.offset;
 		
 		auto center = ::getPosition( sphere );
-		float r = sphere.collider.u.sphere.radius;
+		float r = sphere.collider.sphere.radius;
 
 		float dist = uf::vector::dot( normal, center ) - offset;
 		if ( dist > r ) return false;

@@ -51,7 +51,7 @@ namespace {
 	}
 
 	void expandPolytope( uf::stl::vector<pod::Face>& faces, const pod::SupportPoint& p ) {
-		uf::stl::vector<int> remove;
+		uf::stl::vector<uint32_t> remove;
 		uf::stl::vector<std::pair<pod::SupportPoint, pod::SupportPoint>> borders;
 		
 		remove.reserve( faces.size() );
@@ -68,8 +68,8 @@ namespace {
 		}
 
 		// remove visible faces
-		for (  auto i = (int) remove.size() - 1; i >= 0; --i ) {
-			int idx = remove[i];
+		for (  auto i = (int32_t) remove.size() - 1; i >= 0; --i ) {
+			auto idx = remove[i];
 			faces[idx] = faces.back();
 			faces.pop_back();
 		}
@@ -80,7 +80,7 @@ namespace {
 		}
 	}
 
-	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, int maxIterations = 64, float eps = EPS(1.0e-4f) ) {
+	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, uint32_t maxIterations = 64, float eps = EPS(1.0e-4f) ) {
 		UF_ASSERT( ::isValidSimplex(simplex) );
 
 		auto faces = ::initialPolytope(simplex);
@@ -88,9 +88,9 @@ namespace {
 
 		for ( auto it = 0; it < maxIterations; ++it ) {
 			// find closest face
-			int idx = -1;
+			int32_t idx = -1;
 			float minDist = FLT_MAX;
-			for ( int i = 0; i < faces.size(); ++i ) {
+			for ( auto i = 0; i < faces.size(); ++i ) {
 				if ( faces[i].distance < minDist ) {
 					minDist = faces[i].distance;
 					idx = i;
