@@ -80,88 +80,89 @@ namespace pod {
 // 	POD vector accessing/manipulation
 namespace uf {
 	namespace vector {
-		template<typename T> pod::Vector1t<T> /*UF_API*/ create( T x ); // creates a 1D vector
-		template<typename T> pod::Vector2t<T> /*UF_API*/ create( T x, T y ); // creates a 2D vector
-		template<typename T> pod::Vector3t<T> /*UF_API*/ create( T x, T y, T z ); // creates a 3D vector
-		template<typename T> pod::Vector4t<T> /*UF_API*/ create( T x, T y, T z, T w ); // creates a 4D vector
-		template<typename T, size_t N> pod::Vector<T, N> /*UF_API*/ copy( const pod::Vector<T, N>& = {}); // creates a copy of a vector (for whatever reason)
-		template<typename T, size_t N, typename U> pod::Vector<T, N> /*UF_API*/ cast( const U& from ); // casts one vector of one type to another (of the same size)
+		template<typename T> /*FORCE_INLINE*/ pod::Vector1t<T> /*UF_API*/ create( T x ); // creates a 1D vector
+		template<typename T> /*FORCE_INLINE*/ pod::Vector2t<T> /*UF_API*/ create( T x, T y ); // creates a 2D vector
+		template<typename T> /*FORCE_INLINE*/ pod::Vector3t<T> /*UF_API*/ create( T x, T y, T z ); // creates a 3D vector
+		template<typename T> /*FORCE_INLINE*/ pod::Vector4t<T> /*UF_API*/ create( T x, T y, T z, T w ); // creates a 4D vector
+		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ copy( const pod::Vector<T, N>& = {}); // creates a copy of a vector (for whatever reason)
+		template<typename T, size_t N, typename U> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ cast( const U& from ); // casts one vector of one type to another (of the same size)
 	// 	Equality checking
-		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); // equality check between two vectors (==)
-		template<typename T> bool /*UF_API*/ notEquals( const T& left, const T& right ); // equality check between two vectors (==)
-		template<typename T> bool /*UF_API*/ less( const T& left, const T& right ); // equality check between two vectors (<)
-		template<typename T> bool /*UF_API*/ lessEquals( const T& left, const T& right ); // equality check between two vectors (<=)
-		template<typename T> bool /*UF_API*/ greater( const T& left, const T& right ); // equality check between two vectors (>)
-		template<typename T> bool /*UF_API*/ greaterEquals( const T& left, const T& right ); // equality check between two vectors (>=)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ equals( const T& left, const T& right ); // equality check between two vectors (==)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ notEquals( const T& left, const T& right ); // equality check between two vectors (==)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ less( const T& left, const T& right ); // equality check between two vectors (<)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ lessEquals( const T& left, const T& right ); // equality check between two vectors (<=)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greater( const T& left, const T& right ); // equality check between two vectors (>)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greaterEquals( const T& left, const T& right ); // equality check between two vectors (>=)
 
-		template<typename T> bool /*UF_API*/ isValid( const T& v ); // checks if all components are valid (non NaN, inf, etc.)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ isValid( const T& v ); // checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
-		template<typename T> T /*UF_API*/ add( const T& left, const T& right ); // adds two vectors of same type and size together
-		template<typename T> T /*UF_API*/ add( const T& left, typename T::type_t scalar ); // adds a scalar to every component of the vector
-		template<typename T> T /*UF_API*/ add( typename T::type_t scalar, const T& vector ); // adds a scalar to every component of the vector (inverted)
-		template<typename T> T /*UF_API*/ subtract( const T& left, const T& right ); // subtracts two vectors of same type and size together
-		template<typename T> T /*UF_API*/ subtract( const T& left, typename T::type_t scalar ); // subtracts a scalar to every component of the vector
-		template<typename T> T /*UF_API*/ subtract( typename T::type_t scalar, const T& vector ); // subtracts a scalar to every component of the vector (inverted)
-		template<typename T> T /*UF_API*/ multiply( const T& left, const T& right ); // multiplies two vectors of same type and size together
-		template<typename T> T /*UF_API*/ multiply( const T& vector, typename T::type_t scalar ); // multiplies a scalar to every component of the vector
-		template<typename T> T /*UF_API*/ multiply( typename T::type_t scalar, const T& vector ); // multiplies a scalar to every component of the vector (inverted)
-		template<typename T> T /*UF_API*/ divide( const T& left, const T& right ); // divides two vectors of same type and size together
-		template<typename T> T /*UF_API*/ divide( const T& left, typename T::type_t scalar ); // divides a scalar to every component of the vector
-		template<typename T> T /*UF_API*/ divide( typename T::type_t scalar, const T& vector ); // divides a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ add( const T& left, const T& right ); // adds two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ add( const T& left, typename T::type_t scalar ); // adds a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ add( typename T::type_t scalar, const T& vector ); // adds a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ subtract( const T& left, const T& right ); // subtracts two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ subtract( const T& left, typename T::type_t scalar ); // subtracts a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ subtract( typename T::type_t scalar, const T& vector ); // subtracts a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ multiply( const T& left, const T& right ); // multiplies two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ multiply( const T& vector, typename T::type_t scalar ); // multiplies a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ multiply( typename T::type_t scalar, const T& vector ); // multiplies a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ divide( const T& left, const T& right ); // divides two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ divide( const T& left, typename T::type_t scalar ); // divides a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ divide( typename T::type_t scalar, const T& vector ); // divides a scalar to every component of the vector (inverted)
 
-		template<typename T> T& /*UF_API*/ add_( T& left, const T& right ); // adds two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ add_( T& left, typename T::type_t scalar ); // adds a scalar to every component of the vector
-		template<typename T> T& /*UF_API*/ add_( typename T::type_t scalar, T& vector ); // adds a scalar to every component of the vector (inverted)
-		template<typename T> T& /*UF_API*/ subtract_( T& left, const T& right ); // subtracts two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ subtract_( T& left, typename T::type_t scalar ); // subtracts a scalar to every component of the vector
-		template<typename T> T& /*UF_API*/ subtract_( typename T::type_t scalar, T& vector ); // subtracts a scalar to every component of the vector (inverted)
-		template<typename T> T& /*UF_API*/ multiply_( T& left, const T& right ); // multiplies two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ multiply_( T& vector, typename T::type_t scalar ); // multiplies a scalar to every component of the vector
-		template<typename T> T& /*UF_API*/ multiply_( typename T::type_t scalar, T& vector ); // multiplies a scalar to every component of the vector (inverted)
-		template<typename T> T& /*UF_API*/ divide_( T& left, const T& right ); // divides two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ divide_( T& left, typename T::type_t scalar ); // divides a scalar to every component of the vector
-		template<typename T> T& /*UF_API*/ divide_( typename T::type_t scalar, T& vector ); // divides a scalar to every component of the vector (inverted)
-		template<typename T> T& /*UF_API*/ negate_( T& vector ); // flip sign of all components
-		template<typename T> T& /*UF_API*/ normalize_( T& vector ); // normalizes a vector
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ add_( T& left, const T& right ); // adds two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ add_( T& left, typename T::type_t scalar ); // adds a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ add_( typename T::type_t scalar, T& vector ); // adds a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ subtract_( T& left, const T& right ); // subtracts two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ subtract_( T& left, typename T::type_t scalar ); // subtracts a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ subtract_( typename T::type_t scalar, T& vector ); // subtracts a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ multiply_( T& left, const T& right ); // multiplies two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ multiply_( T& vector, typename T::type_t scalar ); // multiplies a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ multiply_( typename T::type_t scalar, T& vector ); // multiplies a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ divide_( T& left, const T& right ); // divides two vectors of same type and size together
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ divide_( T& left, typename T::type_t scalar ); // divides a scalar to every component of the vector
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ divide_( typename T::type_t scalar, T& vector ); // divides a scalar to every component of the vector (inverted)
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ negate_( T& vector ); // flip sign of all components
+		template<typename T> /*FORCE_INLINE*/ T& /*UF_API*/ normalize_( T& vector ); // normalizes a vector
 
-		template<typename T> typename T::type_t /*UF_API*/ sum( const T& vector ); // compute the sum of all components 
-		template<typename T> typename T::type_t /*UF_API*/ product( const T& vector ); // compute the product of all components 
-		template<typename T> T /*UF_API*/ negate( const T& vector ); // flip sign of all components
-		template<typename T> T /*UF_API*/ abs( const T& vector ); // gets the absolute value of a vector
-		template<typename T> T  /*UF_API*/ min( const T& left, const T& right ); // returns the minimum of each component between two vectors
-		template<typename T> T  /*UF_API*/ max( const T& left, const T& right ); // returns the maximum of each component between two vectors
-		template<typename T> T  /*UF_API*/ clamp( const T& vector, const T& min, const T& max ); // clamps a vector between two bounds
-		template<typename T> T  /*UF_API*/ ceil( const T& vector ); // rounds each component of the the vector up
-		template<typename T> T  /*UF_API*/ floor( const T& vector ); // rounds each component of the vector down
-		template<typename T> T  /*UF_API*/ round( const T& vector );  // rounds each component of the vector
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ sum( const T& vector ); // compute the sum of all components 
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ product( const T& vector ); // compute the product of all components 
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ negate( const T& vector ); // flip sign of all components
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ abs( const T& vector ); // gets the absolute value of a vector
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ min( const T& left, const T& right ); // returns the minimum of each component between two vectors
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ max( const T& left, const T& right ); // returns the maximum of each component between two vectors
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ clamp( const T& vector, const T& min, const T& max ); // clamps a vector between two bounds
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ ceil( const T& vector ); // rounds each component of the the vector up
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ floor( const T& vector ); // rounds each component of the vector down
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ round( const T& vector );  // rounds each component of the vector
 	// 	Complex arithmetic
-		template<typename T> typename T::type_t /*UF_API*/ dot( const T& left, const T& right ); // compute the dot product between two vectors
-		template<typename T> float /*UF_API*/ angle( const T& a, const T& b ); // compute the angle between two vectors
-		template<typename T> float /*UF_API*/ signedAngle( const T& a, const T& b, const T& axis ); // compute the signed angle between two vectors
-		template<typename T> T /*UF_API*/ cross( const T& a, const T& b ); // compute the cross product between two vectors
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ dot( const T& left, const T& right ); // compute the dot product between two vectors
+		template<typename T> /*FORCE_INLINE*/ float /*UF_API*/ angle( const T& a, const T& b ); // compute the angle between two vectors
+		template<typename T> /*FORCE_INLINE*/ float /*UF_API*/ signedAngle( const T& a, const T& b, const T& axis ); // compute the signed angle between two vectors
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ cross( const T& a, const T& b ); // compute the cross product between two vectors
 		
-		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, double, bool = true ); // linearly interpolate between two vectors
-		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, const T&, bool = true ); // linearly interpolate between two vectors, component-wise
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ lerp( const T& from, const T& to, double, bool = true ); // linearly interpolate between two vectors
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ lerp( const T& from, const T& to, const T&, bool = true ); // linearly interpolate between two vectors, component-wise
 
-		template<typename T> T /*UF_API*/ slerp( const T& from, const T& to, double, bool = false ); // spherically interpolate between two vectors
-		template<typename T> T /*UF_API*/ mix( const T& from, const T& to, double, bool = false );   	
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ slerp( const T& from, const T& to, double, bool = false ); // spherically interpolate between two vectors
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ mix( const T& from, const T& to, double, bool = false );   	
 		
-		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); // compute the distance between two vectors (doesn't sqrt)
-		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); // compute the distance between two vectors
-		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); // gets the magnitude of the vector
-		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); // compute the norm (length) of the vector
-		template<typename T> T /*UF_API*/ normalize( const T& vector ); // normalizes a vector
-		template<typename T> T /*UF_API*/ clampMagnitude( const T& vector ); // clamps the magnitude of a vector
-		template<typename T> void /*UF_API*/ orthonormalize( T& x, T& y ); // orthonormalizes a vector against another vector
-		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); // orthonormalizes a vector against another vector
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); // compute the distance between two vectors (doesn't sqrt)
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); // compute the distance between two vectors
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ magnitude( const T& vector ); // gets the magnitude of the vector
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ norm( const T& vector ); // compute the norm (length) of the vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ normalize( const T& vector ); // normalizes a vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ clampMagnitude( const T& vector ); // clamps the magnitude of a vector
+		template<typename T> /*FORCE_INLINE*/ void /*UF_API*/ orthonormalize( T& x, T& y ); // orthonormalizes a vector against another vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ orthonormalize( const T& x, const T& y ); // orthonormalizes a vector against another vector
 		
-		template<typename T> uf::stl::string /*UF_API*/ toString( const T& vector ); // parses a vector as a string
-		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); // parses a vector into a JSON value
+		template<typename T> /*FORCE_INLINE*/ size_t /*UF_API*/ hash( const T& vector ); // hashes a vector
+		template<typename T> /*FORCE_INLINE*/ uf::stl::string /*UF_API*/ toString( const T& vector ); // parses a vector as a string
+		template<typename T, size_t N> /*FORCE_INLINE*/ ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); // parses a vector into a JSON value
 		
-		template<typename T, size_t N> pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); // parses a JSON value into a vector
-		template<typename T, size_t N> pod::Vector<T,N> decode( const ext::json::Value& v, const pod::Vector<T,N>& = {} ); // parses a JSON value into a vector
+		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); // parses a JSON value into a vector
+		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T,N> decode( const ext::json::Value& v, const pod::Vector<T,N>& = {} ); // parses a JSON value into a vector
 		
-		template<typename T> typename T::type_t /*UF_API*/ mips( const T& size ); // calculate amount of mips to use given a size
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ mips( const T& size ); // calculate amount of mips to use given a size
 	}
 }
 
@@ -196,6 +197,12 @@ namespace uf {
 	FORCE_INLINE bool operator>=(const Vector<T,N>& rhs) const { return uf::vector::greaterEquals(*this, rhs); } \
 	FORCE_INLINE explicit operator bool() const { return uf::vector::notEquals(*this, Vector<T,N>{}); } \
 	template<typename U, size_t M> FORCE_INLINE operator Vector<U,M>() const { return uf::vector::cast<U,M>(*this); }
+
+#define DEFINE_VECTOR_EXT(T, N) \
+	template<typename T> FORCE_INLINE pod::Vector<T,N> operator+( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::add(scalar, v); }\
+	template<typename T> FORCE_INLINE pod::Vector<T,N> operator-( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::subtract(scalar, v); }\
+	template<typename T> FORCE_INLINE pod::Vector<T,N> operator*( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::multiply(scalar, v); }\
+	template<typename T> FORCE_INLINE pod::Vector<T,N> operator/( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::divide(scalar, v); }\
 
 namespace pod {
 	template<typename T, size_t N>
@@ -238,30 +245,35 @@ namespace pod {
 
 // external functions
 
-//#include <uf/utils/string/ext.h>
-#include <sstream>
+// scalar operator vector
+template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N> operator+( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::add(scalar, v); }
+template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N> operator-( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::subtract(scalar, v); }
+template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N> operator*( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::multiply(scalar, v); }
+template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N> operator/( T scalar, const pod::Vector<T,N>& v ) { return uf::vector::divide(scalar, v); }
+
+DEFINE_VECTOR_EXT(T, 2);
+DEFINE_VECTOR_EXT(T, 3);
+DEFINE_VECTOR_EXT(T, 4);
+
+// stringify
 namespace uf {
 	namespace string {
-		template<typename T, size_t N>
-		uf::stl::string toString( const pod::Vector<T,N>& v );
+		template<typename T, size_t N> FORCE_INLINE uf::stl::string toString( const pod::Vector<T,N>& v );
 	}
 }
+// jsonify
 namespace ext {
 	namespace json {
-		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v );
-		template<typename T, size_t N> pod::Vector<T,N>& decode( const ext::json::Value&, pod::Vector<T,N>& );
-		template<typename T, size_t N> pod::Vector<T,N> decode( const ext::json::Value&, const pod::Vector<T,N>& = {} );
+		template<typename T, size_t N> FORCE_INLINE ext::json::Value encode( const pod::Vector<T,N>& v );
+		template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N>& decode( const ext::json::Value&, pod::Vector<T,N>& );
+		template<typename T, size_t N> FORCE_INLINE pod::Vector<T,N> decode( const ext::json::Value&, const pod::Vector<T,N>& = {} );
 	}
 }
-
+// hash
 namespace std {
 	template<typename T, size_t N>
 	struct hash<pod::Vector<T,N>> {
-		size_t operator()(const pod::Vector<T,N>& v) const {
-			size_t hash = 0;
-			for ( size_t i = 0; i < N; ++i ) hash ^= v[i];
-			return hash;
-		}
+		FORCE_INLINE size_t operator()(const pod::Vector<T,N>& v) const;
 	};
 }
 

@@ -1,3 +1,13 @@
+namespace {
+	int32_t flattenBVH( pod::BVH& bvh, int32_t nodeID );
+
+	void queryFlatBVH( const pod::BVH&, const pod::AABB& bounds, uf::stl::vector<int32_t>& out );
+	void queryFlatBVH( const pod::BVH&, const pod::Ray& ray, uf::stl::vector<int32_t>& out, float maxDist = FLT_MAX );
+	
+	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
+	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
+}
+
 // BVH
 namespace {
 	int32_t buildBVHNode( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, int32_t start, int32_t end, int32_t capacity = 2 ) {
@@ -212,7 +222,7 @@ namespace {
 
 			auto tris = view.index.count / 3;
 			for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-				auto tri = ::fetchTriangle( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto tri = ::fetchTriangle( view, indices, positions, triIndexID );
 				auto aabb = ::computeTriangleAABB( tri );
 				auto triID = triIndexID + (view.index.first / 3);
 
@@ -363,7 +373,7 @@ namespace {
 
 			auto tris = view.index.count / 3;
 			for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-				auto tri = ::fetchTriangle( positions.data(view.vertex.first), positions.stride(), indices.data(view.index.first), mesh.index.size, triIndexID );
+				auto tri = ::fetchTriangle( view, indices, positions, triIndexID );
 				auto aabb = ::computeTriangleAABB( tri );
 				bounds.emplace_back(aabb);
 			}

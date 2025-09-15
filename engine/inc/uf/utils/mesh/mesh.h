@@ -191,15 +191,10 @@ namespace uf {
                 return null;
             }
 		};
-	/*
-		struct Bounds {
-			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-			pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-		} bounds;
-	*/
+
 		uf::stl::vector<buffer_t> buffers;
 
-		// crunge, but it's better this way
+		// crunge, but it's better this way for streaming in mesh data
 		uf::stl::vector<uf::stl::string> buffer_paths;
 	protected:
 		void _destroy( uf::Mesh::Input& input );

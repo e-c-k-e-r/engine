@@ -1,23 +1,9 @@
 #define REORIENT_NORMALS_ON_FETCH 0
 #define REORIENT_NORMALS_ON_CONTACT 1
 
-// mesh BVH
-namespace {
-	// to-do: clean this up
-	uint32_t getIndex( const void* indexData, size_t indexSize, size_t idx ) {
-		if ( indexSize == sizeof(uint8_t) ) {
-			auto* ptr = reinterpret_cast<const uint8_t*>(indexData);
-			return static_cast<uint32_t>(ptr[idx]);
-		} else if ( indexSize == sizeof(uint16_t) ) {
-			auto* ptr = reinterpret_cast<const uint16_t*>(indexData);
-			return static_cast<uint32_t>(ptr[idx]);
-		} else if ( indexSize == sizeof(uint32_t) ) {
-			auto* ptr = reinterpret_cast<const uint32_t*>(indexData);
-			return ptr[idx];
-		}
-		UF_EXCEPTION("Unsupported index type of size {}", indexSize);
-	}
+#include <uf/utils/math/quant.h>
 
+namespace {
 	pod::Vector3f triangleCenter( const pod::Triangle& tri ) {
 		return ( tri.points[0] + tri.points[1] + tri.points[2] ) / 3.0f;
 	}
@@ -29,12 +15,80 @@ namespace {
 		//return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 	}
 
-	pod::Triangle fetchTriangle( const void* vertices, size_t vertexStride, const void* indexData, size_t indexSize, size_t triID ) {
-		return {
-			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 0 ) * vertexStride),
-			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 1 ) * vertexStride),
-			*reinterpret_cast<const pod::Vector3f*>(reinterpret_cast<const uint8_t*>(vertices) + ::getIndex( indexData, indexSize, (triID * 3) + 2 ) * vertexStride),
-		};
+	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS(1e-6f) ) {
+		auto boxA = ::computeTriangleAABB( a );
+		auto boxB = ::computeTriangleAABB( b );
+
+		if ( !::aabbOverlap( boxA, boxB ) ) return false;
+
+		// check vertices of a inside b or vice versa
+		FOR_EACH(3, {
+			auto q = ::closestPointOnTriangle( a.points[i], b );
+			if ( uf::vector::magnitude( q - a.points[i] ) < eps ) return true;
+		});
+		FOR_EACH(3, {
+			auto q = ::closestPointOnTriangle( b.points[i], a );
+			if ( uf::vector::magnitude( q - b.points[i] ) < eps ) return true;
+		});
+		return false;
+	}
+
+	size_t getIndex( const void* pointer, size_t stride, size_t index ) { 
+		#define CAST_INDEX(T) case sizeof(T): return ((T*) pointer)[index];
+		switch ( stride ) {
+			CAST_INDEX(uint8_t);
+			CAST_INDEX(uint16_t);
+			CAST_INDEX(uint32_t);
+			default: {
+				UF_EXCEPTION("invalid stride type: {}", stride);
+			} break;
+		}
+	}
+	size_t getIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) { 
+		return ::getIndex( indices.data(view.index.first), indices.stride(), index );
+	}
+	pod::Vector3f getVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index ) {
+		const auto stride = positions.stride();
+		#define CAST_VERTEX(T) {\
+			const T* vertices = (T*) positions.data(view.vertex.first + index);\
+			return { vertices[0], vertices[1], vertices[2], };\
+		}
+		#define DEQUANTIZE_VERTEX(T) {\
+			const T* vertices = (T*) positions.data(view.vertex.first + index);\
+			return { uf::quant::dequantize(vertices[0]), uf::quant::dequantize(vertices[1]), uf::quant::dequantize(vertices[2]), };\
+		}
+
+		switch ( positions.attribute.descriptor.type ) {
+			// dequantize
+			case uf::renderer::enums::Type::USHORT:
+			case uf::renderer::enums::Type::SHORT: {
+				DEQUANTIZE_VERTEX(uint16_t);
+			} break;
+			case uf::renderer::enums::Type::FLOAT: {
+				CAST_VERTEX(float);
+			} break;
+		#if UF_USE_FLOAT16
+			case uf::renderer::enums::Type::HALF: {
+				CAST_VERTEX(std::float16_t);
+			} break;
+		#endif
+		#if UF_USE_BFLOAT16
+			case uf::renderer::enums::Type::BFLOAT: {
+				CAST_VERTEX(std::bfloat16_t);
+			} break;
+		#endif
+			default: UF_EXCEPTION("unsupported vertex type: {}", positions.attribute.descriptor.type); break;
+		}
+	//	return ::getVertex( positions.data(view.vertex.first), positions.stride(), index );
+	}
+
+	pod::Triangle fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID ) {
+		auto index = triID * 3;
+		pod::Triangle tri;
+		FOR_EACH(3, {
+			tri.points[i] = ::getVertex( view, positions, ::getIndex( view, indices, index + i ) );
+		});
+		return tri;
 	}
 
 	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
@@ -43,49 +97,42 @@ namespace {
 
 		// find which view contains this triangle index.
 		size_t triBase = 0;
-		const uf::Mesh::View* found = nullptr;
+		const uf::Mesh::View* view = nullptr;
 		for ( auto& v : views ) {
 			auto trisInView = v.index.count / 3;
 			if (triID < triBase + trisInView) {
-				found = &v;
+				view = &v;
 				triID -= triBase; // local triangle index inside this view
 				break;
 			}
 			triBase += trisInView;
 		}
-		UF_ASSERT( found );
+		UF_ASSERT( view );
 
-		auto& positions = (*found)["position"];
-		auto& normals   = (*found)["normal"];
-		auto& indices   = (*found)["index"];
+		auto& positions = (*view)["position"];
+		auto& normals   = (*view)["normal"];
+		auto& indices   = (*view)["index"];
 		
-		pod::TriangleWithNormal tri = { ::fetchTriangle( positions.data(found->vertex.first), positions.stride(), indices.data(found->index.first), mesh.index.size, triID ) };
+		pod::TriangleWithNormal tri = { ::fetchTriangle( *view, indices, positions, triID ) };
 		tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
-
-		/*
-		if ( false && normals.valid() ) {
-			auto* base = reinterpret_cast<const uint8_t*>(normals.data(found->vertex.first));
-			size_t stride = normals.stride();
-			for ( auto i = 0; i < 3; ++i ) tri.normals[i] = *reinterpret_cast<const pod::Vector3f*>(base + idxs[i] * stride);
-		} else {
-			auto normal = ::triangleNormal( (pod::Triangle&) tri );
-			for ( auto i = 0; i < 3; ++i ) tri.normals[i] = normal;
-		}
-		*/
 
 		return tri;
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = true ) {
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = false ) {
 		auto tri = ::fetchTriangle( mesh, triID );
 		auto transform = ::getTransform( body );
 
 		if ( body.collider.type == pod::ShapeType::MESH ) {
 			if ( fast ) {
-				for ( auto i = 0; i < 3; ++i ) tri.points[i] += transform.position;
+				FOR_EACH(3, {
+					tri.points[i] += transform.position;
+				});
 			} else {
-				for ( auto i = 0; i < 3; ++i ) tri.points[i]  = uf::transform::apply( transform, tri.points[i] );
+				FOR_EACH(3, {
+					tri.points[i]  = uf::transform::apply( transform, tri.points[i] );
+				});
 				tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
 			}
 		}
@@ -132,24 +179,24 @@ namespace {
 
 		// clip edges of A against plane of B
 		const pod::Vector3f At[3] = { A.points[0], A.points[1], A.points[2] };
-		for ( auto i = 0; i < 3; ++i ) {
+		FOR_EACH(3, {
 			auto j = ( i + 1 ) % 3;
 			pod::Vector3f p;
 			if ( intersectSegmentPlane( At[i], At[j], nB, dB, p ) ) {
 				// check if intersection lies inside triangle B
 				if ( ::pointInTriangle( p, B ) ) checkAndPush(p);
 			}
-		}
+		});
 
 		// clip edges of B against plane of A
 		const pod::Vector3f Bt[3] = { B.points[0], B.points[1], B.points[2] };
-		for ( auto i = 0; i < 3; ++i ) {
+		FOR_EACH(3, {
 			auto j = ( i + 1 ) % 3;
 			pod::Vector3f p;
 			if ( intersectSegmentPlane( Bt[i], Bt[j], nA, dA, p ) ) {
 				if ( ::pointInTriangle( p, A ) ) checkAndPush(p);
 			}
-		}
+		});
 
 		if ( intersections.empty() ) return false;
 
@@ -295,7 +342,9 @@ namespace {
 
 		bool hit = false;
 		pod::Vector3f dist;
-		for ( auto i = 0; i < 3; i++ ) dist[i] = uf::vector::dot(normal, tri.points[i] ) - d;
+		FOR_EACH(3, {
+			dist[i] = uf::vector::dot(normal, tri.points[i] ) - d;
+		});
 
 		// completely on one side
 		bool allAbove = ( dist.x >  eps && dist.y >  eps && dist.z >  eps );
@@ -305,10 +354,10 @@ namespace {
 
 		if ( allBelow ) {
 			hit = true;
-			for ( auto i = 0; i < 3; i++ ) {
+			FOR_EACH(3, {
 				float penetration = -dist[i];
-				manifold.points.emplace_back(pod::Contact{tri.points[i], normal, penetration});
-			}
+				manifold.points.emplace_back(pod::Contact{tri.points[i], normal, -dist[i]});
+			});
 			return hit;
 		}
 

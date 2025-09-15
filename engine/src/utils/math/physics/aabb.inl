@@ -1,22 +1,72 @@
 namespace {
-	inline bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps ) {
+	FORCE_INLINE bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps ) {
+	#if UF_USE_SIMD
+		return uf::simd::all( uf::simd::lessEquals( a.min, b.max ) ) && uf::simd::all( uf::simd::greaterEquals( a.max, b.min ) );
+	#else
 		return ( a.min - eps ) <= ( b.max + eps ) && ( a.max + eps ) >= ( b.min - eps );
+	#endif
 	}
 
-	inline float aabbSurfaceArea(const pod::AABB& aabb) {
+	FORCE_INLINE float aabbSurfaceArea(const pod::AABB& aabb) {
 		auto d = uf::vector::max( ( aabb.max - aabb.min ), pod::Vector3f{} );
 		return 2.0f * (d.x * d.y + d.y * d.z + d.z * d.x);
 	}
 
-	pod::AABB computeSegmentAABB( const pod::Vector3f& p1, const pod::Vector3f p2, float r ) {
+	FORCE_INLINE pod::AABB computeSegmentAABB( const pod::Vector3f& p1, const pod::Vector3f p2, float r ) {
 		return { 
 			uf::vector::min( p1, p2 ) - r,
 			uf::vector::max( p1, p2 ) + r,
 		};
 	}
 
-	pod::Vector3f closestPointOnAABB(const pod::Vector3f& p, const pod::AABB& box) {
+	FORCE_INLINE pod::Vector3f closestPointOnAABB(const pod::Vector3f& p, const pod::AABB& box) {
 		return uf::vector::clamp( p, box.min, box.max );
+	}
+
+	FORCE_INLINE pod::AABB computeTriangleAABB( const pod::Triangle& tri ) {
+		return {
+			uf::vector::min( uf::vector::min( tri.points[0], tri.points[1] ), tri.points[2] ),
+			uf::vector::max( uf::vector::max( tri.points[0], tri.points[1] ), tri.points[2] ),
+		};
+	}
+
+	FORCE_INLINE pod::AABB mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
+		return {
+			uf::vector::min( a.min, b.min ),
+			uf::vector::max( a.max, b.max ),
+		};
+	}
+
+	FORCE_INLINE pod::Vector3f aabbCenter( const pod::AABB& aabb ) {
+		return ( aabb.max + aabb.min ) * 0.5f;
+	}
+	FORCE_INLINE pod::Vector3f aabbExtent( const pod::AABB& aabb ) {
+		return ( aabb.max - aabb.min ) * 0.5f;
+	}
+
+	pod::AABB transformAabbToWorld( const pod::AABB& localBox, const pod::Transform<>& transform ) {
+		const auto& q = transform.orientation;
+		const auto& p = transform.position;
+
+		pod::Vector3f center  = (localBox.min + localBox.max) * 0.5f;
+		pod::Vector3f extents = (localBox.max - localBox.min) * 0.5f;
+
+		pod::Vector3f axisX = uf::quaternion::rotate(q, pod::Vector3f{1,0,0});
+		pod::Vector3f axisY = uf::quaternion::rotate(q, pod::Vector3f{0,1,0});
+		pod::Vector3f axisZ = uf::quaternion::rotate(q, pod::Vector3f{0,0,1});
+
+		pod::Vector3f worldCenter = uf::quaternion::rotate(q, center) + p;
+
+		pod::Vector3f worldExtents = {
+			fabs(axisX.x) * extents.x + fabs(axisY.x) * extents.y + fabs(axisZ.x) * extents.z,
+			fabs(axisX.y) * extents.x + fabs(axisY.y) * extents.y + fabs(axisZ.y) * extents.z,
+			fabs(axisX.z) * extents.x + fabs(axisY.z) * extents.y + fabs(axisZ.z) * extents.z
+		};
+
+		return {
+			worldCenter - worldExtents,
+			worldCenter + worldExtents
+		};
 	}
 
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body ) {
@@ -34,10 +84,13 @@ namespace {
 		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::AABB: {
+			/*
 				return {
 					transform.position + body.collider.aabb.min,
 					transform.position + body.collider.aabb.max,
 				};
+			*/
+				return ::transformAabbToWorld( body.collider.aabb, *body.transform );
 			} break;
 			case pod::ShapeType::SPHERE: {
 				return {
@@ -63,20 +116,13 @@ namespace {
 		return {};
 	}
 
-	pod::AABB computeTriangleAABB( const pod::Triangle& tri ) {
-		return {
-			uf::vector::min( uf::vector::min( tri.points[0], tri.points[1] ), tri.points[2] ),
-    		uf::vector::max( uf::vector::max( tri.points[0], tri.points[1] ), tri.points[2] ),
-		};
-	}
-
 	float triAabbDistanceSq( const pod::Triangle& tri, const pod::AABB& box ) {
 		float minDistSq = FLT_MAX;
-		for ( auto i = 0; i < 3; ++i ) {
+		FOR_EACH(3, {
 			auto cp = ::closestPointOnAABB( tri.points[i], box );
 			auto d  = tri.points[i] - cp;
 			minDistSq = std::min( minDistSq, uf::vector::dot( d, d ) );
-		}
+		});
 		return minDistSq;
 	}
 
@@ -124,11 +170,11 @@ namespace {
 		if ( !axisTest( {-f2.y, f2.x, 0} ) ) return false;
 
 		// test AABB face axes
-		for ( auto i = 0; i < 3; ++i ) {
+		FOR_EACH(3, {
 			float minVal = std::min({v0[i], v1[i], v2[i]});
 			float maxVal = std::max({v0[i], v1[i], v2[i]});
 			if ( minVal > e[i] || maxVal < -e[i] ) return false;
-		}
+		});
 
 		// test triangle normal axis
 		auto n = uf::vector::cross( f0, f1 );
@@ -137,13 +183,6 @@ namespace {
 		if ( fabs(d0) > r ) return false;
 
 		return true;
-	}
-
-	pod::AABB mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
-		return {
-			uf::vector::min( a.min, b.min ),
-			uf::vector::max( a.max, b.max ),
-		};
 	}
 
 	pod::AABB transformAabbToLocal( const pod::AABB& box, const pod::Transform<>& transform ) {
@@ -166,19 +205,12 @@ namespace {
 			{ -FLT_MAX, -FLT_MAX, -FLT_MAX },
 		};
 
-		for ( auto i = 0; i < 8; ++i ) {
+		FOR_EACH(8, {
 			auto local = uf::transform::apply( inv, corners[i] );
 			out.min = uf::vector::min( out.min, local );
 			out.max = uf::vector::max( out.max, local );
-		}
+		});
 		return out;
-	}
-
-	pod::Vector3f aabbCenter( const pod::AABB& aabb ) {
-		return ( aabb.max + aabb.min ) * 0.5f;
-	}
-	pod::Vector3f aabbExtent( const pod::AABB& aabb ) {
-		return ( aabb.max - aabb.min ) * 0.5f;
 	}
 
 	bool aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
@@ -195,12 +227,12 @@ namespace {
 		// determine collision axis = smallest overlap
 		auto axis = -1;
 		float minOverlap = FLT_MAX;
-		for ( auto i = 0; i < 3; ++i ) {
+		FOR_EACH(3, {
 			if ( overlaps[i] < minOverlap ) {
 				minOverlap = overlaps[i];
 				axis = i;
 			}
-		}
+		});
 
 		pod::Vector3f delta = ::getPosition( b ) - ::getPosition( a );
 		pod::Vector3f normal{0,0,0};
@@ -211,13 +243,13 @@ namespace {
 		auto Max = uf::vector::min( A.max, B.max );
 
 		// on chosen axis, clamp to overlapped rectangle -> 4 potential points
-		if (axis == 0) { // x-axis separation, so face-on overlap in YZ plane
+		if ( axis == 0 ) { // x-axis separation, so face-on overlap in YZ plane
 			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Min.y, Min.z }, normal, minOverlap });
 			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Min.y, Max.z }, normal, minOverlap });
 			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Max.y, Min.z }, normal, minOverlap });
 			manifold.points.emplace_back(pod::Contact{ { (normal.x > 0 ? A.max.x : A.min.x), Max.y, Max.z }, normal, minOverlap });
 		}
-		else if (axis == 1) { // y-axis separation, overlap in XZ plane
+		else if ( axis == 1 ) { // y-axis separation, overlap in XZ plane
 			manifold.points.emplace_back(pod::Contact{ { Min.x, (normal.y > 0 ? A.max.y : A.min.y), Min.z }, normal, minOverlap });
 			manifold.points.emplace_back(pod::Contact{ { Min.x, (normal.y > 0 ? A.max.y : A.min.y), Max.z }, normal, minOverlap });
 			manifold.points.emplace_back(pod::Contact{ { Max.x, (normal.y > 0 ? A.max.y : A.min.y), Min.z }, normal, minOverlap });
@@ -235,30 +267,18 @@ namespace {
 
 	bool aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, SPHERE );
-		auto start = manifold.points.size();
-		if ( !::sphereAabb( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, sphereAabb );
 	}
 	bool aabbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, PLANE );
-		auto start = manifold.points.size();
-		if ( !::planeAabb( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, planeAabb );
 	}
 	bool aabbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, CAPSULE );
-		auto start = manifold.points.size();
-		if ( !::capsuleAabb( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, capsuleAabb );
 	}
 	bool aabbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, MESH );
-		auto start = manifold.points.size();
-		if ( !::meshAabb( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, meshAabb );
 	}
 }

@@ -18,3 +18,8 @@ template<typename T, size_t N>
 pod::Vector<T,N> /*UF_API*/ ext::json::decode( const ext::json::Value& json, const pod::Vector<T,N>& v ) {
 	return uf::vector::decode<T,N>(json, v);
 }
+
+template<typename T, size_t N>
+size_t std::hash<pod::Vector<T,N>>::operator()( const pod::Vector<T,N>& v ) const {
+	return uf::vector::hash( v );
+}

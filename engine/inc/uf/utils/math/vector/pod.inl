@@ -276,9 +276,9 @@ T uf::vector::divide( const T& vector, typename T::type_t scalar ) {
 	}
 #endif
 	T res;
-	scalar = static_cast<typename T::type_t>(1) / scalar;
+	float recip = static_cast<typename T::type_t>(1) / scalar;
 	FOR_EACH(T::size, {
-		res[i] = vector[i] * scalar;
+		res[i] = vector[i] * recip;
 	});
 	return res;
 }
@@ -298,9 +298,9 @@ T uf::vector::divide( typename T::type_t scalar, const T& vector ) {
 	}
 #endif
 	T res;
-	scalar = static_cast<T>(1) / scalar;
+	float recip = static_cast<typename T::type_t>(1) / scalar;
 	FOR_EACH(T::size, {
-		res[i] = scalar / vector[i];
+		res[i] = vector[i] * recip;
 	});
 	return res;
 }
@@ -738,6 +738,15 @@ typename T::type_t uf::vector::mips( const T& size ) {
 		max = std::max( max, size[i] );
 	});
 	return static_cast<uint32_t>(std::floor(std::log2(max))) + 1;
+}
+
+template<typename T>
+size_t uf::vector::hash( const T& v ) {
+	size_t hash = 0;
+	FOR_EACH(T::size, {
+		hash ^= v[i];
+	});
+	return hash;
 }
 
 template<typename T>

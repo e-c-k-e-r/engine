@@ -48,16 +48,10 @@ namespace {
 	}
 	bool planeCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( PLANE, CAPSULE );
-		auto start = manifold.points.size();
-		if ( !::capsulePlane( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, capsulePlane );
 	}
 	bool planeMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( PLANE, MESH );
-		auto start = manifold.points.size();
-		if ( !::meshPlane( b, a, manifold, eps ) ) return false;
-		for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;
-		return true;
+		REVERSE_COLLIDER( a, b, meshPlane );
 	}
 }

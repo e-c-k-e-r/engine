@@ -1,3 +1,9 @@
+#define REVERSE_COLLIDER( a, b, fun )\
+	auto start = manifold.points.size();\
+	if ( !::fun( b, a, manifold, eps ) ) return false;\
+	for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;\
+	return true;
+
 // forward declare
 namespace {
 	bool aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
@@ -37,31 +43,16 @@ namespace {
 	bool triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = EPS(1.0e-6f) );
 
 	// ugh
-	pod::Vector3f aabbCenter( const pod::AABB& aabb );
-	bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS(1.0e-6f) );
-	pod::AABB computeTriangleAABB( const pod::Triangle& tri );
-
-	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt );
-
-	int32_t flattenBVH( pod::BVH& bvh, int32_t nodeID );
-
-	void traverseNodePair( const pod::BVH& bvh, int32_t leftID, int32_t rightID, pod::BVH::pairs_t& pairs );
-	void traverseNodePair( const pod::BVH& a, int32_t nodeA, const pod::BVH& b, int32_t nodeB, pod::BVH::pairs_t& out );
+	FORCE_INLINE bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS(1.0e-6f) );
 	
+	pod::Vector3f aabbCenter( const pod::AABB& aabb );
+
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices );
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices, int32_t nodeID );
-
 	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, float maxDist = FLT_MAX );
 	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, int32_t nodeID, float maxDist = FLT_MAX );
-
-	void queryFlatBVH( const pod::BVH&, const pod::AABB& bounds, uf::stl::vector<int32_t>& out );
-	void queryFlatBVH( const pod::BVH&, const pod::Ray& ray, uf::stl::vector<int32_t>& out, float maxDist = FLT_MAX );
-
 	void queryOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
 	void queryOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
-	
-	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
-	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
 }
 
 namespace {
@@ -380,23 +371,5 @@ namespace {
 		}
 
 		return best;
-	}
-
-	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS(1e-6f) ) {
-		auto boxA = ::computeTriangleAABB( a );
-		auto boxB = ::computeTriangleAABB( b );
-
-		if ( !::aabbOverlap( boxA, boxB ) ) return false;
-
-		// check vertices of a inside b or vice versa
-		for ( auto i = 0; i < 3; i++ ) {
-			auto q = ::closestPointOnTriangle( a.points[i], b );
-			if ( uf::vector::magnitude( q - a.points[i] ) < eps ) return true;
-		}
-		for ( auto i = 0; i < 3; i++ ) {
-			auto q = ::closestPointOnTriangle( b.points[i], a );
-			if ( uf::vector::magnitude( q - b.points[i] ) < eps ) return true;
-		}
-		return false;
 	}
 }

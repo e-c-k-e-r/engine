@@ -5,41 +5,45 @@
 #include <uf/utils/memory/stack.h>
 
 namespace {
-	bool warmupSolver = true;
-	bool blockContactSolver = true;
-	bool psgContactSolver = true; // iterative solver is flawed
+	bool warmupSolver = true; // cache manifold data to warm up the solver
+	bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
+	bool psgContactSolver = true; // use PSG contact solver
 	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
-	bool fixedStep = true;
-	
-	int32_t substeps = 0;
-	int32_t reserveCount = 32;
+	bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
+	int32_t substeps = 0; // number of substeps per frame tick
+	int32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
-	// increasing these make things lag
-	int32_t broadphaseBvhCapacity = 1;
-	int32_t meshBvhCapacity = 1;
+	// increasing these make things lag for reasons I can imagine why
+	int32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
+	int32_t meshBvhCapacity = 1; // number of triangles per leaf node
 
-	bool flattenBvhBodies = false; // bugged
+	// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
+	bool flattenBvhBodies = true;
 	bool flattenBvhMeshes = true;
 	
-	// it actually seems slower to use these......
-	bool useBvhSahBodies = false;
-	bool useBvhSahMeshes = false;
+	// use surface area heuristics for building the BVH, rather than naive splits
+	bool useBvhSahBodies = false; // it actually seems slower to use these......
+	bool useBvhSahMeshes = true;
 
-	bool useSplitBvhs = true; // currently bugged if enabled
+	bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects
 
+	// to-do: find possibly better values for this
 	int32_t solverIterations = 10;
 	float baumgarteCorrectionPercent = 0.2f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
-	int32_t manifoldCacheLifetime = 6;
+	int32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
 
 	uint32_t frameCounter = 0;
+
+	// to-do: tweak this to not be annoying
+	// currently seems only reliable when it hits its TTL, but too long of a wait is gross, and too frequent of an update causes lag
 	pod::BVH::UpdatePolicy bvhUpdatePolicy = {
 		.displacementThreshold = 0.25f,
 		.overlapThreshold = 2.0f,
 		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 60,
+		.maxFramesBeforeRebuild = 120,
 	};
 }
 
@@ -61,7 +65,7 @@ namespace {
 #include "integration.inl"
 #include "solvers.inl"
 
-// unused
+// unused, as these are from reactphysics
 float uf::physics::impl::timescale = 1.0f / 60.0f;
 bool uf::physics::impl::interpolate = false;
 bool uf::physics::impl::shared = false;
@@ -264,9 +268,7 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			extents *= extents; // square it;
 
 			body.inertiaTensor = extents * (body.mass / 12.0f);
-			// to-do: add overloaded inverse order arithmetic operators
-			//body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
-			body.inverseInertiaTensor = { 1.0f / body.inertiaTensor.x, 1.0f / body.inertiaTensor.y, 1.0f / body.inertiaTensor.z };
+			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
 			float I = 0.4f * body.mass * body.collider.sphere.radius * body.collider.sphere.radius;
