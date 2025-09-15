@@ -212,7 +212,7 @@ namespace {
 		bvh.dirty = false;
 	}
 
-	void buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t capacity = 4 ) {
+	void buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, const uf::Mesh::views_t& views, pod::BVH::index_t capacity = 4 ) {
 		uint32_t triangles = mesh.index.count / 3;
 
 		bvh.indices.clear();
@@ -223,7 +223,6 @@ namespace {
 		uf::stl::vector<pod::AABB> bounds;
 		bounds.reserve( triangles );
 
-		auto views = mesh.makeViews({"position"});
 		UF_ASSERT( !views.empty() );
 
 		// populate initial indices and bounds
@@ -376,13 +375,12 @@ namespace {
 		}
 	}
 
-	void refitBVH( pod::BVH& bvh, const uf::Mesh& mesh ) {
+	void refitBVH( pod::BVH& bvh, const uf::Mesh& mesh, const uf::Mesh::views_t& views ) {
 		uint32_t triangles = mesh.index.count / 3;
 
 		uf::stl::vector<pod::AABB> bounds;
 		bounds.reserve( triangles );
 
-		auto views = mesh.makeViews({"position"});
 		UF_ASSERT( !views.empty() );
 
 		// populate initial indices and bounds

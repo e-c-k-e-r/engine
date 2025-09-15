@@ -11,11 +11,8 @@
 #include <uf/utils/memory/unordered_set.h>
 
 #include <uf/engine/object/object.h>
+#include <uf/utils/mesh/mesh.h>
 #include <cfloat>
-
-namespace uf {
-	class Mesh;
-}
 
 namespace pod {
 	enum class ShapeType {
@@ -107,6 +104,7 @@ namespace pod {
 	struct MeshBVH {
 		pod::BVH* bvh;
 		const uf::Mesh* mesh;
+		const uf::Mesh::views_t* views;
 	};
 
 	typedef uint32_t CollisionMask;

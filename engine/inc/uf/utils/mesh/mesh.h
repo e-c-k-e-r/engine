@@ -163,19 +163,19 @@ namespace uf {
 		struct AttributeView {
 			Attribute attribute;
 
-            const void* data(size_t first = 0) const {
-                if ( !valid() ) return NULL;
-                return static_cast<const uint8_t*>(attribute.pointer) + attribute.stride * first;
-            }
+			const void* data(size_t first = 0) const {
+				if ( !valid() ) return NULL;
+				return static_cast<const uint8_t*>(attribute.pointer) + attribute.stride * first;
+			}
 
-            template<typename T>
-            const T* get(size_t first = 0) const {
-                return reinterpret_cast<const T*>(data(first));
-            }
+			template<typename T>
+			const T* get(size_t first = 0) const {
+				return reinterpret_cast<const T*>(data(first));
+			}
 
-            bool valid() const { return attribute.pointer != NULL; }
-            size_t stride() const { return attribute.stride; }
-            size_t components() const { return attribute.descriptor.components; }
+			bool valid() const { return attribute.pointer != NULL; }
+			size_t stride() const { return attribute.stride; }
+			size_t components() const { return attribute.descriptor.components; }
 		};
 
 		struct View {
@@ -186,11 +186,12 @@ namespace uf {
 			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
 
 			const AttributeView& operator[](const uf::stl::string& name) const {
-                static AttributeView null{};
-                if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
-                return null;
-            }
+				static AttributeView null{};
+				if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
+				return null;
+			}
 		};
+		typedef uf::stl::vector<uf::Mesh::View> views_t;
 
 		uf::stl::vector<buffer_t> buffers;
 

@@ -91,10 +91,7 @@ namespace {
 		return tri;
 	}
 
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
-		static thread_local uf::stl::unordered_map<const uf::Mesh*, uf::stl::vector<uf::Mesh::View>> cachedViews;
-		if ( cachedViews.count(&mesh) == 0 ) cachedViews[&mesh] = mesh.makeViews({"position"});
-		auto& views = cachedViews[&mesh];
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, const uf::Mesh::views_t& views, size_t triID ) {
 		UF_ASSERT(!views.empty());
 
 		// find which view contains this triangle index.
@@ -121,8 +118,8 @@ namespace {
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = false ) {
-		auto tri = ::fetchTriangle( mesh, triID );
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, const uf::Mesh::views_t& views, size_t triID, const pod::PhysicsBody& body, bool fast = false ) {
+		auto tri = ::fetchTriangle( mesh, views, triID );
 
 		auto transform = ::getTransform( body );
 

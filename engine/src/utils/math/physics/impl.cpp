@@ -9,8 +9,8 @@ namespace {
 	bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
 	bool psgContactSolver = true; // use PSG contact solver
 	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
-	bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
-	uint32_t substeps = 0; // number of substeps per frame tick
+	bool fixedStep = false; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
+	uint32_t substeps = 4; // number of substeps per frame tick
 	uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
 	// increasing these make things lag for reasons I can imagine why
@@ -22,7 +22,7 @@ namespace {
 	bool flattenBvhMeshes = true;
 	
 	// use surface area heuristics for building the BVH, rather than naive splits
-	bool useBvhSahBodies = true; // it actually seems slower to use these......
+	bool useBvhSahBodies = false; // it actually seems slower to use these......
 	bool useBvhSahMeshes = true;
 
 	bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects
@@ -396,10 +396,11 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::MESH;
 	body.collider.mesh.mesh = &mesh;
+	auto& views = *(body.collider.mesh.views = new uf::Mesh::views_t(mesh.makeViews({"position", "normal"})));
 
 	body.collider.mesh.bvh = new pod::BVH;
 	auto& bvh = *body.collider.mesh.bvh;
-	::buildMeshBVH( bvh, mesh, ::meshBvhCapacity );
+	::buildMeshBVH( bvh, mesh, views, ::meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
@@ -458,6 +459,7 @@ void uf::physics::impl::destroy( pod::PhysicsBody& body ) {
 	// remove any pointered collider data
 	if ( body.collider.type == pod::ShapeType::MESH ) {
 		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
+		if ( body.collider.mesh.views ) delete body.collider.mesh.views;
 	}
 }
 

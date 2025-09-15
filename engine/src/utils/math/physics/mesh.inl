@@ -21,6 +21,7 @@ namespace {
 
 		const auto& bvh  = *mesh.collider.mesh.bvh;
 		const auto& meshData = *mesh.collider.mesh.mesh;
+		const auto& meshViews = *mesh.collider.mesh.views;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( aabb.bounds, ::getTransform( mesh ) );
@@ -31,7 +32,7 @@ namespace {
 		bool hit = false;
 		// do collision per triangle
 		for ( auto triID : candidates ) {
-			auto tri = ::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
+			auto tri = ::fetchTriangle( meshData, meshViews, triID, mesh ); // transform triangle to world space
 			if ( !::triangleAabb( tri, aabb, manifold, eps ) ) continue;
 			hit = true;
 		}
@@ -45,6 +46,7 @@ namespace {
 
 		const auto& bvh  = *mesh.collider.mesh.bvh;
 		const auto& meshData = *mesh.collider.mesh.mesh;
+		const auto& meshViews = *mesh.collider.mesh.views;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( sphere.bounds, ::getTransform( mesh ) );		
@@ -55,7 +57,7 @@ namespace {
 		bool hit = false;
 		// do collision per triangle
 		for ( auto triID : candidates ) {
-			auto tri = ::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
+			auto tri = ::fetchTriangle( meshData, meshViews, triID, mesh ); // transform triangle to world space
 			if ( !::triangleSphere( tri, sphere, manifold, eps ) ) continue;
 			hit = true;
 		}
@@ -71,6 +73,7 @@ namespace {
 
 		const auto& bvh  = *mesh.collider.mesh.bvh;
 		const auto& meshData = *mesh.collider.mesh.mesh;
+		const auto& meshViews = *mesh.collider.mesh.views;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( plane.bounds, ::getTransform( mesh ) );		
@@ -81,7 +84,7 @@ namespace {
 		bool hit = false;
 		// do collision per triangle
 		for ( auto triID : candidates ) {
-			auto tri = ::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
+			auto tri = ::fetchTriangle( meshData, meshViews, triID, mesh ); // transform triangle to world space
 			if ( !::trianglePlane( tri, plane, manifold, eps ) ) continue;
 			hit = true;
 		}
@@ -96,6 +99,7 @@ namespace {
 
 		const auto& bvh  = *mesh.collider.mesh.bvh;
 		const auto& meshData = *mesh.collider.mesh.mesh;
+		const auto& meshViews = *mesh.collider.mesh.views;
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( capsule.bounds, ::getTransform( mesh ) );		
@@ -106,7 +110,7 @@ namespace {
 		bool hit = false;
 		// do collision per triangle
 		for ( auto triID : candidates ) {
-			auto tri = ::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
+			auto tri = ::fetchTriangle( meshData, meshViews, triID, mesh ); // transform triangle to world space
 			if ( !::triangleCapsule( tri, capsule, manifold, eps ) ) continue;
 			hit = true;
 		}
@@ -119,9 +123,11 @@ namespace {
 
 		const auto& bvhA = *a.collider.mesh.bvh;
 		const auto& meshA = *a.collider.mesh.mesh;
+		const auto& viewsA = *a.collider.mesh.views;
 		
-		const auto& meshB = *b.collider.mesh.mesh;
 		const auto& bvhB = *b.collider.mesh.bvh;
+		const auto& meshB = *b.collider.mesh.mesh;
+		const auto& viewsB = *b.collider.mesh.views;
 
 		// compute overlaps between one BVH and another BVH
 		thread_local pod::BVH::pairs_t pairs;
@@ -131,8 +137,8 @@ namespace {
 		bool hit = false;
 		// do collision per triangle
 		for (auto [ idA, idB] : pairs ) {
-			auto tA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
-			auto tB = ::fetchTriangle( meshB, idB, b );
+			auto tA = ::fetchTriangle( meshA, viewsA, idA, a ); // transform triangles to world space
+			auto tB = ::fetchTriangle( meshB, viewsB, idB, b );
 
 			if ( !::triangleTriangle( tA, tB, manifold, eps ) ) continue;
 			hit = true;
