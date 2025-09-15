@@ -6,7 +6,7 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"mass": 0,
+			"mass": 5,
 			"type": "bounding box"
 		//	"type": "mesh"
 		}

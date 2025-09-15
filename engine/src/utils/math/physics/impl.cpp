@@ -13,8 +13,8 @@ namespace {
 	uint32_t substeps = 0; // number of substeps per frame tick
 	uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
-	// increasing these make things lag for reasons I can imagine why (having to test more triangles over just more boxes)
-	uint32_t broadphaseBvhCapacity = 4; // number of bodies per leaf node
+	// increasing these make things lag for reasons I can imagine why
+	uint32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
 	uint32_t meshBvhCapacity = 1; // number of triangles per leaf node
 
 	// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal

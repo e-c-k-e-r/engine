@@ -348,7 +348,7 @@ namespace {
 		if ( bvh.nodes.empty() ) return;
 
 		// update leaf bounds
-		#pragma omp parallel for
+		//#pragma omp parallel for
 		for ( auto i = 0; i < bvh.nodes.size(); i++ ) {
 			auto& node = bvh.nodes[i];
 			if ( node.getCount() == 0 ) continue;
