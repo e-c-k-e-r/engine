@@ -298,9 +298,8 @@ T uf::vector::divide( typename T::type_t scalar, const T& vector ) {
 	}
 #endif
 	T res;
-	float recip = static_cast<typename T::type_t>(1) / scalar;
 	FOR_EACH(T::size, {
-		res[i] = vector[i] * recip;
+		res[i] = scalar / vector[i];
 	});
 	return res;
 }

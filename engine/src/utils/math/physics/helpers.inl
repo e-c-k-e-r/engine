@@ -109,7 +109,7 @@ namespace {
 		return ( a.category & b.mask ) && ( b.category & a.mask );
 	}
 	bool shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
-	//	if ( a.isStatic && b.isStatic ) return false;
+		if ( a.isStatic && b.isStatic ) return false; // this shouldn't ever happen if we're segregating static bodies from dynamic bodies in the broadphase
 		return ::shouldCollide( a.collider, b.collider );
 	}
 
@@ -127,7 +127,7 @@ namespace {
 	pod::Vector3f closestPointOnSegment( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b ) {
 		pod::Vector3f ab = b - a;
 		float t = uf::vector::dot(p - a, ab) / uf::vector::dot(ab, ab);
-		t = std::max(0.0f, std::min(1.0f, t)); // clamp( t, 0, 1 )
+		t = std::clamp( t, 0.0f, 1.0f );
 		return a + ab * t;
 	}
 
@@ -190,18 +190,14 @@ namespace {
 		if ( len2 > eps ) {
 			// parametric closest t from box center
 			t = uf::vector::dot( c - p1, d ) / len2;
-			t = std::max(0.0f, std::min(1.0f, t));
+			t = std::clamp( t, 0.0f, 1.0f );
 		}
 
 		// closest point on segment to box center
 		auto segClosest = p1 + d * t;
 
 		// clamp this point into AABB
-		return {
-			std::max(box.min.x, std::min(segClosest.x, box.max.x)),
-			std::max(box.min.y, std::min(segClosest.y, box.max.y)),
-			std::max(box.min.z, std::min(segClosest.z, box.max.z)),
-		};
+		return uf::vector::clamp( segClosest, box.min, box.max );
 	}
 
 	pod::Vector3f computeBarycentric( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c, bool clamps = false ) {
