@@ -47,10 +47,10 @@ namespace {
 	
 	pod::Vector3f aabbCenter( const pod::AABB& aabb );
 
-	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices );
-	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<int32_t>& indices, int32_t nodeID );
-	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, float maxDist = FLT_MAX );
-	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<int32_t>& indices, int32_t nodeID, float maxDist = FLT_MAX );
+	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& indices );
+	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& indices, pod::BVH::index_t nodeID );
+	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<pod::BVH::index_t>& indices, float maxDist = FLT_MAX );
+	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<pod::BVH::index_t>& indices, pod::BVH::index_t nodeID, float maxDist = FLT_MAX );
 	void queryOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
 	void queryOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
 }

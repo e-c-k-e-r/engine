@@ -24,7 +24,8 @@ namespace {
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( aabb.bounds, ::getTransform( mesh ) );
-		uf::stl::vector<int32_t> candidates;
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -47,7 +48,8 @@ namespace {
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( sphere.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int32_t> candidates;
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -72,7 +74,8 @@ namespace {
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( plane.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int32_t> candidates;
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -96,7 +99,8 @@ namespace {
 
 		// transform to local space for BVH query
 		auto bounds = ::transformAabbToLocal( capsule.bounds, ::getTransform( mesh ) );		
-		uf::stl::vector<int32_t> candidates;
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
 		::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -120,7 +124,8 @@ namespace {
 		const auto& bvhB = *b.collider.mesh.bvh;
 
 		// compute overlaps between one BVH and another BVH
-		pod::BVH::pairs_t pairs;
+		thread_local pod::BVH::pairs_t pairs;
+		pairs.clear();
 		::queryOverlaps( bvhA, bvhB, pairs );
 
 		bool hit = false;

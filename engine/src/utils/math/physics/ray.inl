@@ -202,7 +202,8 @@ namespace {
 		ray.origin	= uf::transform::applyInverse( transform, r.origin );
 		ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
 
-		uf::stl::vector<int32_t> candidates;
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
 		::queryBVH( bvh, ray, candidates );
 
 		for ( auto triID : candidates ) {

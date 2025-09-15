@@ -10,40 +10,39 @@ namespace {
 	bool psgContactSolver = true; // use PSG contact solver
 	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 	bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
-	int32_t substeps = 0; // number of substeps per frame tick
-	int32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
+	uint32_t substeps = 0; // number of substeps per frame tick
+	uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
-	// increasing these make things lag for reasons I can imagine why
-	int32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
-	int32_t meshBvhCapacity = 1; // number of triangles per leaf node
+	// increasing these make things lag for reasons I can imagine why (having to test more triangles over just more boxes)
+	uint32_t broadphaseBvhCapacity = 4; // number of bodies per leaf node
+	uint32_t meshBvhCapacity = 1; // number of triangles per leaf node
 
 	// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
 	bool flattenBvhBodies = true;
 	bool flattenBvhMeshes = true;
 	
 	// use surface area heuristics for building the BVH, rather than naive splits
-	bool useBvhSahBodies = false; // it actually seems slower to use these......
+	bool useBvhSahBodies = true; // it actually seems slower to use these......
 	bool useBvhSahMeshes = true;
 
 	bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects
 
 	// to-do: find possibly better values for this
-	int32_t solverIterations = 10;
+	uint32_t solverIterations = 10;
 	float baumgarteCorrectionPercent = 0.2f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
-	int32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
+	uint32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
 
 	uint32_t frameCounter = 0;
 
 	// to-do: tweak this to not be annoying
-	// currently seems only reliable when it hits its TTL, but too long of a wait is gross, and too frequent of an update causes lag
 	pod::BVH::UpdatePolicy bvhUpdatePolicy = {
 		.displacementThreshold = 0.25f,
 		.overlapThreshold = 2.0f,
 		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 120,
+		.maxFramesBeforeRebuild = 60 * 10, // 10 seconds
 	};
 }
 
@@ -476,7 +475,8 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	auto& staticBvh = world.staticBvh;
 	auto& bodies = world.bodies;
 
-	uf::stl::vector<int32_t> candidates;
+	thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+	candidates.clear();
 	::queryBVH( dynamicBvh, ray, candidates );
 	if ( ::useSplitBvhs ) ::queryBVH( staticBvh, ray, candidates );
 

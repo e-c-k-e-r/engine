@@ -103,10 +103,10 @@ namespace {
 				return ::computeSegmentAABB( p1, p2, body.collider.capsule.radius );
 			} break;
 			case pod::ShapeType::MESH: {
-				if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->nodes.empty() )
+				if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->bounds.empty() )
 					return {
-						transform.position + body.collider.mesh.bvh->nodes[0].bounds.min,
-						transform.position + body.collider.mesh.bvh->nodes[0].bounds.max,
+						transform.position + body.collider.mesh.bvh->bounds[0].min,
+						transform.position + body.collider.mesh.bvh->bounds[0].max,
 					};
 			} break;
 			default: {

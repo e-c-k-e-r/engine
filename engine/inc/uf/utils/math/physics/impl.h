@@ -44,7 +44,8 @@ namespace pod {
 	};
 
 	struct BVH {
-		typedef std::pair<int32_t,int32_t> pair_t;
+		typedef uint32_t index_t;
+		typedef std::pair<index_t,index_t> pair_t;
 		
 		struct PairHash {
 			size_t operator()( const pair_t& p ) const noexcept {
@@ -62,21 +63,25 @@ namespace pod {
 		typedef uf::stl::unordered_set<pair_t, PairHash, PairEq> pairs_t;
 		
 		struct Node {
-			/*alignas(16)*/ pod::AABB bounds = {};
-			int32_t left = -1;
-			int32_t right = -1;
-			int32_t start = 0;
-			int32_t count = 0;
+			BVH::index_t left = 0;
+			BVH::index_t right = 0;
+			BVH::index_t start = 0;
+			BVH::index_t flags = 0;
 
-			bool asleep = false;
+			BVH::index_t getCount() const { return flags & 0x7FFFFFFF; }
+			bool isAsleep() const { return (flags & 0x80000000u) != 0; }
+			void setCount(BVH::index_t c) { flags = (flags & 0x80000000u) | (c & 0x7FFFFFFF); }
+			void setAsleep(bool a) { flags = (flags & 0x7FFFFFFF) | (a ? 0x80000000u : 0); }
 		};
 		struct FlatNode {
-			/*alignas(16)*/ pod::AABB bounds = {};
-			int32_t start = -1;
-			int32_t count = -1;
-			int32_t skipIndex = -1;
+			BVH::index_t start = 0;
+			BVH::index_t skipIndex = 0;
+			BVH::index_t flags = 0;
 
-			bool asleep = false;
+			BVH::index_t getCount() const { return flags & 0x7FFFFFFF; }
+			bool isAsleep() const { return (flags & 0x80000000u) != 0; }
+			void setCount(BVH::index_t c) { flags = (flags & 0x80000000u) | (c & 0x7FFFFFFF); }
+			void setAsleep(bool a) { flags = (flags & 0x7FFFFFFF) | (a ? 0x80000000u : 0); }
 		};
 		struct UpdatePolicy {
 			enum class Decision {
@@ -87,13 +92,16 @@ namespace pod {
 			float displacementThreshold = 0.25f; // 25% of AABB size
 			float overlapThreshold = 2.0f;	   // 2x growth in root surface area
 			float dirtyRatioThreshold = 0.3f;	// 30% dirty bodies
-			int   maxFramesBeforeRebuild = 60;   // force rebuild every 60 frames
+			uint16_t maxFramesBeforeRebuild = 600;   // force rebuild every 600 frames
 		};
 
 		bool dirty = false;
-		uf::stl::vector<uint32_t> indices;
+		uf::stl::vector<pod::BVH::index_t> indices;
 		uf::stl::vector<pod::BVH::Node> nodes;
 		uf::stl::vector<pod::BVH::FlatNode> flattened;
+		
+		uf::stl::vector<pod::AABB> bounds;
+		uf::stl::vector<pod::AABB> flatBounds;
 	};
 
 	struct MeshBVH {
