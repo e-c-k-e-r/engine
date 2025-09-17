@@ -195,7 +195,6 @@ namespace {
 	bool rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 		const auto& bvh  = *body.collider.mesh.bvh;
 		const auto& meshData = *body.collider.mesh.mesh;
-		const auto& meshViews = *body.collider.mesh.views;
 
 		const auto transform = ::getTransform( body );
 
@@ -208,7 +207,7 @@ namespace {
 		::queryBVH( bvh, ray, candidates );
 
 		for ( auto triID : candidates ) {
-			auto tri = ::fetchTriangle( meshData, meshViews, triID );
+			auto tri = ::fetchTriangle( meshData, triID );
 
 			float t, u, v;
 			if ( !::rayTriangleIntersect( ray, tri, t, u, v ) ) continue;

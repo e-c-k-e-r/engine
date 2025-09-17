@@ -14,15 +14,15 @@ namespace {
 	uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
 	// increasing these make things lag for reasons I can imagine why
-	uint32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
-	uint32_t meshBvhCapacity = 1; // number of triangles per leaf node
+	uint32_t broadphaseBvhCapacity = 4; // number of bodies per leaf node
+	uint32_t meshBvhCapacity = 4; // number of triangles per leaf node
 
 	// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
 	bool flattenBvhBodies = true;
 	bool flattenBvhMeshes = true;
 	
 	// use surface area heuristics for building the BVH, rather than naive splits
-	bool useBvhSahBodies = false; // it actually seems slower to use these......
+	bool useBvhSahBodies = true; // it actually seems slower to use these......
 	bool useBvhSahMeshes = true;
 
 	bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects
@@ -396,11 +396,10 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::MESH;
 	body.collider.mesh.mesh = &mesh;
-	auto& views = *(body.collider.mesh.views = new uf::Mesh::views_t(mesh.makeViews({"position", "normal"})));
 
 	body.collider.mesh.bvh = new pod::BVH;
 	auto& bvh = *body.collider.mesh.bvh;
-	::buildMeshBVH( bvh, mesh, views, ::meshBvhCapacity );
+	::buildMeshBVH( bvh, mesh, ::meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
@@ -459,7 +458,6 @@ void uf::physics::impl::destroy( pod::PhysicsBody& body ) {
 	// remove any pointered collider data
 	if ( body.collider.type == pod::ShapeType::MESH ) {
 		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
-		if ( body.collider.mesh.views ) delete body.collider.mesh.views;
 	}
 }
 

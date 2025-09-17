@@ -6,9 +6,9 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"mass": 10000,
-			"type": "bounding box"
-		//	"type": "mesh"
+			"mass": 0,
+		//	"type": "bounding box"
+			"type": "mesh"
 		}
 	}
 }

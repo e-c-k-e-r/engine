@@ -104,7 +104,6 @@ namespace pod {
 	struct MeshBVH {
 		pod::BVH* bvh;
 		const uf::Mesh* mesh;
-		const uf::Mesh::views_t* views;
 	};
 
 	typedef uint32_t CollisionMask;

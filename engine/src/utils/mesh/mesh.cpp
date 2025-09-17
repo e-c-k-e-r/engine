@@ -137,6 +137,7 @@ void uf::Mesh::updateDescriptor() {
 	_updateDescriptor(index);
 	_updateDescriptor(instance);
 	_updateDescriptor(indirect);
+	_updateViews();
 }
 void uf::Mesh::bind( const uf::Mesh& mesh ) { return bind( mesh, isInterleaved() ); }
 void uf::Mesh::bind( const uf::Mesh& mesh, bool interleaved ) {
@@ -489,6 +490,9 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	for ( auto& attribute : input.attributes ) {
 		attribute.stride = isInterleaved(input.interleaved) ? input.size : attribute.descriptor.size;
 	}
+}
+void uf::Mesh::_updateViews() {
+	buffer_views = makeViews();
 }
 uf::Mesh::Attribute uf::Mesh::_remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i ) const {
 	UF_ASSERT( i < indirect.count );

@@ -197,10 +197,13 @@ namespace uf {
 
 		// crunge, but it's better this way for streaming in mesh data
 		uf::stl::vector<uf::stl::string> buffer_paths;
+		// mega cringe, but i'd like to have a way to cache it
+		uf::stl::vector<uf::Mesh::View> buffer_views;
 	protected:
 		void _destroy( uf::Mesh::Input& input );
 		void _bind( bool interleaved = uf::Mesh::defaultInterleaved );
 		void _updateDescriptor( uf::Mesh::Input& input );
+		void _updateViews();
 		uf::Mesh::Attribute _remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i = 0 ) const;
 
 		bool _hasV( const uf::Mesh::Input& input, const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const;
