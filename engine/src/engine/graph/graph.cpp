@@ -1690,7 +1690,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
 
 		if ( drawCommandHash == graph.settings.stream.hash ) {
-		//	return;
+			return;
 		}
 		graph.settings.stream.hash = drawCommandHash;
 

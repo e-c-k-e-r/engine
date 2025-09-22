@@ -84,13 +84,11 @@ namespace {
 		const auto transform = ::getTransform( body );
 		switch ( body.collider.type ) {
 			case pod::ShapeType::AABB: {
-			/*
+			//	return ::transformAabbToWorld( body.collider.aabb, *body.transform );
 				return {
 					transform.position + body.collider.aabb.min,
 					transform.position + body.collider.aabb.max,
 				};
-			*/
-				return ::transformAabbToWorld( body.collider.aabb, *body.transform );
 			} break;
 			case pod::ShapeType::SPHERE: {
 				return {

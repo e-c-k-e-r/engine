@@ -29,7 +29,7 @@ namespace {
 
 	// to-do: find possibly better values for this
 	uint32_t solverIterations = 10;
-	float baumgarteCorrectionPercent = 0.2f;
+	float baumgarteCorrectionPercent = 0.4f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
@@ -42,7 +42,7 @@ namespace {
 		.displacementThreshold = 0.25f,
 		.overlapThreshold = 2.0f,
 		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 60 * 10, // 10 seconds
+		.maxFramesBeforeRebuild = 60, // * 10, // 10 seconds
 	};
 }
 
@@ -257,7 +257,8 @@ pod::Vector3f uf::physics::impl::getGravity( pod::PhysicsBody& body ) {
 
 void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 	if ( body.isStatic || body.mass <= 0 ) {
-		body.inverseInertiaTensor = {};
+		body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+		body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 		return;
 	}
 
@@ -287,7 +288,47 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			body.inertiaTensor = { Ixx, Iyy, Izz };
 			body.inverseInertiaTensor = { 1.0f/Ixx, 1.0f/Iyy, 1.0f/Izz };
 		} break;
+		case pod::ShapeType::MESH: {
+			const auto& bvh = *body.collider.mesh.bvh;
 
+			pod::Matrix3f inertia = {};
+			float totalVolume = 0.0f;
+
+			// compute total volume
+			for ( auto& box : bvh.bounds ) {
+				auto extents = box.max - box.min;
+				totalVolume += extents.x * extents.y * extents.z;
+			}
+
+			// accumulate inertia
+			for ( auto& box : bvh.bounds ) {
+				auto extents = box.max - box.min;
+				float mass = body.mass * extents.x * extents.y * extents.z / totalVolume;
+
+				// inertia tensor of a box about its center
+				float x2 = extents.x * extents.x;
+				float y2 = extents.y * extents.y;
+				float z2 = extents.z * extents.z;
+
+				pod::Matrix3f Ibox;
+				Ibox(0,0) = (1.0f/12.0f) * mass * (y2 + z2);
+				Ibox(1,1) = (1.0f/12.0f) * mass * (x2 + z2);
+				Ibox(2,2) = (1.0f/12.0f) * mass * (x2 + y2);
+
+				// parallel axis theorem
+				pod::Vector3f center = (box.min + box.max) * 0.5f;
+				pod::Vector3f d = center; // relative to mesh COM (assume COM at origin for now)
+				float d2 = uf::vector::dot(d, d);
+
+				pod::Matrix3f pat = uf::matrix::identityi<pod::Matrix3f>() * (mass * d2);
+				pat -= uf::matrix::outerProduct(d, d) * mass;
+
+				inertia += Ibox + pat;
+			}
+
+			body.inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
+			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+		} break;
 		// to-do: add others
 		default: {
 		} break;

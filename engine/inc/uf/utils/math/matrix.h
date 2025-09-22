@@ -32,7 +32,10 @@ namespace pod {
 		FORCE_INLINE Matrix<T,R,C> operator*( const Matrix<T,R,C>& matrix ) const;
 		FORCE_INLINE Matrix<T,R,C> operator*( T scalar ) const;
 		FORCE_INLINE Matrix<T,R,C> operator+( const Matrix<T,R,C>& matrix ) const;
+		FORCE_INLINE Matrix<T,R,C> operator-( const Matrix<T,R,C>& matrix ) const;
 		FORCE_INLINE Matrix<T,R,C>& operator *=( const Matrix<T,R,C>& matrix );
+		FORCE_INLINE Matrix<T,R,C>& operator +=( const Matrix<T,R,C>& matrix );
+		FORCE_INLINE Matrix<T,R,C>& operator -=( const Matrix<T,R,C>& matrix );
 		FORCE_INLINE bool operator==( const Matrix<T,R,C>& matrix ) const;
 		FORCE_INLINE bool operator!=( const Matrix<T,R,C>& matrix ) const;
 	};
@@ -74,9 +77,11 @@ namespace uf {
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Vector3t<T> multiply(const pod::Matrix3t<T>& mat, const pod::Vector3t<T>& v );
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Vector3t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w = 1, bool = false );
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Vector4t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool = false );
+		template<typename T=NUM, size_t M, size_t N> /*FORCE_INLINE*/ pod::Matrix<T,M,N> /*UF_API*/ outerProduct( const pod::Vector<T,M>& a, const pod::Vector<T,N>& b );
 
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ multiplyAll( const T& matrix, typename T::type_t scalar );
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ add( const T& lhs, const T& rhs );
+		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ subtract( const T& lhs, const T& rhs );
 
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T& /*UF_API*/ inverse_( T& matrix );
 		template<typename T, typename U> /*FORCE_INLINE*/ pod::Matrix<typename T::type_t, T::columns, T::columns> multiply_( T& left, const U& right );

@@ -69,8 +69,20 @@ FORCE_INLINE pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator+( const Matrix<T,R,
 	return uf::matrix::add(*this, matrix);
 }
 template<typename T, size_t R, size_t C>
+FORCE_INLINE pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator-( const Matrix<T,R,C>& matrix ) const {
+	return uf::matrix::subtract(*this, matrix);
+}
+template<typename T, size_t R, size_t C>
 FORCE_INLINE pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator*=( const Matrix<T,R,C>& matrix ) {
 	return uf::matrix::multiply_(*this, matrix);
+}
+template<typename T, size_t R, size_t C>
+FORCE_INLINE pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator+=( const Matrix<T,R,C>& matrix ) {
+	return *this = uf::matrix::add(*this, matrix); // to-do: non-const 
+}
+template<typename T, size_t R, size_t C>
+FORCE_INLINE pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator-=( const Matrix<T,R,C>& matrix ) {
+	return *this = uf::matrix::subtract(*this, matrix); // to-do: non-const 
 }
 template<typename T, size_t R, size_t C>
 FORCE_INLINE bool pod::Matrix<T,R,C>::operator==( const Matrix<T,R,C>& matrix ) const {
@@ -146,6 +158,17 @@ template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::
 
 	return res;
 }
+
+template<typename T, size_t M, size_t N> pod::Matrix<T,M,N> /*UF_API*/ uf::matrix::outerProduct( const pod::Vector<T,M>& a, const pod::Vector<T,N>& b ) {
+	pod::Matrix<T, M, N> m{};
+	for ( auto i = 0; i < M; ++i ) {
+		for ( auto j = 0; j < N; ++j ) {
+			m(i, j) = a[i] * b[j];
+		}
+	}
+    return m;
+}
+
 template<typename T> T /*UF_API*/ uf::matrix::multiplyAll( const T& m, typename T::type_t scalar ) {
 	T matrix;
 
@@ -160,6 +183,15 @@ template<typename T> T /*UF_API*/ uf::matrix::add( const T& lhs, const T& rhs ) 
 
 	FOR_EACH(T::rows * T::columns, {
 		matrix[i] = lhs[i] + rhs[i];
+	});
+
+	return matrix;
+}
+template<typename T> T /*UF_API*/ uf::matrix::subtract( const T& lhs, const T& rhs ) {
+	T matrix;
+
+	FOR_EACH(T::rows * T::columns, {
+		matrix[i] = lhs[i] - rhs[i];
 	});
 
 	return matrix;
