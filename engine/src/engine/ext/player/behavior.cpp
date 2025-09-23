@@ -283,6 +283,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			//if ( physicsBody.velocity.y < 0.0f ) physicsBody.velocity.y = 0.0f;
 		}
 	#else
+		if ( physicsBody.activity.grounded ) {
+			stats.floored = true;
+		}
+		/*
 		pod::Vector3f origin = transform.position + metadata.movement.floored.feet;
 		pod::Vector3f direction = metadata.movement.floored.floor;
 		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
@@ -292,6 +296,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			stats.floored = true;
 			//if ( physicsBody.velocity.y < 0.0f ) physicsBody.velocity.y = 0.0f;
 		}
+		*/
 	#endif
 	}
 #if 0

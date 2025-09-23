@@ -221,6 +221,22 @@ namespace {
 			::warmupContacts( a, b, contact, dt );
 		}
 	}
+	
+	// snap velocity for grounded bodies
+	void snapVelocity( pod::PhysicsBody& body, float dt, float threshold = 0.01f ) {
+		if ( !body.activity.grounded || !body.activity.awake ) return;
+
+		// snap velocity if body is grounded and nearly still
+		float linSpeed = uf::vector::norm( body.velocity );
+		float angSpeed = uf::vector::norm( body.angularVelocity );
+
+		// cancel out vertical component
+		if ( fabs(body.velocity.y) < threshold ) body.velocity.y = 0.0f;
+		// cancel out velocity entirely
+		if ( linSpeed < threshold ) body.velocity = {};
+		// cancel out rotational velocity entirely
+		if ( angSpeed < threshold ) body.angularVelocity = {};
+	}
 
 	// baumgarte position correction
 	void positionCorrection( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& contact ) {
@@ -239,13 +255,16 @@ namespace {
 
 		// apply correction vector
 		pod::Vector3f correction = contact.normal * (penetration / totalInvMass) * ::baumgarteCorrectionPercent;
+		
 		if ( !a.isStatic ) a.transform->position -= correction * invMassA;
 		if ( !b.isStatic ) b.transform->position += correction * invMassB;
 	}
 
+
 	void integrate( pod::PhysicsBody& body, float dt ) {
-		// only integrate dynamic bodies
-		if ( body.isStatic || body.mass == 0 ) return;
+
+		// only integrate awake and dynamic bodies
+		if ( !body.activity.awake || body.isStatic || body.mass == 0 ) return;
 
 		auto& world = *body.world;
 
@@ -253,10 +272,12 @@ namespace {
 		pod::Vector3f acceleration = body.forceAccumulator * body.inverseMass;
 		acceleration += uf::physics::impl::getGravity( body ); // apply gravity
 		body.velocity += acceleration * dt;
-		body.transform/*.reference*/->position += body.velocity * dt;
 
 		// angular integration
 		body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
+
+		// update position
+		body.transform/*.reference*/->position += body.velocity * dt;
 
 		// update orientation
 		if ( uf::vector::magnitude( body.angularVelocity ) > EPS(1.0e-8f) ) {

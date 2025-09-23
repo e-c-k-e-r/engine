@@ -75,6 +75,9 @@ namespace {
 		body.angularVelocity = pod::Vector3f{};
 	}
 	void updateActivity( pod::PhysicsBody& body, float dt ) {
+		// reset grounded state
+		body.activity.grounded = false;
+
 		// already asleep
 		if ( !body.activity.awake ) return;
 
@@ -85,7 +88,9 @@ namespace {
 		// body is nearly still
 		if ( linSpeed < pod::Activity::linearSleepEpsilon && angSpeed < pod::Activity::angularSleepEpsilon ) {
 			body.activity.sleepTimer += dt;
-			if ( body.activity.sleepTimer > pod::Activity::sleepThreshold ) ::sleepBody( body );
+			float threshold = pod::Activity::sleepThreshold;
+			if ( body.activity.grounded ) threshold *= 0.25f;
+			if ( body.activity.sleepTimer > threshold ) ::sleepBody( body );
 		}
 		// body is moving, reset timer
 		else ::wakeBody( body );

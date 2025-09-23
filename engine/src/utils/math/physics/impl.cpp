@@ -44,6 +44,8 @@ namespace {
 		.dirtyRatioThreshold = 0.3f,
 		.maxFramesBeforeRebuild = 60, // * 10, // 10 seconds
 	};
+
+	float groundedThreshold = 0.7f; // threshold before marking a body as grounded
 }
 
 #define EPS(x) x // 1.0e-6f
@@ -130,7 +132,6 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	++::frameCounter;
 
 	for ( auto* body : bodies ) {
-		if ( !body->activity.awake ) continue;
 		::integrate( *body, dt );
 	}
 
@@ -198,6 +199,14 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			// wake up bodies
 			if ( a.activity.awake && !b.activity.awake ) ::wakeBody( b );
 			if ( b.activity.awake && !a.activity.awake ) ::wakeBody( a );
+			// mark as grounded
+			for ( auto& c : manifold.points ) {
+				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > ::groundedThreshold ) {
+					// only mark if contact point is below body
+			        if ( c.point.y < getPosition(a).y ) a.activity.grounded = true;
+			        if ( c.point.y < getPosition(b).y ) b.activity.grounded = true;
+			    }
+			}
 
 			// store manifold
 			manifolds.emplace_back(manifold);
@@ -209,6 +218,11 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
+	}
+
+	for ( auto* b : bodies ) {
+		if ( b->isStatic ) continue;
+		::snapVelocity( *b, dt );
 	}
 }
 

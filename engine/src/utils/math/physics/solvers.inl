@@ -300,6 +300,7 @@ namespace {
 					weight += w;
 				}
 				s.normal = weight > 0.0f ? uf::vector::normalize(s.normal) : pod::Vector3f{0,1,0};
+				
 				::positionCorrection( *m.a, *m.b, s );
 			}
 		}
