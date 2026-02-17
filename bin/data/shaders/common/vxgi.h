@@ -135,11 +135,11 @@ void indirectLightingVXGI() {
 	};
 #endif
 
-	const float DIFFUSE_CONE_APERTURE = 2.0 * 0.57735f;
-	const float DIFFUSE_INDIRECT_FACTOR = 0; // 1.0f / float(CONES_COUNT) * 0.125f;
+	const float DIFFUSE_CONE_APERTURE = 2.0f * 0.57735f;
+	const float DIFFUSE_INDIRECT_FACTOR = 1.0f / float(CONES_COUNT) * 0.125f;
 	
 	const float SPECULAR_CONE_APERTURE = clamp(tan(PI * 0.5f * surface.material.roughness), 0.0174533f, PI); // tan( R * PI * 0.5f * 0.1f );
-	const float SPECULAR_INDIRECT_FACTOR = (1.0 - surface.material.metallic); // * 0.25; // 1.0f;
+	const float SPECULAR_INDIRECT_FACTOR = (1.0f - surface.material.metallic) * (1.0f - surface.material.roughness); // * 0.25; // 1.0f;
 	
 	vec4 indirectDiffuse = vec4(0);
 	vec4 indirectSpecular = vec4(0);

@@ -5,7 +5,7 @@ namespace {
 		auto delta = ::getPosition( b ) - ::getPosition( a );
 		float r = a.collider.sphere.radius + b.collider.sphere.radius;
 
-		float dist2 = uf::vector::dot(delta, delta);
+		float dist2 = uf::vector::magnitude( delta );
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt( dist2 );
 		
@@ -33,20 +33,13 @@ namespace {
 		};
 
 		auto delta = center - closest;
-		float dist2 = uf::vector::dot(delta, delta);
+		float dist2 = uf::vector::magnitude( delta );
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt( dist2 );
 
 		float penetration = r - dist;
 		auto normal = ::normalizeDelta( delta, dist, eps );
 		auto contact = center - normal * r;
-
-		#if 0
-			pod::Vector3f dir = center - ::aabbCenter( bounds );
-			if (std::fabs(dir.x) > std::fabs(dir.y) && std::fabs(dir.x) > std::fabs(dir.z)) normal = { (dir.x > 0 ? 1 : -1), 0, 0 };
-			else if (std::fabs(dir.y) > std::fabs(dir.z)) normal = { 0, (dir.y > 0 ? 1 : -1), 0 };
-			else normal = { 0, 0, (dir.z > 0 ? 1 : -1) };
-		#endif
 		
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;

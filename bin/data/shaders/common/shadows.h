@@ -142,10 +142,11 @@ float shadowFactor( const Light light, float def ) {
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
 	const int samples = int(SHADOW_SAMPLES);
+	const float invResolution = 1.0 / textureSize( samplerTextures[nonuniformEXT(light.indexMap)], 0 ).x;
 	if ( samples < 1 ) return eyeDepth < texture(samplerTextures[nonuniformEXT(light.indexMap)], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
 		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
-		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.indexMap)], uv + poissonDisk[index] / 700.0 ).r;
+		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.indexMap)], uv + poissonDisk[index] * invResolution ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;

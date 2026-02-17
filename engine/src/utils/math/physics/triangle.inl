@@ -16,6 +16,7 @@ namespace {
 	}
 
 	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS(1e-6f) ) {
+		const float eps2 = eps * eps;
 		auto boxA = ::computeTriangleAABB( a );
 		auto boxB = ::computeTriangleAABB( b );
 
@@ -24,11 +25,11 @@ namespace {
 		// check vertices of a inside b or vice versa
 		FOR_EACH(3, {
 			auto q = ::closestPointOnTriangle( a.points[i], b );
-			if ( uf::vector::magnitude( q - a.points[i] ) < eps ) return true;
+			if ( uf::vector::magnitude( q - a.points[i] ) < eps2 ) return true;
 		});
 		FOR_EACH(3, {
 			auto q = ::closestPointOnTriangle( b.points[i], a );
-			if ( uf::vector::magnitude( q - b.points[i] ) < eps ) return true;
+			if ( uf::vector::magnitude( q - b.points[i] ) < eps2 ) return true;
 		});
 		return false;
 	}
@@ -239,6 +240,8 @@ namespace {
 	// i feel like it'd just be better to treat an AABB as a 12-triangle mesh and do a triangleTriangle collision instead of 3 + 1 + 3 * 3 axis tests
 	// but what do i know
 	bool triangleAabbSAT( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = 1e-6f ) {
+		const float eps2 = eps * eps;
+
 		const auto& aabb = body.bounds;
 
 		// box center and half extents
@@ -259,7 +262,7 @@ namespace {
 		pod::Vector3f bestAxis;
 
 		auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-			if ( uf::vector::magnitude(axis) < eps ) return true; // skip degenerate
+			if ( uf::vector::magnitude( axis ) < eps2 ) return true; // skip degenerate
 
 			pod::Vector3f n = uf::vector::normalize(axis);
 
@@ -297,17 +300,26 @@ namespace {
 		}
 
 		pod::Vector3f triNormal = uf::vector::normalize(uf::vector::cross(e0, e1));
+		float planeDist = uf::vector::dot(triNormal, v0);
+		if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
+		pod::Vector3f contact = boxCenter - bestAxis * (boxHalf.x * fabs(bestAxis.x) + boxHalf.y * fabs(bestAxis.y) + boxHalf.z * fabs(bestAxis.z));
+		//pod::Vector3f contact = boxCenter - triNormal * planeDist;
+	
+	/*
 		float d = uf::vector::dot(triNormal, v0);
 		float dist = uf::vector::dot(triNormal, -boxCenter) - d;
 		pod::Vector3f contact = boxCenter - triNormal * dist;
 
 		if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
+	*/
 
 		manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
 		return true;
 	}
 
 	bool triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold, float eps ) {
+		const float eps2 = eps * eps;
+
 		size_t axes = 0;
 		pod::Vector3f axesBuffer[12];
 		axesBuffer[axes++] = ::triangleNormal(a);
@@ -318,7 +330,7 @@ namespace {
 			for (int j = 0; j < 3; j++) {
 				auto eb = b.points[(j+1)%3] - b.points[j];
 				auto axis = uf::vector::cross(ea, eb);
-				if ( uf::vector::magnitude(axis) > eps ) axesBuffer[axes++] = uf::vector::normalize(axis);
+				if ( uf::vector::magnitude( axis ) > eps2 ) axesBuffer[axes++] = uf::vector::normalize(axis);
 			}
 		}
 
@@ -428,36 +440,8 @@ namespace {
 		return hit;
 	}
 	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
-		const auto& aabb = body;
-
-	#if 1
-		return ::triangleAabbTri( tri, body, manifold, eps );
-		//return ::triangleAabbSAT( tri, body, manifold, eps );
-	#else
-		auto closest = ::closestPointOnTriangle( ::getPosition( aabb ), tri );
-		auto closestAabb = ::closestPointOnAABB( closest, aabb.bounds );
-
-		if ( !uf::vector::isValid( closest ) ) return false;
-		
-		// to-do: derive proper delta
-		auto delta = closestAabb - closest;
-		float dist2 = uf::vector::dot( delta, delta );
-		float tolerance = 1.0e-3;
-		if ( dist2 >= tolerance ) return false;
-		float dist = std::sqrt( dist2 );
-
-		// to-do: properly derive the contact information
-		auto contact = closest; // ( closest + closestAabb ) * 0.5f;
-		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
-		float penetration = tolerance - dist;
-
-	#if REORIENT_NORMALS_ON_CONTACT
-		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
-	#endif
-
-		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
-		return true;
-	#endif
+		return ::triangleAabbSAT( tri, body, manifold, eps );
+		//return ::triangleAabbTri( tri, body, manifold, eps );
 	}
 	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& sphere = body;
@@ -470,7 +454,7 @@ namespace {
 
 		// to-do: derive proper delta
 		auto delta = center - closest;
-		float dist2 = uf::vector::dot( delta, delta );
+		float dist2 = uf::vector::magnitude( delta );
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt(dist2);
 

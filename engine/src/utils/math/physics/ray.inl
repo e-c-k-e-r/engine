@@ -146,7 +146,7 @@ namespace {
 
 		float b = dd * uf::vector::dot(m,n) - nd*md;
 		float discr = b*b - a*c;
-		if ( discr < 0.0f ) return false;
+		if ( fabs(a) < EPS(1.0e-6f) || discr < 0.0f ) return false;
 
 		float t = (-b - std::sqrt(discr)) / a;  // nearer hit
 

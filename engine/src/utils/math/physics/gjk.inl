@@ -124,9 +124,10 @@ namespace {
 	}
 
 	bool isDegenerate( const pod::Simplex& s, const pod::SupportPoint& newPt, float eps = EPS(1.0e-6f) ) {
+		const float eps2 = eps * eps;
 		// compare to existing
 		for ( auto& sp : s.pts ) {
-			if ( uf::vector::magnitude( sp.p - newPt.p ) < eps ) return true; // duplicate point
+			if ( uf::vector::magnitude( sp.p - newPt.p ) < eps2 ) return true; // duplicate point
 		}
 		// if simplex already has 3 points, check area
 		if ( s.pts.size() >= 2 ) {
@@ -135,7 +136,7 @@ namespace {
 			auto& C = newPt.p;
 			
 			float area = uf::vector::magnitude( uf::vector::cross( B - A, C - A ) );
-			if ( area < eps ) return true; // collinear with previous
+			if ( area < eps2 ) return true; // collinear with previous
 		}
 		if ( s.pts.size() >= 3 ) {
 			auto& A = s.pts[0].p;
@@ -150,8 +151,9 @@ namespace {
 	}
 
 	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS(1e-6f) ) {
+		const float eps2 = eps * eps;
 		auto dir = ::getPosition( b ) - ::getPosition( a );
-		if ( uf::vector::magnitude(dir) < eps ) dir = {1,0,0}; // fallback direction
+		if ( uf::vector::magnitude( dir ) < eps2 ) dir = {1,0,0}; // fallback direction
 
 		// initial condition
 		simplex.pts.clear();

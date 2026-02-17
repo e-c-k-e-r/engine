@@ -58,10 +58,12 @@ namespace {
 namespace {
 	// create ID from pointers
 	uint64_t makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
-		auto idA = reinterpret_cast<uint64_t>(&a);
-		auto idB = reinterpret_cast<uint64_t>(&b);
-		if ( idA > idB ) std::swap(idA, idB); // ensure consistent order
-		return (idA << 32) ^ idB;
+		uint64_t lhs = reinterpret_cast<uint64_t>(&a);
+		uint64_t rhs = reinterpret_cast<uint64_t>(&b);
+		if (lhs > rhs) std::swap(lhs, rhs);
+
+		lhs ^= rhs + 0x9e3779b97f4a7c15 + (lhs << 6) + (lhs >> 2);
+		return lhs;
 	}
 
 	// marks a body as asleep
@@ -116,6 +118,15 @@ namespace {
 	bool shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
 		if ( a.isStatic && b.isStatic ) return false; // this shouldn't ever happen if we're segregating static bodies from dynamic bodies in the broadphase
 		return ::shouldCollide( a.collider, b.collider );
+	}
+
+	pod::Matrix3f computeWorldInverseInertia( const pod::PhysicsBody& b ) {
+		if ( b.isStatic || b.inverseMass == 0.0f ) return pod::Matrix3f{};
+
+		pod::Matrix3f invI_local = uf::matrix::diagonal( b.inverseInertiaTensor );
+		pod::Matrix3f R = uf::quaternion::matrix3(b.transform->orientation);
+
+		return R * invI_local * uf::matrix::transpose(R);
 	}
 
 	// normalizes the delta between two bodies / contacts by the distance (as it was already computed) if non-zero
@@ -183,16 +194,17 @@ namespace {
 	}
 
 	pod::Vector3f closestPointSegmentAabb( const pod::Vector3f& p1, const pod::Vector3f& p2, const pod::AABB& box, float eps = EPS(1e-6f) ) {
+		const float eps2 = eps * eps;
 		// AABB center and half extents
 		auto c = ( box.min + box.max ) * 0.5f;
 		auto e = ( box.max - box.min ) * 0.5f;
 
 		// direction of line segment
 		auto d = p2 - p1;
-		float len2 = uf::vector::dot( d, d );
+		float len2 = uf::vector::magnitude( d );
 		float t = 0.0f;
 
-		if ( len2 > eps ) {
+		if ( len2 > eps2 ) {
 			// parametric closest t from box center
 			t = uf::vector::dot( c - p1, d ) / len2;
 			t = std::clamp( t, 0.0f, 1.0f );

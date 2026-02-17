@@ -78,6 +78,9 @@ namespace uf {
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Vector3t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w = 1, bool = false );
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Vector4t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool = false );
 		template<typename T=NUM, size_t M, size_t N> /*FORCE_INLINE*/ pod::Matrix<T,M,N> /*UF_API*/ outerProduct( const pod::Vector<T,M>& a, const pod::Vector<T,N>& b );
+		
+		template<typename T=NUM, size_t R, size_t C> /*FORCE_INLINE*/ pod::Vector<T, R> diagonal(const pod::Matrix<T, R, C>& mat );
+		template<typename T=NUM, size_t N> /*FORCE_INLINE*/ pod::Matrix<T, N, N> diagonal(const pod::Vector<T, N>& vec );
 
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ multiplyAll( const T& matrix, typename T::type_t scalar );
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ add( const T& lhs, const T& rhs );

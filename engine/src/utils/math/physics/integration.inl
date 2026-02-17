@@ -25,12 +25,10 @@ namespace {
 		if ( !a.isStatic ) {
 			a.velocity -= impulse * a.inverseMass;
 			a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
-		//	if ( uf::vector::magnitude( impulse ) > 1.0e-4 ) UF_MSG_DEBUG("aV delta={}", uf::vector::toString(impulse * a.inverseMass));
 		}
 		if ( !b.isStatic ) {
 			b.velocity += impulse * b.inverseMass;
 			b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
-		//	if ( uf::vector::magnitude( impulse ) > 1.0e-4 ) UF_MSG_DEBUG("bV delta={}", uf::vector::toString(impulse * b.inverseMass));
 		}
 	}
 
@@ -38,8 +36,8 @@ namespace {
 		if ( body.isStatic ) return;
 
 		float rollingFriction = 0.02f; // to-do: derive from material
-		float angularSpeed = uf::vector::magnitude( body.angularVelocity );
-		if ( angularSpeed < EPS(1.0e-6f) ) return;
+		float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
+		if ( angularSpeed2 < EPS2 ) return;
 
 		body.angularVelocity += body.angularVelocity * body.mass * -rollingFriction * dt;
 		// body.angularVelocity *= -rollingFriction * dt;
@@ -274,14 +272,22 @@ namespace {
 		body.velocity += acceleration * dt;
 
 		// angular integration
-		body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
+		//body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
+		{
+			pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
+			pod::Vector3f localTorque = uf::matrix::multiply( uf::matrix::transpose(R), body.torqueAccumulator );
+			pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
+			body.angularVelocity += uf::matrix::multiply( R, localAngAccel ) * dt;
+		}
 
 		// update position
 		body.transform/*.reference*/->position += body.velocity * dt;
 
 		// update orientation
-		if ( uf::vector::magnitude( body.angularVelocity ) > EPS(1.0e-8f) ) {
-			pod::Quaternion<> dq = uf::quaternion::axisAngle(uf::vector::normalize(body.angularVelocity), uf::vector::magnitude(body.angularVelocity)*dt);
+		float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
+		if ( angularSpeed2 > EPS2 ) {
+			float angularSpeed = std::sqrt( angularSpeed2 );
+			pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, angularSpeed * dt);
 			uf::transform::rotate( *body.transform/*.reference*/, dq );
 		}
 

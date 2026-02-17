@@ -169,6 +169,21 @@ template<typename T, size_t M, size_t N> pod::Matrix<T,M,N> /*UF_API*/ uf::matri
     return m;
 }
 
+template<typename T, size_t R, size_t C> pod::Vector<T, R> /*UF_API*/ uf::matrix::diagonal(const pod::Matrix<T, R, C>& mat ) {
+	pod::Vector<T, R> vector;
+	FOR_EACH(R, {
+		vector[i] = m(i, i);
+	});
+	return vector;
+}
+template<typename T, size_t N> pod::Matrix<T, N, N> /*UF_API*/ uf::matrix::diagonal(const pod::Vector<T, N>& vector ) {
+	pod::Matrix<T, N, N> matrix;
+	FOR_EACH(N, {
+		matrix(i, i) = vector[i];
+	});
+	return matrix;
+}
+
 template<typename T> T /*UF_API*/ uf::matrix::multiplyAll( const T& m, typename T::type_t scalar ) {
 	T matrix;
 

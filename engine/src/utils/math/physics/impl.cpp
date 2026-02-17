@@ -3,6 +3,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/memory/stack.h>
+#include <mutex>
 
 namespace {
 	bool warmupSolver = true; // cache manifold data to warm up the solver
@@ -32,6 +33,7 @@ namespace {
 	float baumgarteCorrectionPercent = 0.4f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
+	std::mutex cacheMutex;
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 	uint32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
 
@@ -48,7 +50,8 @@ namespace {
 	float groundedThreshold = 0.7f; // threshold before marking a body as grounded
 }
 
-#define EPS(x) x // 1.0e-6f
+#define EPS(x) 1.0e-6f
+#define EPS2 (EPS(1.0e-6) * EPS(1.0e-6))
 #define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
 #define UF_PHYSICS_TEST 0
 
@@ -217,7 +220,10 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		// do position correction
 		::solvePositions( manifolds, dt );
 		// cache manifold positions
-		if ( ::warmupSolver ) ::storeManifolds( manifolds, ::manifoldsCache );
+		if ( ::warmupSolver ) {
+            std::lock_guard<std::mutex> lock(::cacheMutex);
+            ::storeManifolds( manifolds, ::manifoldsCache );
+        }
 	}
 
 	for ( auto* b : bodies ) {
@@ -278,10 +284,28 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
+			/*
+			// old
 			pod::Vector3f extents = (body.collider.aabb.max - body.collider.aabb.min);
 			extents *= extents; // square it;
 
 			body.inertiaTensor = extents * (body.mass / 12.0f);
+			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+			*/
+			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
+			pod::Vector3f dimsSq = dims * dims;
+
+			float massFactor = body.mass / 12.0f;
+			body.inertiaTensor = {
+				massFactor * (dimsSq.y + dimsSq.z),
+				massFactor * (dimsSq.x + dimsSq.z),
+				massFactor * (dimsSq.x + dimsSq.y),
+			};
+
+			body.inertiaTensor.x = std::max(body.inertiaTensor.x, EPS(1e-6f));
+			body.inertiaTensor.y = std::max(body.inertiaTensor.y, EPS(1e-6f));
+			body.inertiaTensor.z = std::max(body.inertiaTensor.z, EPS(1e-6f));
+
 			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
@@ -309,13 +333,19 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			float totalVolume = 0.0f;
 
 			// compute total volume
-			for ( auto& box : bvh.bounds ) {
+			for ( size_t i = 0; i < bvh.nodes.size(); ++i ) {
+				if ( bvh.nodes[i].getCount() == 0 ) continue;
+				const auto& box = bvh.bounds[i];
+
 				auto extents = box.max - box.min;
 				totalVolume += extents.x * extents.y * extents.z;
 			}
 
 			// accumulate inertia
-			for ( auto& box : bvh.bounds ) {
+			for ( size_t i = 0; i < bvh.nodes.size(); ++i ) {
+				if ( bvh.nodes[i].getCount() == 0 ) continue;
+				const auto& box = bvh.bounds[i];
+
 				auto extents = box.max - box.min;
 				float mass = body.mass * extents.x * extents.y * extents.z / totalVolume;
 
@@ -332,9 +362,9 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 				// parallel axis theorem
 				pod::Vector3f center = (box.min + box.max) * 0.5f;
 				pod::Vector3f d = center; // relative to mesh COM (assume COM at origin for now)
-				float d2 = uf::vector::dot(d, d);
+				float dist2 = uf::vector::magnitude( d );
 
-				pod::Matrix3f pat = uf::matrix::identityi<pod::Matrix3f>() * (mass * d2);
+				pod::Matrix3f pat = uf::matrix::identityi<pod::Matrix3f>() * (mass * dist2);
 				pat -= uf::matrix::outerProduct(d, d) * mass;
 
 				inertia += Ibox + pat;

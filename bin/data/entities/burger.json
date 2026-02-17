@@ -29,10 +29,11 @@
 
 		"physics": {
 			"gravity": [ 0, -9.81, 0 ],
-			"inertia": [ 0, 0, 0 ],
 
 			"mass": 10,
-			"type": "bounding box",
+			"type": "sphere",
+			"radius": 1,
+			"static": false,
 			"recenter": false
 		},
 		"graph": {

@@ -9,7 +9,7 @@ namespace {
 		float r = a.collider.capsule.radius + b.collider.capsule.radius;
 		
 		auto delta = pB - pA;
-		float dist2 = uf::vector::dot(delta, delta);
+		float dist2 = uf::vector::magnitude( delta );
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt( dist2 );
 		
@@ -63,18 +63,6 @@ namespace {
 		float penetration = r - dist;
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 
-		// build up to 4 contact points sampled around foot circle
-	#if 0
-		auto tangent1 = uf::vector::normalize( uf::vector::cross( normal, pod::Vector3f{1,0,0} ) );
-		if ( uf::vector::magnitude( tangent1 ) < EPS(1e-6f) ) tangent1 = uf::vector::normalize( uf::vector::cross( normal, pod::Vector3f{0,1,0} ) );
-		auto tangent2 = uf::vector::cross( normal, tangent1 );
-
-		// four directions around circle
-		manifold.points.emplace_back(pod::Contact{ foot + tangent1 * r - normal * d, normal, penetration });
-		manifold.points.emplace_back(pod::Contact{ foot - tangent1 * r - normal * d, normal, penetration });
-		manifold.points.emplace_back(pod::Contact{ foot + tangent2 * r - normal * d, normal, penetration });
-		manifold.points.emplace_back(pod::Contact{ foot - tangent2 * r - normal * d, normal, penetration });
-	#endif
 		return true;
 	}
 	bool capsuleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {

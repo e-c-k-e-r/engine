@@ -10,9 +10,9 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 #define VXGI 1
 #define MAX_CUBEMAPS CUBEMAPS
-#define GAMMA_CORRECT 1
-#define PBR 1
-#define LAMBERT 0
+#define GAMMA_CORRECT 0
+#define PBR 0
+#define LAMBERT 1
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -165,7 +165,6 @@ void main() {
 		#if 0
 			pbr();
 		#else
-		/*
 			surface.material.roughness *= 4.0;
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
@@ -185,7 +184,7 @@ void main() {
 			//	if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 				const float cosLi = max(0.0, dot(surface.normal.world, Li));
-				const vec3 Lr = light.color.rgb * light.power * La * Ls;
+				const vec3 Lr = light.color.rgb * light.power * La * Ls / PI;
 			#if LAMBERT
 				const vec3 diffuse = surface.material.albedo.rgb;
 				const vec3 specular = vec3(0);
@@ -203,7 +202,6 @@ void main() {
 				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 				surface.light.a += light.power * La * Ls;
 			}
-		*/
 		#endif
 		}
 		surface.fragment.rgb += surface.light.rgb;

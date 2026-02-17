@@ -126,6 +126,27 @@ template<typename T> pod::Matrix4t<T> uf::quaternion::matrix( const pod::Quatern
 		0,             0,             0,         1
 	});
 }
+template<typename T> pod::Matrix3t<T> uf::quaternion::matrix3( const pod::Quaternion<T>& q ) {
+	auto normal = uf::quaternion::normalize(q);
+
+	const T xx = 2 * normal.x * normal.x;
+	const T xy = 2 * normal.x * normal.y;
+	const T xz = 2 * normal.x * normal.z;
+	const T xw = 2 * normal.x * normal.w;
+
+	const T yy = 2 * normal.y * normal.y;
+	const T yz = 2 * normal.y * normal.z;
+	const T yw = 2 * normal.y * normal.w;
+
+	const T zz = 2 * normal.z * normal.z;
+	const T zw = 2 * normal.z * normal.w;
+
+	return pod::Matrix3t<T>({
+		1 - yy - zz,   xy + zw,       xz - yw,
+		xy - zw,       1 - xx - zz,   yz + xw,
+		xz + yw,       yz - xw,       1 - xx - yy,
+	});
+}
 template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Vector3t<T>& axis, T angle ) { 
 	pod::Quaternion<T> q;
 

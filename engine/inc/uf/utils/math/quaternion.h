@@ -40,6 +40,7 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ normalize( const T& vector );
 
 		template<typename T> /*FORCE_INLINE*/ pod::Matrix4t<T> matrix( const pod::Quaternion<T>& quaternion );
+		template<typename T> /*FORCE_INLINE*/ pod::Matrix3t<T> matrix3( const pod::Quaternion<T>& quaternion );
 		template<typename T> /*FORCE_INLINE*/ pod::Quaternion<T> axisAngle( const pod::Vector3t<T>& axis, T angle );
 		template<typename T> /*FORCE_INLINE*/ pod::Quaternion<T> unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v );
 		template<typename T> /*FORCE_INLINE*/ pod::Quaternion<T> lookAt( const pod::Vector3t<T>& source, const pod::Vector3t<T>& destination );

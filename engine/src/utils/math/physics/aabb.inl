@@ -139,11 +139,12 @@ namespace {
 		auto f1 = v2 - v1;
 		auto f2 = v0 - v2;
 
-		// sAT: test the 9 edge cross axes
+		// SAT: test the 9 edge cross axes
 		auto axisTest = [&]( const pod::Vector3f& axis ) {
-			if ( uf::vector::magnitude(axis) < eps ) return true;
+			float norm = uf::vector::norm( axis );
+			if ( norm < eps ) return true;
 			
-			auto a = uf::vector::normalize( axis );
+			auto a = axis / norm;
 			
 			float p0 = uf::vector::dot( v0, a );
 			float p1 = uf::vector::dot( v1, a );

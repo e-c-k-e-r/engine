@@ -38,9 +38,9 @@ namespace {
 
 		// tangent direction
 		pod::Vector3f tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
-		float tangentMag = uf::vector::magnitude(tangent);
-		if (tangentMag > EPS(1e-6f)) {
-			tangent /= tangentMag;
+		float tangentMag2 = uf::vector::magnitude(tangent);
+		if ( tangentMag2 > EPS2 ) {
+			tangent /= std::sqrt( tangentMag2 );
 
 			// effective mass along tangent
 			float invMassT = ::computeEffectiveMass(a, b, rA, rB, tangent);
@@ -104,8 +104,11 @@ namespace {
 				pod::Vector3f raXnj = uf::vector::cross(rA_j, n_j);
 				pod::Vector3f rbXnj = uf::vector::cross(rB_j, n_j);
 
-				pod::Vector3f Ia_raXnj = a.inverseInertiaTensor * raXnj;
-				pod::Vector3f Ib_rbXnj = b.inverseInertiaTensor * rbXnj;
+				pod::Matrix3f invIa = computeWorldInverseInertia( a );
+				pod::Matrix3f invIb = computeWorldInverseInertia( b );
+
+				pod::Vector3f Ia_raXnj = uf::matrix::multiply( invIa, raXnj );
+				pod::Vector3f Ib_rbXnj = uf::matrix::multiply( invIb, rbXnj );
 
 				pod::Vector3f crossA = uf::vector::cross(Ia_raXnj, rA_i);
 				pod::Vector3f crossB = uf::vector::cross(Ib_rbXnj, rB_i);
@@ -140,6 +143,9 @@ namespace {
 			// penetration bias with clamp
 			float penetrationBias = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) * (::baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
+
+			float maxPenetrationRecovery = 2.0f; // Limit to 2 units per second
+			if ( penetrationBias > maxPenetrationRecovery ) penetrationBias = maxPenetrationRecovery;
 
 			float cDot = vRel + penetrationBias;
 

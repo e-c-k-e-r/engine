@@ -71,76 +71,6 @@ vec4 traceStep( Ray ray ) {
 		eyeDepth = surface.position.eye.z;
 	}
 
-#if 0
-	// "transparency"
-	if ( payload.hit && surface.material.albedo.a < 0.999 ) {
-		const vec4 TRANSPARENCY_COLOR = vec4(1.0 - surface.material.albedo.a);
-		
-		if ( surface.material.albedo.a < 0.001 ) outFrag = vec4(0);
-
-		RayTracePayload surfacePayload = payload;
-		Ray transparency;
-		transparency.direction = ray.direction;
-		transparency.origin = surface.position.world;
-		fogRay = transparency;
-
-		trace( transparency, ubo.settings.rt.alphaTestOffset );
-		if ( payload.hit ) {
-			populateSurface( payload );
-			directLighting();
-		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
-			surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
-			surface.fragment.a = 4096;
-			surface.position.eye.z /= 8;
-		}
-	#if FOG
-		fog( transparency, surface.fragment.rgb, surface.fragment.a );
-	#endif
-		outFrag += TRANSPARENCY_COLOR * surface.fragment;
-		eyeDepth = surface.position.eye.z;
-
-		payload = surfacePayload;
-		populateSurface( payload );
-	}
-#if FOG
-	{
-	//	surface.position.eye.z = eyeDepth;
-	//	fog( fogRay, outFrag.rgb, outFrag.a );
-	//	fog( ray, surface.fragment.rgb, surface.fragment.a );
-	}
-#endif
-
-	// reflection
-	if ( payload.hit ) {
-		const float REFLECTIVITY = 1.0 - surface.material.roughness;
-		const vec4 REFLECTED_ALBEDO = surface.material.albedo * REFLECTIVITY;
-
-		if ( REFLECTIVITY > 0.001 ) {
-			RayTracePayload surfacePayload = payload;
-
-			Ray reflection;
-			reflection.origin = surface.position.world;
-			reflection.direction = reflect( ray.direction, surface.normal.world );
-
-			trace( reflection );
-
-			if ( payload.hit ) {
-				populateSurface( payload );
-				directLighting();
-			} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
-				surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], reflection.direction );
-				surface.fragment.a = 4096;
-			}
-		#if FOG
-			fog( reflection, surface.fragment.rgb, surface.fragment.a );
-		#endif
-			outFrag += REFLECTED_ALBEDO * surface.fragment;
-
-			payload = surfacePayload;
-			populateSurface( payload );
-		}
-	}
-#endif
 	surface = previousSurface;
 	return outFrag;
 }
@@ -170,7 +100,6 @@ void indirectLightingRT() {
 	const vec3 P = surface.position.world;
 	const vec3 N = surface.normal.world;
 
-#if 1
 	const vec3 right = normalize(orthogonal(N));
 	const vec3 up = normalize(cross(right, N));
 
@@ -183,26 +112,7 @@ void indirectLightingRT() {
 		normalize(N + -0.50937f * right + -0.7006629f * up),
 		normalize(N + -0.823639f * right + 0.267617f * up),
 	};
-#else
-	const vec3 ortho = normalize(orthogonal(N));
-	const vec3 ortho2 = normalize(cross(ortho, N));
 
-	const vec3 corner = 0.5f * (ortho + ortho2);
-	const vec3 corner2 = 0.5f * (ortho - ortho2);
-
-	const uint CONES_COUNT = 9;
-	const vec3 CONES[] = {
-		N,
-		normalize(mix(N, ortho, 0.5)),
-		normalize(mix(N, -ortho, 0.5)),
-		normalize(mix(N, ortho2, 0.5)),
-		normalize(mix(N, -ortho2, 0.5)),
-		normalize(mix(N, corner, 0.5)),
-		normalize(mix(N, -corner, 0.5)),
-		normalize(mix(N, corner2, 0.5)),
-		normalize(mix(N, -corner2, 0.5)),
-	};
-#endif
 
 	const float DIFFUSE_CONE_APERTURE = 2.0 * 0.57735f;
 	const float DIFFUSE_INDIRECT_FACTOR = 0; // 1.0f / float(CONES_COUNT) * 0.125f;
