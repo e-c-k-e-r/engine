@@ -52,7 +52,7 @@ layout (std140, binding = 15) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 16, rgba8) uniform volatile coherent image3D outAlbedos;
+layout (binding = 16, rgba8) uniform writeonly image3D outAlbedos;
 
 #if RT
 	layout (binding = 17) uniform accelerationStructureEXT tlas;

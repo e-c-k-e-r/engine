@@ -31,7 +31,7 @@
 			"vxgi": {
 			//	"limiter": 0,
 				"limiter": 0.0125,
-				"size": 192,
+				"size": 256,
 				"dispatch": 16,
 				"cascades": 3,
 				"cascadePower": 2,
@@ -42,8 +42,8 @@
 				"filtering": "LINEAR",
 				"shadows": 0,
 				"extents": {
-					"min": [ -8, -8, -8 ],
-					"max": [  8,  8,  8 ]
+					"min": [ -16, -4, -16 ],
+					"max": [  16,  4,  16 ]
 				}
 			},
 			"rt": {
@@ -60,7 +60,7 @@
 		},
 		"graph": {
 			"initial buffer elements": 128,
-			"global storage": false
+			"global storage": true
 		},
 		"ext": {
 			"vulkan": {

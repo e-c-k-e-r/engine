@@ -29,8 +29,6 @@ namespace pod {
 
 		// Render information
 		uf::stl::vector<uf::stl::string> primitives; //
-		uf::stl::vector<uf::stl::string> instances; // ugh
-		uf::stl::vector<uf::stl::string> drawCommands; // ugh
 		uf::stl::vector<uf::stl::string> meshes; //
 
 		uf::stl::vector<uf::stl::string> images; //
@@ -81,10 +79,8 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
-			uf::stl::KeyMap<pod::Instance> instances; // should be unused but is a counter for global instance IDs because I cannot for the life of me figure out a working way to remap otherwise
-			uf::stl::KeyMap<pod::Instance::Addresses> instanceAddresses;
+			uf::stl::KeyMap<uf::stl::vector<pod::Instance::Addresses>> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
-			uf::stl::KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands; // unused
 			uf::stl::KeyMap<uf::Mesh> meshes;
 
 			uf::stl::KeyMap<uf::Image> images;
@@ -137,7 +133,7 @@ namespace uf {
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
 
 	//	void UF_API process( uf::Object& entity );
-		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh );
+		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& );
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 		void UF_API reload( pod::Graph& );

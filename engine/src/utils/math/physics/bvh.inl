@@ -453,7 +453,7 @@ namespace {
 		const auto& nodeA = bvh.nodes[nodeAID];
 		const auto& nodeB = bvh.nodes[nodeBID];
 
-		if ( nodeA.isAsleep() || nodeB.isAsleep() || !::aabbOverlap( bvh.bounds[nodeAID], bvh.bounds[nodeBID] ) ) return;
+		if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !::aabbOverlap( bvh.bounds[nodeAID], bvh.bounds[nodeBID] ) ) return;
 
 		if ( nodeA.getCount() > 0 && nodeB.getCount() > 0 ) {
 			for ( auto i = 0; i < nodeA.getCount(); ++i ) {
@@ -483,7 +483,7 @@ namespace {
 		const auto& nodeA = bvhA.nodes[nodeAID];
 		const auto& nodeB = bvhB.nodes[nodeBID];
 
-		if ( nodeA.isAsleep() || nodeB.isAsleep() || !::aabbOverlap( bvhA.bounds[nodeAID], bvhB.bounds[nodeBID] ) ) return;
+		if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !::aabbOverlap( bvhA.bounds[nodeAID], bvhB.bounds[nodeBID] ) ) return;
 
 		if ( nodeA.getCount() > 0 && nodeB.getCount() > 0 ) {
 			for ( auto i = 0; i < nodeA.getCount(); ++i ) {
@@ -556,7 +556,7 @@ namespace {
 
 		outIndices.reserve(::reserveCount);
 
-		thread_local uf::stl::stack<pod::BVH::index_t> stack;
+		static thread_local uf::stl::stack<pod::BVH::index_t> stack;
 		//stack.clear(); // there is no stack.clear(), and the stack should already be cleared by the end of this function
 		stack.push(0);
 
@@ -603,7 +603,7 @@ namespace {
 		if ( bvh.nodes.empty() ) return;
 		outIndices.reserve(::reserveCount);
 
-		thread_local uf::stl::stack<pod::BVH::index_t> stack;
+		static thread_local uf::stl::stack<pod::BVH::index_t> stack;
 		//stack.clear(); // there is no stack.clear(), and the stack should already be cleared by the end of this function
 		stack.push(0);
 

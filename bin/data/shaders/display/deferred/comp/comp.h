@@ -50,9 +50,9 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 #endif
 
 
-layout(binding = 7, rgba16f) uniform volatile coherent image2D imageColor;
-layout(binding = 8, rgba16f) uniform volatile coherent image2D imageBright;
-layout(binding = 9, rg16f) uniform volatile coherent image2D imageMotion;
+layout(binding = 7, rgba16f) uniform writeonly image2D imageColor;
+layout(binding = 8, rgba16f) uniform writeonly image2D imageBright;
+layout(binding = 9, rg16f) uniform writeonly image2D imageMotion;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;

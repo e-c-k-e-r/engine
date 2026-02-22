@@ -17,7 +17,7 @@ layout( push_constant ) uniform PushBlock {
 } PushConstant;
 
 layout (binding = 3) uniform sampler2D inImage[MIPS];
-layout (binding = 4, r32f) uniform volatile coherent image2D outImage[MIPS];
+layout (binding = 4, r32f) uniform writeonly image2D outImage[MIPS];
 
 void main() {
 	vec2 imageSize =  imageSize(outImage[PushConstant.pass]);

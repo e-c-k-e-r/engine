@@ -31,9 +31,7 @@
 			"gravity": [ 0, -9.81, 0 ],
 
 			"mass": 10,
-			"type": "sphere",
-			"radius": 1,
-			"static": false,
+			"type": "bounding box",
 			"recenter": false
 		},
 		"graph": {

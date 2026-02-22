@@ -37,16 +37,16 @@ layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
-layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
-layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
-layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
-layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
-layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
-layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
-layout (binding = 20, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
-layout (binding = 21, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
-layout (binding = 22, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
+layout (binding = 13, r32ui) uniform volatile uimage3D voxelDrawId[CASCADES];
+layout (binding = 14, r32ui) uniform volatile uimage3D voxelInstanceId[CASCADES];
+layout (binding = 15, r32ui) uniform volatile uimage3D voxelNormalX[CASCADES];
+layout (binding = 16, r32ui) uniform volatile uimage3D voxelNormalY[CASCADES];
+layout (binding = 17, r32ui) uniform volatile uimage3D voxelRadianceR[CASCADES];
+layout (binding = 18, r32ui) uniform volatile uimage3D voxelRadianceG[CASCADES];
+layout (binding = 19, r32ui) uniform volatile uimage3D voxelRadianceB[CASCADES];
+layout (binding = 20, r32ui) uniform volatile uimage3D voxelRadianceA[CASCADES];
+layout (binding = 21, r32ui) uniform volatile uimage3D voxelCount[CASCADES];
+layout (binding = 22, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;

@@ -175,24 +175,37 @@ namespace {
 		}
 	}
 
-	void storeManifolds( uf::stl::vector<pod::Manifold>& manifolds, uf::stl::unordered_map<size_t, pod::Manifold>& manifoldsCache ){
-		// update cache
-		for ( auto& manifold : manifolds ) {
-			manifoldsCache[::makePairKey( *manifold.a, *manifold.b )] = manifold;
-		}
+	void prepareManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& cache, const uf::stl::vector<pod::Island>& islands, const uf::stl::vector<pod::PhysicsBody*>& bodies ) {
+		for ( const auto& island : islands ) {
+			for ( const auto& pair : island.pairs ) {
+				auto& a = *bodies[pair.first];
+				auto& b = *bodies[pair.second];
 
-		// prune if too old / empty
-		for ( auto itCache = manifoldsCache.begin(); itCache != manifoldsCache.end(); ) {
+				cache[ ::makePairKey( a, b ) ];
+			}
+		}
+	}
+
+	void updateManifoldCache( const uf::stl::vector<pod::Manifold>& manifolds, uf::stl::unordered_map<size_t, pod::Manifold>& cache ) {
+		for ( const auto& m : manifolds ) {
+			auto it = cache.find( ::makePairKey( *m.a, *m.b ) );
+			if ( it == cache.end() ) continue; // assert
+			it->second = m;
+		}
+	}
+
+	void pruneManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& cache ) {
+		for ( auto itCache = cache.begin(); itCache != cache.end(); ) {
 			auto& manifold = itCache->second;
 
-			// prune manifolds that are X frames old
+			// prune points that are too old
 			for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
 				if ( it->lifetime > ::manifoldCacheLifetime ) it = manifold.points.erase(it);
 				else ++it;
 			}
 
 			// empty manifold, kill it
-			if ( manifold.points.empty() ) itCache = manifoldsCache.erase(itCache);
+			if ( manifold.points.empty() ) itCache = cache.erase(itCache);
 			else ++itCache;
 		}
 	}

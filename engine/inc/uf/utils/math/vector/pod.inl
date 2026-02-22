@@ -483,7 +483,7 @@ T& uf::vector::negate_( T& vector ) {
 template<typename T>
 T& uf::vector::normalize_( T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
-	return ( norm == 0 ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
+	return ( norm < 1.0e-6 ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
 }
 template<typename T>
 T uf::vector::min( const T& left, const T& right ) {
@@ -679,7 +679,7 @@ T uf::vector::normalize( const T& vector ) {
 	}
 #endif
 	typename T::type_t norm = uf::vector::norm(vector);
-	if ( norm == 0 ) return vector;	
+	if ( norm < 1.0e-6 ) return vector;	
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( std::is_same_v<T,float> ) {
 		return uf::vector::multiply(vector, MATH_fsrra(norm));

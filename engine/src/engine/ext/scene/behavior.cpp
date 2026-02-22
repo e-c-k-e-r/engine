@@ -947,6 +947,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			float smoothness;
 			uint32_t size;
 			uint32_t padding;
+
+			float weights[32];
 		};
 
 		UniformDescriptor uniforms = {
@@ -954,6 +956,24 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.smoothness = metadata.bloom.smoothness,
 			.size = metadata.bloom.size,
 		};
+
+		uint kernelSize = uniforms.size * 2 + 1;
+		float sigma = kernelSize / (6 * std::max(0.001f, uniforms.smoothness));
+
+		float sum = 0;
+		uf::stl::vector<float> tempWeights(uniforms.size);
+		tempWeights[0] = (1.0f / (sqrtf(2.0f * M_PI) * sigma));
+		sum = tempWeights[0];
+
+		for ( auto i = 1; i < uniforms.size; ++i ) {
+			float x = (float) i;
+			tempWeights[i] = (expf(-(x * x) / (2.0f * sigma * sigma)) / (sqrtf(2.0f * M_PI) * sigma));
+			sum += 2.0f * tempWeights[i];
+		}
+
+		// normalize
+		for ( auto i = 0; i < uniforms.size; ++i ) uniforms.weights[i] = tempWeights[i] / sum;
+
 		metadata.bloom.outOfDate = false;
 		if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 	}

@@ -244,6 +244,8 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 			heldObject.distance = offset:norm()
 		
 			prop:getComponent("PhysicsBody"):enableGravity(false)
+
+			print( prop:name()  )
 		else
 			validUse = not string.matched( prop:name(), "/^worldspawn/" )
 		end

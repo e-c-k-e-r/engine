@@ -144,12 +144,12 @@ namespace {
 			float penetrationBias = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) * (::baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
 
-			float maxPenetrationRecovery = 2.0f; // Limit to 2 units per second
+			float maxPenetrationRecovery = 2.0f; // limit to 2 units per second
 			if ( penetrationBias > maxPenetrationRecovery ) penetrationBias = maxPenetrationRecovery;
 
 			float cDot = vRel + penetrationBias;
 
-			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // rHS is magnitude of correction needed
+			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // RHS is magnitude of correction needed
 			lambda[i] = contact.accumulatedNormalImpulse;
 		}
 

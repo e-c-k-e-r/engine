@@ -7,6 +7,9 @@ namespace binds {
 	pod::Vector3f& velocity( pod::PhysicsBody& self ) { return self.velocity; }
 	void setVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { self.velocity = v; }
 	void applyVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { self.velocity += v; }
+	
+	float getMass( const pod::PhysicsBody& self ) { return self.mass; }
+	void setMass( pod::PhysicsBody& self, float mass ) { self.mass = mass; }
 
 	void enableGravity( pod::PhysicsBody& state, bool s ) {
 		if ( !state.object ) return;
@@ -44,13 +47,10 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::applyRotation) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::rayCast) )
-
-//	UF_LUA_REGISTER_USERTYPE_DEFINE( setImpulse, UF_LUA_C_FUN(uf::physics::impl::setImpulse) ),
-//	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) ),	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::rayCast) ),
 	
-//	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(uf::physics::impl::getMass) ),
-//	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(uf::physics::impl::setMass) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(::binds::getMass) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(::binds::setMass) )
 )
 
 #endif

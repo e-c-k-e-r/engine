@@ -2,7 +2,7 @@
 void pbr() {
 	// per-surface, not per-light, compute once
 
-	// Freslen reflectance for a dieletric 
+	// Fresnel reflectance for a dieletric 
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 	// outcoming light from surface to eye
 	const vec3 Lo = normalize( -surface.position.eye );

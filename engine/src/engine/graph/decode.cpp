@@ -440,13 +440,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
 			storage.primitives[name] = decodePrimitives( value, graph );
-			graph.primitives.emplace_back(name);
+			storage.instanceAddresses[name] = {};
 
-			uf::stl::vector<pod::DrawCommand> drawCommands;
-			for ( auto& primitive : storage.primitives[name] ) {
-				drawCommands.emplace_back( primitive.drawCommand );
-			}
-			storage.drawCommands[name] = std::move(drawCommands);
+			graph.primitives.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read primitives.");
 	#if UF_ENV_DREAMCAST
@@ -506,6 +502,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			// UF_MSG_DEBUG("{}", name);
 			storage.textures[name] = decodeTexture( value, graph );
 			graph.textures.emplace_back(name);
+
+			// pre-allocate
+			storage.texture2Ds[name];
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read texture information");
 	#if UF_ENV_DREAMCAST

@@ -28,6 +28,20 @@ namespace {
 	const uf::stl::string DEFERRED_MODE = "compute";
 	ext::vulkan::Texture depthPyramid;
 	uf::stl::vector<VkImageView> depthPyramidViews;
+
+	void cmdImageBarrier(VkCommandBuffer commandBuffer, VkImage image, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkImageLayout oldLayout, VkImageLayout newLayout) {
+		VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+		barrier.srcAccessMask = srcAccess;
+		barrier.dstAccessMask = dstAccess;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = image;
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+	};
 }
 
 #include "./transition.inl"
@@ -858,17 +872,18 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				::transitionAttachmentsTo( this, shader, commandBuffer );
 
 				// dispatch compute shader				
-				VkMemoryBarrier memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-				memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				auto& attachmentColor = this->getAttachment("color"); // color 
+				auto& attachmentBright = this->getAttachment("bright"); // bloom
+				auto& attachmentScratch = this->getAttachment("scratch"); // pingpong
 
-				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[1]" );
 				blitter.record(commandBuffer, descriptor, 0, 1);
-				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				cmdImageBarrier( commandBuffer, attachmentScratch.image, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
+
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[2]" );
 				blitter.record(commandBuffer, descriptor, 0, 2);
-				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				cmdImageBarrier( commandBuffer, attachmentBright.image, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
+
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[3]" );
 				blitter.record(commandBuffer, descriptor, 0, 3);
 

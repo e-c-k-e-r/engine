@@ -3,7 +3,6 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/memory/stack.h>
-#include <mutex>
 
 namespace {
 	bool warmupSolver = true; // cache manifold data to warm up the solver
@@ -33,7 +32,6 @@ namespace {
 	float baumgarteCorrectionPercent = 0.4f;
 	float baumgarteCorrectionSlop = 0.01f;
 	
-	std::mutex cacheMutex;
 	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 	uint32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
 
@@ -167,6 +165,8 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	uf::stl::vector<pod::Island> islands;
 	::buildIslands( pairs, bodies, islands );
 
+	if ( ::warmupSolver ) ::prepareManifoldCache( ::manifoldsCache, islands, bodies );
+
 	// iterate islands
 	#pragma omp parallel for schedule(dynamic)
 	for ( auto& island : islands ) {
@@ -190,7 +190,10 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 				for ( auto& c : manifold.points ) c.normal = ::orientNormalToAB( a, b, c.normal );
 			}
 			// retrieve accumulated impulses
-			if ( ::warmupSolver ) ::retrieveContacts( manifold, ::manifoldsCache[::makePairKey( a, b )] );
+			if ( ::warmupSolver ) {
+				auto it = ::manifoldsCache.find( ::makePairKey( a, b ) );
+				if ( it != ::manifoldsCache.end() ) ::retrieveContacts( manifold, it->second );
+			}
 			// merge similar contacts from a mesh to ensure continuity
 			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) {
 				::mergeContacts( manifold );
@@ -221,10 +224,11 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( ::warmupSolver ) {
-            std::lock_guard<std::mutex> lock(::cacheMutex);
-            ::storeManifolds( manifolds, ::manifoldsCache );
+            ::updateManifoldCache( manifolds, ::manifoldsCache );
         }
 	}
+
+	if ( ::warmupSolver ) ::pruneManifoldCache( ::manifoldsCache );
 
 	for ( auto* b : bodies ) {
 		if ( b->isStatic ) continue;
@@ -294,18 +298,8 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			*/
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
-
-			float massFactor = body.mass / 12.0f;
-			body.inertiaTensor = {
-				massFactor * (dimsSq.y + dimsSq.z),
-				massFactor * (dimsSq.x + dimsSq.z),
-				massFactor * (dimsSq.x + dimsSq.y),
-			};
-
-			body.inertiaTensor.x = std::max(body.inertiaTensor.x, EPS(1e-6f));
-			body.inertiaTensor.y = std::max(body.inertiaTensor.y, EPS(1e-6f));
-			body.inertiaTensor.z = std::max(body.inertiaTensor.z, EPS(1e-6f));
-
+			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS(1.0e-6f), EPS(1.0e-6f), EPS(1.0e-6f) } );
 			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
@@ -341,37 +335,42 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 				totalVolume += extents.x * extents.y * extents.z;
 			}
 
-			// accumulate inertia
-			for ( size_t i = 0; i < bvh.nodes.size(); ++i ) {
-				if ( bvh.nodes[i].getCount() == 0 ) continue;
-				const auto& box = bvh.bounds[i];
+			if ( totalVolume < EPS(1.0e-6) ) {
+				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
+			} else {
+				// accumulate inertia
+				for ( size_t i = 0; i < bvh.nodes.size(); ++i ) {
+					if ( bvh.nodes[i].getCount() == 0 ) continue;
+					const auto& box = bvh.bounds[i];
 
-				auto extents = box.max - box.min;
-				float mass = body.mass * extents.x * extents.y * extents.z / totalVolume;
+					auto extents = box.max - box.min;
+					float mass = body.mass * extents.x * extents.y * extents.z / totalVolume;
 
-				// inertia tensor of a box about its center
-				float x2 = extents.x * extents.x;
-				float y2 = extents.y * extents.y;
-				float z2 = extents.z * extents.z;
+					// inertia tensor of a box about its center
+					float x2 = extents.x * extents.x;
+					float y2 = extents.y * extents.y;
+					float z2 = extents.z * extents.z;
 
-				pod::Matrix3f Ibox;
-				Ibox(0,0) = (1.0f/12.0f) * mass * (y2 + z2);
-				Ibox(1,1) = (1.0f/12.0f) * mass * (x2 + z2);
-				Ibox(2,2) = (1.0f/12.0f) * mass * (x2 + y2);
+					pod::Matrix3f Ibox;
+					Ibox(0,0) = (1.0f/12.0f) * mass * (y2 + z2);
+					Ibox(1,1) = (1.0f/12.0f) * mass * (x2 + z2);
+					Ibox(2,2) = (1.0f/12.0f) * mass * (x2 + y2);
 
-				// parallel axis theorem
-				pod::Vector3f center = (box.min + box.max) * 0.5f;
-				pod::Vector3f d = center; // relative to mesh COM (assume COM at origin for now)
-				float dist2 = uf::vector::magnitude( d );
+					// parallel axis theorem
+					pod::Vector3f center = (box.min + box.max) * 0.5f;
+					pod::Vector3f d = center; // relative to mesh COM (assume COM at origin for now)
+					float dist2 = uf::vector::magnitude( d );
 
-				pod::Matrix3f pat = uf::matrix::identityi<pod::Matrix3f>() * (mass * dist2);
-				pat -= uf::matrix::outerProduct(d, d) * mass;
+					pod::Matrix3f pat = uf::matrix::identityi<pod::Matrix3f>() * (mass * dist2);
+					pat -= uf::matrix::outerProduct(d, d) * mass;
 
-				inertia += Ibox + pat;
+					inertia += Ibox + pat;
+				}
+				
+				body.inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
+				body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 			}
-
-			body.inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
-			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 		} break;
 		// to-do: add others
 		default: {
@@ -560,7 +559,7 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	auto& staticBvh = world.staticBvh;
 	auto& bodies = world.bodies;
 
-	thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
 	candidates.clear();
 	::queryBVH( dynamicBvh, ray, candidates );
 	if ( ::useSplitBvhs ) ::queryBVH( staticBvh, ray, candidates );

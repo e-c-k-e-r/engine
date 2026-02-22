@@ -10,7 +10,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 #define VXGI 1
 #define MAX_CUBEMAPS CUBEMAPS
-#define GAMMA_CORRECT 0
+#define GAMMA_CORRECT 1
 #define PBR 0
 #define LAMBERT 1
 
@@ -52,16 +52,16 @@ layout (binding = 8) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 9) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 10) uniform sampler3D samplerNoise;
 
-layout (binding = 11, r32ui) uniform volatile coherent uimage3D voxelDrawId[CASCADES];
-layout (binding = 12, r32ui) uniform volatile coherent uimage3D voxelInstanceId[CASCADES];
-layout (binding = 13, r32ui) uniform volatile coherent uimage3D voxelNormalX[CASCADES];
-layout (binding = 14, r32ui) uniform volatile coherent uimage3D voxelNormalY[CASCADES];
-layout (binding = 15, r32ui) uniform volatile coherent uimage3D voxelRadianceR[CASCADES];
-layout (binding = 16, r32ui) uniform volatile coherent uimage3D voxelRadianceG[CASCADES];
-layout (binding = 17, r32ui) uniform volatile coherent uimage3D voxelRadianceB[CASCADES];
-layout (binding = 18, r32ui) uniform volatile coherent uimage3D voxelRadianceA[CASCADES];
-layout (binding = 19, r32ui) uniform volatile coherent uimage3D voxelCount[CASCADES];
-layout (binding = 20, rgba8) uniform volatile coherent image3D voxelOutput[CASCADES];
+layout (binding = 11, r32ui) uniform readonly uimage3D voxelDrawId[CASCADES];
+layout (binding = 12, r32ui) uniform readonly uimage3D voxelInstanceId[CASCADES];
+layout (binding = 13, r32ui) uniform readonly uimage3D voxelNormalX[CASCADES];
+layout (binding = 14, r32ui) uniform readonly uimage3D voxelNormalY[CASCADES];
+layout (binding = 15, r32ui) uniform readonly uimage3D voxelRadianceR[CASCADES];
+layout (binding = 16, r32ui) uniform readonly uimage3D voxelRadianceG[CASCADES];
+layout (binding = 17, r32ui) uniform readonly uimage3D voxelRadianceB[CASCADES];
+layout (binding = 18, r32ui) uniform readonly uimage3D voxelRadianceA[CASCADES];
+layout (binding = 19, r32ui) uniform readonly uimage3D voxelCount[CASCADES];
+layout (binding = 20, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
 
 #include "../../common/functions.h"
 #include "../../common/light.h"

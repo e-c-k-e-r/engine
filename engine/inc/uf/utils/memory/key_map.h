@@ -17,7 +17,9 @@ namespace uf {
 			T& operator[]( const Key& key );
 			
 			void reserve( size_t i );
+			size_t id( const Key& );
 			uf::stl::vector<T> flatten() const;
+			uf::stl::vector<T> flattenByIndex() const;
 			void clear();
 		};
 	}
@@ -41,6 +43,19 @@ void uf::stl::KeyMap<T,Key>::reserve( size_t i ) {
 }
 
 template<typename T, typename Key>
+size_t uf::stl::KeyMap<T,Key>::id( const Key& key ) {
+	if ( indices.count( key ) > 0 ) return indices[key];
+	
+	size_t newIndex = keys.size();
+	
+	indices[key] = newIndex;
+	keys.emplace_back( key );
+	map[key];
+
+	return newIndex;
+}
+
+template<typename T, typename Key>
 void uf::stl::KeyMap<T,Key>::clear() {
 	keys.clear();
 	indices.clear();
@@ -58,5 +73,16 @@ uf::stl::vector<T> uf::stl::KeyMap<T,Key>::flatten() const {
 			res.emplace_back(map.at(key));
 		}
 	}
+	return res;
+}
+
+template<typename T, typename Key>
+uf::stl::vector<T> uf::stl::KeyMap<T,Key>::flattenByIndex() const {
+	vector<T> res(indices.size());
+
+	for (auto& [key, index] : indices) {
+		res[index] = map.at(key);
+	}
+
 	return res;
 }

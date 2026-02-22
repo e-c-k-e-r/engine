@@ -303,6 +303,7 @@ namespace {
 		float planeDist = uf::vector::dot(triNormal, v0);
 		if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
 		pod::Vector3f contact = boxCenter - bestAxis * (boxHalf.x * fabs(bestAxis.x) + boxHalf.y * fabs(bestAxis.y) + boxHalf.z * fabs(bestAxis.z));
+		
 		//pod::Vector3f contact = boxCenter - triNormal * planeDist;
 	
 	/*
