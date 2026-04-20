@@ -24,11 +24,15 @@ namespace {
 	void applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
 		if ( !a.isStatic ) {
 			a.velocity -= impulse * a.inverseMass;
-			a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
+			//a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
+			pod::Matrix3f invIa = computeWorldInverseInertia( a );
+			a.angularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
 		}
 		if ( !b.isStatic ) {
 			b.velocity += impulse * b.inverseMass;
-			b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
+			//b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
+			pod::Matrix3f invIb = computeWorldInverseInertia( b );
+			a.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 		}
 	}
 
@@ -65,7 +69,7 @@ namespace {
 	}
 
 	bool generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		if ( ::useGjk ) return generateContactsGjk( a, b, manifold, dt );
+		if ( uf::physics::impl::settings.useGjk ) return generateContactsGjk( a, b, manifold, dt );
 		::bindManifold( a, b, manifold, dt );
 
 	#define CHECK_CONTACT( A, B, fun )\
@@ -111,7 +115,8 @@ namespace {
 	void reduceContacts( pod::Manifold& manifold ) {
 		if ( manifold.points.size() <= 4 ) return;
 
-		uf::stl::vector<pod::Contact> result;
+		static thread_local uf::stl::vector<pod::Contact> result;
+		result.clear();
 		result.reserve(4);
 
 		for ( auto& c : manifold.points ) {
@@ -200,7 +205,7 @@ namespace {
 
 			// prune points that are too old
 			for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
-				if ( it->lifetime > ::manifoldCacheLifetime ) it = manifold.points.erase(it);
+				if ( it->lifetime > uf::physics::impl::settings.manifoldCacheLifetime ) it = manifold.points.erase(it);
 				else ++it;
 			}
 
@@ -251,11 +256,11 @@ namespace {
 
 	// baumgarte position correction
 	void positionCorrection( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& contact ) {
-		if ( ::baumgarteCorrectionPercent <= 0 ) return;
+		if ( uf::physics::impl::settings.baumgarteCorrectionPercent <= 0 ) return;
 		if ( a.isStatic && b.isStatic ) return;
 
 		// penetration depth beyond slop
-		float penetration = std::max( contact.penetration - ::baumgarteCorrectionSlop, 0.0f );
+		float penetration = std::max( contact.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f );
 		if ( penetration <= 0.0f ) return;
 
 		// compute correction magnitude
@@ -265,7 +270,7 @@ namespace {
 		if ( totalInvMass <= EPS(1e-8f) ) return;
 
 		// apply correction vector
-		pod::Vector3f correction = contact.normal * (penetration / totalInvMass) * ::baumgarteCorrectionPercent;
+		pod::Vector3f correction = contact.normal * (penetration / totalInvMass) * uf::physics::impl::settings.baumgarteCorrectionPercent;
 		
 		if ( !a.isStatic ) a.transform->position -= correction * invMassA;
 		if ( !b.isStatic ) b.transform->position += correction * invMassB;

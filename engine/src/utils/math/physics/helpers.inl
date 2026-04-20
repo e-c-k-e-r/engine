@@ -61,9 +61,10 @@ namespace {
 		uint64_t lhs = reinterpret_cast<uint64_t>(&a);
 		uint64_t rhs = reinterpret_cast<uint64_t>(&b);
 		if (lhs > rhs) std::swap(lhs, rhs);
-
-		lhs ^= rhs + 0x9e3779b97f4a7c15 + (lhs << 6) + (lhs >> 2);
-		return lhs;
+		size_t seed = 0;
+		seed ^= std::hash<uint64_t>{}(lhs) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		seed ^= std::hash<uint64_t>{}(rhs) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		return seed;
 	}
 
 	// marks a body as asleep
@@ -78,6 +79,7 @@ namespace {
 	}
 	void updateActivity( pod::PhysicsBody& body, float dt ) {
 		// reset grounded state
+		bool wasGrounded = body.activity.grounded;
 		body.activity.grounded = false;
 
 		// already asleep
@@ -91,7 +93,7 @@ namespace {
 		if ( linSpeed < pod::Activity::linearSleepEpsilon && angSpeed < pod::Activity::angularSleepEpsilon ) {
 			body.activity.sleepTimer += dt;
 			float threshold = pod::Activity::sleepThreshold;
-			if ( body.activity.grounded ) threshold *= 0.25f;
+			if ( wasGrounded ) threshold *= 0.25f;
 			if ( body.activity.sleepTimer > threshold ) ::sleepBody( body );
 		}
 		// body is moving, reset timer
@@ -242,19 +244,24 @@ namespace {
 			// check against AB
 			float t = std::clamp(uf::vector::dot( ao, ab ) / d00, 0.0f, 1.0f);
 			auto pAB = a + (ab * t);
-			float distAB = uf::vector::dot( pAB, pAB );
+			float distAB = uf::vector::dot( p - pAB, p - pAB );
+			//float distAB = uf::vector::dot( pAB, pAB );
 
 			// check against AC
 			float t2 = std::clamp(uf::vector::dot( ao, ac ) / d11, 0.0f, 1.0f);
 			auto pAC = a + (ac * t2);
-			float distAC = uf::vector::dot( pAC, pAC );
+			float distAC = uf::vector::dot( p - pAC, p - pAC );
+			//float distAC = uf::vector::dot( pAC, pAC );
 
 			// check against BC
 			auto bc = c - b;
 			float d22 = uf::vector::dot( bc, bc );
-			float t3 = std::clamp(uf::vector::dot( -b, bc ) / d22, 0.0f, 1.0f);
+			float t3 = std::clamp(uf::vector::dot( p - b, bc ) / d22, 0.0f, 1.0f); 
+			//float t3 = std::clamp(uf::vector::dot( -b, bc ) / d22, 0.0f, 1.0f);
+
 			auto pBC = b + ( bc * t3 );
-			float distBC = uf::vector::dot( pBC, pBC );
+			float distBC = uf::vector::dot( p - pBC, p - pBC );
+			//float distBC = uf::vector::dot( pBC, pBC );
 
 			// pick closest edge/vertex
 			if ( distAB <= distAC && distAB <= distBC ) return { 1.0f - t, t, 0.0f };

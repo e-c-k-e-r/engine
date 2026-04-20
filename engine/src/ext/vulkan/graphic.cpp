@@ -393,11 +393,17 @@ PIPELINE_INITIALIZATION_INVALID:
 	});
 	return;
 }
-void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
-	return record( graphic, descriptor, commandBuffer, pass, draw );
+void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
+	return record( graphic, descriptor, commandBuffer, pass, draw, offset );
 }
-void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
+void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
 	auto shaders = getShaders( graphic.material.shaders );
+
+	// create dynamic offset ranges
+	static thread_local uf::stl::vector<uint32_t> dynamicOffsets;
+	dynamicOffsets.clear();
+
+	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 
 	bool bound = false;
 	for ( auto* shader : shaders ) {
@@ -435,13 +441,23 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 				vkCmdPushConstants( commandBuffer, pipelineLayout, shader->descriptor.stage, 0, size, data );
 			}
 		}
+		
+		dynamicOffsets.insert( dynamicOffsets.end(), shader->metadata.dynamicRanges.begin(), shader->metadata.dynamicRanges.end() );
+	}
+
+	for ( auto& dynamicOffset : dynamicOffsets ) {
+		dynamicOffset *= offset;
 	}
 
 	// no matching bind point for shaders, skip
 	if ( !bound ) return;
 
 	// Bind descriptor sets describing shader binding points
-	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint)descriptor.bind.point, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+#if VK_UBO_USE_N_BUFFERS
+	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint) descriptor.bind.point, pipelineLayout, 0, 1, &descriptorSet, dynamicOffsets.size(), dynamicOffsets.data());
+#else
+	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint) descriptor.bind.point, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+#endif
 	// Bind the rendering pipeline
 	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
 	vkCmdBindPipeline(commandBuffer, (VkPipelineBindPoint)descriptor.bind.point, pipeline);
@@ -516,50 +532,10 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		auto& infos = INFOS.emplace_back();
 		uf::stl::vector<ext::vulkan::enums::Image::viewType_t> types;
 
-		// add aliased-by-name buffers
-		for ( auto& descriptor : shader->metadata.aliases.buffers ) {
-			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
-			auto name = matches.size() == 2 ? matches[0] : descriptor.name;
-			auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
-			const ext::vulkan::Buffer* buffer = &descriptor.fallback;
-			if ( descriptor.renderMode ) {
-				if ( descriptor.renderMode->hasBuffer(name) ) 
-					buffer = &descriptor.renderMode->getBuffer(name);
-			} else if ( renderMode.hasBuffer(name) ) {
-				buffer = &renderMode.getBuffer(name);
-			}
-
-			if ( !buffer ) continue;
-
-			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer->descriptor);
-			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer->descriptor);
-		}
-	#if 0
-		// add per-rendermode buffers
-		for ( auto& buffer : renderMode.buffers ) {
+		this->collectBuffers( *shader, renderMode, graphic, [&]( const Buffer& buffer ){
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
-		}
-	#endif
-		// add per-shader buffers
-		for ( auto& buffer : shader->buffers ) {
-			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
-		}
-		// add per-pipeline buffers
-		for ( auto& buffer : this->buffers ) {
-			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
-		}
-		// add per-graphics buffers
-		for ( auto& buffer : graphic.buffers ) {
-			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
-		}
+		} );
 
 		if ( descriptor.subpass < renderTarget.passes.size() ) {
 			auto& subpass = renderTarget.passes[descriptor.subpass];
@@ -796,7 +772,8 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					));
 					samplerInfo += layout.descriptorCount;
 				} break;
-				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
 					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -807,7 +784,8 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					));
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
-				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
 					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -907,6 +885,35 @@ PIPELINE_UPDATE_INVALID:
 		this->update( graphic, descriptor );
 	});
 	return;
+}
+void ext::vulkan::Pipeline::collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const {
+	// add aliased-by-name buffers
+	for ( auto& descriptor : shader.metadata.aliases.buffers ) {
+		auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
+		auto name = matches.size() == 2 ? matches[0] : descriptor.name;
+		auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+		const ext::vulkan::Buffer* buffer = &descriptor.fallback;
+		if ( descriptor.renderMode ) {
+			if ( descriptor.renderMode->hasBuffer(name) ) 
+				buffer = &descriptor.renderMode->getBuffer(name);
+		} else if ( renderMode.hasBuffer(name) ) {
+			buffer = &renderMode.getBuffer(name);
+		}
+
+		if ( !buffer ) continue;
+
+		lambda( *buffer );
+	}
+#if 0
+	// add per-rendermode buffers
+	for ( auto& buffer : renderMode.buffers ) lambda( buffer );
+#endif
+	// add per-shader buffers
+	for ( auto& buffer : shader.buffers ) lambda( buffer );
+	// add per-pipeline buffers
+	for ( auto& buffer : this->buffers ) lambda( buffer );
+	// add per-graphics buffers
+	for ( auto& buffer : graphic.buffers ) lambda( buffer );
 }
 void ext::vulkan::Pipeline::destroy() {
 	if ( aliased ) return;
@@ -1826,10 +1833,10 @@ const ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( const GraphicDes
 void ext::vulkan::Graphic::updatePipelines() {
 	for ( auto pair : this->pipelines ) pair.second.update( *this );
 }
-void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
-	return this->record( commandBuffer, descriptor, pass, draw );
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
+	return this->record( commandBuffer, descriptor, pass, draw, offset );
 }
-void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw ) const {
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw, size_t offset ) const {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
 		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline ({} {})", descriptor.renderMode, descriptor.renderTarget);
@@ -1842,7 +1849,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		return;
 	}
 	if ( !pipeline.metadata.process ) return;
-	pipeline.record(*this, descriptor, commandBuffer, pass, draw);
+	pipeline.record(*this, descriptor, commandBuffer, pass, draw, offset);
 
 	auto shaders = pipeline.getShaders( material.shaders );
 	for ( auto* shader : shaders ) {

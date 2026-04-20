@@ -1494,7 +1494,9 @@ void uf::graph::render( uf::Object& object ) {
 }
 void uf::graph::render( pod::Graph::Storage& storage ) {	
 	auto* renderMode = uf::renderer::getCurrentRenderMode();
-	
+
+	if ( renderMode->getName() == "Gui" ) return;
+
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& camera = scene.getCamera( controller );
@@ -1508,6 +1510,8 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 		}
 	}
 #endif
+
+//	if ( controller.getName() == "Player" ) UF_MSG_DEBUG("frame={}, camera={}, renderMode={}, {}", uf::time::frame, uf::matrix::toString( viewport.matrices[0].view ), renderMode->getName(), renderMode->getType() );
 
 	storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 

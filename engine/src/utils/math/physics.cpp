@@ -22,8 +22,6 @@ void uf::physics::tick( ) {
 	return uf::physics::tick( uf::scene::getCurrentScene() );
 }
 void uf::physics::tick( uf::Object& scene ) {
-	++uf::physics::time::frame;
-	
 	uf::physics::time::previous = uf::physics::time::current;
 	uf::physics::time::current = uf::physics::time::timer.elapsed();
 	
@@ -31,7 +29,12 @@ void uf::physics::tick( uf::Object& scene ) {
 	if ( uf::physics::time::delta > uf::physics::time::clamp ) {
 		uf::physics::time::delta = uf::physics::time::clamp;
 	}
-	uf::physics::impl::tick( scene, uf::physics::time::delta );
+
+	if ( uf::physics::impl::async ) {
+		uf::thread::queue( "Physics", [&](){ uf::physics::impl::tick( scene, uf::physics::time::delta ); });	
+	} else {
+		uf::physics::impl::tick( scene, uf::physics::time::delta );
+	}
 }
 void uf::physics::terminate( ) {
 	return uf::physics::terminate( uf::scene::getCurrentScene() );

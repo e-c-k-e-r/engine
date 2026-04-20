@@ -221,9 +221,9 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 }
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
-	this->execute = true;
-
-	uf::stl::vector<ext::vulkan::Graphic*> graphics;
+	static thread_local uf::stl::vector<ext::vulkan::Graphic*> graphics;
+	graphics.clear();
+	
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -243,6 +243,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->mostRecentCommandPoolId = std::this_thread::get_id();
 	this->rebuild = false;
 	this->rerecord = false;
+	this->execute = true;
 }
 ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( std::thread::id id ) {
 	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
@@ -251,7 +252,7 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 		commands.resize( swapchain.buffers );
 
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS),
+			device->getCommandPool(this->queueEnum),
 			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			static_cast<uint32_t>(commands.size())
 		);
@@ -277,7 +278,6 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 	for ( auto& pair : container ) {
 		if ( pair.second.empty() ) continue;
 
-		auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
 		VkQueue queue = device->getQueue( queueEnum, pair.first );
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
@@ -299,7 +299,6 @@ void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
 		if ( pair.first == id ) continue;
 		if ( pair.second.empty() ) continue;
 		
-		auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
 		VkQueue queue = device->getQueue( queueEnum, pair.first );
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
@@ -319,8 +318,6 @@ void ext::vulkan::RenderMode::createCommandBuffers( const uf::stl::vector<ext::v
 
 }
 void ext::vulkan::RenderMode::bindPipelines() {
-	this->execute = true;
-
 	uf::stl::vector<ext::vulkan::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto/*&*/ graph = scene.getGraph();
@@ -333,6 +330,7 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	}
 	this->synchronize();
 	this->bindPipelines( graphics );
+	this->execute = true;
 }
 void ext::vulkan::RenderMode::bindPipelines( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	//lockMutex();
@@ -382,13 +380,15 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 	// this->width = 0; //ext::vulkan::width;
 	// this->height = 0; //ext::vulkan::height;
-	if ( this->scale == 0 ) this->scale = 1;
-	
+	if ( this->scale == 0 ) this->scale = 1;	
 	{
 		if ( this->width > 0 ) renderTarget.width = this->width;
 		if ( this->height > 0 ) renderTarget.height = this->height;
 		if ( this->scale > 0 ) renderTarget.scale = this->scale;
 	}
+
+	// set enum type
+	this->queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
 
 	// Set sync objects
 	{
@@ -403,7 +403,8 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 			VK_REGISTER_HANDLE( fence );
 		}
 		// Set sync objects
-		{
+		for ( auto i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
+			auto& renderCompleteSemaphore = renderCompleteSemaphores.emplace_back();
 			// Semaphores (Used for correct command ordering)
 			VkSemaphoreCreateInfo semaphoreCreateInfo = {};
 			semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -425,8 +426,10 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 void ext::vulkan::RenderMode::tick() {
 	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
+		if ( device ) vkDeviceWaitIdle(*device);
 		cleanupAllCommands();
 	}
+	
 	this->synchronize();
 	
 	if ( metadata.limiter.frequency > 0 ) {
@@ -445,26 +448,28 @@ void ext::vulkan::RenderMode::render() {
 }
 
 void ext::vulkan::RenderMode::destroy() {
+	if ( device ) vkDeviceWaitIdle(*device);
 	this->synchronize();
 
 	renderTarget.destroy();
 
 	for ( auto& pair : this->commands.container() ) {
 		if ( !pair.second.empty() ) {
-			vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+			vkFreeCommandBuffers( *device, device->getCommandPool(this->queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		}
 		pair.second.clear();
 	}
-	if ( renderCompleteSemaphore != VK_NULL_HANDLE ) {
+	for ( auto& renderCompleteSemaphore : renderCompleteSemaphores ) {
 		vkDestroySemaphore( *device, renderCompleteSemaphore, nullptr);
 		VK_UNREGISTER_HANDLE( renderCompleteSemaphore );
-		renderCompleteSemaphore = VK_NULL_HANDLE;
 	}
 
 	for ( auto& fence : fences ) {
 		vkDestroyFence( *device, fence, nullptr);
 		VK_UNREGISTER_HANDLE( fence );
 	}
+
+	renderCompleteSemaphores.clear();
 	fences.clear();
 	blitter.destroy();
 	ext::vulkan::Buffers::destroy();
@@ -474,9 +479,9 @@ void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 	if ( fences.empty() ) return;
 	lockMutex();
 	
-	auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
 	VkQueue queue = device->getQueue( queueEnum, this->mostRecentCommandPoolId );
 	VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout );
+//	VkResult res = vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, timeout);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 
 	unlockMutex();

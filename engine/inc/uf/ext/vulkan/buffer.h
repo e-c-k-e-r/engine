@@ -18,8 +18,9 @@ namespace ext {
 				0
 			};
 			VkDeviceSize alignment = 0;
-			size_t address = {};
+			mutable size_t address = {};
 			void* mapped = nullptr;
+			int32_t count = 1;
 
 			VkBufferUsageFlags usage = 0;
 			VkMemoryPropertyFlags memoryProperties = 0;
@@ -29,25 +30,19 @@ namespace ext {
 
 			void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 			void unmap();
-		//	void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
-		//	void unmap() const;
-		//	VkResult bind( VkDeviceSize offset = 0 );
-		//	void copyTo( void* data, VkDeviceSize size );
-		//	VkResult flush( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
-		//	VkResult invalidate( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
-
 
 			void updateDescriptor( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 			void allocate( VkBufferCreateInfo );
 
-			uint64_t getAddress();
 			uint64_t getAddress() const;
+			
+			VkDeviceSize getLength() const; // returns the aligned length for the entire buffer
+			VkDeviceSize getOffset( size_t = 0 ) const; // returns the offset / stride / length of one object within the buffer
 
-			// RAII
 			~Buffer();
 			void initialize( ext::vulkan::Device& device, size_t = {} );
 			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
-			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
+			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const; // returns true if a reallocation occurred (to signal rebuilding command buffers)
 			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 
 			void swap( Buffer& );

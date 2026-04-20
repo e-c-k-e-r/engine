@@ -9,8 +9,8 @@
 				"max": 32,
 				"shadows": {
 					"enabled": true,
-					"update": 4,
-					"max": 8,
+					"update": 8,
+					"max": 32,
 					"samples": 2
 				},
 				"bloom": {
@@ -101,7 +101,7 @@
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": false,
+					"dedicated thread": false, // mostly works
 					"memory budget": false,
 					"register render modes": true,
 					"skip render on rebuild": false
@@ -115,7 +115,7 @@
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
-					"vsync": false, // vsync on vulkan side rather than engine-side
+					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
 					"vxgi": true,
 					"culling": true,

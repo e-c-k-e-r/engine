@@ -8,8 +8,8 @@
 		"physics": {
 			"mass": 0,
 			"inertia": false,
-		//	"type": "bounding box"
-			"type": "mesh"
+			"type": "bounding box"
+		//	"type": "mesh"
 		}
 	}
 }

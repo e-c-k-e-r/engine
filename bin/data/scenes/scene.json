@@ -37,7 +37,7 @@
 			"dialogue": "/gui/dialogue/main.json"
 		},
 		"light": {
-			"enabled": true,
+			"0-enabled": true,
 
 			"ambient": [ 0.1, 0.1, 0.1 ],
 
@@ -49,7 +49,7 @@
 				"size": 8,
 				"smoothness": 0.5
 			},
-			"shadows": {
+			"0-shadows": {
 				"enabled": true
 			}
 		},

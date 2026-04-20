@@ -22,6 +22,7 @@
 #define VK_DEFAULT_STAGE_BUFFERS ext::vulkan::settings::defaultStageBuffers
 #define VK_DEFAULT_DEFER_BUFFER_DESTROY ext::vulkan::settings::defaultDeferBufferDestroy
 #define VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE ext::vulkan::settings::defaultCommandBufferImmediate
+#define VK_UBO_USE_N_BUFFERS 1
 
 namespace ext {
 	namespace vulkan {

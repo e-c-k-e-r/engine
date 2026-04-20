@@ -90,6 +90,8 @@ namespace ext {
 		void UF_API terminate( uf::Object& );
 
 		extern UF_API float timescale;
+		extern UF_API bool async;
+
 		extern UF_API bool interpolate;
 		extern UF_API bool shared;
 		extern UF_API bool globalStorage;

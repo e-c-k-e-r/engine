@@ -7,6 +7,14 @@
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/graphic.h>
 
+#define VK_COMMAND_BUFFER_CALLBACK( pass, commandBuffer, i, f ) {\
+	auto it = commandBufferCallbacks.find(pass);\
+	if ( it != commandBufferCallbacks.end() ) {\
+		commandBufferCallbacks[pass]( commandBuffer, i );\
+		f;\
+	}\
+}
+
 namespace ext {
 	namespace vulkan {
 		struct Graphic;
@@ -54,8 +62,9 @@ namespace ext {
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;
 
-			VkSemaphore renderCompleteSemaphore;
+			uf::stl::vector<VkSemaphore> renderCompleteSemaphores;
 			uf::stl::vector<VkFence> fences;
+			uf::renderer::QueueEnum queueEnum = {};
 			
 			typedef uf::stl::vector<VkCommandBuffer> commands_container_t;
 			std::thread::id mostRecentCommandPoolId;

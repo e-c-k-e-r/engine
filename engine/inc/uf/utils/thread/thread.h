@@ -40,6 +40,7 @@ namespace pod {
 			std::condition_variable queued;
 			std::condition_variable finished;
 		} conditions;
+
 		std::thread thread;
 
 		pod::Thread::queue_t queue;
@@ -47,6 +48,7 @@ namespace pod {
 
 		uf::Timer<long long> timer;
 		uint affinity = 0;
+		std::atomic<int> pending{0};
 
 		struct UF_API Tasks {
 			uf::stl::string name = uf::thread::workerThreadName;
@@ -112,7 +114,11 @@ namespace uf {
 		// schedules to named thread
 		inline void queue( const uf::stl::string& name, const pod::Thread::function_t& fun ) { return uf::thread::queue( uf::thread::get(name), fun ); }
 		inline void add( const uf::stl::string& name, const pod::Thread::function_t& fun ) { return uf::thread::add( uf::thread::get(name), fun ); }
-		
+
+	/*
+		template<typename F>
+		inline void queue( const uf::stl::string& name, const F& fun ) { return uf::thread::queue( uf::thread::get(name), [=](){ fun(); } ); }
+	*/
 		void UF_API process( pod::Thread& );
 
 		void UF_API wait( pod::Thread& );

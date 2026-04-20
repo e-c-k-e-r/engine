@@ -753,6 +753,8 @@ void UF_API uf::initialize() {
 }
 
 void UF_API uf::tick() {
+	++uf::time::frame;
+
 #if 1
 	if ( /*global*/::sceneTransition.phase >= 0 ) {
 		auto target = /*global*/::sceneTransition.payload["scene"].as<uf::stl::string>();
@@ -837,13 +839,14 @@ void UF_API uf::tick() {
 					lMetadata["light"]["color"][2] = (rand() % 100) / 100.0;
 				}
 				auto& sMetadata = scene.getComponent<uf::Serializer>();
-				sMetadata["light"]["should"] = true;
+				sMetadata["light"]["enabled"] = true;
 			}
 		}
 	}
 #endif
 	/* Update physics timer */ {
-	//	uf::physics::tick();
+		// to-do: add setting to either run in main thread or defer to a background thread
+		uf::physics::tick();
 	}
 	/* Update entities */ {
 		uf::scene::tick();

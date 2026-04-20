@@ -77,7 +77,6 @@ namespace {
 
 		constexpr auto numBins = 16;
 		static thread_local Bin bins[numBins];
-		for ( auto i = 0; i < numBins; i++ ) bins[i].count = 0;
 
 		auto extent = bound.max - bound.min;
 		auto bestAxis = -1, bestSplit = -1;
@@ -85,6 +84,10 @@ namespace {
 
 		for ( auto axis = 0; axis < 3; ++axis ) {
 			if ( extent[axis] < EPS(1e-6f) ) continue;
+			for ( auto i = 0; i < numBins; i++ ) {
+				bins[i].count = 0;
+				bins[i].bounds = {};
+			}
 
 			float minC = bound.min[axis];
 			float maxC = bound.max[axis];
@@ -203,10 +206,10 @@ namespace {
 		if ( bvh.indices.empty() ) return; // inserted nothing
 
 		// recursively build BVH from indices
-		if ( ::useBvhSahBodies ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
+		if ( uf::physics::impl::settings.useBvhSahBodies ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 		// flatten if requested
-		if ( ::flattenBvhBodies ) ::flattenBVH( bvh, 0 );
+		if ( uf::physics::impl::settings.flattenBvhBodies ) ::flattenBVH( bvh, 0 );
 
 		// mark as clean
 		bvh.dirty = false;
@@ -245,10 +248,10 @@ namespace {
 		}
 
 		// recursively build BVH from indices
-		if ( ::useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
+		if ( uf::physics::impl::settings.useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 		// flatten if requested
-		if ( ::flattenBvhMeshes ) ::flattenBVH( bvh, 0 );
+		if ( uf::physics::impl::settings.flattenBvhMeshes ) ::flattenBVH( bvh, 0 );
 
 		// mark as clean
 		bvh.dirty = false;
@@ -316,7 +319,7 @@ namespace {
 
 		// update leaf bounds
 		uf::stl::vector<pod::BVH::index_t> leaves;
-		leaves.reserve(::reserveCount);
+		leaves.reserve(uf::physics::impl::settings.reserveCount);
 		for ( auto i = 0; i < bvh.nodes.size(); i++ ) {
 			if ( bvh.nodes[i].getCount() == 0 ) continue;
 			leaves.emplace_back(i);
@@ -333,7 +336,7 @@ namespace {
 		}
 
 		// update internal nodes bottom-up
-		for ( pod::BVH::index_t i = (pod::BVH::index_t) bvh.nodes.size() - 1; i >= 0; i-- ) {
+		for ( int64_t i = (int64_t) bvh.nodes.size() - 1; i >= 0; i-- ) {
 			auto& node = bvh.nodes[i];
 			auto& bound = bvh.bounds[i];
 			// internal node
@@ -534,7 +537,7 @@ namespace {
 		if ( !bvh.flattened.empty() ) return ::queryFlatOverlaps( bvh, outPairs );
 
 		if ( bvh.nodes.empty() ) return;
-		outPairs.reserve(::reserveCount);
+		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseBVH( bvh, 0, outPairs );
 	}
 
@@ -542,7 +545,7 @@ namespace {
 		if ( !bvhA.flattened.empty() && !bvhB.flattened.empty() ) return ::queryFlatOverlaps( bvhA, bvhB, outPairs );
 
 		if ( bvhA.nodes.empty() || bvhB.nodes.empty() ) return;
-		outPairs.reserve(::reserveCount);
+		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseNodePair(bvhA, 0, bvhB, 0, outPairs);
 	}
 }
@@ -554,7 +557,7 @@ namespace {
 		
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, bounds, outIndices );
 
-		outIndices.reserve(::reserveCount);
+		outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		static thread_local uf::stl::stack<pod::BVH::index_t> stack;
 		//stack.clear(); // there is no stack.clear(), and the stack should already be cleared by the end of this function
@@ -581,7 +584,7 @@ namespace {
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& outIndices, pod::BVH::index_t nodeID ) {
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, bounds, outIndices );
 
-		if ( nodeID == 0 ) outIndices.reserve(::reserveCount);
+		if ( nodeID == 0 ) outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		const auto& node = bvh.nodes[nodeID];
 		if ( node.isAsleep() || !::aabbOverlap( bounds, bvh.bounds[nodeID] ) ) return;
@@ -601,7 +604,7 @@ namespace {
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, ray, outIndices, maxDist );
 
 		if ( bvh.nodes.empty() ) return;
-		outIndices.reserve(::reserveCount);
+		outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		static thread_local uf::stl::stack<pod::BVH::index_t> stack;
 		//stack.clear(); // there is no stack.clear(), and the stack should already be cleared by the end of this function
@@ -627,7 +630,7 @@ namespace {
 	void queryBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<pod::BVH::index_t>& outIndices, pod::BVH::index_t nodeID, float maxDist ) {
 		if ( !bvh.flattened.empty() ) return ::queryFlatBVH( bvh, ray, outIndices, maxDist );
 
-		if ( nodeID == 0 ) outIndices.reserve(::reserveCount);
+		if ( nodeID == 0 ) outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		const auto& node = bvh.nodes[nodeID];
 		float tMin, tMax;
@@ -649,63 +652,81 @@ namespace {
 namespace {
 	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs ) {
 		auto& nodes = bvh.flattened;
+		auto& bounds = bvh.flatBounds;
 		auto& indices = bvh.indices;
 
-		outPairs.reserve(::reserveCount);
+		if ( nodes.empty() ) return;
+		outPairs.reserve( uf::physics::impl::settings.reserveCount );
 
-		for ( auto i = 0; i < nodes.size(); ++i ) {
-			const auto& nodeA = nodes[i];
+		for ( pod::BVH::index_t a = 0; a < nodes.size(); ++a ) {
+			const auto& nodeA = nodes[a];
 			if ( nodeA.getCount() <= 0 || nodeA.isAsleep() ) continue;
 
-			for ( auto j = i + 1; j < nodes.size(); ++j ) {
-				const auto& nodeB = nodes[j];
-				if ( nodeB.getCount() <= 0 || nodeB.isAsleep() ) continue;
+			const auto& boundsA = bounds[a];
+			pod::BVH::index_t b = a + 1;
+			while ( b < nodes.size() ) {
+				const auto& nodeB = nodes[b];
 
-				if ( !::aabbOverlap( bvh.flatBounds[i], bvh.flatBounds[j] ) ) continue;
+				if ( nodeB.isAsleep() || !::aabbOverlap( boundsA, bounds[b] ) ) {
+					b = nodeB.skipIndex;
+					continue;
+				}
 
-				for ( auto ia = 0; ia < nodeA.getCount(); ++ia ) {
-					for ( auto ib = 0; ib < nodeB.getCount(); ++ib ) {
-						auto indexA = indices[nodeA.start + ia];
-						auto indexB = indices[nodeB.start + ib];
+				if ( nodeB.getCount() > 0 ) {
+					for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
+						for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
+							auto indexA = indices[nodeA.start + ia];
+							auto indexB = indices[nodeB.start + ib];
 
-						if ( indexA == indexB ) continue;
-						if ( indexA > indexB ) std::swap( indexA, indexB );
+							if ( indexA == indexB ) continue;
+							if ( indexA > indexB ) std::swap(indexA, indexB);
 
-						outPairs.emplace( indexA, indexB );
+							outPairs.emplace( indexA, indexB );
+						}
 					}
 				}
+				++b;
 			}
 		}
 	}
 	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs ) {
 		auto& nodesA = bvhA.flattened;
+		auto& boundsA = bvhA.flatBounds;
 		auto& indicesA = bvhA.indices;
-		
+
 		auto& nodesB = bvhB.flattened;
+		auto& boundsB = bvhB.flatBounds;
 		auto& indicesB = bvhB.indices;
 
 		if ( nodesA.empty() || nodesB.empty() ) return;
-		
-		outPairs.reserve(::reserveCount);
+		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 
-		for ( auto i = 0; i < nodesA.size(); ++i ) {
-			const auto& nodeA = nodesA[i];
+		for ( pod::BVH::index_t a = 0; a < nodesA.size(); ++a ) {
+			const auto& nodeA = nodesA[a];
 			if ( nodeA.getCount() <= 0 || nodeA.isAsleep() ) continue;
 
-			for ( auto j = 0; j < nodesB.size(); ++j ) {
-				const auto& nodeB = nodesB[j];
-				if ( nodeB.getCount() <= 0 || nodeB.isAsleep() ) continue;
+			const auto& bA = boundsA[a];
 
-				if ( !::aabbOverlap( bvhA.flatBounds[i], bvhB.flatBounds[j] ) ) continue;
+			pod::BVH::index_t b = 0;
+			while ( b < nodesB.size() ) {
+				const auto& nodeB = nodesB[b];
 
-				for ( auto ia = 0; ia < nodeA.getCount(); ++ia ) {
-					for (auto ib = 0; ib < nodeB.getCount(); ++ib ) {
-						auto indexA = indicesA[nodeA.start + ia];
-						auto indexB = indicesB[nodeB.start + ib];
+				if ( nodeB.isAsleep() || !::aabbOverlap(bA, boundsB[b]) ) {
+					b = nodeB.skipIndex;
+					continue;
+				}
 
-						outPairs.emplace( indexA, indexB );
+				if ( nodeB.getCount() > 0 ) {
+					for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
+						for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
+							auto indexA = indicesA[nodeA.start + ia];
+							auto indexB = indicesB[nodeB.start + ib];
+
+							outPairs.emplace(indexA, indexB);
+						}
 					}
 				}
+				++b;
 			}
 		}
 	}
@@ -714,7 +735,7 @@ namespace {
 		auto& nodes = bvh.flattened;
 		auto& indices = bvh.indices;
 
-		outIndices.reserve(::reserveCount);
+		outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		pod::BVH::index_t idx = 0;
 		while ( idx < nodes.size() ) {
@@ -738,7 +759,7 @@ namespace {
 		auto& nodes = bvh.flattened;
 		auto& indices = bvh.indices;
 
-		outIndices.reserve(::reserveCount);
+		outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		pod::BVH::index_t idx = 0;
 		while ( idx < nodes.size() ) {
@@ -802,7 +823,8 @@ namespace {
 		}
 
 		// map root to island index
-		uf::stl::unordered_map<pod::BVH::index_t, pod::BVH::index_t> rootToIsland;
+		static thread_local uf::stl::unordered_map<pod::BVH::index_t, pod::BVH::index_t> rootToIsland;
+		rootToIsland.clear();
 
 		islands.clear();
 		islands.reserve(bodies.size());

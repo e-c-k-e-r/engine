@@ -484,18 +484,17 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						etype,
 					};
 				} break;
-				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
 					size_t bufferSize = comp.get_declared_struct_size(base_type);
 					if ( bufferSize <= 0 ) break;
 					if ( bufferSize > device.properties.limits.maxUniformBufferRange ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer length of " << bufferSize << " for shader " << filename);
 						bufferSize = device.properties.limits.maxUniformBufferRange;
 					}
-					size_t misalignment = bufferSize % device.properties.limits.minStorageBufferOffsetAlignment;
-					if ( misalignment != 0 ) {
-						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer alignment of " << misalignment << " for shader " << filename << ", correcting...");
-						bufferSize += misalignment;
-					}
+
+					bufferSize = ALIGNED_SIZE( bufferSize, device.properties.limits.minUniformBufferOffsetAlignment );
+
 					{
 						VK_DEBUG_VALIDATION_MESSAGE("Uniform size of " << bufferSize << " for shader " << filename);
 					//	auto& uniform = uniforms.emplace_back();
@@ -518,14 +517,20 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						binding,
 						bufferSize,
 					};
+
+					if ( descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ) {
+						metadata.dynamicRanges.emplace_back( bufferSize );
+					}
 				} break;
-				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
 					// generate definition to JSON
 				#if UF_SHADER_PARSE_AS_JSON
 					{
 						metadata.json["definitions"]["storage"][name]["name"] = name;
 						metadata.json["definitions"]["storage"][name]["index"] = index;
 						metadata.json["definitions"]["storage"][name]["binding"] = binding;
+					//	metadata.json["definitions"]["storage"][name]["size"] = bufferSize;
 						metadata.json["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
 					}
 				#endif
@@ -567,7 +572,11 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		LOOP_RESOURCES( storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		LOOP_RESOURCES( separate_samplers, VK_DESCRIPTOR_TYPE_SAMPLER );
 		LOOP_RESOURCES( subpass_inputs, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
+	#if VK_UBO_USE_N_BUFFERS
+		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC );
+	#else
 		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+	#endif
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 		LOOP_RESOURCES( acceleration_structures, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR );
 		#undef LOOP_RESOURCES

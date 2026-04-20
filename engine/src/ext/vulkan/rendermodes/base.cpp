@@ -90,10 +90,10 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	scissor.offset.x = 0;
 	scissor.offset.y = 0;
 	
-	for (size_t i = 0; i < commands.size(); ++i) {
+	for (size_t frame = 0; frame < commands.size(); ++frame) {
 		
-		auto& commandBuffer = commands[i];
-		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
+		auto& commandBuffer = commands[frame];
+		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[frame];
 		
 
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
@@ -106,34 +106,33 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 				imageMemoryBarrier.srcAccessMask = 0;
 				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+				imageMemoryBarrier.oldLayout = renderTarget.attachments[frame].descriptor.layout;
 				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 				// explicitly transfer queue-ownership
 				if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
-					imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.present;
-					imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics;
-				} else {
 					imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
 					imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
+				} else {
+					imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.present;
+					imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics;
 				}
-				imageMemoryBarrier.image = renderTarget.attachments[i].image;
+				imageMemoryBarrier.image = renderTarget.attachments[frame].image;
 				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
 				imageMemoryBarrier.subresourceRange.levelCount = 1;
 				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 				imageMemoryBarrier.subresourceRange.layerCount = 1;
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
+				renderTarget.attachments[frame].descriptor.layout = imageMemoryBarrier.newLayout;
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
 				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
 			
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_BEGIN, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[begin]" );
-				commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
-			}
+			} );
 
 			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "renderPass[begin]" );
 			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -151,17 +150,16 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("blitter[{}: {}]", layer->getName(), layer->getType()) );
-						blitter.record(commandBuffer, descriptor);
+						blitter.record(commandBuffer, descriptor, 0, 0, frame);
 					}
 				}
 			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "renderPass[end]" );
 			vkCmdEndRenderPass(commandBuffer);
 
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
-				commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
-			}
+			} );
 
 			// need to transfer it back, if they differ
 			if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
@@ -169,18 +167,18 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-				imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+				imageMemoryBarrier.oldLayout = renderTarget.attachments[frame].descriptor.layout;
 				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 				imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
 				imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
-				imageMemoryBarrier.image = renderTarget.attachments[i].image;
+				imageMemoryBarrier.image = renderTarget.attachments[frame].image;
 
 				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
 				imageMemoryBarrier.subresourceRange.levelCount = 1;
 				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 				imageMemoryBarrier.subresourceRange.layerCount = 1;
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
+				renderTarget.attachments[frame].descriptor.layout = imageMemoryBarrier.newLayout;
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
 				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
@@ -205,10 +203,13 @@ void ext::vulkan::BaseRenderMode::render() {
 //	if ( ext::vulkan::renderModes.size() > 1 ) return;
 //	if ( ext::vulkan::renderModes.back() != this ) return;
 
+	if ( this->commands.container().empty() ) return;
+
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
+
 	// Get next image in the swap chain (back/front buffer)
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphores[0]));
 
 	// Use a fence to wait until the command buffer has finished execution before using it again
 	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
@@ -219,32 +220,39 @@ void ext::vulkan::BaseRenderMode::render() {
 	// The submit info structure specifices a command buffer queue submission batch
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pWaitDstStageMask = waitStageMask;												// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[0];						// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;															// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer]; 			// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;														// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];								// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence
-//	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));	
+#if 1
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));	
+#else
 	{
 		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
+#endif
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
 	// This ensures that the image is not presented to the windowing system until all commands have been submitted
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
-//	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT )));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphores[states::currentBuffer]));
+
+#if 1
+	//VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT )));
+#else
 	{
 		VkQueue queue = device->getQueue( QueueEnum::PRESENT );
 		VkResult res = vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT ));
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
+#endif
 
 	this->executed = true;
 
@@ -276,7 +284,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 //	uint32_t height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
 	size_t attachmentIndex = 0;
-	for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
+	for ( size_t frame = 0; frame < ext::vulkan::swapchain.buffers; ++frame ) {
 		VkImageViewCreateInfo colorAttachmentView = {};
 		colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		colorAttachmentView.pNext = NULL;
@@ -294,20 +302,20 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		colorAttachmentView.subresourceRange.layerCount = 1;
 		colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		colorAttachmentView.flags = 0;
-		colorAttachmentView.image = images[i];
+		colorAttachmentView.image = images[frame];
 
-		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
-		VK_REGISTER_HANDLE( renderTarget.attachments[i].view );
+		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[frame].view));
+		VK_REGISTER_HANDLE( renderTarget.attachments[frame].view );
 
-		renderTarget.attachments[i].descriptor.format = ext::vulkan::settings::formats::color;
-	//	renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		renderTarget.attachments[i].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		renderTarget.attachments[i].descriptor.aliased = true;
-		renderTarget.attachments[i].image = images[i];
-		renderTarget.attachments[i].mem = VK_NULL_HANDLE;
+		renderTarget.attachments[frame].descriptor.format = ext::vulkan::settings::formats::color;
+	//	renderTarget.attachments[frame].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		renderTarget.attachments[frame].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		renderTarget.attachments[frame].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		renderTarget.attachments[frame].descriptor.aliased = true;
+		renderTarget.attachments[frame].image = images[frame];
+		renderTarget.attachments[frame].mem = VK_NULL_HANDLE;
 
-		metadata.attachments["color["+std::to_string((int) i)+"]"] = attachmentIndex++;
+		metadata.attachments["color["+std::to_string((int) frame)+"]"] = attachmentIndex++;
 	}
 	{
 		// Create depth
@@ -523,10 +531,10 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	{	
 		// Create a frame buffer for every image in the swapchain
 		renderTarget.framebuffers.resize(images.size());
-		for (size_t i = 0; i < renderTarget.framebuffers.size(); i++)
+		for (size_t frame = 0; frame < renderTarget.framebuffers.size(); frame++)
 		{
 			std::array<VkImageView, 2> attachments;										
-			attachments[0] = renderTarget.attachments[i].view;									// Color attachment is the view of the swapchain image			
+			attachments[0] = renderTarget.attachments[frame].view;									// Color attachment is the view of the swapchain image			
 			attachments[1] = renderTarget.attachments[metadata.attachments["depth"]].view;		// Depth/Stencil attachment is the same for all frame buffers			
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
@@ -539,32 +547,32 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 			frameBufferCreateInfo.height = height;
 			frameBufferCreateInfo.layers = 1;
 			// Create the framebuffer
-			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &renderTarget.framebuffers[i]));
-			VK_REGISTER_HANDLE(renderTarget.framebuffers[i]);
+			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &renderTarget.framebuffers[frame]));
+			VK_REGISTER_HANDLE(renderTarget.framebuffers[frame]);
 		}
 	
 	}
 #if 0
 	if ( true ) {
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
-		for ( size_t i = 0; i < images.size(); ++i ) {
+		for ( size_t frame = 0; frame < images.size(); ++frame ) {
 			VkImageMemoryBarrier imageMemoryBarrier = {};
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			imageMemoryBarrier.srcAccessMask = 0;
 			imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+			imageMemoryBarrier.oldLayout = renderTarget.attachments[frame].descriptor.layout;
 			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.present;
 			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics;
 
-			imageMemoryBarrier.image = renderTarget.attachments[i].image;
+			imageMemoryBarrier.image = renderTarget.attachments[frame].image;
 			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
 			imageMemoryBarrier.subresourceRange.levelCount = 1;
 			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 			imageMemoryBarrier.subresourceRange.layerCount = 1;
 			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
+			renderTarget.attachments[frame].descriptor.layout = imageMemoryBarrier.newLayout;
 
 			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 		}
@@ -597,15 +605,16 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 */
 	// Set sync objects
-	{
+	for ( auto i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
+		auto& presentCompleteSemaphore = swapchain.presentCompleteSemaphores.emplace_back();
 		// Semaphores (Used for correct command ordering)
 		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
 		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 		semaphoreCreateInfo.pNext = nullptr;
 
 		// Semaphore used to ensures that image presentation is complete before starting to submit again
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapchain.presentCompleteSemaphore));
-		VK_REGISTER_HANDLE(swapchain.presentCompleteSemaphore);
+		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
+		VK_REGISTER_HANDLE(presentCompleteSemaphore);
 	}
 }
 
@@ -616,11 +625,11 @@ void ext::vulkan::BaseRenderMode::destroy() {
 		renderTarget.renderPass = VK_NULL_HANDLE;
 	}
 	
-	for ( uint32_t i = 0; i < renderTarget.framebuffers.size(); i++ ) {
-		if ( renderTarget.framebuffers[i] != VK_NULL_HANDLE ) {
-			vkDestroyFramebuffer( *device, renderTarget.framebuffers[i], nullptr );
-			VK_UNREGISTER_HANDLE( renderTarget.framebuffers[i] );
-			renderTarget.framebuffers[i] = VK_NULL_HANDLE;
+	for ( uint32_t frame = 0; frame < renderTarget.framebuffers.size(); frame++ ) {
+		if ( renderTarget.framebuffers[frame] != VK_NULL_HANDLE ) {
+			vkDestroyFramebuffer( *device, renderTarget.framebuffers[frame], nullptr );
+			VK_UNREGISTER_HANDLE( renderTarget.framebuffers[frame] );
+			renderTarget.framebuffers[frame] = VK_NULL_HANDLE;
 		}
 	}
 	for ( auto& attachment : renderTarget.attachments ) {
@@ -650,10 +659,11 @@ void ext::vulkan::BaseRenderMode::destroy() {
 	
 	ext::vulkan::RenderMode::destroy();
 
-	if ( swapchain.presentCompleteSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( *device, swapchain.presentCompleteSemaphore, nullptr);
-		VK_UNREGISTER_HANDLE( swapchain.presentCompleteSemaphore );
+	for ( auto& presentCompleteSemaphore : swapchain.presentCompleteSemaphores ) {
+		vkDestroySemaphore( *device, presentCompleteSemaphore, nullptr);
+		VK_UNREGISTER_HANDLE( presentCompleteSemaphore );
 	}
+	swapchain.presentCompleteSemaphores.clear();
 }
 
 ext::vulkan::GraphicDescriptor ext::vulkan::BaseRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {

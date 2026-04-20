@@ -4,50 +4,6 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/memory/stack.h>
 
-namespace {
-	bool warmupSolver = true; // cache manifold data to warm up the solver
-	bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
-	bool psgContactSolver = true; // use PSG contact solver
-	bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
-	bool fixedStep = false; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
-	uint32_t substeps = 4; // number of substeps per frame tick
-	uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
-
-	// increasing these make things lag for reasons I can imagine why
-	uint32_t broadphaseBvhCapacity = 4; // number of bodies per leaf node
-	uint32_t meshBvhCapacity = 4; // number of triangles per leaf node
-
-	// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
-	bool flattenBvhBodies = true;
-	bool flattenBvhMeshes = true;
-	
-	// use surface area heuristics for building the BVH, rather than naive splits
-	bool useBvhSahBodies = true; // it actually seems slower to use these......
-	bool useBvhSahMeshes = true;
-
-	bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects
-
-	// to-do: find possibly better values for this
-	uint32_t solverIterations = 10;
-	float baumgarteCorrectionPercent = 0.4f;
-	float baumgarteCorrectionSlop = 0.01f;
-	
-	uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
-	uint32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
-
-	uint32_t frameCounter = 0;
-
-	// to-do: tweak this to not be annoying
-	pod::BVH::UpdatePolicy bvhUpdatePolicy = {
-		.displacementThreshold = 0.25f,
-		.overlapThreshold = 2.0f,
-		.dirtyRatioThreshold = 0.3f,
-		.maxFramesBeforeRebuild = 60, // * 10, // 10 seconds
-	};
-
-	float groundedThreshold = 0.7f; // threshold before marking a body as grounded
-}
-
 #define EPS(x) 1.0e-6f
 #define EPS2 (EPS(1.0e-6) * EPS(1.0e-6))
 #define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
@@ -67,8 +23,12 @@ namespace {
 #include "integration.inl"
 #include "solvers.inl"
 
-// unused, as these are from reactphysics
+pod::PhysicsSettings uf::physics::impl::settings;
+
 float uf::physics::impl::timescale = 1.0f / 60.0f;
+bool uf::physics::impl::async = false;
+
+// unused, as these are from reactphysics
 bool uf::physics::impl::interpolate = false;
 bool uf::physics::impl::shared = false;
 bool uf::physics::impl::globalStorage = false;
@@ -90,9 +50,8 @@ void uf::physics::impl::tick( uf::Object& object, float dt ) {
 	uf::physics::impl::tick( object.getComponent<pod::World>(), dt );
 }
 void uf::physics::impl::tick( pod::World& world, float dt ) {
-	if ( !::fixedStep ) {
-
-		if ( ::substeps > 0 ) uf::physics::impl::substep( world, dt, ::substeps );
+	if ( !uf::physics::impl::settings.fixedStep ) {
+		if ( uf::physics::impl::settings.substeps > 0 ) uf::physics::impl::substep( world, dt, uf::physics::impl::settings.substeps );
 		else uf::physics::impl::step( world, dt );
 
 		return;
@@ -101,7 +60,7 @@ void uf::physics::impl::tick( pod::World& world, float dt ) {
 	static float accumulator = 0;
 	accumulator += dt; 
 	while ( accumulator >= uf::physics::impl::timescale ) { 
-		if ( ::substeps > 0 ) uf::physics::impl::substep( world, uf::physics::impl::timescale, ::substeps ); 
+		if ( uf::physics::impl::settings.substeps > 0 ) uf::physics::impl::substep( world, uf::physics::impl::timescale, uf::physics::impl::settings.substeps ); 
 		else uf::physics::impl::step( world, uf::physics::impl::timescale ); 
 		accumulator -= uf::physics::impl::timescale; 
 	}
@@ -130,20 +89,20 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 
 	if ( bodies.empty() ) return;
 
-	++::frameCounter;
+	++uf::physics::impl::settings.frameCounter;
 
 	for ( auto* body : bodies ) {
 		::integrate( *body, dt );
 	}
 
 	// rebuild static bvh if dirty
-	if ( staticBvh.dirty && ::useSplitBvhs ) {
-		::buildBroadphaseBVH( staticBvh, bodies, ::broadphaseBvhCapacity, ::useSplitBvhs, true ); // (re)build
+	if ( staticBvh.dirty && uf::physics::impl::settings.useSplitBvhs ) {
+		::buildBroadphaseBVH( staticBvh, bodies, uf::physics::impl::settings.broadphaseBvhCapacity, uf::physics::impl::settings.useSplitBvhs, true ); // (re)build
 	}
 
-	switch ( ::decideBVHUpdate( dynamicBvh, bodies, ::bvhUpdatePolicy, ::frameCounter ) ) {
+	switch ( ::decideBVHUpdate( dynamicBvh, bodies, uf::physics::impl::settings.bvhUpdatePolicy, uf::physics::impl::settings.frameCounter ) ) {
 		case pod::BVH::UpdatePolicy::Decision::REBUILD: {
-			::buildBroadphaseBVH( dynamicBvh, bodies, ::broadphaseBvhCapacity, ::useSplitBvhs, false ); // (re)build
+			::buildBroadphaseBVH( dynamicBvh, bodies, uf::physics::impl::settings.broadphaseBvhCapacity, uf::physics::impl::settings.useSplitBvhs, false ); // (re)build
 		} break;
 		case pod::BVH::UpdatePolicy::Decision::REFIT: {
 			::refitBVH( dynamicBvh, bodies ); // refit
@@ -157,7 +116,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	// query for overlaps
 	pod::BVH::pairs_t pairs;
 	::queryOverlaps( dynamicBvh, pairs );
-	if ( ::useSplitBvhs ) {
+	if ( uf::physics::impl::settings.useSplitBvhs ) {
 		::queryOverlaps( dynamicBvh, staticBvh, pairs );
 	}
 
@@ -165,13 +124,14 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 	uf::stl::vector<pod::Island> islands;
 	::buildIslands( pairs, bodies, islands );
 
-	if ( ::warmupSolver ) ::prepareManifoldCache( ::manifoldsCache, islands, bodies );
+	if ( uf::physics::impl::settings.warmupSolver ) ::prepareManifoldCache( uf::physics::impl::settings.manifoldsCache, islands, bodies );
 
 	// iterate islands
 	#pragma omp parallel for schedule(dynamic)
 	for ( auto& island : islands ) {
-		uf::stl::vector<pod::Manifold> manifolds;
-		manifolds.reserve(::reserveCount);
+		static thread_local uf::stl::vector<pod::Manifold> manifolds;
+		manifolds.clear();
+		manifolds.reserve(uf::physics::impl::settings.reserveCount);
 
 		// sleeping island, skip
 		if ( !::updateIsland( island, bodies, dt ) ) continue;
@@ -190,9 +150,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 				for ( auto& c : manifold.points ) c.normal = ::orientNormalToAB( a, b, c.normal );
 			}
 			// retrieve accumulated impulses
-			if ( ::warmupSolver ) {
-				auto it = ::manifoldsCache.find( ::makePairKey( a, b ) );
-				if ( it != ::manifoldsCache.end() ) ::retrieveContacts( manifold, it->second );
+			if ( uf::physics::impl::settings.warmupSolver ) {
+				auto it = uf::physics::impl::settings.manifoldsCache.find( ::makePairKey( a, b ) );
+				if ( it != uf::physics::impl::settings.manifoldsCache.end() ) ::retrieveContacts( manifold, it->second );
 			}
 			// merge similar contacts from a mesh to ensure continuity
 			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) {
@@ -207,7 +167,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			if ( b.activity.awake && !a.activity.awake ) ::wakeBody( a );
 			// mark as grounded
 			for ( auto& c : manifold.points ) {
-				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > ::groundedThreshold ) {
+				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > uf::physics::impl::settings.groundedThreshold ) {
 					// only mark if contact point is below body
 			        if ( c.point.y < getPosition(a).y ) a.activity.grounded = true;
 			        if ( c.point.y < getPosition(b).y ) b.activity.grounded = true;
@@ -223,12 +183,12 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		// do position correction
 		::solvePositions( manifolds, dt );
 		// cache manifold positions
-		if ( ::warmupSolver ) {
-            ::updateManifoldCache( manifolds, ::manifoldsCache );
+		if ( uf::physics::impl::settings.warmupSolver ) {
+            ::updateManifoldCache( manifolds, uf::physics::impl::settings.manifoldsCache );
         }
 	}
 
-	if ( ::warmupSolver ) ::pruneManifoldCache( ::manifoldsCache );
+	if ( uf::physics::impl::settings.warmupSolver ) ::pruneManifoldCache( uf::physics::impl::settings.manifoldsCache );
 
 	for ( auto* b : bodies ) {
 		if ( b->isStatic ) continue;
@@ -381,7 +341,7 @@ void uf::physics::impl::applyForce( pod::PhysicsBody& body, const pod::Vector3f&
 	if ( body.isStatic ) return; ::wakeBody( body );
 	body.forceAccumulator += force;
 }
-void uf::physics::impl::applyForceAtPoint( pod::PhysicsBody body, const pod::Vector3f& force, const pod::Vector3f& point ) {
+void uf::physics::impl::applyForceAtPoint( pod::PhysicsBody& body, const pod::Vector3f& force, const pod::Vector3f& point ) {
 	if ( body.isStatic ) return; ::wakeBody( body );
 	// linear force
 	body.forceAccumulator += force;
@@ -483,7 +443,7 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 
 	body.collider.mesh.bvh = new pod::BVH;
 	auto& bvh = *body.collider.mesh.bvh;
-	::buildMeshBVH( bvh, mesh, ::meshBvhCapacity );
+	::buildMeshBVH( bvh, mesh, uf::physics::impl::settings.meshBvhCapacity );
 
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
@@ -562,7 +522,7 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
 	candidates.clear();
 	::queryBVH( dynamicBvh, ray, candidates );
-	if ( ::useSplitBvhs ) ::queryBVH( staticBvh, ray, candidates );
+	if ( uf::physics::impl::settings.useSplitBvhs ) ::queryBVH( staticBvh, ray, candidates );
 
 	for ( auto i : candidates ) {
 		auto* b = bodies[i];

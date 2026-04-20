@@ -6,6 +6,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/io/fmt.h>
+#include <uf/engine/ext.h>
 #include <regex>
 
 UF_OBJECT_REGISTER_BEGIN(uf::Scene)
@@ -268,7 +269,7 @@ void uf::scene::tick() {
 	auto& scene = uf::scene::getCurrentScene();
 	auto/*&*/ graph = scene.getGraph(true);
 	
-	uf::physics::tick( scene );
+//	uf::physics::tick( scene );
 
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = scene.getComponent<uf::SceneBehavior::Metadata>();

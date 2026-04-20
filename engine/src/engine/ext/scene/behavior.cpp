@@ -767,8 +767,7 @@ void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
 	}
 }
 void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
-	serializer["light"]["should"] = /*this->*/light.enabled;
-
+	serializer["light"]["enabled"] = /*this->*/light.enabled;
 	serializer["light"]["ambient"] = uf::vector::encode( /*this->*/light.ambient );
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
@@ -834,7 +833,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shadow.update = serializer["light"]["shadows"]["update"].as(/*this->*/shadow.update);
 	/*this->*/shadow.typeMap = serializer["light"]["shadows"]["map type"].as(/*this->*/shadow.typeMap);
 
-	/*this->*/light.enabled = serializer["light"]["enabled"].as(/*this->*/light.enabled) && serializer["light"]["should"].as(/*this->*/light.enabled);
+	/*this->*/light.enabled = serializer["light"]["enabled"].as(/*this->*/light.enabled) && serializer["light"]["enabled"].as(/*this->*/light.enabled);
 	/*this->*/light.max = serializer["light"]["max"].as(/*this->*/light.max);
 	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], /*this->*/light.ambient);
 
@@ -1228,6 +1227,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
 	if ( !shader.hasUniform("UBO") ) return;
 	//UF_MSG_DEBUG( "{}: {} {} // {}", uf::string::toString( self ), shaderType, shaderPipeline, uf::string::toString( uf::scene::getCurrentScene() ) );
+
+//	if ( controller.getName() == "Player" ) UF_MSG_DEBUG("frame={}, camera={}", uf::time::frame, uf::matrix::toString( uniforms.matrices[0].view ));
+
 	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 
 	bool shouldUpdate2 = !uf::matrix::equals( uniforms.matrices[0].view, previousUniforms.matrices[0].view, 0.0001f );

@@ -140,7 +140,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
 
-			UF_MSG_DEBUG("entity={}, min={}, max={}", uf::string::toString( *this ), uf::vector::toString( min ), uf::vector::toString( max ));
 		#if UF_USE_REACTPHYSICS
 			auto center = ( max + min ) * 0.5f;
 			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) offset = (center - transform.position);

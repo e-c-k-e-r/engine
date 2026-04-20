@@ -984,7 +984,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		auto& deviceInfo = deviceInfos[bestDeviceIndex];
 		this->physicalDevice = deviceInfo.handle;
-		VK_VALIDATION_MESSAGE("Usind device #{}: (score: {} | device ID: {} | vendor ID: {} | API version: {} | driver version: {})", bestDeviceIndex, deviceInfo.properties.deviceName, deviceInfo.score, deviceInfo.properties.deviceID, deviceInfo.properties.vendorID, deviceInfo.properties.apiVersion, deviceInfo.properties.driverVersion );
+		VK_VALIDATION_MESSAGE("Using device #{}: (score: {} | device ID: {} | vendor ID: {} | API version: {} | driver version: {})", bestDeviceIndex, deviceInfo.properties.deviceName, deviceInfo.score, deviceInfo.properties.deviceID, deviceInfo.properties.vendorID, deviceInfo.properties.apiVersion, deviceInfo.properties.driverVersion );
 	/*
 		VK_VALIDATION_MESSAGE("Using device #" << bestDeviceIndex << " ("
 			"score: " << deviceInfo.score << " | "

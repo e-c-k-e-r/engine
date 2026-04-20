@@ -37,11 +37,6 @@ void uf::thread::tick( pod::Thread& thread ) {
 	thread.timer.start();
 	
 	while ( thread.running ) {
-		std::unique_lock<std::mutex> lock(*thread.mutex);
-		thread.conditions.queued.wait(lock, [&]{
-			return (!thread.container.empty() || !thread.queue.empty()) || !thread.running;
-		});
-
 		uf::thread::process( thread );
 
 		if ( thread.limiter > 0 ) {
@@ -57,7 +52,7 @@ void uf::thread::tick( pod::Thread& thread ) {
 
 pod::Thread& uf::thread::fetchWorker( const uf::stl::string& name ) {
 	static int current = 0;
-	static int limit = uf::thread::workers;
+	int limit = uf::thread::workers;
 	int tries = 0;
 
 	while ( tries++ < limit ) {
@@ -153,12 +148,25 @@ void uf::thread::queue( pod::Thread& thread, const pod::Thread::function_t& func
 	if ( thread.mutex != NULL ) thread.mutex->lock();
 	thread.queue.emplace( function );
 	thread.conditions.queued.notify_one();
+	thread.pending.fetch_add(1);
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
-void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) )return; //ops
-	while ( !thread.queue.empty() ) {
-		auto& function = thread.queue.front();
-		if ( function )
+void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) return; // ops
+	pod::Thread::queue_t local_queue;
+	pod::Thread::container_t local_container;
+
+	{
+		std::unique_lock<std::mutex> lock(*thread.mutex);
+		thread.conditions.queued.wait(lock, [&]{
+			return (!thread.container.empty() || !thread.queue.empty()) || !thread.running;
+		});
+
+		if ( !thread.running ) return;
+		std::swap( local_queue, thread.queue );
+	}
+
+	while ( !local_queue.empty() ) {
+		auto& function = local_queue.front();
 	#if UF_EXCEPTIONS
 		try {
 	#endif
@@ -168,10 +176,17 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thre
 			UF_MSG_ERROR("Thread {} (UID: {}) caught exception: {}", thread.name, thread.uid, e.what());
 		}
 	#endif
-		thread.queue.pop();
+
+		local_queue.pop();
+		thread.pending.fetch_sub(1);
 	}
-	for ( auto function : thread.container ) {
-		if ( function )
+
+	{
+		std::unique_lock<std::mutex> lock(*thread.mutex);
+		local_container = thread.container;
+	}
+
+	for ( auto& function : local_container ) {
 	#if UF_EXCEPTIONS
 		try {
 	#endif
@@ -182,7 +197,11 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thre
 		}
 	#endif
 	}
-	thread.conditions.finished.notify_one();
+
+	{
+		std::lock_guard<std::mutex> lock(*thread.mutex);
+		thread.conditions.finished.notify_all();
+	}
 }
 void uf::thread::wait( pod::Thread& thread ) {
 	if ( thread.mutex != NULL ) {

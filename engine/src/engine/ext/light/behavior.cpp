@@ -40,6 +40,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			if ( ++::roundRobin.current >= ::roundRobin.lights.size() ) ::roundRobin.current = 0;
 		});
 	}
+
 /*
 	if ( !metadataJson["light"]["bias"]["shader"].is<float>() ) metadataJson["light"]["bias"]["shader"] = 0.000000005f;
 */
@@ -56,7 +57,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadataJson["lights"]["shadows"]["enabled"].as<bool>(true) ) {
+	if ( !sceneMetadataJson["light"]["shadows"]["enabled"].as<bool>(true) ) {
 		metadataJson["light"]["shadows"] = false;
 	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {

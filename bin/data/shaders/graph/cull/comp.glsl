@@ -5,7 +5,7 @@
 #extension GL_EXT_samplerless_texture_functions : enable
 
 layout (constant_id = 0) const uint PASSES = 6;
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 #define COMPUTE 1
 #define QUERY_MIPMAPS 1
@@ -90,14 +90,9 @@ bool frustumCull( uint id ) {
 
 	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return false;
 
-	bool visible = false;
+	bool visible = true;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
-#if 0
-		vec4 sphere = aabbToSphere( instance.bounds );
-		vec3 center = vec3( camera.viewport[pass].view * object.model * vec4(  ) );
-#else
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
-	#if 1
 		vec4 planes[6]; {
 			for (int i = 0; i < 3; ++i)
 			for (int j = 0; j < 2; ++j) {
@@ -108,48 +103,18 @@ bool frustumCull( uint id ) {
 				planes[i*2+j] = normalizePlane( planes[i*2+j] );
 			}
 		}
+		bool insideFrustum = true;
 		for ( uint p = 0; p < 6; ++p ) {
 			float d = max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
 					+ max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
 					+ max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
-			if ( d > -planes[p].w ) return true;
+			
+			if (d < -planes[p].w) {
+        visible = false;
+        break;
+      }
 		}
-	#else
-		vec4 corners[8] = {
-			vec4( instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
-			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
-			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0 ),
-			vec4( instance.bounds.min.x, instance.bounds.max.y, instance.bounds.min.z, 1.0 ),
-
-			vec4( instance.bounds.min.x, instance.bounds.min.y, instance.bounds.max.z, 1.0 ),
-			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0 ),
-			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
-			vec4( instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
-		};
-		vec4 planes[6]; {
-			#pragma unroll 3
-			for (int i = 0; i < 3; ++i)
-			#pragma unroll 2
-			for (int j = 0; j < 2; ++j) {
-				planes[i*2+j].x = mat[0][3] + (j == 0 ? mat[0][i] : -mat[0][i]);
-				planes[i*2+j].y = mat[1][3] + (j == 0 ? mat[1][i] : -mat[1][i]);
-				planes[i*2+j].z = mat[2][3] + (j == 0 ? mat[2][i] : -mat[2][i]);
-				planes[i*2+j].w = mat[3][3] + (j == 0 ? mat[3][i] : -mat[3][i]);
-				planes[i*2+j] = normalizePlane( planes[i*2+j] );
-			}
-		}
-		#pragma unroll 8
-		for ( uint p = 0; p < 8; ++p ) corners[p] = mat * corners[p];
-		#pragma unroll 6
-		for ( uint p = 0; p < 6; ++p ) {
-			#pragma unroll 8
-			for ( uint q = 0; q < 8; ++q ) {
-				if ( dot( corners[q], planes[p] ) > 0 ) return true;
-			}
-			return false;
-		}
-	#endif
-#endif
+		if ( !visible ) break;
 	}
 	return visible;
 }
@@ -163,12 +128,11 @@ bool occlusionCull( uint id ) {
 
 	bool visible = true;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
-#if 1
 		vec4 aabb;
 		vec4 sphere = aabbToSphere( instance.bounds );
 		vec3 center = (camera.viewport[pass].view * object.model * vec4(sphere.xyz, 1)).xyz;
 		float radius = (object.model * vec4(sphere.w, 0, 0, 0)).x;
-	//	center.y *= -1;
+
 		mat4 proj = camera.viewport[pass].projection;
 		float znear = proj[3][2];
 		float P00 = proj[0][0];
@@ -197,87 +161,6 @@ bool occlusionCull( uint id ) {
 			//if the depth of the sphere is in front of the depth pyramid value, then the object is visible
 			visible = visible && depthSphere >= depth - DEPTH_BIAS;
 		}
-
-#else
-		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
-		vec3 boundsSize = instance.bounds.max - instance.bounds.min;
-		vec3 points[8] = {
-			instance.bounds.min.xyz,
-			instance.bounds.min.xyz + vec3(boundsSize.x,0,0),
-			instance.bounds.min.xyz + vec3(0, boundsSize.y,0),
-			instance.bounds.min.xyz + vec3(0, 0, boundsSize.z),
-			instance.bounds.min.xyz + vec3(boundsSize.xy,0),
-			instance.bounds.min.xyz + vec3(0, boundsSize.yz),
-			instance.bounds.min.xyz + vec3(boundsSize.x, 0, boundsSize.z),
-			instance.bounds.min.xyz + boundsSize.xyz,
-		};
-		vec2 minXY = vec2(1);
-		vec2 maxXY = vec2(0);
-		
-		float minZ = 1;
-		float maxZ = 0;
-
-		#pragma unroll 8
-		for ( uint i = 0; i < 8; ++i ) {
-			vec4 clip = mat * vec4( points[i], 1 );
-			clip.xyz /= clip.w;
-			clip.xy = clip.xy * 0.5 + 0.5;
-
-			minXY.x = min(minXY.x, clip.x);
-			minXY.y = min(minXY.y, clip.y);
-			
-			maxXY.x = max(maxXY.x, clip.x);
-			maxXY.y = max(maxXY.y, clip.y);
-
-		#if INVERSE
-			clip.z = 1.0 - clip.z;
-			maxZ = max(maxZ, clip.z);
-		#else
-			minZ = min(minZ, clip.z);
-		#endif
-		}
-
-		if ( maxXY.x <= 0 || maxXY.y <= 0 ) return false;
-		if ( minXY.x >= 1 || minXY.y >= 1 ) return false;
-		
-		ivec2 depthSize = textureSize( samplerDepth, 0 );
-		float mips = mipLevels( depthSize );
-
-		vec4 uv = vec4(minXY, maxXY);
-
-		ivec2 clipSize = ivec2(maxXY - minXY) * depthSize;
-		float mip = mipLevels( clipSize );
-		mip = clamp( mip, 0, mips );
-		if ( mip == 0 ) {
-			mip = 1;
-		} else {
-			float lower = max(mip - 1, 0);
-			float scale = exp2(-lower);
-			vec2 a = floor(uv.xy * scale);
-			vec2 b = ceil(uv.zw * scale);
-			vec2 dims = b - a;
-
-			// Use the lower level if we only touch <= 2 texels in both dimensions
-			if (dims.x <= 2 && dims.y <= 2) mip = lower;
-		}
-
-		float depths[4] = {
-			textureLod( samplerDepth, uv.xy, mip ).r,
-			textureLod( samplerDepth, uv.zy, mip ).r,
-			textureLod( samplerDepth, uv.xw, mip ).r,
-			textureLod( samplerDepth, uv.zw, mip ).r,
-		};
-	#if INVERSE
-		float minDepth = 1.0 - min(min(min(depths[0], depths[1]), depths[2]), depths[3]);
-	#else
-		float maxDepth = max(max(max(depths[0], depths[1]), depths[2]), depths[3]);
-	#endif
-
-		instances[drawCommand.instanceID].bounds.padding1 = minZ;
-		instances[drawCommand.instanceID].bounds.padding2 = maxDepth;
-
-		return minZ <= maxDepth;
-#endif
 	}
 	return visible;
 }
@@ -288,90 +171,5 @@ void main() {
 
 	bool visible = frustumCull( gID );
 //	if ( visible ) visible = occlusionCull( gID );
-//	bool visible = occlusionCull( gID );
 	drawCommands[gID].instances = visible ? 1 : 0;
 }
-
-
-/*
-		Frustum frustum;
-		for (int i = 0; i < 3; ++i)
-		for (int j = 0; j < 2; ++j) {
-			frustum.planes[i*2+j].x = mat[0][3] + (j == 0 ? mat[0][i] : -mat[0][i]);
-			frustum.planes[i*2+j].y = mat[1][3] + (j == 0 ? mat[1][i] : -mat[1][i]);
-			frustum.planes[i*2+j].z = mat[2][3] + (j == 0 ? mat[2][i] : -mat[2][i]);
-			frustum.planes[i*2+j].w = mat[3][3] + (j == 0 ? mat[3][i] : -mat[3][i]);
-			frustum.planes[i*2+j]*= length(frustum.planes[i*2+j].xyz);
-		}
-		for ( uint i = 0; i < 6; ++i ) {
-			vec4 plane = frustum.planes[i];
-			float d = dot(instance.bounds.center, plane.xyz);
-			float r = dot(instance.bounds.extent, abs(plane.xyz));
-			bool inside = d + r > -plane.w;
-			if ( !inside ) return 0;
-		}
-		return true;
-*/
-/*
-		vec4 plane;
-		vec4 center = vec4( (max + min) * 0.5, 1 );
-		vec4 extent = vec4( (max - min) * 0.5, 1 );
-		center = mat * center;
-		extent = mat * extent;
-		center.xyz /= center.w;
-		extent.xyz /= extent.w;
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] + mat[i][0]; // left
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-		
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] - mat[i][0]; // right
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-		
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] + mat[i][1]; // bottom
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-		
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] - mat[i][1]; // top
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-		
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] + mat[i][2]; // near
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-
-		for (int i = 0; i < 4; ++i ) plane[i] = mat[i][3] - mat[i][2]; // far
-		visible = dot(center.xyz + extent.xyz * sign(plane.xyz), plane.xyz ) > -plane.w;
-		if ( visible ) return true;
-
-*/
-/*
-	for ( uint p = 0; p < 8; ++p ) {
-		vec4 t = corners[p];
-		float w = abs(t.w);
-		visible = -w <= t.x && t.x <= w && -w <= t.y && t.y <= w && 0 <= t.z && t.z <= w; // && -w <= t.z && t.z <= w;
-	}
-*/
-/*
-mat4 convert( mat4 proj ) {
-	float f = -proj[1][1];
-	float raidou = f / proj[0][0];
-	float zNear = proj[3][2];
-	float zFar = 32;
-	
-	float range = zNear - zFar;
-
-	float Sx = f * raidou;
-	float Sy = f;
-	float Sz = (-zNear - zFar) / range;
-	float Pz = 2 * zFar * zNear / range;
-
-	mat4 new = mat4(1.0);
-	new[0][0] = Sx;
-	new[1][1] = -Sy;
-	new[2][2] = Sz;
-	new[3][2] = Pz;
-	new[2][3] = 1;
-	return new;
-}
-*/

@@ -37,7 +37,7 @@ namespace {
 		if ( dist > r ) return false;
 
 		float penetration = r - dist;
-		auto contact = center - normal * dist - normal * penetration;
+		auto contact = center - normal * r;
 
 		manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 		return true;

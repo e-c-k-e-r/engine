@@ -44,37 +44,13 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 
 void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
 	if ( !mapped ) VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
-	return mapped;
+	return static_cast<char*>(mapped) + offset;;
 }
 void ext::vulkan::Buffer::unmap() {
 	if ( !mapped ) return;
 	vmaUnmapMemory( allocator, allocation );
 	mapped = nullptr;
 }
-/*
-void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) const {
-	void* mapped{};
-	VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
-	return mapped;
-}
-void ext::vulkan::Buffer::unmap() const {
-	vmaUnmapMemory( allocator, allocation );
-}
-VkResult ext::vulkan::Buffer::bind( VkDeviceSize offset ) {
-	return VK_SUCCESS;
-}
-VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) const {
-	return VK_SUCCESS;
-}
-
-VkResult ext::vulkan::Buffer::invalidate( VkDeviceSize size, VkDeviceSize offset ) {
-	return VK_SUCCESS;
-}
-void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
-	assert(mapped);
-	memcpy(mapped, data, size);
-}
-*/
 
 void ext::vulkan::Buffer::updateDescriptor( VkDeviceSize size, VkDeviceSize offset ) {
 	descriptor.offset = offset;
@@ -95,7 +71,7 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 	VK_REGISTER_HANDLE( buffer );
 }
 
-size_t ext::vulkan::Buffer::getAddress() {
+size_t ext::vulkan::Buffer::getAddress() const {
 //	if ( !(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) ) UF_MSG_DEBUG("CALLING GETADDRESS ON BUFFER WITHOUT ADDRESS BIT: {}", fmt::ptr(this->buffer));
 	if ( this->address ) return this->address;
 
@@ -104,14 +80,12 @@ size_t ext::vulkan::Buffer::getAddress() {
 	info.buffer = buffer;
 	return (this->address = vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info));
 }
-size_t ext::vulkan::Buffer::getAddress() const {
-//	if ( !(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) ) UF_MSG_DEBUG("CALLING GETADDRESS ON BUFFER WITHOUT ADDRESS BIT: {}", fmt::ptr(this->buffer));
-	if ( this->address ) return this->address;
 
-	VkBufferDeviceAddressInfoKHR info{};
-	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-	info.buffer = buffer;
-	return vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info);
+size_t ext::vulkan::Buffer::getLength( ) const {
+	return allocationInfo.size;
+}
+size_t ext::vulkan::Buffer::getOffset( size_t i ) const {
+	return this->getLength() / this->count * i;
 }
 
 ext::vulkan::Buffer::~Buffer() {
@@ -147,15 +121,27 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 	if ( !device ) device = &ext::vulkan::device;
 	if ( stage ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
 
-//	if ( usage != VK_BUFFER_USAGE_TRANSFER_SRC_BIT ) usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	// assume all UBOs are dynamic
+	auto totalLength = length;
+#if VK_UBO_USE_N_BUFFERS
+	if ( usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+		this->count = ext::vulkan::swapchain.buffers;
+		this->alignment = device->properties.limits.minUniformBufferOffsetAlignment;
+		totalLength = ALIGNED_SIZE( length, this->alignment ) * this->count;
+	}
+#endif
 
 	VK_CHECK_RESULT(device->createBuffer(
 		nullptr,
-		length,
+		totalLength,
 		usage,
 		memoryProperties,
 		*this
 	));
+
+	if ( length != totalLength ) {
+		this->updateDescriptor( length, 0 );
+	}
 
 	if ( data && length ) update( data, length, stage );
 	
@@ -187,6 +173,13 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	if ( !length ) return false;
 	if ( !buffer ) return false;
 
+	VkDeviceSize offset = 0;
+#if VK_UBO_USE_N_BUFFERS
+	if ( this->count == ext::vulkan::swapchain.buffers ) {
+		offset = this->getOffset( states::currentBuffer );
+	}
+#endif
+
 	// to-do: fix this because it's a thorn in my side when a mesh needs to update
 	if ( length > allocationInfo.size ) {
 		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size);
@@ -206,7 +199,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	if ( !data ) return false;
 	if ( !stage ) {
 		auto* self = const_cast<ext::vulkan::Buffer*>(this);
-		void* map = self->map();
+		void* map = self->map(length, offset);
 		memcpy(map, data, length);
 		self->unmap();
 		return false;
@@ -224,6 +217,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER); // waits on finish
 		VkBufferCopy region = {};
 		region.size = length;
+		region.dstOffset = offset;
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyBuffer" );
 		vkCmdCopyBuffer(commandBuffer, staging.buffer, buffer, 1, &region);
 	device->flushCommandBuffer(commandBuffer);

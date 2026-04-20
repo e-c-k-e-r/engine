@@ -124,6 +124,8 @@ namespace ext {
 					uf::stl::vector<AttachmentDescriptor> attachments;
 					uf::stl::vector<BufferDescriptor> buffers;
 				} aliases;
+
+				uf::stl::vector<uint32_t> dynamicRanges;
 			} metadata;
 
 			ext::vulkan::userdata_t specializationConstants;
@@ -176,7 +178,6 @@ namespace ext {
 
 			void setSpecializationConstants( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
 			void setDescriptorCounts( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
-
 
 		/*
 			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );

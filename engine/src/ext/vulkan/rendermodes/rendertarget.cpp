@@ -419,15 +419,19 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 
 void ext::vulkan::RenderTargetRenderMode::render() {
 //	if ( this->executed ) return;
-
-	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
+	if ( this->commands.container().empty() ) return;
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
+
+	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
+
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
+	/*
 	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
 	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
+	*/
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -441,10 +445,9 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 
 //	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-
-	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{}, 0 );
+	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
 	this->executed = true;
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -481,8 +484,8 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	}
 
 	auto& commands = getCommands();
-	for (size_t i = 0; i < commands.size(); ++i) {
-		auto& commandBuffer = commands[i];
+	for (size_t frame = 0; frame < commands.size(); ++frame) {
+		auto& commandBuffer = commands[frame];
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
 		{
@@ -497,7 +500,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			renderPassBeginInfo.clearValueCount = clearValues.size();
 			renderPassBeginInfo.pClearValues = &clearValues[0];
 			renderPassBeginInfo.renderPass = renderTarget.renderPass;
-			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
+			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[frame];
 
 			// Update dynamic viewport state
 			VkViewport viewport = {};
@@ -517,7 +520,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			size_t currentPass = 0;
 
 			//
-		//	this->pipelineBarrier( commands[i], 1 );
+		//	this->pipelineBarrier( commands[frame], 1 );
 
 		// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 		// VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -540,10 +543,9 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 		#endif
 
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_BEGIN, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[begin]" );
-				commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
-			}
+			} );
 
 			if ( this->getName() == "Compute" ) {
 				for ( auto graphic : graphics ) {
@@ -573,7 +575,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 							UF_MSG_DEBUG("Aux pipeline: {}", pipeline);
 						}
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", pipeline) );
-						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
+						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6), frame );
 					}
 				}
 
@@ -587,12 +589,13 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 							if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
-							graphic->record( commandBuffer, descriptor, currentPass, currentDraw++ );
+							graphic->record( commandBuffer, descriptor, currentPass, currentDraw++, frame );
 						}
-						if ( commandBufferCallbacks.count( currentPass ) > 0 ) {
-							commandBufferCallbacks[currentPass]( commandBuffer, i );
+
+						VK_COMMAND_BUFFER_CALLBACK( currentPass, commandBuffer, frame, {
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("callback[{}]", currentPass) );
-						}
+						} );
+
 						if ( currentPass + 1 < subpasses ) {
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
 							vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
@@ -604,12 +607,11 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 
 			
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
-				commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
-			}
+			} );
 
-		//	this->pipelineBarrier( commands[i], 1 );
+		//	this->pipelineBarrier( commands[frame], 1 );
 		}
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

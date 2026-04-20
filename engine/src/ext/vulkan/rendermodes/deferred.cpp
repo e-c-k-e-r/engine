@@ -610,26 +610,30 @@ VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
 	// The submit info structure specifices a command buffer queue submission batch
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pWaitDstStageMask = waitStageMask;												// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];	// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;															// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];			// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;														// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];								// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
 	return submitInfo;
 }
 void ext::vulkan::DeferredRenderMode::render() {
 //	if ( this->executed ) return;
-	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
-
 	//lockMutex( this->mostRecentCommandPoolId );
+	if ( this->commands.container().empty() ) return;
+	
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
+
+	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
+	/*
 	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
 	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
+	*/
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -643,9 +647,9 @@ void ext::vulkan::DeferredRenderMode::render() {
 
 //	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{}, 0 );
+	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
 	this->executed = true;
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -701,8 +705,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		}
 	}
 	bool shouldRecord = true; // ( settings::pipelines::rt && !uf::config["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
-	for (size_t i = 0; i < commands.size(); ++i) {
-		auto commandBuffer = commands[i];
+	for (size_t frame = 0; frame < commands.size(); ++frame) {
+		auto commandBuffer = commands[frame];
 		VK_CHECK_RESULT( vkBeginCommandBuffer(commandBuffer, &cmdBufInfo) );
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
 
@@ -718,7 +722,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			renderPassBeginInfo.clearValueCount = clearValues.size();
 			renderPassBeginInfo.pClearValues = &clearValues[0];
 			renderPassBeginInfo.renderPass = renderTarget.renderPass;
-			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
+			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[frame];
 
 			// Update dynamic viewport state
 			VkViewport viewport = {};
@@ -780,15 +784,14 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 					}
 					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", pipeline) );
-					graphic->record( commandBuffer, descriptor, 0, metadata.eyes );
+					graphic->record( commandBuffer, descriptor, 0, metadata.eyes, frame );
 				}
 			}
 
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_BEGIN, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[begin]" );
-				commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
-			}
+			} );
 
 			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "renderPass[begin]" ) ;
 			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -803,7 +806,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
-						graphic->record( commandBuffer, descriptor, eye, currentDraw++ );
+						graphic->record( commandBuffer, descriptor, eye, currentDraw++, frame );
 					}
 					if ( eye + 1 < metadata.eyes ) {
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
@@ -821,7 +824,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						descriptor.subpass = currentSubpass;
 						descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "deferred" );
-						blitter.record(commandBuffer, descriptor, eye, currentDraw++);
+						blitter.record(commandBuffer, descriptor, eye, currentDraw++, frame);
 					}
 					if ( eye + 1 < metadata.eyes ) {
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
@@ -849,7 +852,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "deferred" );
-				blitter.record(commandBuffer, descriptor, 0, 0);
+				blitter.record(commandBuffer, descriptor, 0, 0, frame);
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
@@ -877,15 +880,15 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				auto& attachmentScratch = this->getAttachment("scratch"); // pingpong
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[1]" );
-				blitter.record(commandBuffer, descriptor, 0, 1);
+				blitter.record( commandBuffer, descriptor, 0, 1 );
 				cmdImageBarrier( commandBuffer, attachmentScratch.image, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[2]" );
-				blitter.record(commandBuffer, descriptor, 0, 2);
+				blitter.record( commandBuffer, descriptor, 0, 2 );
 				cmdImageBarrier( commandBuffer, attachmentBright.image, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL );
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[3]" );
-				blitter.record(commandBuffer, descriptor, 0, 3);
+				blitter.record( commandBuffer, descriptor, 0, 3 );
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
@@ -934,7 +937,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					if ( descriptor.bind.width < 1 ) descriptor.bind.width = 1;
 					if ( descriptor.bind.height < 1 ) descriptor.bind.height = 1;
 
-					blitter.record(commandBuffer, descriptor, 0, i);
+					blitter.record(commandBuffer, descriptor, 0, i, frame);
 					vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
 				}
 
@@ -945,10 +948,9 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			}
 		#endif
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) {
+			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
-				commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
-			}
+			} );
 
 		#if 0
 			if ( this->hasAttachment("depth") ) {

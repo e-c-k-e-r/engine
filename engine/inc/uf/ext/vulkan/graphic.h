@@ -38,12 +38,14 @@ namespace ext {
 			void initialize( const Graphic& graphic, const GraphicDescriptor& descriptor );
 			void update( const Graphic& graphic );
 			void update( const Graphic& graphic, const GraphicDescriptor& descriptor );
-			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0 ) const;
-			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0 ) const;
+			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
+			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void destroy();
 
 			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>& );
 			uf::stl::vector<const Shader*> getShaders( const uf::stl::vector<Shader>& ) const;
+
+			void collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const;
 		};
 
 		struct UF_API Material {
@@ -114,8 +116,9 @@ namespace ext {
 
 			void updatePipelines();
 			
-			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0 ) const;
-			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 ) const;
+			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;
+			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;
+
 		};
 	}
 }

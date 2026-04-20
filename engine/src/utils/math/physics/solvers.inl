@@ -26,7 +26,7 @@ namespace {
 		// normal impulse scalar
 		float jn = -(1.0f + e) * velAlongNormal;
 		jn /= invMassN;
-		if ( ::warmupSolver ) {
+		if ( uf::physics::impl::settings.warmupSolver ) {
 			float jnOld = contact.accumulatedNormalImpulse;
 			float jnNew = std::max(0.0f, jnOld + jn);
 			float jnDelta = jnNew - jnOld;
@@ -57,7 +57,7 @@ namespace {
 			
 			if ( std::fabs(jt) > jn * mu_s) jt = -jn * mu_d; // dynamic friction: resist sliding proportionally
 
-			if ( ::warmupSolver ) {
+			if ( uf::physics::impl::settings.warmupSolver ) {
 				float maxFriction = mu_s * contact.accumulatedNormalImpulse;
 				float jtOld = contact.accumulatedTangentImpulse;
 				float jtNew = std::max(-maxFriction, std::min(jtOld + jt, maxFriction));
@@ -83,6 +83,9 @@ namespace {
 		// precompute inverse masses
 		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
 		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
+		
+		pod::Matrix3f invIa = computeWorldInverseInertia( a );
+		pod::Matrix3f invIb = computeWorldInverseInertia( b );
 
 		auto pA = ::getPosition( a, true );
 		auto pB = ::getPosition( b, true );
@@ -90,12 +93,11 @@ namespace {
 		for ( auto i = 0; i < N; i++ ) {
 			pod::Vector3f rA_i = manifold.points[i].point - pA;
 			pod::Vector3f rB_i = manifold.points[i].point - pB;
-
+			pod::Vector3f n_i = manifold.points[i].normal;
+			
 			for ( auto j = 0; j < N; j++ ) {
 				pod::Vector3f rA_j = manifold.points[j].point - pA;
 				pod::Vector3f rB_j = manifold.points[j].point - pB;
-
-				pod::Vector3f n_i = manifold.points[i].normal;
 				pod::Vector3f n_j = manifold.points[j].normal;
 
 				float termLinear = (invMassA + invMassB) * uf::vector::dot(n_i, n_j);
@@ -104,8 +106,6 @@ namespace {
 				pod::Vector3f raXnj = uf::vector::cross(rA_j, n_j);
 				pod::Vector3f rbXnj = uf::vector::cross(rB_j, n_j);
 
-				pod::Matrix3f invIa = computeWorldInverseInertia( a );
-				pod::Matrix3f invIb = computeWorldInverseInertia( b );
 
 				pod::Vector3f Ia_raXnj = uf::matrix::multiply( invIa, raXnj );
 				pod::Vector3f Ib_rbXnj = uf::matrix::multiply( invIb, rbXnj );
@@ -126,7 +126,7 @@ namespace {
 		for ( auto i = 0; i < N; i++ ) {
 			float vRel = uf::vector::dot( relVelLinear, manifold.points[i].normal );
 
-			float penetrationBias = std::max( manifold.points[i].penetration - ::baumgarteCorrectionSlop, 0.0f ) * ( ::baumgarteCorrectionPercent / dt );
+			float penetrationBias = std::max( manifold.points[i].penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f ) * ( uf::physics::impl::settings.baumgarteCorrectionPercent / dt );
 			float cDot = vRel + penetrationBias;
 
 			rhs[i] = (cDot < 0.0f) ? -cDot : 0.0f;
@@ -141,7 +141,7 @@ namespace {
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
 			// penetration bias with clamp
-			float penetrationBias = std::max(contact.penetration - ::baumgarteCorrectionSlop, 0.0f) * (::baumgarteCorrectionPercent / dt);
+			float penetrationBias = std::max(contact.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
 
 			float maxPenetrationRecovery = 2.0f; // limit to 2 units per second
@@ -214,7 +214,7 @@ namespace {
 
 			// restitution bias + baumgarte
 			float e = std::min( a.material.restitution, b.material.restitution );
-			float penetrationBias = std::max( c.penetration - ::baumgarteCorrectionSlop, 0.0f ) * (::baumgarteCorrectionPercent / dt);
+			float penetrationBias = std::max( c.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f ) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
 			cc.bias = (vn < -1.0f ? -e * vn : 0.0f) + penetrationBias;
 
 			// effective mass (normal)
@@ -232,6 +232,7 @@ namespace {
 			cc.effectiveMassT = ( Kt > 0.0f ) ? ( 1.0f / Kt ) : 0.0f;
 
 			// warm start
+		#if 1
 			cc.accumulatedNormalImpulse = c.accumulatedNormalImpulse;
 			cc.accumulatedTangentImpulse = c.accumulatedTangentImpulse;
 
@@ -239,10 +240,11 @@ namespace {
 			pod::Vector3f P = cc.normal * cc.accumulatedNormalImpulse + cc.tangent * cc.accumulatedTangentImpulse;
 			
 			::applyImpulseTo(a, b, cc.rA, cc.rB, P);
+		#endif
 		}
 
 		// iterative PGS
-		for ( auto iter = 0; iter < ::solverIterations; iter++ ) {
+		for ( auto iter = 0; iter < uf::physics::impl::settings.solverIterations; iter++ ) {
 			for ( auto i = 0; i < count; i++ ) {
 				auto& cc = cache[i];
 
@@ -280,18 +282,18 @@ namespace {
 	}
 
 	void resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		if ( ::blockContactSolver ) {
+		if ( uf::physics::impl::settings.blockContactSolver ) {
 			if ( manifold.points.size() == 2 ) return ::block2x2Solver( a, b, manifold, dt );
 			if ( manifold.points.size() == 3 ) return ::block3x3Solver( a, b, manifold, dt );
 			if ( manifold.points.size() == 4 ) return ::block4x4Solver( a, b, manifold, dt );
 		}
-		if ( ::psgContactSolver )  return ::blockPGSSolver( a, b, manifold, dt );
+		if ( uf::physics::impl::settings.psgContactSolver )  return ::blockPGSSolver( a, b, manifold, dt );
 		for ( auto& contact : manifold.points ) ::iterativeImpulseSolver( a, b, contact, dt );
 	}
 
 	void solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
-		if ( ::warmupSolver ) for ( auto& manifold : manifolds ) ::warmupManifold( *manifold.a, *manifold.b, manifold, dt );
-		for ( auto i = 0; i < ::solverIterations; ++i ) for ( auto& manifold : manifolds ) ::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
+		if ( uf::physics::impl::settings.warmupSolver ) for ( auto& manifold : manifolds ) ::warmupManifold( *manifold.a, *manifold.b, manifold, dt );
+		for ( auto i = 0; i < uf::physics::impl::settings.solverIterations; ++i ) for ( auto& manifold : manifolds ) ::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
 	}
 
 	void solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, uint32_t iterations = 2 ) {

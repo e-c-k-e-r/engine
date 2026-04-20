@@ -476,7 +476,7 @@ void ext::vulkan::initialize( bool soft ) {
 
 	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
-		tasks.queue([&]{
+		tasks.queue([renderMode]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
@@ -523,11 +523,11 @@ void ext::vulkan::tick() {
 
 	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 	for ( auto& renderMode : renderModes ) { if ( !renderMode || (renderMode->executed && !renderMode->execute) ) continue;
-		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
+		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([renderMode]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
-		else if ( renderMode->rerecord ) tasks.queue([&]{
+		else if ( renderMode->rerecord ) tasks.queue([renderMode]{
 			renderMode->createCommandBuffers();
 		});
 	} 
@@ -597,9 +597,11 @@ void ext::vulkan::render() {
 			else submitsGraphics.emplace_back(submitInfo);
 			renderMode->executed = true;
 
-//			tasks.queue([&]{
+//			tasks.queue([renderMode]{
 				ext::vulkan::setCurrentRenderMode(renderMode);
-				uf::scene::render();
+				if ( renderMode->getType() != "Swapchain" ) {
+					uf::scene::render();
+				}
 				ext::vulkan::setCurrentRenderMode(NULL);
 //			});
 		}
@@ -617,9 +619,11 @@ void ext::vulkan::render() {
 		// stuff we can't batch
 		for ( auto renderMode : specialRenderModes ) {
 			ext::vulkan::setCurrentRenderMode(renderMode);
-			uf::scene::render();
+			if ( renderMode->getType() != "Swapchain" ) {
+				uf::scene::render();
+			}
 		#if UF_USE_FFX_FSR
-			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
+			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
 				ext::fsr::tick();
 				ext::fsr::render();
 			}
@@ -637,15 +641,16 @@ void ext::vulkan::render() {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
 
 		#if UF_USE_FFX_FSR
-			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
+			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
 				ext::fsr::tick();
 				ext::fsr::render();
 			}
 		#endif
 
 			ext::vulkan::setCurrentRenderMode(renderMode);
-			uf::graph::render();
-			uf::scene::render();
+			if ( renderMode->getType() != "Swapchain" ) {
+				uf::scene::render();
+			}
 			renderMode->render();
 			ext::vulkan::setCurrentRenderMode(NULL);
 	

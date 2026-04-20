@@ -515,7 +515,7 @@ void ext::vulkan::Texture::fromBuffers(
 		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
 		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
 			this->mips = 1;
-			VK_VALIDATION_MESSAGE("Texture image format {} does not support linear blitting", format);
+		//	VK_VALIDATION_MESSAGE("Texture image format {} does not support linear blitting", format);
 		}
 	}
 
