@@ -16,15 +16,20 @@ layout( push_constant ) uniform PushBlock {
   uint pass;
 } PushConstant;
 
-layout (binding = 3) uniform sampler2D inImage[MIPS];
-layout (binding = 4, r32f) uniform writeonly image2D outImage[MIPS];
+layout (binding = 0) uniform sampler2D samplerDepth;
+layout (binding = 1) uniform sampler2D inImage[MIPS];
+layout (binding = 2, r32f) uniform writeonly image2D outImage[MIPS];
 
 void main() {
-	vec2 imageSize =  imageSize(outImage[PushConstant.pass]);
-	uvec2 pos = gl_GlobalInvocationID.xy;
-	if ( pos.x >= imageSize.x || pos.y >= imageSize.y ) return;
+	int mip = int(PushConstant.pass);
 
-	float depth = texture(inImage[PushConstant.pass], (vec2(pos) + vec2(0.5)) / imageSize).x;
+	float depth;
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+	if ( mip == 0 ) {
+		depth = texelFetch(samplerDepth, pos, 0).r;
+	} else {
+		depth = texture(inImage[mip - 1], (vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / imageSize( outImage[mip] )).x;
+	}
 
-	imageStore(outImage[PushConstant.pass], ivec2(pos), vec4(depth));
+	imageStore(outImage[mip], pos, vec4(depth));
 }

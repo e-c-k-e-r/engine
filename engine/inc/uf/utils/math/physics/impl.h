@@ -237,15 +237,15 @@ namespace pod {
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
 		// increasing these make things lag for reasons I can imagine why
-		uint32_t broadphaseBvhCapacity = 4; // number of bodies per leaf node
-		uint32_t meshBvhCapacity = 4; // number of triangles per leaf node
+		uint32_t broadphaseBvhCapacity = 2; // number of bodies per leaf node
+		uint32_t meshBvhCapacity = 2; // number of triangles per leaf node
 
 		// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
 		bool flattenBvhBodies = true;
 		bool flattenBvhMeshes = true;
 		
 		// use surface area heuristics for building the BVH, rather than naive splits
-		bool useBvhSahBodies = true; // it actually seems slower to use these......
+		bool useBvhSahBodies = true;
 		bool useBvhSahMeshes = true;
 
 		bool useSplitBvhs = true; // creates separate BVHs for static / dynamic objects

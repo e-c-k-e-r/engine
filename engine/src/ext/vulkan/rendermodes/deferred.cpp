@@ -56,6 +56,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	uint32_t mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 
 	renderTarget.device = &device;
 	renderTarget.views = metadata.eyes;
@@ -148,7 +149,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		/*.blend = */false,
 		/*.samples = */1,
-		/*.mips = */1
+		/*.mips = */mips,
 	});
 
 	metadata.attachments["id"] = attachments.id;
@@ -347,19 +348,18 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
 
-		if ( false && settings::pipelines::culling ) {
+		if ( settings::pipelines::culling ) {
 			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/depth-pyramid/comp.spv");
 			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "depth-pyramid");
 
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
-			auto attachment = this->getAttachment("depth");
 			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 			shader.setSpecializationConstants({
-				{ "MIPS", mips - 1 },
+				{ "MIPS", mips },
 			});
 			shader.setDescriptorCounts({
-				{ "inImage", mips - 1 },
-				{ "outImage", mips - 1 },
+				{ "inImage", mips },
+				{ "outImage", mips },
 			});
 
 			shader.aliasAttachment("depth", this);
@@ -373,11 +373,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				VK_UNREGISTER_HANDLE(view);
 			}
 			::depthPyramidViews.clear();
-			::depthPyramidViews.resize(mips-1);
+			::depthPyramidViews.resize(mips);
 			shader.textures.clear();
 			
-			for ( auto i = 1; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i-1];
+			for ( auto i = 0; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i];
 				VkImageViewCreateInfo viewCreateInfo = {};
 				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 				viewCreateInfo.pNext = NULL;
@@ -389,22 +389,23 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				viewCreateInfo.viewType = source.viewType;
 				viewCreateInfo.format = source.format;
 				viewCreateInfo.image = source.image;
+
 				VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 				VK_REGISTER_HANDLE(view);
-
-				if ( i + 1 < mips ) {
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
 			}
-			for ( auto i = 1; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i-1];
+
+			for ( auto i = 0; i < mips; ++i ) {
 				auto& texture = shader.textures.emplace_back();
 				texture.aliasTexture( source );
-				texture.view = view;
+				texture.view = ::depthPyramidViews[i];
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.updateDescriptors();
+			}
+			
+			for ( auto i = 0; i < mips; ++i ) {
+				auto& texture = shader.textures.emplace_back();
+				texture.aliasTexture( source );
+				texture.view = ::depthPyramidViews[i];
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.updateDescriptors();
 			}
@@ -444,7 +445,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				}
 			}
 
-			if ( false && settings::pipelines::culling ) {
+			if ( settings::pipelines::culling ) {
 				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
 				descriptor.pipeline = "depth-pyramid";
 				descriptor.subpass = 0;
@@ -473,17 +474,18 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		rebuild = true;
 		renderTarget.initialize( *renderTarget.device );
 
-		if ( false && settings::pipelines::culling ) {
+		if ( settings::pipelines::culling ) {
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
-			auto attachment = this->getAttachment("depth");
 			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 			shader.setSpecializationConstants({
-				{ "MIPS", mips - 1 },
+				{ "MIPS", mips },
 			});
 			shader.setDescriptorCounts({
-				{ "inImage", mips - 1 },
-				{ "outImage", mips - 1 },
+				{ "inImage", mips },
+				{ "outImage", mips },
 			});
+
+			shader.aliasAttachment("depth", this);
 
 			ext::vulkan::Texture2D source; source.aliasAttachment( this->getAttachment("depthPyramid") );
 			source.sampler.descriptor.reduction.enabled = true;
@@ -494,11 +496,11 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				VK_UNREGISTER_HANDLE(view);
 			}
 			::depthPyramidViews.clear();
-			::depthPyramidViews.resize(mips-1);
+			::depthPyramidViews.resize(mips);
 			shader.textures.clear();
 			
-			for ( auto i = 1; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i-1];
+			for ( auto i = 0; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i];
 				VkImageViewCreateInfo viewCreateInfo = {};
 				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 				viewCreateInfo.pNext = NULL;
@@ -510,22 +512,24 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				viewCreateInfo.viewType = source.viewType;
 				viewCreateInfo.format = source.format;
 				viewCreateInfo.image = source.image;
+
 				VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
 				VK_REGISTER_HANDLE(view);
-
-				if ( i + 1 < mips ) {
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
+				
 			}
-			for ( auto i = 1; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i-1];
+
+			for ( auto i = 0; i < mips; ++i ) {
 				auto& texture = shader.textures.emplace_back();
 				texture.aliasTexture( source );
-				texture.view = view;
+				texture.view = ::depthPyramidViews[i];
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.updateDescriptors();
+			}
+			
+			for ( auto i = 0; i < mips; ++i ) {
+				auto& texture = shader.textures.emplace_back();
+				texture.aliasTexture( source );
+				texture.view = ::depthPyramidViews[i];
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.updateDescriptors();
 			}
@@ -588,7 +592,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				}
 			}
 
-			if ( false && settings::pipelines::culling ) {
+			if ( settings::pipelines::culling ) {
 				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
 				descriptor.pipeline = "depth-pyramid";
 				descriptor.subpass = 0;
@@ -896,55 +900,39 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			}
 
 			// construct depth-pyramid
-		#if 0
+		#if 1
 			if ( settings::pipelines::culling && blitter.material.hasShader("compute", "depth-pyramid") ) {
 				auto& shader = blitter.material.getShader("compute", "depth-pyramid");
-			//	auto mips = attachment.descriptor.mips; // uf::vector::mips( pod::Vector2ui{ renderTarget.width, renderTarget.height } );
 				auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 				descriptor.renderMode = "";
-				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
+				descriptor.aux = mips;
 				descriptor.pipeline = "depth-pyramid";
-				descriptor.bind.width = width;
-				descriptor.bind.height = height;
 				descriptor.bind.depth = metadata.eyes;
 				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 				descriptor.subpass = 0;
-
-			/*
-				// transition attachments to general attachments for imageStore
-				VkImageSubresourceRange subresourceRange;
-				subresourceRange.baseMipLevel = 0;
-				subresourceRange.levelCount = 1;
-				subresourceRange.baseArrayLayer = 0;
-				subresourceRange.layerCount = mips;
-				subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-				subresourceRange.layerCount = this->metadata.eyes;
-
-				auto& attachment = this->getAttachment("depth");
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresourceRange );
-			*/
 
 				// dispatch compute shader				
 				VkMemoryBarrier memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
 				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 				memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-				for ( auto i = 0; i < mips - 1; ++i ) {
-					descriptor.bind.width = width >> i;
-					descriptor.bind.height = height >> i;
-					if ( descriptor.bind.width < 1 ) descriptor.bind.width = 1;
-					if ( descriptor.bind.height < 1 ) descriptor.bind.height = 1;
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsTo( this, shader, commandBuffer );
 
-					blitter.record(commandBuffer, descriptor, 0, i, frame);
+				for ( auto i = 0; i < mips; ++i ) {
+					// for some reason it dispatches at half the width without offsetting back...
+					descriptor.bind.width = std::max(1u, width >> (i - 1));
+					descriptor.bind.height = std::max(1u, height >> (i - 1));
+
+					blitter.record(commandBuffer, descriptor, 0, i);
+
 					vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
 				}
 
-			/*
-				// transition attachments to general attachments for imageStore
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, subresourceRange );
-			*/
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsFrom( this, shader, commandBuffer );
 			}
 		#endif
 			// post-renderpass commands
@@ -967,7 +955,6 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageMemoryBarrier.subresourceRange );
 			#endif
-
 
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 					texture.generateMipmaps(commandBuffer, eye);

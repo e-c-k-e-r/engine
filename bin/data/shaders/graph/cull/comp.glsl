@@ -51,8 +51,8 @@ bool projectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 
 }
 
 layout( push_constant ) uniform PushBlock {
-  uint pass;
-  uint passes;
+	uint pass;
+	uint passes;
 } PushConstant;
 
 layout (binding = 0) uniform Camera {
@@ -73,10 +73,6 @@ layout (std140, binding = 3) buffer Objects {
 
 layout (binding = 4) uniform sampler2D samplerDepth;
 
-struct Frustum {
-	vec4 planes[6];
-};
-
 vec4 normalizePlane( vec4 p ) {
 	return p / length(p.xyz);
 }
@@ -90,7 +86,7 @@ bool frustumCull( uint id ) {
 
 	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return false;
 
-	bool visible = true;
+	bool visible = false;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
 		vec4 planes[6]; {
@@ -104,62 +100,69 @@ bool frustumCull( uint id ) {
 			}
 		}
 		bool insideFrustum = true;
-		for ( uint p = 0; p < 6; ++p ) {
-			float d = max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
-					+ max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
-					+ max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
-			
-			if (d < -planes[p].w) {
-        visible = false;
-        break;
-      }
-		}
-		if ( !visible ) break;
+			for ( uint p = 0; p < 6; ++p ) {
+					float d = max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
+									+ max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
+									+ max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
+
+					if (d < -planes[p].w) {
+							insideFrustum = false;
+							break;
+					}
+			}
+
+			if ( insideFrustum ) {
+					visible = true;
+					break;
+			}
 	}
 	return visible;
 }
 
 bool occlusionCull( uint id ) {
 	if ( PushConstant.passes == 0 ) return true;
-	
+
 	const DrawCommand drawCommand = drawCommands[id];
 	const Instance instance = instances[drawCommand.instanceID];
 	const Object object = objects[instance.objectID];
 
-	bool visible = true;
+	bool visible = false;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 		vec4 aabb;
 		vec4 sphere = aabbToSphere( instance.bounds );
+
+		float scale = length(object.model[0].xyz);
 		vec3 center = (camera.viewport[pass].view * object.model * vec4(sphere.xyz, 1)).xyz;
-		float radius = (object.model * vec4(sphere.w, 0, 0, 0)).x;
+		float radius = scale * sphere.w;
 
 		mat4 proj = camera.viewport[pass].projection;
 		float znear = proj[3][2];
 		float P00 = proj[0][0];
 		float P11 = proj[1][1];
-		if (projectSphere(center, radius, znear, P00, P11, aabb)) {
-			ivec2 pyramidSize = textureSize( samplerDepth, 0 );
-			float mips = mipLevels( pyramidSize );
+
+		if ( projectSphere( center, radius, znear, P00, P11, aabb ) ) {
+			vec2 pyramidSize = vec2(textureSize( samplerDepth, 0 ));
 
 			float width = (aabb.z - aabb.x) * pyramidSize.x;
 			float height = (aabb.w - aabb.y) * pyramidSize.y;
 
-			//find the mipmap level that will match the screen size of the sphere
-			float level = floor(log2(max(width, height)));
-		//	if ( level == mips )
-				--level;
-			level = clamp( level, 0, mips );
+			float level = max(0.0, floor(log2(max(width, height))));
 
-			//sample the depth pyramid at that specific level
-			float depth = textureLod(samplerDepth, (aabb.xy + aabb.zw) * 0.5, level).x;
+			float d1 = textureLod(samplerDepth, vec2(aabb.x, aabb.y), level).x;
+			float d2 = textureLod(samplerDepth, vec2(aabb.z, aabb.y), level).x;
+			float d3 = textureLod(samplerDepth, vec2(aabb.x, aabb.w), level).x;
+			float d4 = textureLod(samplerDepth, vec2(aabb.z, aabb.w), level).x;
 
+			float depth = min(min(d1, d2), min(d3, d4)); // min for reverse-z projection, max for standard
 			float depthSphere = znear / (center.z - radius);
 
-			instances[drawCommand.instanceID].bounds.padding1 = depth;
-			instances[drawCommand.instanceID].bounds.padding2 = proj[3][2];
-
-			//if the depth of the sphere is in front of the depth pyramid value, then the object is visible
-			visible = visible && depthSphere >= depth - DEPTH_BIAS;
+			if ( depthSphere >= depth - DEPTH_BIAS ) {
+				visible = true;
+				break;
+			}
+		} else {
+			visible = true;
+			break;
 		}
 	}
 	return visible;
@@ -170,6 +173,6 @@ void main() {
 	if ( !(0 <= gID && gID < drawCommands.length()) ) return;
 
 	bool visible = frustumCull( gID );
-//	if ( visible ) visible = occlusionCull( gID );
+	if ( visible ) visible = occlusionCull( gID );
 	drawCommands[gID].instances = visible ? 1 : 0;
 }
