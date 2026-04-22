@@ -938,8 +938,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 #if UF_USE_VULKAN
 	// only update this when requested
 	// done outside of deserialize because the rendermode might not be initialized in time
-	if ( uf::renderer::settings::pipelines::bloom && metadata.bloom.outOfDate && graphic.material.hasShader("compute", "bloom") ) {
-		auto& shader = graphic.material.getShader("compute", "bloom");
+	if ( uf::renderer::settings::pipelines::bloom && metadata.bloom.outOfDate && graphic.material.hasShader("compute", "bloom-down") ) {
+		auto& shaderDown = graphic.material.getShader("compute", "bloom-down");
+		auto& shaderUp = graphic.material.getShader("compute", "bloom-up");
 
 		struct UniformDescriptor {
 			float threshold;
@@ -974,7 +975,12 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		for ( auto i = 0; i < uniforms.size; ++i ) uniforms.weights[i] = tempWeights[i] / sum;
 
 		metadata.bloom.outOfDate = false;
-		if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+		if ( shaderDown.hasUniform("UBO") ) {
+			shaderDown.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shaderDown.getUniformBuffer("UBO") );
+		}
+		if ( shaderUp.hasUniform("UBO") ) {
+			shaderUp.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shaderUp.getUniformBuffer("UBO") );
+		}
 	}
 
 	struct UniformDescriptor {

@@ -5,7 +5,7 @@
 #extension GL_EXT_samplerless_texture_functions : enable
 
 layout (constant_id = 0) const uint PASSES = 6;
-layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 #define COMPUTE 1
 #define QUERY_MIPMAPS 1
@@ -73,106 +73,100 @@ layout (std140, binding = 3) buffer Objects {
 
 layout (binding = 4) uniform sampler2D samplerDepth;
 
+shared vec4 sharedPlanes[PASSES][6];
+
 vec4 normalizePlane( vec4 p ) {
-	return p / length(p.xyz);
-}
-
-bool frustumCull( uint id ) {
-	if ( PushConstant.passes == 0 ) return true;
-	
-	const DrawCommand drawCommand = drawCommands[id];
-	const Instance instance = instances[drawCommand.instanceID];
-	const Object object = objects[instance.objectID];
-
-	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return false;
-
-	bool visible = false;
-	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
-		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * object.model;
-		vec4 planes[6]; {
-			for (int i = 0; i < 3; ++i)
-			for (int j = 0; j < 2; ++j) {
-				planes[i*2+j].x = mat[0][3] + (j == 0 ? mat[0][i] : -mat[0][i]);
-				planes[i*2+j].y = mat[1][3] + (j == 0 ? mat[1][i] : -mat[1][i]);
-				planes[i*2+j].z = mat[2][3] + (j == 0 ? mat[2][i] : -mat[2][i]);
-				planes[i*2+j].w = mat[3][3] + (j == 0 ? mat[3][i] : -mat[3][i]);
-				planes[i*2+j] = normalizePlane( planes[i*2+j] );
-			}
-		}
-		bool insideFrustum = true;
-			for ( uint p = 0; p < 6; ++p ) {
-					float d = max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
-									+ max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
-									+ max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
-
-					if (d < -planes[p].w) {
-							insideFrustum = false;
-							break;
-					}
-			}
-
-			if ( insideFrustum ) {
-					visible = true;
-					break;
-			}
-	}
-	return visible;
-}
-
-bool occlusionCull( uint id ) {
-	if ( PushConstant.passes == 0 ) return true;
-
-	const DrawCommand drawCommand = drawCommands[id];
-	const Instance instance = instances[drawCommand.instanceID];
-	const Object object = objects[instance.objectID];
-
-	bool visible = false;
-	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
-		vec4 aabb;
-		vec4 sphere = aabbToSphere( instance.bounds );
-
-		float scale = length(object.model[0].xyz);
-		vec3 center = (camera.viewport[pass].view * object.model * vec4(sphere.xyz, 1)).xyz;
-		float radius = scale * sphere.w;
-
-		mat4 proj = camera.viewport[pass].projection;
-		float znear = proj[3][2];
-		float P00 = proj[0][0];
-		float P11 = proj[1][1];
-
-		if ( projectSphere( center, radius, znear, P00, P11, aabb ) ) {
-			vec2 pyramidSize = vec2(textureSize( samplerDepth, 0 ));
-
-			float width = (aabb.z - aabb.x) * pyramidSize.x;
-			float height = (aabb.w - aabb.y) * pyramidSize.y;
-
-			float level = max(0.0, floor(log2(max(width, height))));
-
-			float d1 = textureLod(samplerDepth, vec2(aabb.x, aabb.y), level).x;
-			float d2 = textureLod(samplerDepth, vec2(aabb.z, aabb.y), level).x;
-			float d3 = textureLod(samplerDepth, vec2(aabb.x, aabb.w), level).x;
-			float d4 = textureLod(samplerDepth, vec2(aabb.z, aabb.w), level).x;
-
-			float depth = min(min(d1, d2), min(d3, d4)); // min for reverse-z projection, max for standard
-			float depthSphere = znear / (center.z - radius);
-
-			if ( depthSphere >= depth - DEPTH_BIAS ) {
-				visible = true;
-				break;
-			}
-		} else {
-			visible = true;
-			break;
-		}
-	}
-	return visible;
+		return p / length(p.xyz);
 }
 
 void main() {
-	const uint gID = gl_GlobalInvocationID.x;
-	if ( !(0 <= gID && gID < drawCommands.length()) ) return;
+		const uint gID = gl_GlobalInvocationID.x;
+		const uint lID = gl_LocalInvocationIndex;
 
-	bool visible = frustumCull( gID );
-	if ( visible ) visible = occlusionCull( gID );
-	drawCommands[gID].instances = visible ? 1 : 0;
+		if ( lID == 0 ) {
+				for (uint pass = 0; pass < PushConstant.passes; ++pass) {
+						mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view;
+						for (int i = 0; i < 3; ++i)
+						for (int j = 0; j < 2; ++j) {
+							sharedPlanes[pass][i*2+j].x = mat[0][3] + (j == 0 ? mat[0][i] : -mat[0][i]);
+							sharedPlanes[pass][i*2+j].y = mat[1][3] + (j == 0 ? mat[1][i] : -mat[1][i]);
+							sharedPlanes[pass][i*2+j].z = mat[2][3] + (j == 0 ? mat[2][i] : -mat[2][i]);
+							sharedPlanes[pass][i*2+j].w = mat[3][3] + (j == 0 ? mat[3][i] : -mat[3][i]);
+							sharedPlanes[pass][i*2+j] = normalizePlane( sharedPlanes[pass][i*2+j] );
+						}
+				}
+		}
+		barrier();
+
+		if ( gID >= drawCommands.length() ) return;
+
+		const DrawCommand drawCommand = drawCommands[gID];
+		if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return;
+
+		const Instance instance = instances[drawCommand.instanceID];
+		const Object object = objects[instance.objectID];
+
+		vec4 sphere = aabbToSphere( instance.bounds );
+		vec3 worldCenter = (object.model * vec4(sphere.xyz, 1.0)).xyz;
+
+		float scaleX = length(object.model[0].xyz);
+		float scaleY = length(object.model[1].xyz);
+		float scaleZ = length(object.model[2].xyz);
+		float maxScale = max(max(scaleX, scaleY), scaleZ);
+		float worldRadius = sphere.w * maxScale;
+
+		bool isVisible = false;
+		for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
+				bool insideFrustum = true;
+				for ( int p = 0; p < 6; ++p ) {
+						if ( dot(sharedPlanes[pass][p].xyz, worldCenter) + sharedPlanes[pass][p].w < -worldRadius ) {
+								insideFrustum = false;
+								break;
+						}
+				}
+				if ( insideFrustum ) {
+						isVisible = true;
+						break;
+				}
+		}
+
+		if ( isVisible ) {
+				isVisible = false;
+				for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
+						vec4 aabb;
+						vec3 viewCenter = ( camera.viewport[pass].view * vec4(worldCenter, 1.0) ).xyz;
+
+						mat4 proj = camera.viewport[pass].projection;
+						float znear = proj[3][2];
+						float P00 = proj[0][0];
+						float P11 = proj[1][1];
+
+						if ( projectSphere(viewCenter, worldRadius, znear, P00, P11, aabb) ) {
+								vec2 pyramidSize = vec2(textureSize( samplerDepth, 0 ));
+								float width = (aabb.z - aabb.x) * pyramidSize.x;
+								float height = (aabb.w - aabb.y) * pyramidSize.y;
+
+								float level = floor(log2(max(width, height)));
+								level = max(0.0, level);
+
+								float d1 = textureLod(samplerDepth, vec2(aabb.x, aabb.y), level).x;
+								float d2 = textureLod(samplerDepth, vec2(aabb.z, aabb.y), level).x;
+								float d3 = textureLod(samplerDepth, vec2(aabb.x, aabb.w), level).x;
+								float d4 = textureLod(samplerDepth, vec2(aabb.z, aabb.w), level).x;
+
+								float depth = min(min(d1, d2), min(d3, d4));
+								float depthSphere = znear / (viewCenter.z - worldRadius);
+
+								if ( depthSphere >= depth - DEPTH_BIAS ) {
+										isVisible = true;
+										break;
+								}
+						} else {
+								isVisible = true;
+								break;
+						}
+				}
+		}
+
+		drawCommands[gID].instances = isVisible ? 1 : 0;
 }

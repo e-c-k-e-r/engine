@@ -116,8 +116,6 @@ uint32_t ext::vulkan::states::frameAccumulate = 0;
 bool ext::vulkan::states::frameAccumulateReset = false;
 uint32_t ext::vulkan::states::frameSkip = 0;
 
-uf::stl::vector<ext::vulkan::Texture> ext::vulkan::gc::textures;
-
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
 ext::vulkan::Buffer ext::vulkan::scratchBuffer;
@@ -495,6 +493,7 @@ void ext::vulkan::initialize( bool soft ) {
 void ext::vulkan::tick() {
 //	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
+		synchronize(0b11);
 		ext::vulkan::states::rebuild = true;
 		::skip = true;
 	}
@@ -533,13 +532,6 @@ void ext::vulkan::tick() {
 	} 
 
 	uf::thread::execute( tasks );
-
-/*
-	for ( auto& texture : ext::vulkan::gc::textures ) {
-		texture.destroy( false );
-	}
-	ext::vulkan::gc::textures.clear();
-*/
 
 	if ( ext::vulkan::states::rebuild && ext::vulkan::settings::experimental::skipRenderOnRebuild ) ::skip = true;
 	
@@ -666,6 +658,9 @@ void ext::vulkan::render() {
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
 	
+	for ( auto& texture : transient.textures ) texture.destroy(false);
+	transient.textures.clear();
+	
 	for ( auto& as : transient.ass ) {
 		uf::renderer::vkDestroyAccelerationStructureKHR(device, as.handle, nullptr);
 		VK_UNREGISTER_HANDLE( as.handle );
@@ -677,7 +672,7 @@ void ext::vulkan::destroy( bool soft ) {
 	ext::vulkan::flushCommandBuffers();
 
 //	ext::vulkan::mutex.lock();
-	synchronize();
+	synchronize(0b11);
 
 #if UF_USE_FFX_FSR
 	if ( settings::pipelines::fsr ) {
@@ -725,7 +720,7 @@ void ext::vulkan::destroy( bool soft ) {
 //	ext::vulkan::mutex.unlock();
 
 	// check for any leaked resources
-	if ( false ) {
+	if ( ext::vulkan::settings::validation::checkpoints ) {
 		UF_MSG_DEBUG("Leaked resources:");
 
 		for ( auto& resource : ext::vulkan::Resource<VkBuffer_T*>::handles ) {

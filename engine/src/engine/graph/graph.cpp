@@ -196,7 +196,6 @@ namespace {
 
 			// compute shader
 			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
-			shader.aliasAttachment("depthPyramid");
 		}
 		// vxgi pipeline
 		if ( uf::renderer::settings::pipelines::vxgi ) {
@@ -479,6 +478,9 @@ namespace {
 			shader.aliasBuffer( "indirect", *indirect );
 			shader.aliasBuffer( "instance", storage.buffers.instance );
 			shader.aliasBuffer( "object", storage.buffers.object );
+
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasTexture( storage.buffers.depthPyramid );
 		}
 
 		// vxgi pipeline
@@ -1532,10 +1534,12 @@ void uf::graph::destroy( uf::Object& object, bool soft ) {
 void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	soft = false;
 #if UF_USE_VULKAN
+/*
 	for ( auto& texture : uf::renderer::gc::textures ) {
 		texture.destroy( false );
 	}
 	uf::renderer::gc::textures.clear();
+*/
 #endif
 
 	// cleanup graphic handles

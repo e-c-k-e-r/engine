@@ -159,7 +159,7 @@ void postProcess() {
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
-	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
+	float brightness = luma(surface.fragment.rgb);
 	bool bloom = brightness > ubo.settings.bloom.threshold;
 //if ( bloom ) toneMap( surface.fragment.rgb, brightness );
 	vec4 outFragColor = vec4(surface.fragment.rgb, 1.0);
@@ -184,7 +184,7 @@ void postProcess() {
 	}
 
 	IMAGE_STORE( imageColor, outFragColor );
-	IMAGE_STORE( imageBright, outFragBright );
+	//IMAGE_STORE( imageBright, outFragBright );
 	IMAGE_STORE( imageMotion, vec4(outFragMotion, 0, 0) );
 }
 

@@ -28,6 +28,8 @@ namespace ext {
 			operator VkCommandBuffer() { return handle; }
 		};
 
+		struct Texture;
+
 		struct UF_API Device {
 			VkInstance instance;
 			VkDebugUtilsMessengerEXT debugMessenger;
@@ -86,6 +88,7 @@ namespace ext {
 				
 				uf::stl::vector<Buffer> buffers;
 				uf::stl::vector<AccelerationStructure> ass;
+				uf::stl::vector<Texture> textures;
 			} transient;
 
 			struct {

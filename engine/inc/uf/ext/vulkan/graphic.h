@@ -42,8 +42,8 @@ namespace ext {
 			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void destroy();
 
-			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>& );
-			uf::stl::vector<const Shader*> getShaders( const uf::stl::vector<Shader>& ) const;
+			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>&, const uf::stl::string& = "" );
+			uf::stl::vector<const Shader*> getShaders( const uf::stl::vector<Shader>&, const uf::stl::string& = "" ) const;
 
 			void collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const;
 		};

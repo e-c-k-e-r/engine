@@ -41,7 +41,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	this->metadata.type = descriptor.pipeline;
 	Device& device = *graphic.device;
 
-	auto shaders = getShaders( graphic.material.shaders );
+	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
 	assert( shaders.size() > 0 );
 
 	uint32_t subpass = descriptor.subpass;
@@ -397,7 +397,10 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 	return record( graphic, descriptor, commandBuffer, pass, draw, offset );
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
-	auto shaders = getShaders( graphic.material.shaders );
+	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
+	for ( auto i = 0; i < shaders.size(); ++i ) {
+	//	UF_MSG_DEBUG("{} | {}: {}", descriptor.pipeline, i, shaders[i]->filename);
+	}
 
 	// create dynamic offset ranges
 	static thread_local uf::stl::vector<uint32_t> dynamicOffsets;
@@ -427,6 +430,7 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 			else continue;
 		}
 
+		// automatically bind to our default push constants
 		if ( shader->metadata.definitions.pushConstants.count("PushConstant") > 0 ) {
 			struct PushConstant {
 				uint32_t pass;
@@ -450,7 +454,10 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 	}
 
 	// no matching bind point for shaders, skip
-	if ( !bound ) return;
+	if ( !bound ) {
+		UF_MSG_DEBUG("No shaders found to bind...");
+		return;
+	}
 
 	// Bind descriptor sets describing shader binding points
 #if VK_UBO_USE_N_BUFFERS
@@ -506,7 +513,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 	auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
 
-	auto shaders = getShaders( graphic.material.shaders );
+	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
 	uf::stl::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	uf::stl::vector<uf::renderer::AccelerationStructure> tlases;
 
@@ -947,32 +954,32 @@ void ext::vulkan::Pipeline::destroy() {
 	}
 */
 }
-uf::stl::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( uf::stl::vector<ext::vulkan::Shader>& shaders ) {
+uf::stl::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( uf::stl::vector<ext::vulkan::Shader>& shaders, const uf::stl::string& type ) {
 	uf::stl::unordered_map<uf::stl::string, ext::vulkan::Shader*> map;
 	uf::stl::vector<ext::vulkan::Shader*> res;
 	bool isCompute = false;
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
 		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
 	}
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
 		if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 		map[shader.metadata.type] = &shader;
 	}
 	for ( auto pair : map ) res.insert( res.begin(), pair.second);
 	return res;
 }
-uf::stl::vector<const ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( const uf::stl::vector<ext::vulkan::Shader>& shaders ) const {
+uf::stl::vector<const ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( const uf::stl::vector<ext::vulkan::Shader>& shaders, const uf::stl::string& type ) const {
 	uf::stl::unordered_map<uf::stl::string, const ext::vulkan::Shader*> map;
 	uf::stl::vector<const ext::vulkan::Shader*> res;
 	bool isCompute = false;
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
 		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
 	}
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
 		if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 		map[shader.metadata.type] = &shader;
 	}
@@ -1839,19 +1846,19 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, s
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw, size_t offset ) const {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
-		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline ({} {})", descriptor.renderMode, descriptor.renderTarget);
+		//UF_MSG_DEBUG("{} has no valid pipeline ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
 		return;
 	}
 
 	auto& pipeline = this->getPipeline( descriptor );
 	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) {
-		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set ({} {})", descriptor.renderMode, descriptor.renderTarget);
+		//UF_MSG_DEBUG("{} has no valid pipeline descriptor set ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
 		return;
 	}
 	if ( !pipeline.metadata.process ) return;
 	pipeline.record(*this, descriptor, commandBuffer, pass, draw, offset);
 
-	auto shaders = pipeline.getShaders( material.shaders );
+	auto shaders = pipeline.getShaders( material.shaders, descriptor.pipeline );
 	for ( auto* shader : shaders ) {
 		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;
 		if (

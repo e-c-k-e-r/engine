@@ -111,6 +111,8 @@ namespace pod {
 				uf::renderer::Buffer material;
 				uf::renderer::Buffer texture;
 				uf::renderer::Buffer light;
+
+				uf::renderer::Texture2D depthPyramid;
 			} buffers;
 		}/* storage*/;
 	};

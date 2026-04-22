@@ -110,7 +110,7 @@
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
 					"default command buffer immediate": true,
-					"multithreaded recording": true
+					"multithreaded recording": false
 				},
 				"pipelines": {
 					"deferred": true,
@@ -147,7 +147,8 @@
 							"deviceCoherentMemory",
 							"robustBufferAccess",
 							"samplerAnisotropy",
-							"sampleRateShading"
+							"sampleRateShading",
+							"samplerFilterMinmax"
 						],
 						"featureChain": []
 					},

@@ -273,8 +273,8 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	// swapchain.destroy();
 	swapchain.initialize( device );
 	// bind swapchain images
-	images.resize( ext::vulkan::swapchain.buffers );
-	VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device, swapchain.swapChain, &swapchain.buffers, images.data()));
+	::images.resize( ext::vulkan::swapchain.buffers );
+	VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device, swapchain.swapChain, &swapchain.buffers, ::images.data()));
 	// create image views for swapchain images
 
 	renderTarget.attachments.clear();
@@ -302,7 +302,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		colorAttachmentView.subresourceRange.layerCount = 1;
 		colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		colorAttachmentView.flags = 0;
-		colorAttachmentView.image = images[frame];
+		colorAttachmentView.image = ::images[frame];
 
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[frame].view));
 		VK_REGISTER_HANDLE( renderTarget.attachments[frame].view );
@@ -312,7 +312,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		renderTarget.attachments[frame].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		renderTarget.attachments[frame].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		renderTarget.attachments[frame].descriptor.aliased = true;
-		renderTarget.attachments[frame].image = images[frame];
+		renderTarget.attachments[frame].image = ::images[frame];
 		renderTarget.attachments[frame].mem = VK_NULL_HANDLE;
 
 		metadata.attachments["color["+std::to_string((int) frame)+"]"] = attachmentIndex++;
@@ -530,7 +530,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	// Create framebuffer
 	{	
 		// Create a frame buffer for every image in the swapchain
-		renderTarget.framebuffers.resize(images.size());
+		renderTarget.framebuffers.resize(::images.size());
 		for (size_t frame = 0; frame < renderTarget.framebuffers.size(); frame++)
 		{
 			std::array<VkImageView, 2> attachments;										
@@ -555,7 +555,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 #if 0
 	if ( true ) {
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
-		for ( size_t frame = 0; frame < images.size(); ++frame ) {
+		for ( size_t frame = 0; frame < ::images.size(); ++frame ) {
 			VkImageMemoryBarrier imageMemoryBarrier = {};
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			imageMemoryBarrier.srcAccessMask = 0;
@@ -652,10 +652,11 @@ void ext::vulkan::BaseRenderMode::destroy() {
 	}
 
 	for ( auto& image : ::images ) {
-	//	vkDestroyImage( *device, image, nullptr );
+		// vkDestroyImage( *device, image, nullptr ); // destroyed via vkDestroySwapchainKHR
 		VK_UNREGISTER_HANDLE( image );
 		image = VK_NULL_HANDLE;
 	}
+	::images.clear();
 	
 	ext::vulkan::RenderMode::destroy();
 

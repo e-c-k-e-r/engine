@@ -12,8 +12,8 @@
 #include <fstream>
 #include <regex>
 
-#define VK_DEBUG_VALIDATION_MESSAGE(x)\
-//	VK_VALIDATION_MESSAGE(x);
+#define VK_DEBUG_VALIDATION_MESSAGE(...)\
+	//VK_VALIDATION_MESSAGE(__VA_ARGS__);
 
 #define UF_SHADER_PARSE_AS_JSON 0
 #if UF_SHADER_PARSE_AS_JSON
@@ -94,7 +94,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 	#if UF_SHADER_TRACK_NAMES
 		uf::stl::string path = uf::string::join(variableName, ".");
 		path = uf::string::replace( path, ".[", "[" );
-		VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = " << value.dump());
+		//VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = " << value.dump());
 	#endif
 		// is strictly an int
 		if ( value.is<int>(true) ) {
@@ -120,7 +120,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 	#endif
 	};
 #if UF_SHADER_TRACK_NAMES
-	VK_VALIDATION_MESSAGE("Updating {} in {}", name, filename);
+	//VK_VALIDATION_MESSAGE("Updating {} in {}", name, filename);
 //	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
 #endif
 	parse(payload);
@@ -264,7 +264,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 			#if UF_SHADER_TRACK_NAMES
 				uf::stl::string path = uf::string::join(variableName, ".");
 				path = uf::string::replace( path, ".[", "[" );
-				VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = (" << primitive << ") " << input.dump());
+				//VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = (" << primitive << ") " << input.dump());
 			#endif
 				pushValue( primitive, input );
 			}
@@ -275,12 +275,12 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 	};
 	auto& definitions = metadata.json["definitions"]["uniforms"][name];
 #if UF_SHADER_TRACK_NAMES
-	VK_VALIDATION_MESSAGE("Updating " << name << " in " << filename);
-	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+	//VK_VALIDATION_MESSAGE("Updating " << name << " in " << filename);
+	//VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
 #endif
 	parseDefinition(payload, definitions);
 #if UF_SHADER_TRACK_NAMES
-	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+	//VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
 #endif
 #endif
 	return userdata;
@@ -489,14 +489,14 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					size_t bufferSize = comp.get_declared_struct_size(base_type);
 					if ( bufferSize <= 0 ) break;
 					if ( bufferSize > device.properties.limits.maxUniformBufferRange ) {
-						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer length of " << bufferSize << " for shader " << filename);
+						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer length of {} for shader {}", bufferSize, filename);
 						bufferSize = device.properties.limits.maxUniformBufferRange;
 					}
 
 					bufferSize = ALIGNED_SIZE( bufferSize, device.properties.limits.minUniformBufferOffsetAlignment );
 
 					{
-						VK_DEBUG_VALIDATION_MESSAGE("Uniform size of " << bufferSize << " for shader " << filename);
+						VK_DEBUG_VALIDATION_MESSAGE("Uniform size of {} for shader {}", bufferSize, filename);
 					//	auto& uniform = uniforms.emplace_back();
 					//	uniform.create( bufferSize );
 					}
@@ -564,7 +564,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 		#define LOOP_RESOURCES( key, type ) for ( size_t i = 0; i < res.key.size(); ++i ) {\
 			const auto& resource = res.key[i];\
-			VK_DEBUG_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
+			VK_DEBUG_VALIDATION_MESSAGE("[{}] Found resource: {} with binding: {}", filename, #type, comp.get_decoration(resource.id, spv::DecorationBinding));\
 			parseResource( resource, type, i );\
 		}
 		LOOP_RESOURCES( sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
@@ -667,16 +667,17 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			if ( size <= 0 ) continue;
 			// not a multiple of 4, for some reason
 			if ( size % 4 != 0 ) {
-				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename << ", must be multiple of 4, correcting...");
+				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of {} for shader {}, must be multiple of 4, correcting...", size, filename);
 				size /= 4;
 				++size; 
 				size *= 4;
 			}
 			if ( size > device.properties.limits.maxPushConstantsSize ) {
-				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
+				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of {} for shader {}", size, filename);
+				//VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
 				size = device.properties.limits.maxPushConstantsSize;
 			}
-			VK_DEBUG_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
+			VK_DEBUG_VALIDATION_MESSAGE("Push constant size of {} for shader {},", size, filename);
 			{
 				auto& pushConstant = pushConstants.emplace_back();
 				pushConstant.create( size );
@@ -724,7 +725,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				specializationMapEntries.emplace_back(specializationMapEntry);
 			}
 			specializationConstants.create( specializationSize );
-			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
+			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants size of {} for shader {}", specializationSize, filename);
 
 			uint8_t* s = (uint8_t*) (void*) specializationConstants;
 			size_t offset = 0;
@@ -798,7 +799,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						definition.validate = false;
 					} break;
 					default: {
-						VK_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
+						VK_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset {} for shader {}", offset, filename );
 					} break;
 				}
 			#if UF_SHADER_PARSE_AS_JSON
@@ -806,7 +807,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				member["size"] = size;
 				member["default"] = member["value"];
 				metadata.json["specializationConstants"].emplace_back(member);
-				VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<uf::stl::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
+				//VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<uf::stl::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
 			#endif
 
 				memcpy( &s[offset], &buffer, size );
@@ -859,7 +860,7 @@ bool ext::vulkan::Shader::validate() {
 		if ( it == uniforms.end() ) break;
 		auto& uniform = *(it++);
 		if ( uniform.data().len != buffer.allocationInfo.size ) {
-			VK_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
+			VK_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected {}, got {}; fixing...", buffer.allocationInfo.size, uniform.data().len);
 			uniform.destroy();
 			uniform.create(buffer.allocationInfo.size);
 			valid = false;

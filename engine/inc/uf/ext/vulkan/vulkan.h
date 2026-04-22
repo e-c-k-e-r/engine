@@ -182,10 +182,6 @@ namespace ext {
 			extern UF_API uint32_t frameSkip;
 		}
 
-		namespace gc {
-			extern UF_API uf::stl::vector<ext::vulkan::Texture> textures;
-		}
-
 		extern UF_API Device device;
 
 		extern UF_API Allocator allocator;

@@ -390,7 +390,7 @@ void main()  {
 #endif
 	{
 	#if BLOOM
-		float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
+		float brightness = luma(surface.fragment.rgb);
 		vec4 outFragBright = brightness > ubo.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 	//	imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), outFragBright);
 	#endif

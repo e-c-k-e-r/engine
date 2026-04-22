@@ -205,12 +205,15 @@ void ext::vulkan::Texture::destroy( bool defer ) {
 	if ( !device || !device->logicalDevice || aliased ) return; // device->logicalDevice should never be null, but it happens, somehow
 
 	if ( defer ) {
-		ext::vulkan::gc::textures.emplace_back( *this );
+		ext::vulkan::mutex.lock();
+		device->transient.textures.emplace_back(*this);
+		ext::vulkan::mutex.unlock();
 		return;
 	}
 
 	if ( view != VK_NULL_HANDLE ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
+		VK_UNREGISTER_HANDLE( view );
 		view = VK_NULL_HANDLE;
 	}
 	if ( image != VK_NULL_HANDLE ) {
@@ -581,6 +584,7 @@ void ext::vulkan::Texture::fromBuffers(
 	viewCreateInfo.subresourceRange.levelCount = this->mips;
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
+	VK_REGISTER_HANDLE( view );
 
 	{
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
@@ -890,7 +894,7 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 
 	int32_t mipWidth = width;
 	int32_t mipHeight = height;
-	int32_t mipDepth = depth;
+	int32_t mipDepth = MAX(1, depth);
 	for ( size_t i = 1; i < this->mips; ++i ) {
 		// transition previous layer to read from it
 		barrier.subresourceRange.baseMipLevel = i - 1;
@@ -1150,7 +1154,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 		imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageCopy.dstSubresource.baseArrayLayer = 0;
 		imageCopy.dstSubresource.layerCount = 1;
-		imageCopy.dstOffset = { 0, 0, 0 };
+		imageCopy.dstOffset = { 0, 0, layerID };
 		imageCopy.extent = { this->width, this->height, 1 };
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyImage" );

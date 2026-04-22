@@ -138,7 +138,7 @@ namespace ext {
 			inline void update( uf::Image& image, uint32_t layer = 1 ) { return this->update(image, this->imageLayout, layer); }
 			inline void update( void* data, VkDeviceSize size, uint32_t layer = 1 ) { return this->update(data, size, this->imageLayout, layer); }
 			
-			void generateMipmaps(VkCommandBuffer commandBuffer, uint32_t layer = 1);
+			void generateMipmaps(VkCommandBuffer commandBuffer, uint32_t layer = 0);
 
 			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 			inline void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, imageUsageFlags, imageLayout); }

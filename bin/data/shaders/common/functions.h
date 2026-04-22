@@ -44,6 +44,7 @@ void gammaCorrect( inout vec3 color, float gamma ) {
 }
 void toneMap( inout vec4 color, float exposure ) { toneMap(color.rgb, exposure); }
 void gammaCorrect( inout vec4 color, float gamma ) { gammaCorrect(color.rgb, gamma); }
+float luma( vec3 color ) { return dot(color, vec3(0.2126, 0.7152, 0.0722)); }
 //
 uint tea(uint val0, uint val1) {
 	uint v0 = val0;
@@ -152,6 +153,7 @@ vec3 decodeSrgb(vec3 rgb) {
 	const vec3 c = step(vec3(0.04045), rgb);
 	return mix(a, b, c);
 }
+#if !SPD && (DEFERRED || FRAGMENT || COMPUTE || RT)
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_TEXTURES;
 }
@@ -160,7 +162,6 @@ bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_CUBEMAPS;
 }
 #endif
-#if !BLOOM && (DEFERRED || FRAGMENT || COMPUTE || RT)
 bool validTextureIndex( uint id ) {
 	return 0 <= id && id < MAX_TEXTURES;
 }
