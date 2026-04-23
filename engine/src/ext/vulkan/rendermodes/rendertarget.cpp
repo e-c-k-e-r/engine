@@ -316,11 +316,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
-		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi  ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
-			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-
+		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 			auto& shader = blitter.material.getShader("compute");
 			
 			size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
@@ -348,16 +344,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{ "voxelCount", maxCascades },
 				{ "voxelOutput", maxCascades },
 			});
-
-		//	shader.aliasBuffer( storage.buffers.camera );
-		//	shader.aliasBuffer( storage.buffers.joint );
-			shader.aliasBuffer( storage.buffers.drawCommands );
-			shader.aliasBuffer( storage.buffers.instance );
-			shader.aliasBuffer( storage.buffers.instanceAddresses );
-			shader.aliasBuffer( storage.buffers.object );
-			shader.aliasBuffer( storage.buffers.material );
-			shader.aliasBuffer( storage.buffers.texture );
-			shader.aliasBuffer( storage.buffers.light );
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
 		#if 0
 			auto& shader = blitter.material.getShader("fragment");
@@ -376,6 +362,47 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			}
 		}
 	}
+
+	this->build(true);
+}
+
+void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
+	ext::vulkan::RenderMode::build();
+
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+	
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+	// (re)bind aliases
+	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
+		auto& shader = blitter.material.getShader("compute");
+
+	//	shader.aliasBuffer( storage.buffers.camera );
+	//	shader.aliasBuffer( storage.buffers.joint );
+		shader.aliasBuffer( storage.buffers.drawCommands );
+		shader.aliasBuffer( storage.buffers.instance );
+		shader.aliasBuffer( storage.buffers.instanceAddresses );
+		shader.aliasBuffer( storage.buffers.object );
+		shader.aliasBuffer( storage.buffers.material );
+		shader.aliasBuffer( storage.buffers.texture );
+		shader.aliasBuffer( storage.buffers.light );
+	}
+
+	// (re)initialize pipelines
+	{
+		blitter.descriptor.bind.width = width;
+		blitter.descriptor.bind.height = height;
+
+		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
+			blitter.initializePipeline( blitter.descriptor );
+		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		}
+	}
 }
 
 void ext::vulkan::RenderTargetRenderMode::tick() {
@@ -392,26 +419,8 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 		renderTarget.initialize( *renderTarget.device );
 	}
 	if ( rebuild && blitter.process ) {
-		blitter.descriptor.bind.width = width;
-		blitter.descriptor.bind.height = height;
-
-		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
-			blitter.initializePipeline( blitter.descriptor );
-		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
-			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-		}
+		this->build( resized );
 	}
-/*
-	if ( metadata.limiter.frequency > 0 ) {
-		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
-			metadata.limiter.timer = 0;
-			metadata.limiter.execute = true;
-		} else {
-			metadata.limiter.timer = metadata.limiter.timer + uf::physics::time::delta;
-			metadata.limiter.execute = false;
-		}
-	}
-*/
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();

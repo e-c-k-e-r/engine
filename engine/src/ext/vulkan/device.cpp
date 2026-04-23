@@ -615,10 +615,13 @@ pod::Checkpoint* ext::vulkan::Device::markCommandBuffer( VkCommandBuffer command
 }
 
 ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType, bool immediate ){
+	return fetchCommandBuffer( queueType, VK_COMMAND_BUFFER_LEVEL_PRIMARY, immediate );
+}
+ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType, VkCommandBufferLevel level, bool immediate ){
 	return {
 		.immediate = immediate,
 		.queueType = queueType,
-		.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true ),
+		.handle = this->createCommandBuffer( level, queueType, true ),
 		.threadId = std::this_thread::get_id(),
 	};
 }

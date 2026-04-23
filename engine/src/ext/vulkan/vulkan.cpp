@@ -85,6 +85,7 @@ bool ext::vulkan::settings::pipelines::hdr = true;
 bool ext::vulkan::settings::pipelines::vxgi = true;
 bool ext::vulkan::settings::pipelines::culling = false;
 bool ext::vulkan::settings::pipelines::bloom = false;
+bool ext::vulkan::settings::pipelines::dof = false;
 bool ext::vulkan::settings::pipelines::rt = false;
 bool ext::vulkan::settings::pipelines::postProcess = false;
 bool ext::vulkan::settings::pipelines::fsr = false;
@@ -95,6 +96,7 @@ uf::stl::string ext::vulkan::settings::pipelines::names::hdr = "hdr";
 uf::stl::string ext::vulkan::settings::pipelines::names::vxgi = "vxgi";
 uf::stl::string ext::vulkan::settings::pipelines::names::culling = "culling";
 uf::stl::string ext::vulkan::settings::pipelines::names::bloom = "bloom";
+uf::stl::string ext::vulkan::settings::pipelines::names::dof = "dof";
 uf::stl::string ext::vulkan::settings::pipelines::names::rt = "rt";
 uf::stl::string ext::vulkan::settings::pipelines::names::postProcess = "postprocess";
 uf::stl::string ext::vulkan::settings::pipelines::names::fsr = "fsr";
@@ -481,7 +483,7 @@ void ext::vulkan::initialize( bool soft ) {
 	}
 	uf::thread::execute( tasks );
 
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	if ( settings::pipelines::fsr ) {
 		ext::fsr::initialize();
 	}
@@ -614,7 +616,7 @@ void ext::vulkan::render() {
 			if ( renderMode->getType() != "Swapchain" ) {
 				uf::scene::render();
 			}
-		#if UF_USE_FFX_FSR
+		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
 				ext::fsr::tick();
 				ext::fsr::render();
@@ -632,7 +634,7 @@ void ext::vulkan::render() {
 		for ( auto& renderMode : renderModes ) {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
 
-		#if UF_USE_FFX_FSR
+		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
 				ext::fsr::tick();
 				ext::fsr::render();
@@ -674,7 +676,7 @@ void ext::vulkan::destroy( bool soft ) {
 //	ext::vulkan::mutex.lock();
 	synchronize(0b11);
 
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	if ( settings::pipelines::fsr ) {
 		ext::fsr::terminate();
 	}

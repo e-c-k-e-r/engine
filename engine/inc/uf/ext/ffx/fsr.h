@@ -3,8 +3,9 @@
 #include <uf/config.h>
 
 #include <uf/utils/math/matrix.h>
+#include <uf/utils/renderer/renderer.h>
 
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 namespace ext {
 	namespace fsr {
 		extern bool UF_API initialized;
@@ -19,6 +20,8 @@ namespace ext {
 		void UF_API tick();
 		void UF_API render();
 		void UF_API terminate();
+
+		uf::renderer::Texture& getRenderTarget();
 		
 		pod::Matrix4f UF_API getJitterMatrix();
 	}

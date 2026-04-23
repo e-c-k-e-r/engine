@@ -591,11 +591,11 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}
 
 			if ( descriptor.layout != VK_IMAGE_LAYOUT_UNDEFINED ) {
-				texture.imageLayout = descriptor.layout;
+				texture.layout = descriptor.layout;
 				texture.descriptor.imageLayout = descriptor.layout;
 			} else {
-				texture.imageLayout = ext::vulkan::Texture::remapRenderpassLayout( texture.imageLayout );
-				texture.descriptor.imageLayout = ext::vulkan::Texture::remapRenderpassLayout( texture.imageLayout );
+				texture.layout = ext::vulkan::Texture::remapRenderpassLayout( texture.layout );
+				texture.descriptor.imageLayout = ext::vulkan::Texture::remapRenderpassLayout( texture.layout );
 
 			}
 			
@@ -854,10 +854,10 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						}
 					}
 				#if 0
-					if ( descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
+					if ( descriptor.pImageInfo[i].layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Image layout is VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
-						pointer->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+						pointer->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 					}
 				#endif
 				}

@@ -190,6 +190,9 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	}
 }
 
+void ext::vulkan::BaseRenderMode::build( bool resized ) {
+	
+}
 void ext::vulkan::BaseRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 	

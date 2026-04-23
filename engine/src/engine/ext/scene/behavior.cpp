@@ -139,7 +139,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 			renderMode.blitter.descriptor.renderMode = "Swapchain";
 			renderMode.blitter.descriptor.subpass = 0;
-		#if UF_USE_FFX_FSR
+		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( uf::renderer::settings::pipelines::fsr ) {
 				auto mode = uf::string::lowercase( ext::fsr::preset );
 				if ( mode == "native" ) renderMode.scale = 1;
@@ -806,6 +806,14 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 			serializer["light"]["bloom"][key] = value;
 		} );
 	}
+	// merge dof settings with global settings
+	{
+		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"]["dof"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["light"]["dof"][key] ) ) return;
+			serializer["light"]["dof"][key] = value;
+		} );
+	}
 	// merge shadows settings with global settings
 	{
 		const auto& globalSettings = uf::config["engine"]["scenes"]["lights"]["shadows"];
@@ -845,6 +853,10 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/bloom.threshold = serializer["light"]["bloom"]["threshold"].as(/*this->*/bloom.threshold);
 	/*this->*/bloom.size = serializer["light"]["bloom"]["size"].as(/*this->*/bloom.size);
 	/*this->*/bloom.smoothness = serializer["light"]["bloom"]["smoothness"].as(/*this->*/bloom.smoothness);
+
+	/*this->*/dof.distance = serializer["light"]["dof"]["distance"].as(/*this->*/dof.distance);
+	/*this->*/dof.range = serializer["light"]["dof"]["range"].as(/*this->*/dof.range);
+	/*this->*/dof.maxCoc = serializer["light"]["dof"]["maxCoc"].as(/*this->*/dof.maxCoc);
 
 	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], /*this->*/fog.color );
 	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as( /*this->*/fog.stepScale );
@@ -896,7 +908,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 #endif
 #if UF_USE_VULKAN
 	auto& renderMode = this->hasComponent<uf::renderer::DeferredRenderMode>() ? this->getComponent<uf::renderer::DeferredRenderMode>() : uf::renderer::getRenderMode("", true);
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	/*this->*/framebuffer.scale = serializer["system"]["renderer"]["scale"].as(/*this->*/framebuffer.scale);
 
 	if ( uf::renderer::settings::pipelines::fsr ) {
@@ -939,8 +951,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	// only update this when requested
 	// done outside of deserialize because the rendermode might not be initialized in time
 	if ( uf::renderer::settings::pipelines::bloom && metadata.bloom.outOfDate && graphic.material.hasShader("compute", "bloom-down") ) {
-		auto& shaderDown = graphic.material.getShader("compute", "bloom-down");
-		auto& shaderUp = graphic.material.getShader("compute", "bloom-up");
+		auto& shader = graphic.material.getShader("compute", "bloom-down");
 
 		struct UniformDescriptor {
 			float threshold;
@@ -975,12 +986,34 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		for ( auto i = 0; i < uniforms.size; ++i ) uniforms.weights[i] = tempWeights[i] / sum;
 
 		metadata.bloom.outOfDate = false;
-		if ( shaderDown.hasUniform("UBO") ) {
-			shaderDown.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shaderDown.getUniformBuffer("UBO") );
-		}
-		if ( shaderUp.hasUniform("UBO") ) {
-			shaderUp.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shaderUp.getUniformBuffer("UBO") );
-		}
+		if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+	}
+
+	if ( uf::renderer::settings::pipelines::dof && metadata.dof.outOfDate && graphic.material.hasShader("compute", "dof-down") ) {
+		auto& shader = graphic.material.getShader("compute", "dof-down");
+
+		struct UniformDescriptor {
+			float distance;
+			float range;
+			float maxCoc;
+			float nearPlane;
+		};
+
+	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
+		auto projection = ext::fsr::getJitterMatrix() * camera.getProjection();
+	#else
+		auto projection = camera.getProjection();
+	#endif
+
+		UniformDescriptor uniforms = {
+			.distance = metadata.dof.distance,
+			.range = metadata.dof.range,
+			.maxCoc = projection(2,3),
+			.nearPlane = metadata.dof.maxCoc,
+		};
+
+		metadata.dof.outOfDate = false;
+		if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 	}
 
 	struct UniformDescriptor {
@@ -1126,7 +1159,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	// hopefully write combining kicks in
 	UniformDescriptor uniforms; {
 		for ( auto i = 0; i < 2; ++i ) {
-		#if UF_USE_FFX_FSR
+		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			auto projection = ext::fsr::getJitterMatrix() * camera.getProjection(i);
 		#else
 			auto projection = camera.getProjection(i);

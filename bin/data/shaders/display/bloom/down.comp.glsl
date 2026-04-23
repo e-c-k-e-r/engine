@@ -24,7 +24,7 @@ layout(push_constant) uniform PushBlock {
 
 
 layout (binding = 0, rgba16f) uniform image2D imageColor;
-layout (binding = 1, rgba16f) uniform image2D imageBright; // yucky
+layout (binding = 1, rgba16f) uniform image2D imageBright; // yucky, needed for making things happy
 layout (binding = 2, rgba16f) coherent uniform image2D outImage[MIPS];
 
 layout (binding = 3, std430) buffer AtomicCounter {
@@ -72,7 +72,7 @@ AF4 SpdLoadSourceImage(ASU2 p, AU1 slice) {
 	float b2 = luma(c2);
 	float b3 = luma(c3);
 
-    // soften
+	// soften
 	c0 = applySoftKnee(c0, b0);
 	c1 = applySoftKnee(c1, b1);
 	c2 = applySoftKnee(c2, b2);
@@ -91,7 +91,7 @@ AF4 SpdLoadSourceImage(ASU2 p, AU1 slice) {
 	if (p.x < size.x && p.y + 1 < size.y) imageStore(outImage[0], p + ivec2(0, 1), vec4(c2, 1.0));
 	if (p.x + 1 < size.x && p.y + 1 < size.y) imageStore(outImage[0], p + ivec2(1, 1), vec4(c3, 1.0));
 
-    // average
+	// average
 	return AF4((c0 * w0 + c1 * w1 + c2 * w2 + c3 * w3) * inv_wsum, 1.0);
 }
 
@@ -123,9 +123,9 @@ void SpdResetAtomicCounter(AU1 slice) { spdCounter.counter = 0; }
 void main() {
 	SpdDownsample(
 		AU2(gl_WorkGroupID.xy),
-        AU1(gl_LocalInvocationIndex),
-        AU1(PushConstant_.mips - 1),
+		AU1(gl_LocalInvocationIndex),
+		AU1(PushConstant_.mips - 1),
 		AU1(PushConstant_.numWorkGroups),
-        AU1(PushConstant_.workGroupOffset)
+		AU1(PushConstant_.workGroupOffset)
 	);
 }

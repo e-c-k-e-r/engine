@@ -141,16 +141,16 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			subresourceRange.layerCount = 1;
 
 			VkClearColorValue clearColor = { 0.0, 0.0, 0.0, 0.0 };
-			for ( auto& t : sceneTextures.voxels.drawId ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.instanceId ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.normalX ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.normalY ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceR ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceG ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceB ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceA ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.count ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.output ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.drawId ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.instanceId ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.normalX ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.normalY ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radianceR ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radianceG ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radianceB ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radianceA ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.count ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.output ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
 		});
 
 		// 
@@ -172,7 +172,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 				t.setImageLayout(
 					commandBuffer,
 					t.image,
-					t.imageLayout,
+					t.layout,
 					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					subresourceRange
 				);
@@ -181,7 +181,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 					commandBuffer,
 					t.image,
 					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					t.imageLayout,
+					t.layout,
 					subresourceRange
 				);
 			}

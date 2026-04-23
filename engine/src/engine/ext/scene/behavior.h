@@ -34,6 +34,12 @@ namespace ext {
 				bool outOfDate = true;
 			} bloom;
 			struct {
+				float distance = 7.5f; // 5 to 10
+				float range = 40.0f; // 30 to 50
+				float maxCoc = 0.6f; // 0.5 to 0.7
+				bool outOfDate = true;
+			} dof;
+			struct {
 				bool enabled = true;
 				int samples = 4;
 				int max = 8;

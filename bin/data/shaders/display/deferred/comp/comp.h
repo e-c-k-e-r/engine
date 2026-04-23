@@ -277,7 +277,7 @@ void populateSurface() {
 		pNDC /= pNDC.w;
 		cNDC /= cNDC.w;
 
-		surface.motion = cNDC.xy - pNDC.xy;
+		surface.motion = (pNDC.xy - cNDC.xy) * 0.5;
 	}
 
 }

@@ -64,6 +64,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		attachment->descriptor.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
+	attachment->descriptor.width = width;
+	attachment->descriptor.height = height;
 	if ( attachment->descriptor.mips <= 1 ) {
 		attachment->descriptor.mips = 1;
 	} else {

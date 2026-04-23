@@ -116,6 +116,7 @@ namespace ext {
 			pod::Checkpoint* markCommandBuffer( VkCommandBuffer commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
 
 			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, VkCommandBufferLevel, bool waits = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
 			void flushCommandBuffer( CommandBuffer& commandBuffer );
 			pod::Checkpoint* markCommandBuffer( CommandBuffer& commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
 

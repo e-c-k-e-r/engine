@@ -196,7 +196,7 @@ void ext::vulkan::Texture::initialize( Device& device, VkImageViewType viewType,
 void ext::vulkan::Texture::updateDescriptors() {
 	descriptor.sampler = sampler.sampler;
 	descriptor.imageView = view;
-	descriptor.imageLayout = imageLayout;
+	descriptor.imageLayout = layout;
 }
 bool ext::vulkan::Texture::generated() const {
 	return view != VK_NULL_HANDLE;
@@ -370,36 +370,36 @@ void ext::vulkan::Texture::setImageLayout(
 void ext::vulkan::Texture::loadFromFile(
 	const uf::stl::string& filename, 
 	VkFormat format,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout
+	VkImageUsageFlags usage,
+	VkImageLayout layout
 ) {
-	return loadFromFile( filename, ext::vulkan::device, format, imageUsageFlags, imageLayout );
+	return loadFromFile( filename, ext::vulkan::device, format, usage, layout );
 }
 void ext::vulkan::Texture::loadFromFile(
 	const uf::stl::string& filename, 
 	Device& device,
 	VkFormat format,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout 
+	VkImageUsageFlags usage,
+	VkImageLayout layout 
 ) {
 	uf::Image image;
 	image.open( filename );
-	return loadFromImage( image, device, format, imageUsageFlags, imageLayout );
+	return loadFromImage( image, device, format, usage, layout );
 }
 void ext::vulkan::Texture::loadFromImage(
 	const uf::Image& image,
 	VkFormat format,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout
+	VkImageUsageFlags usage,
+	VkImageLayout layout
 ) {
-	return loadFromImage( image, ext::vulkan::device, format, imageUsageFlags, imageLayout );
+	return loadFromImage( image, ext::vulkan::device, format, usage, layout );
 }
 void ext::vulkan::Texture::loadFromImage(
 	const uf::Image& image, 
 	Device& device,
 	VkFormat format,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout
+	VkImageUsageFlags usage,
+	VkImageLayout layout
 ) {
 /*
 	switch ( format ) {
@@ -473,8 +473,8 @@ void ext::vulkan::Texture::loadFromImage(
 		1,
 		1,
 		device,
-		imageUsageFlags,
-		imageLayout
+		usage,
+		layout
 	);
 }
 
@@ -486,10 +486,10 @@ void ext::vulkan::Texture::fromBuffers(
 	uint32_t texHeight,
 	uint32_t texDepth,
 	uint32_t layers,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout
+	VkImageUsageFlags usage,
+	VkImageLayout layout
 ) {
-	return this->fromBuffers( buffer, bufferSize, format, texWidth, texHeight, texDepth, layers, ext::vulkan::device, imageUsageFlags, imageLayout );
+	return this->fromBuffers( buffer, bufferSize, format, texWidth, texHeight, texDepth, layers, ext::vulkan::device, usage, layout );
 }
 
 
@@ -502,11 +502,12 @@ void ext::vulkan::Texture::fromBuffers(
 	uint32_t texDepth,
 	uint32_t layers,
 	Device& device,
-	VkImageUsageFlags imageUsageFlags,
-	VkImageLayout imageLayout
+	VkImageUsageFlags usage,
+	VkImageLayout layout
 ) {
 	this->initialize(device, texWidth, texHeight, texDepth, layers);
-	this->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	this->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	this->usage = usage;
 
 	if ( this->mips == 0 ) {
 		this->mips = 1;
@@ -528,7 +529,6 @@ void ext::vulkan::Texture::fromBuffers(
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.compute ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.compute);
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.transfer ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.transfer);
 
-
 	bool exclusive = true; // device.queueFamilyIndices.graphics == 0 && device.queueFamilyIndices.present == 0 && device.queueFamilyIndices.compute == 0 && device.queueFamilyIndices.transfer == 0;
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
@@ -542,9 +542,9 @@ void ext::vulkan::Texture::fromBuffers(
 	imageCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 //	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.sharingMode = exclusive ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
-	imageCreateInfo.initialLayout = this->imageLayout;
+	imageCreateInfo.initialLayout = this->layout;
 	imageCreateInfo.extent = { width, height, depth };
-	imageCreateInfo.usage = imageUsageFlags;
+	imageCreateInfo.usage = this->usage;
 	// Ensure that the TRANSFER_SRC bit is set for mip creation
 	if ( this->mips > 1 && !(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
 		imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -589,7 +589,7 @@ void ext::vulkan::Texture::fromBuffers(
 	{
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
 		device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-		uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, (this->imageLayout = imageLayout), viewCreateInfo.subresourceRange );
+		uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, (this->layout = layout), viewCreateInfo.subresourceRange );
 		device.flushCommandBuffer(commandBuffer);
 	}
 
@@ -597,7 +597,7 @@ void ext::vulkan::Texture::fromBuffers(
 		uint8_t* layerPointer = (uint8_t*) data;
 		VkDeviceSize layerSize = bufferSize / this->layers;
 		for ( size_t layer = 0; layer < this->layers; ++layer ) {
-			this->update( (void*) layerPointer, layerSize, imageLayout, layer );
+			this->update( (void*) layerPointer, layerSize, layout, layer );
 			layerPointer += layerSize;
 		}
 	}
@@ -615,13 +615,13 @@ void ext::vulkan::Texture::fromBuffers(
 		setImageLayout(
 			commandBuffer,
 			image,
-			this->imageLayout,
-			imageLayout,
+			this->layout,
+			layout,
 			subresourceRange
 		);
 		device.flushCommandBuffer(commandBuffer, QueueEnum::GRAPHICS, true);
 
-		this->imageLayout = imageLayout;
+		this->layout = layout;
 	}
 */
 
@@ -662,13 +662,13 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 
 	auto commandBuffer = device.fetchCommandBuffer(QueueEnum::GRAPHICS);
 
-	imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	layout = VK_IMAGE_LAYOUT_GENERAL;
 	setImageLayout(
 		commandBuffer, 
 		image,
 		VK_IMAGE_ASPECT_COLOR_BIT, 
 		VK_IMAGE_LAYOUT_UNDEFINED,
-		imageLayout,
+		layout,
 		this->mips
 	);
 
@@ -705,7 +705,7 @@ void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 		.view = texture.view,
 		.type = texture.type,
 	 	.viewType = texture.viewType,
-		.imageLayout = texture.imageLayout,
+		.layout = texture.layout,
 		.deviceMemory = texture.deviceMemory, 
 		.descriptor = texture.descriptor, 
 		.format = texture.format,
@@ -740,9 +740,12 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = attachment.views.size() == 6 ? ext::vulkan::enums::Image::VIEW_TYPE_CUBE : ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.view;
-	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
+	layout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
+	usage = attachment.descriptor.usage;
 	deviceMemory = attachment.mem;
 	format = attachment.descriptor.format;
+	width = attachment.descriptor.width;
+	height = attachment.descriptor.height;
 	mips = attachment.descriptor.mips;
 
 	// Create sampler
@@ -763,7 +766,7 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.views[layer];
-	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
+	layout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
 	format = attachment.descriptor.format;
 	mips = attachment.descriptor.mips;
@@ -790,7 +793,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 	auto& device = *this->device;
 
 	if ( targetImageLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
-		targetImageLayout = this->imageLayout;
+		targetImageLayout = this->layout;
 	}
 
 	// Create image view
@@ -826,7 +829,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 	setImageLayout(
 		commandBuffer,
 		image,
-		imageLayout,
+		layout,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		subresourceRange
 	);
@@ -851,7 +854,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 	
 	device.flushCommandBuffer(commandBuffer);
 	
-	this->imageLayout = targetImageLayout;
+	this->layout = targetImageLayout;
 
 	this->updateDescriptors();
 }

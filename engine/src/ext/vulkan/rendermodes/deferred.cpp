@@ -15,6 +15,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/ext.h>
+#include <uf/ext/ffx/fsr.h>
 
 #define BARYCENTRIC 1
 #if BARYCENTRIC
@@ -27,11 +28,12 @@
 namespace {
 	const uf::stl::string DEFERRED_MODE = "compute";
 
-	uf::stl::vector<VkImageView> depthPyramidViews;
-	uf::stl::vector<VkImageView> bloomViews;
-	
-	ext::vulkan::Buffer atomicCounterBloom;
-	ext::vulkan::Buffer atomicCounterDepth;
+	namespace postprocesses {
+		struct {
+			ext::vulkan::Buffer atomicCounter;
+			uf::stl::vector<VkImageView> views;
+		} depthPyramid, bloom, dof;
+	}
 	
 	struct AtomicCounter {
 		uint32_t counter;
@@ -42,17 +44,52 @@ namespace {
 		uint32_t workGroupOffset;
 	};
 
-	void destroyImageView( ext::vulkan::RenderMode* self, VkImageView view ) {
+	void destroyImageView( ext::vulkan::Device& device, VkImageView view ) {
 		ext::vulkan::mutex.lock();
-		auto& texture = self->device->transient.textures.emplace_back();
+		auto& texture = device.transient.textures.emplace_back();
 		ext::vulkan::mutex.unlock();
 
-		texture.device = self->device;
+		texture.device = &device;
 		texture.view = view;
 	/*
-		vkDestroyImageView(self->device.logicalDevice, view, nullptr);
+		vkDestroyImageView(device.logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	*/
+	}
+
+	void buildMippedViews( ext::vulkan::Shader& shader, ext::vulkan::Texture2D& source, uf::stl::vector<VkImageView>& views, size_t mips ) {
+		auto& device = *shader.device;
+
+		for ( auto& view : views ) ::destroyImageView( device, view );
+		views.clear();
+		views.resize( mips );
+
+		shader.textures.clear();
+
+		for ( auto i = 0; i < mips; ++i ) {
+			auto& view = views[i];
+
+			VkImageViewCreateInfo viewCreateInfo = {};
+			viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCreateInfo.pNext = NULL;
+			viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+			viewCreateInfo.subresourceRange.baseMipLevel = i;
+			viewCreateInfo.subresourceRange.layerCount = 1;
+			viewCreateInfo.subresourceRange.levelCount = 1;
+			viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCreateInfo.viewType = source.viewType;
+			viewCreateInfo.format = source.format;
+			viewCreateInfo.image = source.image;
+
+			VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
+			VK_REGISTER_HANDLE(view);
+
+			auto& texture = shader.textures.emplace_back();
+			texture.aliasTexture( source );
+			texture.view = view;
+			texture.layout = VK_IMAGE_LAYOUT_GENERAL;
+			texture.updateDescriptors();
+		}
 	}
 }
 
@@ -76,7 +113,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	struct {
 		size_t id, bary, depth, uv, normal;
-		size_t color, bright, motion, output;
+		size_t color, scratch, motion, output;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
@@ -129,14 +166,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		/*.blend =*/ blend,
+		/*.blend =*/ false,
 		/*.samples =*/ 1,
 	});
-	attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		/*.blend =*/ blend,
+		/*.blend =*/ false,
 		/*.samples =*/ 1,
 		/*.mips =*/ mips,
 	});
@@ -162,7 +199,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	
 	metadata.attachments["depth"] = attachments.depth;
 	metadata.attachments["color"] = attachments.color;
-	metadata.attachments["bright"] = attachments.bright;
+	metadata.attachments["scratch"] = attachments.scratch;
 	metadata.attachments["motion"] = attachments.motion;
 
 	metadata.attachments["output"] = attachments.color;
@@ -191,7 +228,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 			renderTarget.addPass(
 				/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-				/*.colors =*/ { attachments.color, attachments.bright, attachments.motion },
+				/*.colors =*/ { attachments.color, attachments.scratch, attachments.motion },
 			#if BARYCENTRIC
 				#if !BARYCENTRIC_CALCULATE
 					/*.inputs =*/ { attachments.id, attachments.depth, attachments.bary },
@@ -215,10 +252,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	{
 		uf::Mesh mesh;
 		mesh.vertex.count = 3;
-
-		auto& scene = uf::scene::getCurrentScene();
-		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
 		blitter.descriptor.renderMode = "Swapchain";
 		blitter.descriptor.subpass = 0;
@@ -307,16 +340,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{ "voxelOutput", maxCascades },
 			});
 
-		//	shader.aliasBuffer( storage.buffers.camera );
-		//	shader.aliasBuffer( storage.buffers.joint );
-			shader.aliasBuffer( storage.buffers.drawCommands );
-			shader.aliasBuffer( storage.buffers.instance );
-			shader.aliasBuffer( storage.buffers.instanceAddresses );
-			shader.aliasBuffer( storage.buffers.object );
-			shader.aliasBuffer( storage.buffers.material );
-			shader.aliasBuffer( storage.buffers.texture );
-			shader.aliasBuffer( storage.buffers.light );
-
 			shader.aliasAttachment("id", this);
 		#if BARYCENTRIC
 			#if !BARYCENTRIC_CALCULATE
@@ -329,71 +352,75 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("depth", this);
 			
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("motion", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		
-		if ( settings::pipelines::bloom ) {
-			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom/up.comp.spv");
-			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom-up");
-
-			auto& shader = blitter.material.getShader("compute", "bloom-up");
-
-			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
-		}
-
 		if ( settings::pipelines::bloom ) {
 			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom/down.comp.spv");
 			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom-down");
 
 			auto& shader = blitter.material.getShader("compute", "bloom-down");
-			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
-
-			shader.setSpecializationConstants({
-				{ "MIPS", mips },
-			});
-			shader.setDescriptorCounts({
-				{ "outImage", mips },
-			});
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
-			::atomicCounterBloom.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
-			shader.aliasBuffer("atomicCounterBloom", ::atomicCounterBloom);
+			::postprocesses::bloom.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			shader.aliasBuffer("atomicCounterBloom", ::postprocesses::bloom.atomicCounter);	
+		}
 
-			for ( auto& view : ::bloomViews ) ::destroyImageView( this, view );
-			::bloomViews.clear();
-			::bloomViews.resize(mips);
-			shader.textures.clear();
-			
-			ext::vulkan::Texture2D source; source.aliasAttachment( this->getAttachment("bright") );
-			for ( auto i = 0; i < mips; ++i ) {
-				auto& view = ::bloomViews[i];
-				VkImageViewCreateInfo viewCreateInfo = {};
-				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewCreateInfo.pNext = NULL;
-				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-				viewCreateInfo.subresourceRange.baseMipLevel = i;
-				viewCreateInfo.subresourceRange.layerCount = 1;
-				viewCreateInfo.subresourceRange.levelCount = 1;
-				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				viewCreateInfo.viewType = source.viewType;
-				viewCreateInfo.format = source.format;
-				viewCreateInfo.image = source.image;
+		if ( settings::pipelines::bloom ) {
+			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom/up.comp.spv");
+			blitter.material.metadata.autoInitializeUniformBuffers = false;
+			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom-up");
+			blitter.material.metadata.autoInitializeUniformBuffers = true;
 
-				VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
-				VK_REGISTER_HANDLE(view);
+			auto& shader = blitter.material.getShader("compute", "bloom-up");
 
-				{
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
+			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
+
+			{
+				auto& shaderDown = blitter.material.getShader("compute", "bloom-down");
+				auto& ubo = shaderDown.getUniformBuffer("UBO");
+
+				shader.aliasBuffer("ubo", ubo);
+			}
+		}
+
+		if ( settings::pipelines::dof ) {
+			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/dof/down.comp.spv");
+			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "dof-down");
+
+			auto& shader = blitter.material.getShader("compute", "dof-down");
+
+			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
+
+			// atomic counter buffer
+			::postprocesses::dof.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			shader.aliasBuffer("atomicCounterBloom", ::postprocesses::dof.atomicCounter);
+		}
+
+		if ( settings::pipelines::dof ) {
+			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/dof/up.comp.spv");
+			blitter.material.metadata.autoInitializeUniformBuffers = false;
+			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "dof-up");
+			blitter.material.metadata.autoInitializeUniformBuffers = true;
+
+			auto& shader = blitter.material.getShader("compute", "dof-up");
+
+			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
+
+			{
+				auto& shaderDown = blitter.material.getShader("compute", "dof-down");
+				auto& ubo = shaderDown.getUniformBuffer("UBO");
+
+				shader.aliasBuffer("ubo", ubo);
 			}
 		}
 
@@ -402,10 +429,69 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "depth-pyramid");
 
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
-			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
-			// depth pyramid
+
 			shader.aliasAttachment("depth", this);
 
+			// atomic counter buffer
+			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			shader.aliasBuffer("atomicCounterDepth", ::postprocesses::depthPyramid.atomicCounter);
+		}
+	}
+
+	this->build(true);
+}
+
+void ext::vulkan::DeferredRenderMode::build( bool resized ) {
+	ext::vulkan::RenderMode::build();
+
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+
+	// if resized (or initialized)
+	if ( resized ) {
+	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
+		if ( settings::pipelines::fsr ) {
+			auto& shader = blitter.material.getShader("fragment");
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasTexture( ext::fsr::getRenderTarget() );
+		}
+	#endif
+
+		if ( settings::pipelines::bloom ) {
+			auto& shader = blitter.material.getShader("compute", "bloom-down");
+			shader.setSpecializationConstants({
+				{ "MIPS", mips },
+			});
+			shader.setDescriptorCounts({
+				{ "outImage", mips },
+			});
+						
+			ext::vulkan::Texture2D source;
+			source.aliasAttachment( this->getAttachment("scratch") );
+			::buildMippedViews( shader, source, ::postprocesses::bloom.views, mips );
+		}
+
+		if ( settings::pipelines::dof ) {
+			auto& shader = blitter.material.getShader("compute", "dof-down");
+			shader.setSpecializationConstants({
+				{ "MIPS", mips },
+			});
+			shader.setDescriptorCounts({
+				{ "outImage", mips },
+			});
+						
+			ext::vulkan::Texture2D source;
+			source.aliasAttachment( this->getAttachment("scratch") );
+			::buildMippedViews( shader, source, ::postprocesses::dof.views, mips );
+		}
+
+		if ( settings::pipelines::culling ) {
+			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
 			shader.setSpecializationConstants({
 				{ "MIPS", mips },
 			});
@@ -413,13 +499,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{ "outImage", mips },
 			});
 
-			// atomic counter buffer
-			::atomicCounterDepth.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
-			shader.aliasBuffer("atomicCounterDepth", ::atomicCounterDepth);
-
-			for ( auto& view : ::depthPyramidViews ) ::destroyImageView( this, view );
-			::depthPyramidViews.clear();
-			::depthPyramidViews.resize(mips);
 			shader.textures.clear();
 
 			storage.buffers.depthPyramid.destroy(true);
@@ -428,87 +507,114 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			ext::vulkan::Texture2D& source = storage.buffers.depthPyramid;
 			source.sampler.descriptor.reduction.enabled = true;
 			source.sampler.descriptor.reduction.mode = VK_SAMPLER_REDUCTION_MODE_MIN;
-			
-			for ( auto i = 0; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i];
-				VkImageViewCreateInfo viewCreateInfo = {};
-				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewCreateInfo.pNext = NULL;
-				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-				viewCreateInfo.subresourceRange.baseMipLevel = i;
-				viewCreateInfo.subresourceRange.layerCount = 1;
-				viewCreateInfo.subresourceRange.levelCount = 1;
-				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				viewCreateInfo.viewType = source.viewType;
-				viewCreateInfo.format = source.format;
-				viewCreateInfo.image = source.image;
-
-				VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
-				VK_REGISTER_HANDLE(view);
-
-				{
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
-			}
+			::buildMippedViews( shader, source, ::postprocesses::depthPyramid.views, mips );
 		}
-	
-		if ( !blitter.hasPipeline( blitter.descriptor ) ){
+	}
+
+	// (re)bind aliases
+	if ( blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
+		auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
+
+		shader.metadata.aliases.buffers.clear();
+	//	shader.aliasBuffer( storage.buffers.camera );
+	//	shader.aliasBuffer( storage.buffers.joint );
+		shader.aliasBuffer( storage.buffers.drawCommands );
+		shader.aliasBuffer( storage.buffers.instance );
+		shader.aliasBuffer( storage.buffers.instanceAddresses );
+		shader.aliasBuffer( storage.buffers.object );
+		shader.aliasBuffer( storage.buffers.material );
+		shader.aliasBuffer( storage.buffers.texture );
+		shader.aliasBuffer( storage.buffers.light );
+	}
+
+	// (re)initialize pipelines
+	{
+		ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+		
+		if ( blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		} else {
 			blitter.initializePipeline( blitter.descriptor );
 		}
-		
-		{
-			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-			descriptor.renderMode = "";
-			descriptor.bind.width = width;
-			descriptor.bind.height = height;
-			descriptor.bind.depth = 1;
-			
-			if ( settings::pipelines::deferred && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
-				descriptor.pipeline = "deferred";
-				if ( DEFERRED_MODE == "fragment" ) {
-					descriptor.subpass = 1;
-					descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-				} else if ( DEFERRED_MODE == "compute" ) {
-					descriptor.subpass = 0;
-					descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				}
-				if ( !blitter.hasPipeline( descriptor ) ) {
-					blitter.initializePipeline( descriptor );
-				}
-			}
 
-			if ( settings::pipelines::bloom ) {
-				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
-				descriptor.pipeline = "bloom-down";
+		descriptor.renderMode = "";
+		descriptor.bind.width = width;
+		descriptor.bind.height = height;
+		descriptor.bind.depth = 1;
+
+		if ( settings::pipelines::deferred && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
+			descriptor.pipeline = "deferred";
+			if ( DEFERRED_MODE == "fragment" ) {
+				descriptor.subpass = 1;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			} else if ( DEFERRED_MODE == "compute" ) {
 				descriptor.subpass = 0;
 				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( !blitter.hasPipeline( descriptor ) ) {
-					blitter.initializePipeline( descriptor );
-				}
 			}
-
-			if ( settings::pipelines::bloom ) {
-				descriptor.aux = {};
-				descriptor.pipeline = "bloom-up";
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( !blitter.hasPipeline( descriptor ) ) {
-					blitter.initializePipeline( descriptor );
-				}
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
 			}
+		}
 
-			if ( settings::pipelines::culling ) {
-				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
-				descriptor.pipeline = "depth-pyramid";
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( !blitter.hasPipeline( descriptor ) ) {
-					blitter.initializePipeline( descriptor );
-				}
+		if ( settings::pipelines::bloom ) {
+			descriptor.aux = mips;
+			descriptor.pipeline = "bloom-down";
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
+			}
+		}
+
+		if ( settings::pipelines::bloom ) {
+			descriptor.aux = {};
+			descriptor.pipeline = "bloom-up";
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
+			}
+		}
+
+		if ( settings::pipelines::dof ) {
+			descriptor.aux = mips;
+			descriptor.pipeline = "dof-down";
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
+			}
+		}
+
+		if ( settings::pipelines::dof ) {
+			descriptor.aux = {};
+			descriptor.pipeline = "dof-up";
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
+			}
+		}
+
+		if ( settings::pipelines::culling ) {
+			descriptor.aux = mips;
+			descriptor.pipeline = "depth-pyramid";
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			if ( blitter.hasPipeline( descriptor ) ) {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
+			} else {
+				blitter.initializePipeline( descriptor );
 			}
 		}
 	}
@@ -521,189 +627,21 @@ void ext::vulkan::DeferredRenderMode::tick() {
 
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 
+	// rebuild rendertarget
 	if ( resized ) {
 		this->resized = false;
 		rebuild = true;
 		renderTarget.initialize( *renderTarget.device );
-
-		if ( settings::pipelines::bloom ) {
-			auto& shader = blitter.material.getShader("compute", "bloom-down");
-			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
-			shader.setSpecializationConstants({
-				{ "MIPS", mips },
-			});
-			shader.setDescriptorCounts({
-				{ "outImage", mips },
-			});
-			
-			for ( auto& view : ::bloomViews ) ::destroyImageView( this, view );
-			::bloomViews.clear();
-			::bloomViews.resize(mips);
-			shader.textures.clear();
-			
-			ext::vulkan::Texture2D source; source.aliasAttachment( this->getAttachment("bright") );
-			for ( auto i = 0; i < mips; ++i ) {
-				auto& view = ::bloomViews[i];
-				VkImageViewCreateInfo viewCreateInfo = {};
-				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewCreateInfo.pNext = NULL;
-				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-				viewCreateInfo.subresourceRange.baseMipLevel = i;
-				viewCreateInfo.subresourceRange.layerCount = 1;
-				viewCreateInfo.subresourceRange.levelCount = 1;
-				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				viewCreateInfo.viewType = source.viewType;
-				viewCreateInfo.format = source.format;
-				viewCreateInfo.image = source.image;
-
-				VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
-				VK_REGISTER_HANDLE(view);
-
-				{
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
-			}
-		}
-
-		if ( settings::pipelines::culling ) {
-			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
-			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
-			shader.setSpecializationConstants({
-				{ "MIPS", mips },
-			});
-			shader.setDescriptorCounts({
-				{ "outImage", mips },
-			});
-
-			storage.buffers.depthPyramid.destroy(true);
-			storage.buffers.depthPyramid.fromBuffers( NULL, 0, VK_FORMAT_R32_SFLOAT, width, height, 1, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-
-			ext::vulkan::Texture2D& source = storage.buffers.depthPyramid;
-			source.sampler.descriptor.reduction.enabled = true;
-			source.sampler.descriptor.reduction.mode = VK_SAMPLER_REDUCTION_MODE_MIN;
-			
-			for ( auto& view : ::depthPyramidViews ) ::destroyImageView( this, view );
-			::depthPyramidViews.clear();
-			::depthPyramidViews.resize(mips);
-			shader.textures.clear();
-			
-			for ( auto i = 0; i < mips; ++i ) {
-				auto& view = ::depthPyramidViews[i];
-				VkImageViewCreateInfo viewCreateInfo = {};
-				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewCreateInfo.pNext = NULL;
-				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-				viewCreateInfo.subresourceRange.baseMipLevel = i;
-				viewCreateInfo.subresourceRange.layerCount = 1;
-				viewCreateInfo.subresourceRange.levelCount = 1;
-				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				viewCreateInfo.viewType = source.viewType;
-				viewCreateInfo.format = source.format;
-				viewCreateInfo.image = source.image;
-
-				VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
-				VK_REGISTER_HANDLE(view);
-
-				{
-					auto& texture = shader.textures.emplace_back();
-					texture.aliasTexture( source );
-					texture.view = view;
-					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-					texture.updateDescriptors();
-				}
-			}
-		}
 	}
+
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
-		if ( blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
-			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
-
-			shader.metadata.aliases.buffers.clear();
-		//	shader.aliasBuffer( storage.buffers.camera );
-		//	shader.aliasBuffer( storage.buffers.joint );
-			shader.aliasBuffer( storage.buffers.drawCommands );
-			shader.aliasBuffer( storage.buffers.instance );
-			shader.aliasBuffer( storage.buffers.instanceAddresses );
-			shader.aliasBuffer( storage.buffers.object );
-			shader.aliasBuffer( storage.buffers.material );
-			shader.aliasBuffer( storage.buffers.texture );
-			shader.aliasBuffer( storage.buffers.light );
-		}
-		
-		if ( blitter.hasPipeline( blitter.descriptor ) ){
-			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-		} else {
-			blitter.initializePipeline( blitter.descriptor );
-		}
-
-		{
-			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-			descriptor.renderMode = "";
-			descriptor.bind.width = width;
-			descriptor.bind.height = height;
-			descriptor.bind.depth = 1;
-
-			if ( settings::pipelines::deferred && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
-				descriptor.pipeline = "deferred";
-				if ( DEFERRED_MODE == "fragment" ) {
-					descriptor.subpass = 1;
-					descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-				} else if ( DEFERRED_MODE == "compute" ) {
-					descriptor.subpass = 0;
-					descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				}
-				if ( blitter.hasPipeline( descriptor ) ) {
-					blitter.getPipeline( descriptor ).update( blitter, descriptor );
-				} else {
-					blitter.initializePipeline( descriptor );
-				}
-			}
-
-			if ( settings::pipelines::bloom ) {
-				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
-				descriptor.pipeline = "bloom-down";
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( blitter.hasPipeline( descriptor ) ) {
-					blitter.getPipeline( descriptor ).update( blitter, descriptor );
-				} else {
-					blitter.initializePipeline( descriptor );
-				}
-			}
-
-			if ( settings::pipelines::bloom ) {
-				descriptor.aux = {};
-				descriptor.pipeline = "bloom-up";
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( blitter.hasPipeline( descriptor ) ) {
-					blitter.getPipeline( descriptor ).update( blitter, descriptor );
-				} else {
-					blitter.initializePipeline( descriptor );
-				}
-			}
-
-			if ( settings::pipelines::culling ) {
-				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
-				descriptor.pipeline = "depth-pyramid";
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-				if ( blitter.hasPipeline( descriptor ) ) {
-					blitter.getPipeline( descriptor ).update( blitter, descriptor );
-				} else {
-					blitter.initializePipeline( descriptor );
-				}
-			}
-		}
+		this->build( resized );
 	}
 }
 VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
@@ -760,19 +698,27 @@ void ext::vulkan::DeferredRenderMode::render() {
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	// cleanup
-	::atomicCounterDepth.destroy(false);
-	::atomicCounterBloom.destroy(false);
+	::postprocesses::depthPyramid.atomicCounter.destroy(false);
+	::postprocesses::bloom.atomicCounter.destroy(false);
+	::postprocesses::dof.atomicCounter.destroy(false);
 	
-	for ( auto& view : ::bloomViews ) {
+	for ( auto& view : ::postprocesses::bloom.views ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	}
-	::bloomViews.clear();
-	for ( auto& view : ::depthPyramidViews ) {
+	::postprocesses::bloom.views.clear();
+
+	for ( auto& view : ::postprocesses::dof.views ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	}
-	::depthPyramidViews.clear();
+	::postprocesses::dof.views.clear();
+
+	for ( auto& view : ::postprocesses::depthPyramid.views ) {
+		vkDestroyImageView(device->logicalDevice, view, nullptr);
+		VK_UNREGISTER_HANDLE(view);
+	}
+	::postprocesses::depthPyramid.views.clear();
 	
 	ext::vulkan::RenderMode::destroy();
 }
@@ -991,7 +937,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				descriptor.subpass = 0;
 
 				// reset counter buffer
-				vkCmdFillBuffer(commandBuffer, ::atomicCounterBloom.buffer, 0, 4, 0);
+				vkCmdFillBuffer(commandBuffer, ::postprocesses::bloom.atomicCounter.buffer, 0, 4, 0);
 				VkMemoryBarrier counterBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
 				counterBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 				counterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
@@ -1007,7 +953,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			
 			/*
 				ext::vulkan::Texture2D source;
-				source.aliasAttachment( this->getAttachment("bright") );
+				source.aliasAttachment( this->getAttachment("scratch") );
 				source.generateMipmaps( commandBuffer );
 			*/
 
@@ -1033,6 +979,80 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[up]" );
+				blitter.record( commandBuffer, descriptor );
+
+				// transition attachments back to shader read layouts
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsFrom( this, shader, commandBuffer );
+			}
+
+			if ( settings::pipelines::dof && blitter.material.hasShader("compute", "dof-down") ) {
+				auto& shader = blitter.material.getShader("compute", "dof-down");
+				auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+
+				uint32_t dispatchX = (width + 63) / 64;
+				uint32_t dispatchY = (height + 63) / 64;
+				uint32_t numWorkGroups = dispatchX * dispatchY;
+				auto& pushConstant = shader.pushConstants.front().get<::PushConstants>();
+				pushConstant = {
+					.mips = mips,
+					.numWorkGroups = numWorkGroups,
+					.workGroupOffset = 0,
+				};
+
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.renderMode = "";
+				descriptor.aux = mips;
+				descriptor.pipeline = "dof-down";
+				descriptor.bind.width = dispatchX * 256;
+				descriptor.bind.height = dispatchY;
+				descriptor.bind.depth = metadata.eyes;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+				descriptor.subpass = 0;
+
+				// reset counter buffer
+				vkCmdFillBuffer(commandBuffer, ::postprocesses::dof.atomicCounter.buffer, 0, 4, 0);
+				VkMemoryBarrier counterBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+				counterBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				counterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &counterBarrier, 0, nullptr, 0, nullptr);
+
+				// transition attachments to general attachments for imageStore
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsTo( this, shader, commandBuffer );
+
+				// dispatch compute shader				
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "dof[down]" );
+				blitter.record( commandBuffer, descriptor );
+			
+			/*
+				ext::vulkan::Texture2D source;
+				source.aliasAttachment( this->getAttachment("scratch") );
+				source.generateMipmaps( commandBuffer );
+			*/
+
+				// transition attachments back to shader read layouts
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsFrom( this, shader, commandBuffer );
+			}
+
+			if ( settings::pipelines::dof && blitter.material.hasShader("compute", "dof-up") ) {
+				auto& shader = blitter.material.getShader("compute", "dof-up");
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.renderMode = "";
+				descriptor.pipeline = "dof-up";
+				descriptor.bind.width = width;
+				descriptor.bind.height = height;
+				descriptor.bind.depth = metadata.eyes;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+				descriptor.subpass = 0;
+
+				// transition attachments to general attachments for imageStore
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				::transitionAttachmentsTo( this, shader, commandBuffer );
+
+				// dispatch compute shader				
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "dof[up]" );
 				blitter.record( commandBuffer, descriptor );
 
 				// transition attachments back to shader read layouts
@@ -1066,7 +1086,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				descriptor.subpass = 0;
 
 				// reset counter buffer
-				vkCmdFillBuffer(commandBuffer, ::atomicCounterDepth.buffer, 0, 4, 0);
+				vkCmdFillBuffer(commandBuffer, ::postprocesses::depthPyramid.atomicCounter.buffer, 0, 4, 0);
 				VkMemoryBarrier counterBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
 				counterBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 				counterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;

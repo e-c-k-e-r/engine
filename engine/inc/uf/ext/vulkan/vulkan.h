@@ -148,6 +148,7 @@ namespace ext {
 				extern UF_API bool vxgi;
 				extern UF_API bool culling;
 				extern UF_API bool bloom;
+				extern UF_API bool dof;
 				extern UF_API bool rt;
 				extern UF_API bool postProcess;
 				extern UF_API bool fsr;
@@ -159,6 +160,7 @@ namespace ext {
 					extern UF_API uf::stl::string vxgi;
 					extern UF_API uf::stl::string culling;
 					extern UF_API uf::stl::string bloom;
+					extern UF_API uf::stl::string dof;
 					extern UF_API uf::stl::string rt;
 					extern UF_API uf::stl::string postProcess;
 					extern UF_API uf::stl::string fsr;

@@ -11,6 +11,7 @@ namespace ext {
 			
 			virtual void createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );
+			virtual void build( bool = true );
 			virtual void tick();
 			virtual VkSubmitInfo queue();
 			virtual void render();

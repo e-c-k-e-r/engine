@@ -15,6 +15,9 @@ namespace ext {
 					uint8_t mips = 0;
 					bool screenshottable = true;
 					bool aliased = false;
+
+					uint32_t width = 0;
+					uint32_t height = 0;
 				} descriptor;
 
 				VkImage image;

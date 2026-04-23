@@ -116,6 +116,7 @@ namespace ext {
 			virtual void createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void bindPipelines();
 			virtual void bindPipelines( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void build( bool = true );
 			virtual void tick();
 			virtual void render();
 			virtual void destroy();

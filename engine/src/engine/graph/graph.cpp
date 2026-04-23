@@ -1504,7 +1504,7 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 	auto& camera = scene.getCamera( controller );
 
 	auto viewport = camera.data().viewport;
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	if ( ext::fsr::initialized && renderMode->getType() == "Deferred" ) {
 		auto jitter = ext::fsr::getJitterMatrix();
 		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {

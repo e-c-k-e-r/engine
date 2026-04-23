@@ -279,7 +279,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 	uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
 	uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
 
-#if UF_USE_FFX_FSR
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	ext::fsr::preset = json["engine"]["ext"]["fsr"]["preset"].as(ext::fsr::preset);
 	ext::fsr::jitterScale = json["engine"]["ext"]["fsr"]["jitter scale"].as(ext::fsr::jitterScale);
 	ext::fsr::sharpness = json["engine"]["ext"]["fsr"]["sharpness"].as(ext::fsr::sharpness);
@@ -287,7 +287,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 
 	if ( uf::renderer::hasRenderMode("", true) ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-	#if UF_USE_FFX_FSR
+	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 		if ( uf::renderer::settings::pipelines::fsr ) {
 			auto mode = uf::string::lowercase( ext::fsr::preset );
 			if ( mode == "native" ) renderMode.scale = 1;
@@ -514,6 +514,7 @@ void UF_API uf::initialize() {
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
+		uf::renderer::settings::pipelines::dof = configRenderPipelinesJson["dof"].as( uf::renderer::settings::pipelines::dof );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
 		uf::renderer::settings::pipelines::postProcess = configRenderPipelinesJson["postProcess"].as( uf::renderer::settings::pipelines::postProcess );
 		
@@ -521,7 +522,7 @@ void UF_API uf::initialize() {
 			uf::renderer::settings::pipelines::postProcess = true;
 		}
 
-	#if UF_USE_FFX_FSR
+	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 		uf::renderer::settings::pipelines::fsr = configRenderPipelinesJson["fsr"].as( uf::renderer::settings::pipelines::fsr );
 	//	ext::fsr::enabled = uf::renderer::settings::pipelines::fsr;
 	#endif
@@ -596,7 +597,7 @@ void UF_API uf::initialize() {
 
 				renderMode->blitter.descriptor.renderMode = "Swapchain";
 				renderMode->blitter.descriptor.subpass = 0;
-			#if UF_USE_FFX_FSR
+			#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 				if ( uf::renderer::settings::pipelines::fsr ) {
 					auto mode = uf::string::lowercase( ext::fsr::preset );
 					if ( mode == "native" ) renderMode->scale = 1;
