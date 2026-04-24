@@ -452,6 +452,20 @@ namespace ext {
 					float clamp = 0;
 				} bias;
 			} depth;
+
+		// to-do: port the rest
+			struct {
+				bool enabled = true;
+		#if UF_USE_VULKAN
+				VkBlendFactor            srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				VkBlendFactor            dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				VkBlendOp                colorBlendOp = VK_BLEND_OP_ADD;
+				VkBlendFactor            srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				VkBlendFactor            dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				VkBlendOp                alphaBlendOp = VK_BLEND_OP_ADD;
+				VkColorComponentFlags    colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		#endif
+			} blend;
 			
 			bool invalidated = false;
 

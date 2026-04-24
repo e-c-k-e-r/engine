@@ -9,6 +9,8 @@
 namespace ext {
 	namespace fsr {
 		extern bool UF_API initialized;
+		extern bool UF_API frameUpscale;
+		extern bool UF_API frameInterpolation;
 		
 		extern uf::stl::string UF_API preset;
 

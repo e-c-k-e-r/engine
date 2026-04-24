@@ -577,12 +577,13 @@ void ext::vulkan::Texture::fromBuffers(
 	viewCreateInfo.pNext = NULL;
 	viewCreateInfo.viewType = viewType;
 	viewCreateInfo.format = format;
-	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	viewCreateInfo.components = viewComponentMapping;
 	viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	viewCreateInfo.subresourceRange.layerCount = this->layers;
 	viewCreateInfo.subresourceRange.levelCount = this->mips;
 	viewCreateInfo.image = image;
+
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 	VK_REGISTER_HANDLE( view );
 
@@ -683,7 +684,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	VkImageViewCreateInfo viewCreateInfo = ext::vulkan::initializers::imageViewCreateInfo();
 	viewCreateInfo.viewType = viewType;
 	viewCreateInfo.format = format;
-	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	viewCreateInfo.components = viewComponentMapping;
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device, &viewCreateInfo, nullptr, &view));

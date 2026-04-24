@@ -62,6 +62,7 @@ namespace ext {
 			VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 			VkDescriptorImageInfo descriptor = {};
 			VkFormat format = enums::Format::R8G8B8A8_UNORM;
+			VkComponentMapping viewComponentMapping = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 			bool srgb = false;
 			
 			Sampler sampler = {};

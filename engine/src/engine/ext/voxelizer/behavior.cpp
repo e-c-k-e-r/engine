@@ -87,7 +87,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.type = uf::renderer::settings::pipelines::names::vxgi;
 		renderMode.metadata.pipeline = uf::renderer::settings::pipelines::names::vxgi;
 		if ( uf::renderer::settings::pipelines::culling ) {
-			renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
+		//	renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
 		}
 		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;

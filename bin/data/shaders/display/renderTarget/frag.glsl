@@ -16,6 +16,8 @@ layout (binding = 1) uniform UBO {
 	uint padding;
 } ubo;
 
+layout(constant_id = 0) const int FORCE_OPAQUE = 0;
+
 #define TONE_MAP 1
 #define GAMMA_CORRECT 1
 #define TEXTURES 1
@@ -26,6 +28,7 @@ layout (binding = 1) uniform UBO {
 
 void main() {
 	outColor = texture( samplerColor, inUv );
+	if ( FORCE_OPAQUE == 1 ) outColor.a = 1;
 #if TONE_MAP
 	toneMap(outColor, ubo.exposure);
 #endif

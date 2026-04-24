@@ -66,9 +66,9 @@
 			"vulkan": {
 				"version": 1.3,
 				"validation": {
-					"enabled": true,
-					"messages": true,
-					"checkpoints": true,
+					"enabled": false,
+					"messages": false,
+					"checkpoints": false,
 					"filters": [
 					//	"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI) (seems to be fixed?)
 					//	,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit) (seems to be fixed?)
@@ -110,17 +110,17 @@
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
 					"default command buffer immediate": false,
-					"multithreaded recording": false
+					"multithreaded recording": true
 				},
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false,
-					"culling": false,
-					"bloom": false,
-					"dof": false,
+					"vxgi": true,
+					"culling": true,
+					"bloom": true,
+					"dof": true,
 					"rt": false,
 					"fsr": true,
 					"postProcess": false // "postProcess.chromab" // false
@@ -302,6 +302,8 @@
 			},
 			"fsr": {
 				"enabled": true,
+				"upscale": true,
+				"interpolation": false, // it works but it's naively using the interpolated frame
 				"sharpness": 0,
 				"jitter scale": 0.0625,
 				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)

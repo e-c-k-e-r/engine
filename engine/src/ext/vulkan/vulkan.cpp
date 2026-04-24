@@ -499,6 +499,8 @@ void ext::vulkan::tick() {
 		ext::vulkan::states::rebuild = true;
 		::skip = true;
 	}
+
+	ext::fsr::tick();
 	
 	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {
@@ -618,7 +620,7 @@ void ext::vulkan::render() {
 			}
 		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
-				ext::fsr::tick();
+				//ext::fsr::tick();
 				ext::fsr::render();
 			}
 		#endif
@@ -636,7 +638,7 @@ void ext::vulkan::render() {
 
 		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
-				ext::fsr::tick();
+				//ext::fsr::tick();
 				ext::fsr::render();
 			}
 		#endif

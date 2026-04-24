@@ -257,6 +257,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		blitter.descriptor.subpass = 0;
 		blitter.descriptor.depth.test = false;
 		blitter.descriptor.depth.write = false;
+		blitter.descriptor.blend.enabled = false;
 
 		blitter.initialize( "Swapchain" );
 		blitter.initializeMesh( mesh );

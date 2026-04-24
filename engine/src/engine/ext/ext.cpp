@@ -283,6 +283,9 @@ void UF_API uf::load( ext::json::Value& json ) {
 	ext::fsr::preset = json["engine"]["ext"]["fsr"]["preset"].as(ext::fsr::preset);
 	ext::fsr::jitterScale = json["engine"]["ext"]["fsr"]["jitter scale"].as(ext::fsr::jitterScale);
 	ext::fsr::sharpness = json["engine"]["ext"]["fsr"]["sharpness"].as(ext::fsr::sharpness);
+	
+	ext::fsr::frameUpscale = json["engine"]["ext"]["fsr"]["upscale"].as(ext::fsr::frameUpscale);
+	ext::fsr::frameInterpolation = json["engine"]["ext"]["fsr"]["interpolation"].as(ext::fsr::frameInterpolation);
 #endif
 
 	if ( uf::renderer::hasRenderMode("", true) ) {

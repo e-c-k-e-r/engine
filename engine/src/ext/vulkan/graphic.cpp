@@ -259,20 +259,19 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			}
 		} else {
 			subpass = 0;
-			VkBool32 blendEnabled = VK_TRUE;
-			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-				writeMask,
-				blendEnabled
+				descriptor.blend.colorWriteMask,
+				descriptor.blend.enabled ? VK_TRUE : VK_FALSE
 			);
-			if ( blendEnabled == VK_TRUE ) {
-				blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-				blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-				blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-				blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+
+			if ( descriptor.blend.enabled ) {
+				blendAttachmentState.srcColorBlendFactor = descriptor.blend.srcColorBlendFactor;
+				blendAttachmentState.dstColorBlendFactor = descriptor.blend.dstColorBlendFactor;
+				blendAttachmentState.colorBlendOp = descriptor.blend.colorBlendOp;
+				blendAttachmentState.srcAlphaBlendFactor = descriptor.blend.srcAlphaBlendFactor;
+				blendAttachmentState.dstAlphaBlendFactor = descriptor.blend.dstAlphaBlendFactor;
+				blendAttachmentState.alphaBlendOp = descriptor.blend.alphaBlendOp;
 			}
 			blendAttachmentStates.emplace_back(blendAttachmentState);
 		}
