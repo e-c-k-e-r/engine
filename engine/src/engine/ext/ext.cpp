@@ -286,6 +286,14 @@ void UF_API uf::load( ext::json::Value& json ) {
 	
 	ext::fsr::frameUpscale = json["engine"]["ext"]["fsr"]["upscale"].as(ext::fsr::frameUpscale);
 	ext::fsr::frameInterpolation = json["engine"]["ext"]["fsr"]["interpolation"].as(ext::fsr::frameInterpolation);
+	
+	{
+		bool enabled = json["engine"]["ext"]["fsr"]["enabled"].as(true);
+		if ( !enabled ) {
+			ext::fsr::frameUpscale = false;
+			ext::fsr::frameInterpolation = false;
+		}
+	}
 #endif
 
 	if ( uf::renderer::hasRenderMode("", true) ) {

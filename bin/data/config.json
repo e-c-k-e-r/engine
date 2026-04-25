@@ -29,8 +29,8 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0,
-			//	"limiter": 0.0125,
+			//	"limiter": 0,
+				"limiter": 0.0125,
 				"size": 256,
 				"dispatch": 16,
 				"cascades": 3,
@@ -101,7 +101,7 @@
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": false, // mostly works
+					"dedicated thread": true, // mostly works
 					"memory budget": false,
 					"register render modes": true,
 					"skip render on rebuild": false
@@ -122,7 +122,7 @@
 					"bloom": true,
 					"dof": true,
 					"rt": false,
-					"fsr": true,
+					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
 				},
 				"formats": {
@@ -228,7 +228,8 @@
 							"descriptorBindingVariableDescriptorCount",
 
 							"shaderOutputViewportIndex",
-							"shaderOutputLayer"
+							"shaderOutputLayer",
+							"timelineSemaphore"
 						],
 						"featureChain": [
 							"physicalDeviceVulkan12"
@@ -303,7 +304,7 @@
 			"fsr": {
 				"enabled": true,
 				"upscale": true,
-				"interpolation": false, // it works but it's naively using the interpolated frame
+				"interpolation": true, // it works but i don't think it's presenting the frame
 				"sharpness": 0,
 				"jitter scale": 0.0625,
 				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)

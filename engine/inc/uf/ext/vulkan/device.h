@@ -15,6 +15,7 @@ namespace ext {
 			PRESENT,
 			COMPUTE,
 			TRANSFER,
+			ACQUIRE,
 		};
 		struct CommandBuffer {
 			bool immediate{true};
@@ -76,6 +77,7 @@ namespace ext {
 				uf::ThreadUnique<VkQueue> present;
 				uf::ThreadUnique<VkQueue> compute;
 				uf::ThreadUnique<VkQueue> transfer;
+				uf::ThreadUnique<VkQueue> acquire;
 			} queues;
 
 			struct {
@@ -104,7 +106,8 @@ namespace ext {
 				uint32_t present;
 				uint32_t compute;
 				uint32_t transfer;
-			} queueFamilyIndices;
+				uint32_t acquire;
+			} queueFamilyIndices, queueIndices;
 			operator VkDevice() { return this->logicalDevice; };
 			
 			// helpers

@@ -454,8 +454,7 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 
 	// no matching bind point for shaders, skip
 	if ( !bound ) {
-		UF_MSG_DEBUG("No shaders found to bind...");
-		return;
+		UF_MSG_DEBUG("No shaders found to bind...: {} | {}", shaders.size(), descriptor.pipeline);
 	}
 
 	// Bind descriptor sets describing shader binding points

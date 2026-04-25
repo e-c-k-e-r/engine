@@ -4,14 +4,24 @@
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
+#include <uf/ext/ffx/fsr.h>
 
 VkResult ext::vulkan::Swapchain::acquireNextImage( uint32_t* imageIndex, VkSemaphore presentCompleteSemaphore, VkFence acquireFence ) {
-	// By setting timeout to UINT64_MAX we will always wait until the next image has been acquired or an actual error is thrown
-	// With that we don't have to handle VK_NOT_READY
+#if UF_USE_FFX_SDK
+	if ( ext::fsr::frameInterpolation ) {
+		return ext::fsr::acquireNextImage( imageIndex, presentCompleteSemaphore, acquireFence );
+	}
+#endif
+
 	return vkAcquireNextImageKHR( *device, swapChain, VK_DEFAULT_FENCE_TIMEOUT, presentCompleteSemaphore, acquireFence, imageIndex );
 }
 
 VkResult ext::vulkan::Swapchain::queuePresent( VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore ) {
+#if UF_USE_FFX_SDK
+	if ( ext::fsr::frameInterpolation ) {
+		return ext::fsr::queuePresent( queue, imageIndex, waitSemaphore );
+	}
+#endif
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.pNext = NULL;
@@ -168,24 +178,55 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 			swapchainCI.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		}
 
-		VK_CHECK_RESULT(vkCreateSwapchainKHR( device.logicalDevice, &swapchainCI, nullptr, &swapChain));
+	#if UF_USE_FFX_SDK
+		VK_CHECK_RESULT(ext::fsr::createSwapchain( device.logicalDevice, &swapchainCI, nullptr, &swapChain ));
+	#else
+		VK_CHECK_RESULT(vkCreateSwapchainKHR( device.logicalDevice, &swapchainCI, nullptr, &swapChain ));
+	#endif
 	//	VK_REGISTER_HANDLE( swapchainCI );
 
 		// If an existing swap chain is re-created, destroy the old swap chain
 		// This also cleans up all the presentable images
-		if (oldSwapchain != VK_NULL_HANDLE) {
-			vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
+		if ( oldSwapchain != VK_NULL_HANDLE ) {
+			#if UF_USE_FFX_SDK
+				ext::fsr::destroySwapchain( device.logicalDevice, oldSwapchain, nullptr);
+			#else
+				vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
+			#endif
 		//	VK_UNREGISTER_HANDLE( oldSwapchain );
 		}
+	#if UF_USE_FFX_SDK
+		VK_CHECK_RESULT(ext::fsr::getSwapchainImages( device.logicalDevice, swapChain, &buffers, NULL));
+	#else
 		VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device.logicalDevice, swapChain, &buffers, NULL));
+	#endif
+	}
+	// Bind images
+	{
+		images.resize( buffers );
+	#if UF_USE_FFX_SDK
+		VK_CHECK_RESULT(ext::fsr::getSwapchainImages( device, swapChain, &buffers, images.data()));
+	#else
+		VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device, swapChain, &buffers, images.data()));
+	#endif
 	}
 }
 
 void ext::vulkan::Swapchain::destroy() {
 	if ( !device ) return;
 
+	for ( auto& image : swapchain.images ) {
+		// vkDestroyImage( *device, image, nullptr ); // destroyed via vkDestroySwapchainKHR
+		//VK_UNREGISTER_HANDLE( image );
+		image = VK_NULL_HANDLE;
+	}
+	swapchain.images.clear();
 	if ( swapChain != VK_NULL_HANDLE ) {
+	#if UF_USE_FFX_SDK
+		ext::fsr::destroySwapchain( *device, swapChain, nullptr );
+	#else
 		vkDestroySwapchainKHR( *device, swapChain, nullptr);
+	#endif
 	//	VK_UNREGISTER_HANDLE( swapChain )
 	}
 

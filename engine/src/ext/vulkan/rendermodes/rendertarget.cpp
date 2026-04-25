@@ -211,10 +211,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
 			struct {
-				size_t albedo, depth;
+				size_t color, depth;
 			} attachments = {};
 
-			attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 				/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
 				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
@@ -230,7 +230,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			});
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.albedo },
+				{ attachments.color },
 				{},
 				{},
 				attachments.depth,
@@ -238,7 +238,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				true
 			);
 
-			metadata.attachments["albedo"] = attachments.albedo;
+			metadata.attachments["color"] = attachments.color;
 			metadata.attachments["depth"] = attachments.depth;
 		}
 	}
@@ -537,7 +537,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
 
-		#if 1
+		#if 0
 			for ( auto& attachment : renderTarget.attachments ) {
 				// transition attachments to general attachments for imageStore
 				VkImageSubresourceRange subresourceRange;

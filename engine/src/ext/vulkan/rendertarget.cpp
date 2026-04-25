@@ -34,7 +34,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			VK_UNREGISTER_HANDLE( view );
 		}
 		attachment->views.clear();
-		if ( attachment->image ) {
+		if ( attachment->image && attachment->descriptor.layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
 			vmaDestroyImage( allocator, attachment->image, attachment->allocation );
 			attachment->image = VK_NULL_HANDLE;
 		}
@@ -73,7 +73,50 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	}
 	attachment->views.resize(this->views * attachment->descriptor.mips);
 
+	bool isSwapchain = attachment->descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	bool isDepth = attachment->descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+	// swapchain specialization
+	if ( isSwapchain ) {
+		attachment->descriptor.aliased = true;
+		attachment->views.resize(ext::vulkan::swapchain.buffers);
+
+		VkImageSubresourceRange subresourceRange;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.levelCount = 1;
+		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.layerCount = 1;
+		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.layerCount = 1;
+
+		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+		for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
+			auto& image = ext::vulkan::swapchain.images[i];
+
+			VkImageViewCreateInfo imageView = {};
+			imageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			imageView.format = attachment->descriptor.format;
+			imageView.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+			imageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			imageView.subresourceRange.baseMipLevel = 0;
+			imageView.subresourceRange.levelCount = 1;
+			imageView.subresourceRange.baseArrayLayer = 0;
+			imageView.subresourceRange.layerCount = 1;
+			imageView.image = image;
+
+			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[i]));
+			VK_REGISTER_HANDLE( attachment->views[i] );
+			uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
+		}
+		device->flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
+
+		attachment->image = ext::vulkan::swapchain.images[0];
+		attachment->view = attachment->views[0];
+		attachment->mem = VK_NULL_HANDLE;
+
+		return index;
+	}
 
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -158,27 +201,13 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 
 	if ( false ) {
 		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
-		if ( isDepth ) {
-			// transition attachments to general attachments for imageStore
-			VkImageSubresourceRange subresourceRange;
-			subresourceRange.baseMipLevel = 0;
-			subresourceRange.baseArrayLayer = 0;
-			subresourceRange.levelCount = attachment->descriptor.mips;
-			subresourceRange.layerCount = this->views;
-			subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-			uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
-		} else {
-			// transition attachments to general attachments for imageStore
-			VkImageSubresourceRange subresourceRange;
-			subresourceRange.baseMipLevel = 0;
-			subresourceRange.baseArrayLayer = 0;
-			subresourceRange.levelCount = attachment->descriptor.mips;
-			subresourceRange.layerCount = this->views;
-			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-			uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
-		}
+		VkImageSubresourceRange subresourceRange;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.levelCount = attachment->descriptor.mips;
+		subresourceRange.layerCount = this->views;
+		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+		uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
 		device->flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
 	}
 
@@ -201,6 +230,11 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	assert( this->attachments.size() > 0 );
 
 	// Create render pass
+	bool isSwapchain = false;
+	for ( auto& attachment : this->attachments ) {
+		if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) isSwapchain = true;
+	}
+
 	if ( !renderPass ) {
 		uf::stl::vector<VkAttachmentDescription> attachments; attachments.reserve( this->attachments.size() );
 		for ( size_t i = 0; i < this->views; ++i ) {
@@ -212,14 +246,13 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 				description.storeOp = attachment.descriptor.usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
 				description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 				description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				description.initialLayout = attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
+				description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // isSwapchain ? VK_IMAGE_LAYOUT_UNDEFINED : attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
 				description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 				description.flags = 0;
 
 				attachments.emplace_back(description);
 			}
 		}
-
 
 		// ensure that the subpasses are already described
 		auto passes = this->passes;
@@ -316,6 +349,26 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			
 			dependencies.emplace_back(dependency);
 		}
+
+		// crunge
+		if ( isSwapchain ) {
+			dependencies.resize(2);
+			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[0].dstSubpass = 0;
+			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;            
+			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;   
+			dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			dependencies[1].srcSubpass = 0;
+			dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+			dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;   
+			dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		}
 	
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -336,30 +389,20 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			vkDestroyFramebuffer( device, framebuffer, nullptr );
 			VK_UNREGISTER_HANDLE( framebuffer );
 		}
-
-		RenderMode& base = ext::vulkan::getRenderMode( "Swapchain", false );
+		framebuffers.clear();
 		framebuffers.resize(ext::vulkan::swapchain.buffers);
-		for ( size_t i = 0; i < framebuffers.size(); ++i ) {
+		for ( size_t frame = 0; frame < framebuffers.size(); ++frame ) {
 			uf::stl::vector<VkImageView> attachmentViews;										
 
-			for ( size_t view = 0; view < this->views; ++view ) {
+			for ( auto view = 0; view < this->views; ++view ) {
 				for ( auto& attachment : this->attachments ) {
-					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
-						attachmentViews.emplace_back(base.renderTarget.attachments[i].view);
-						continue;
+					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
+						attachmentViews.emplace_back(attachment.views[frame]);
+					} else {
+						attachmentViews.emplace_back(attachment.views[view * attachment.descriptor.mips]);
 					}
-					attachmentViews.emplace_back(attachment.views[view * attachment.descriptor.mips]);
 				}
 			}
-		#if 0
-			for ( size_t j = 0; j < this->views; ++j ) {
-				for ( auto& attachment : this->attachments ) {
-					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
-						attachmentViews.emplace_back(base.renderTarget.attachments[i].view);
-					} else attachmentViews.emplace_back(attachment.views[j]);
-				}
-			}
-		#endif
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
 			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -371,44 +414,10 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			frameBufferCreateInfo.height = height;
 			frameBufferCreateInfo.layers = 1;
 			// Create the framebuffer
-			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[i]));
-			VK_REGISTER_HANDLE( framebuffers[i] );
+			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[frame]));
+			VK_REGISTER_HANDLE( framebuffers[frame] );
 		}
 	}
-
-#if 0
-	{
-		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
-		for ( auto& attachment : attachments ) {
-			bool isDepth = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-			if ( isDepth ) {
-				// transition attachments to general attachments for imageStore
-				VkImageSubresourceRange subresourceRange;
-				subresourceRange.baseMipLevel = 0;
-				subresourceRange.levelCount = 1;
-				subresourceRange.baseArrayLayer = 0;
-				subresourceRange.layerCount = 1;
-				subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-				subresourceRange.layerCount = 1;
-
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, subresourceRange );
-			} else {
-				// transition attachments to general attachments for imageStore
-				VkImageSubresourceRange subresourceRange;
-				subresourceRange.baseMipLevel = 0;
-				subresourceRange.levelCount = 1;
-				subresourceRange.baseArrayLayer = 0;
-				subresourceRange.layerCount = 1;
-				subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				subresourceRange.layerCount = 1;
-
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
-			}
-		}
-		device.flushCommandBuffer(commandBuffer);
-	}
-#endif
 
 	initialized = true;
 }
@@ -421,6 +430,7 @@ void ext::vulkan::RenderTarget::destroy() {
 		vkDestroyFramebuffer( *device, framebuffer, nullptr );
 		VK_UNREGISTER_HANDLE( framebuffer );
 	}
+	framebuffers.clear();
 	
 	for ( auto& attachment : attachments ) {
 		if ( attachment.descriptor.aliased ) continue;

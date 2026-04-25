@@ -190,6 +190,11 @@ namespace {
 	FfxContextDescription contextDescription;
 
 #if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	FfxSwapchain ffxSwapchain = nullptr;
+	FfxSwapchainReplacementFunctions ffxSwapchainFuncs = {};
+
+	uf::renderer::Graphic compositor;
+
 	uf::stl::vector<uint8_t> scratchBufferFG;
 	uf::stl::vector<uint8_t> scratchBufferOF;
 
@@ -203,7 +208,7 @@ namespace {
 		uf::renderer::Texture empty;
 		uf::renderer::Texture output;
 	#if UF_USE_FFX_SDK == FFX_SDK_3_1
-		uf::renderer::Texture outputFG;
+		uf::renderer::Texture outputComposited;
 		uf::renderer::Texture dilatedMotionVectors;
 		uf::renderer::Texture dilatedDepth;
 		uf::renderer::Texture reconstructedPrevNearestDepth;
@@ -224,7 +229,7 @@ namespace {
 			width, height,
 			1,
 			1,
-			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | usage,
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | usage,
 			layout
 		);
 	}
@@ -399,6 +404,12 @@ namespace {
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& projection = camera.getProjection();
 
+		// composite GUI onto output
+		{
+			::compositor.record( commandBuffer );
+			barrier(commandBuffer, ::resources.outputComposited.image);
+		}
+
 	#if UF_USE_FFX_SDK == FFX_SDK_3
 		FfxFsr3DispatchFrameGenerationPrepareDescription dispatchParameters = {};
 		dispatchParameters.commandList = ffxGetCommandListVK(commandBuffer);
@@ -407,6 +418,16 @@ namespace {
 
 		FFX_ERROR_CHECK(ffxFsr3ContextDispatchFrameGenerationPrepare(&::context, &dispatchParameters));
 	#elif UF_USE_FFX_SDK == FFX_SDK_3_1
+		FfxFrameGenerationConfig fgConfig = {};
+		fgConfig.swapChain = ffxGetSwapchainVK(uf::renderer::swapchain.swapChain);
+		fgConfig.frameGenerationEnabled = true;
+		fgConfig.allowAsyncWorkloads = true;
+
+		FFX_ERROR_CHECK(ffxSetFrameGenerationConfigToSwapchainVK(&fgConfig));
+
+		FfxCommandList interpolationCommandList;
+		ffxGetFrameinterpolationCommandlistVK(fgConfig.swapChain, interpolationCommandList);
+
 		FfxFrameInterpolationDispatchDescription dispatchParameters = {};
 		dispatchParameters.commandList = ffxGetCommandListVK(commandBuffer);
 
@@ -416,15 +437,17 @@ namespace {
 		dispatchParameters.renderSize.height = displaySize.y;
 
 		// use output from rendermode
-		if ( ext::fsr::frameUpscale ) {
+		if ( !ext::fsr::frameUpscale ) {
 			if ( !renderMode.hasAttachment("output") && !renderMode.hasAttachment("color") ) return;
 			auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
-			dispatchParameters.currentBackBuffer = createFfxResource(attachmentColor, L"FSR3_InterpolationSource");
+			dispatchParameters.currentBackBuffer_HUDLess = createFfxResource(attachmentColor, L"FSR3_InterpolationSource_HUDLess");
 		} else {
-			dispatchParameters.currentBackBuffer = createFfxResource(::resources.output, L"FSR3_InterpolationSource");
-
+			dispatchParameters.currentBackBuffer_HUDLess = createFfxResource(::resources.output, L"FSR3_InterpolationSource_HUDLess");
 		}
-		dispatchParameters.output = createFfxResource(::resources.outputFG, L"FSR3_InterpolatedOutput");
+		// attach HUD'd image
+		dispatchParameters.currentBackBuffer = createFfxResource(::resources.outputComposited, L"FSR3_InterpolationSource");
+
+		dispatchParameters.output = ffxGetFrameinterpolationTextureVK( ffxGetSwapchainVK(uf::renderer::swapchain.swapChain) );
 
 		dispatchParameters.cameraNear = projection(2,3);
 		dispatchParameters.cameraFar = FLT_MAX;
@@ -450,9 +473,9 @@ namespace {
 		dispatchParameters.opticalFlowScale.x = 1.0f;
 		dispatchParameters.opticalFlowScale.y = 1.0f;
 		dispatchParameters.opticalFlowBlockSize = FFX_FSR_BLOCK_SIZE;
+		dispatchParameters.commandList = interpolationCommandList;
 
 		FFX_ERROR_CHECK(ffxFrameInterpolationDispatch(&::contextFG, &dispatchParameters));
-		barrier(commandBuffer, ::resources.outputFG.image);
 	#endif
 	}
 #endif
@@ -577,6 +600,8 @@ void ext::fsr::initialize() {
 
 		FFX_ERROR_CHECK(ffxGetInterfaceVK( &::contextDescriptionFG.backendInterface, ffxDevice, ::scratchBufferFG.data(), ::scratchBufferFG.size(), 1 ));
 		FFX_ERROR_CHECK(ffxFrameInterpolationContextCreate( &::contextFG, &::contextDescriptionFG ));
+
+		FFX_ERROR_CHECK(ffxGetSwapchainReplacementFunctionsVK(ffxDevice, &::ffxSwapchainFuncs));
 	}
 
 	// setup optical flow context
@@ -594,9 +619,7 @@ void ext::fsr::initialize() {
 		::resources.output.format = uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR;
 		::initializeResource( ::resources.output );
 	#if UF_USE_FFX_SDK == FFX_SDK_3_1
-		::resources.outputFG.viewComponentMapping.a = VK_COMPONENT_SWIZZLE_ONE; // for some reason framegen has the alpha set to 1 (or never writes it)
-
-		::resources.outputFG.format = uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR;
+		::resources.outputComposited.format = uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR;
 		::resources.dilatedMotionVectors.format = uf::renderer::enums::Format::R16G16_SFLOAT;
 		::resources.dilatedDepth.format = uf::renderer::enums::Format::R32_SFLOAT;
 		::resources.reconstructedPrevNearestDepth.format = uf::renderer::enums::Format::R32_UINT;
@@ -607,13 +630,44 @@ void ext::fsr::initialize() {
 		uint32_t ofWidth = (uf::renderer::settings::width + block_size) / block_size;
 		uint32_t ofHeight = (uf::renderer::settings::height + block_size) / block_size;
 
-		::initializeResource( ::resources.outputFG );
+		::initializeResource( ::resources.outputComposited );
 		::initializeResource( ::resources.dilatedMotionVectors );
 		::initializeResource( ::resources.dilatedDepth );
 		::initializeResource( ::resources.reconstructedPrevNearestDepth );
 		::initializeResource( ::resources.opticalFlowVector, ofWidth, ofHeight );
 		::initializeResource( ::resources.opticalFlowSceneChangeDetection, ofWidth, ofHeight );
 	#endif
+	}
+
+	// setup compositor
+	{
+		uf::Mesh mesh;
+		mesh.vertex.count = 3;
+
+		auto& blitter = ::compositor;
+		blitter.device = &uf::renderer::device;
+		blitter.material.device = &uf::renderer::device;
+		blitter.descriptor.renderMode = "Swapchain";
+		blitter.descriptor.subpass = -1;
+
+		blitter.initializeMesh( mesh );
+
+		blitter.material.attachShader(uf::io::resolveURI(uf::io::root+"/shaders/display/compositor/comp.spv"), ext::vulkan::enums::Shader::COMPUTE);
+
+		blitter.material.textures.clear();
+		blitter.material.textures.emplace_back().aliasTexture(::resources.output);
+		blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+		blitter.material.textures.emplace_back().aliasTexture(::resources.outputComposited);
+
+		blitter.descriptor.bind.width = uf::renderer::settings::width;
+		blitter.descriptor.bind.height = uf::renderer::settings::height;
+		blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+
+		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
+			blitter.initializePipeline( blitter.descriptor );
+		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		}
 	}
 
 	ext::fsr::initialized = true;
@@ -684,13 +738,36 @@ void ext::fsr::tick() {
 			uint32_t ofWidth = (displaySize.x + block_size) / block_size;
 			uint32_t ofHeight = (displaySize.y + block_size) / block_size;
 
-			::initializeResource( ::resources.outputFG, displaySize.x, displaySize.y );
+			::initializeResource( ::resources.outputComposited, displaySize.x, displaySize.y );
 			::initializeResource( ::resources.dilatedMotionVectors, displaySize.x, displaySize.y );
 			::initializeResource( ::resources.dilatedDepth, displaySize.x, displaySize.y );
 			::initializeResource( ::resources.reconstructedPrevNearestDepth, displaySize.x, displaySize.y );
 			::initializeResource( ::resources.opticalFlowVector, ofWidth, ofHeight );
 			::initializeResource( ::resources.opticalFlowSceneChangeDetection, ofWidth, ofHeight );
 		#endif
+		}
+
+		{
+			auto& blitter = ::compositor;
+			blitter.material.textures.clear();
+			blitter.material.textures.emplace_back().aliasTexture(::resources.output);
+			if ( uf::renderer::hasRenderMode("Gui", true) ) {
+				auto& renderMode = uf::renderer::getRenderMode("Gui", true);
+				auto& attachment = renderMode.getAttachment("color");
+				blitter.material.textures.emplace_back().aliasAttachment( attachment );
+			} else {
+				blitter.material.textures.emplace_back().aliasTexture( uf::renderer::Texture2D::empty );
+			}
+			blitter.material.textures.emplace_back().aliasTexture(::resources.outputComposited);
+
+			blitter.descriptor.bind.width = displaySize.x;
+			blitter.descriptor.bind.height = displaySize.y;
+
+			if ( !blitter.hasPipeline( blitter.descriptor ) ) {
+				blitter.initializePipeline( blitter.descriptor );
+			} else if ( blitter.hasPipeline( blitter.descriptor ) ){
+				blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+			}
 		}
 	}
 
@@ -713,8 +790,12 @@ void ext::fsr::tick() {
 }
 void ext::fsr::render() {
 	if ( !ext::fsr::initialized ) return;
-
 	auto commandBuffer = uf::renderer::device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS, true); // immediately flush
+	render( commandBuffer );
+	uf::renderer::device.flushCommandBuffer(commandBuffer);
+}
+void ext::fsr::render( VkCommandBuffer commandBuffer ) {
+	if ( !ext::fsr::initialized ) return;
 	if ( ext::fsr::frameUpscale ) {
 		upscale( commandBuffer );
 	}
@@ -726,7 +807,6 @@ void ext::fsr::render() {
 		framegen( commandBuffer );
 	#endif
 	}
-	uf::renderer::device.flushCommandBuffer(commandBuffer);
 }
 void ext::fsr::terminate() {
 	if ( !ext::fsr::initialized ) return;
@@ -746,7 +826,7 @@ void ext::fsr::terminate() {
 	{
 		::resources.output.destroy();
 	#if UF_USE_FFX_SDK == FFX_SDK_3_1
-		::resources.outputFG.destroy();
+		::resources.outputComposited.destroy();
 		::resources.dilatedMotionVectors.destroy();
 		::resources.dilatedDepth.destroy();
 		::resources.reconstructedPrevNearestDepth.destroy();
@@ -754,6 +834,99 @@ void ext::fsr::terminate() {
 		::resources.opticalFlowSceneChangeDetection.destroy();
 	#endif
 	}
+
+	// destroy compositor
+	{
+		::compositor.destroy();
+	}
+}
+
+VkResult ext::fsr::acquireNextImage( uint32_t* imageIndex, VkSemaphore presentCompleteSemaphore, VkFence acquireFence ) {
+#if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	if ( ext::fsr::frameInterpolation && ::ffxSwapchainFuncs.acquireNextImageKHR ) {
+		return ::ffxSwapchainFuncs.acquireNextImageKHR( uf::renderer::device, uf::renderer::swapchain.swapChain, VK_DEFAULT_FENCE_TIMEOUT, presentCompleteSemaphore, acquireFence, imageIndex );
+	}
+#endif
+	return vkAcquireNextImageKHR( uf::renderer::device, uf::renderer::swapchain.swapChain, VK_DEFAULT_FENCE_TIMEOUT, presentCompleteSemaphore, acquireFence, imageIndex );
+}
+VkResult ext::fsr::queuePresent( VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore ) {
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = NULL;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &uf::renderer::swapchain.swapChain;
+	presentInfo.pImageIndices = &imageIndex;
+
+	if ( waitSemaphore != VK_NULL_HANDLE ) {
+		presentInfo.pWaitSemaphores = &waitSemaphore;
+		presentInfo.waitSemaphoreCount = 1;
+	}
+
+#if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	if ( ext::fsr::frameInterpolation && ::ffxSwapchainFuncs.queuePresentKHR ) {
+		return ::ffxSwapchainFuncs.queuePresentKHR(queue, &presentInfo);
+	}
+#endif
+
+	return vkQueuePresentKHR(queue, &presentInfo);
+}
+
+VkResult ext::fsr::createSwapchain( VkDevice device, VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain ) {
+#if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	if ( ext::fsr::frameInterpolation && !::ffxSwapchainFuncs.createSwapchainFFX ) {
+		VkDeviceContext deviceContextVK = {};
+		deviceContextVK.vkDevice = device;
+		deviceContextVK.vkPhysicalDevice = uf::renderer::device.physicalDevice;
+		deviceContextVK.vkDeviceProcAddr = vkGetDeviceProcAddr;
+		FfxDevice ffxDevice = ffxGetDeviceVK(&deviceContextVK);
+
+		FFX_ERROR_CHECK(ffxGetSwapchainReplacementFunctionsVK(ffxDevice, &::ffxSwapchainFuncs));
+	}
+	if ( ext::fsr::frameInterpolation && ::ffxSwapchainFuncs.createSwapchainFFX ) {
+		VkFrameInterpolationInfoFFX fiInfo = {};
+		fiInfo.device = device;
+		fiInfo.physicalDevice = uf::renderer::device.physicalDevice;
+		fiInfo.pAllocator = pAllocator;
+		fiInfo.compositionMode = VK_COMPOSITION_MODE_GAME_QUEUE_FFX; // Standard mode
+
+		fiInfo.gameQueue.queue = uf::renderer::device.getQueue( uf::renderer::QueueEnum::GRAPHICS );
+		fiInfo.gameQueue.familyIndex = uf::renderer::device.queueFamilyIndices.graphics;
+		fiInfo.gameQueue.submitFunc = nullptr;
+
+		fiInfo.presentQueue.queue = uf::renderer::device.getQueue( uf::renderer::QueueEnum::PRESENT );
+		fiInfo.presentQueue.familyIndex = uf::renderer::device.queueFamilyIndices.present;
+		fiInfo.presentQueue.submitFunc = nullptr;
+
+		fiInfo.asyncComputeQueue.queue = uf::renderer::device.getQueue( uf::renderer::QueueEnum::COMPUTE );
+		fiInfo.asyncComputeQueue.familyIndex = uf::renderer::device.queueFamilyIndices.compute;
+		fiInfo.asyncComputeQueue.submitFunc = nullptr;
+
+		fiInfo.imageAcquireQueue.queue = uf::renderer::device.getQueue( uf::renderer::QueueEnum::ACQUIRE );
+		fiInfo.imageAcquireQueue.familyIndex = uf::renderer::device.queueFamilyIndices.acquire;
+		fiInfo.imageAcquireQueue.submitFunc = nullptr;
+
+		return ::ffxSwapchainFuncs.createSwapchainFFX( device, pCreateInfo, pAllocator, pSwapchain, &fiInfo );
+	}
+#endif
+	return vkCreateSwapchainKHR( device, pCreateInfo, pAllocator, pSwapchain );
+}
+void ext::fsr::destroySwapchain( VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks* pAllocator ) {
+#if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	if ( ext::fsr::frameInterpolation && ::ffxSwapchainFuncs.destroySwapchainKHR ) {
+		::ffxSwapchainFuncs.destroySwapchainKHR(device, swapchain, pAllocator);
+		return;
+	}
+#endif
+	vkDestroySwapchainKHR( device, swapchain, pAllocator );
+}
+VkResult ext::fsr::getSwapchainImages( VkDevice device, VkSwapchainKHR swapchain, uint32_t* pSwapchainImageCount, VkImage* pSwapchainImages ) {
+#if UF_USE_FFX_SDR_FRAME_INTERP && UF_USE_FFX_SDK == FFX_SDK_3_1
+	if ( ext::fsr::frameInterpolation && ::ffxSwapchainFuncs.getSwapchainImagesKHR ) {
+		return ::ffxSwapchainFuncs.getSwapchainImagesKHR(device, swapchain, pSwapchainImageCount, pSwapchainImages);
+	}
+#endif
+
+	return vkGetSwapchainImagesKHR( device, swapchain, pSwapchainImageCount, pSwapchainImages );
 }
 
 pod::Matrix4f ext::fsr::getJitterMatrix() {
@@ -761,12 +934,7 @@ pod::Matrix4f ext::fsr::getJitterMatrix() {
 }
 
 uf::renderer::Texture& ext::fsr::getRenderTarget() {
-#if UF_USE_FFX_SDR_FRAME_INTERP
-	if ( ext::fsr::frameInterpolation ) return ::resources.outputFG;
-#endif
 	return ::resources.output;
 }
-
-// to-do: add functions to get framegen swapchain functions
 
 #endif

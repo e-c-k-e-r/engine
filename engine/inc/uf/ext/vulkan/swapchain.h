@@ -14,9 +14,10 @@ namespace ext {
 			uint32_t buffers = {};
 
 			uf::stl::vector<VkSemaphore> presentCompleteSemaphores;
+			uf::stl::vector<VkImage> images;
 
 			// helpers
-			VkResult acquireNextImage( uint32_t* imageIndex, VkSemaphore, VkFence = nullptr );
+			VkResult acquireNextImage( uint32_t* imageIndex, VkSemaphore, VkFence = VK_NULL_HANDLE );
 			VkResult queuePresent( VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore = VK_NULL_HANDLE );
 			
 			// RAII

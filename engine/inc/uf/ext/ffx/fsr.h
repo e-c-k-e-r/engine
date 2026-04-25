@@ -21,10 +21,18 @@ namespace ext {
 		void UF_API initialize();
 		void UF_API tick();
 		void UF_API render();
+		void UF_API render( VkCommandBuffer );
 		void UF_API terminate();
 
-		uf::renderer::Texture& getRenderTarget();
-		
+		VkResult acquireNextImage( uint32_t*, VkSemaphore, VkFence = VK_NULL_HANDLE );
+		VkResult queuePresent( VkQueue, uint32_t, VkSemaphore = VK_NULL_HANDLE );
+
+		VkResult createSwapchain( VkDevice, VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain );
+		void destroySwapchain( VkDevice, VkSwapchainKHR swapchain, const VkAllocationCallbacks* pAllocator );
+		VkResult getSwapchainImages( VkDevice, VkSwapchainKHR swapchain, uint32_t* pSwapchainImageCount, VkImage* pSwapchainImages );
+		VkSwapchainKHR getSwapchain( VkSwapchainKHR swapchain );
+
+		uf::renderer::Texture& getRenderTarget();	
 		pod::Matrix4f UF_API getJitterMatrix();
 	}
 }

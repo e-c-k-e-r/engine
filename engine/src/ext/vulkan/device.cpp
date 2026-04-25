@@ -787,24 +787,34 @@ VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueE
 VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
 	auto& device = *this;
 
+	uint32_t familyIndex = 0;
 	uint32_t index = 0;
 	uf::ThreadUnique<VkQueue>* commandPool{NULL};
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
-			index = device.queueFamilyIndices.graphics;
+			familyIndex = device.queueFamilyIndices.graphics;
 			commandPool = &queues.graphics;
+			index = device.queueIndices.graphics;
 		break;
 		case QueueEnum::PRESENT:
-			index = device.queueFamilyIndices.present;
+			familyIndex = device.queueFamilyIndices.present;
 			commandPool = &queues.present;
+			index = device.queueIndices.present;
 		break;
 		case QueueEnum::COMPUTE:
-			index = device.queueFamilyIndices.compute;
+			familyIndex = device.queueFamilyIndices.compute;
 			commandPool = &queues.compute;
+			index = device.queueIndices.compute;
 		break;
 		case QueueEnum::TRANSFER:
-			index = device.queueFamilyIndices.transfer;
+			familyIndex = device.queueFamilyIndices.transfer;
 			commandPool = &queues.transfer;
+			index = device.queueIndices.transfer;
+		break;
+	case QueueEnum::ACQUIRE:
+			familyIndex = device.queueFamilyIndices.acquire;
+			commandPool = &queues.acquire;
+			index = device.queueIndices.acquire;
 		break;
 	}
 	UF_ASSERT( commandPool );
@@ -812,7 +822,7 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::th
 	bool exists = commandPool->has(id);
 	VkQueue& queue = commandPool->get(id);
 	if ( !exists ) {
-		vkGetDeviceQueue( device, index, 0, &queue );
+		vkGetDeviceQueue( device, familyIndex, index, &queue );
 	}
 	return queue;
 }
@@ -1070,37 +1080,24 @@ void ext::vulkan::Device::initialize() {
 			extensions.enabled.device[s] = true;
 		}
 
+
 		// Desired queues need to be requested upon logical device creation
 		// Due to differing queue family configurations of Vulkan implementations this can be a bit tricky, especially if the application
 		// requests different queue types
 		uf::stl::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
 		// Get queue family indices for the requested queue family types
 		// Note that the indices may overlap depending on the implementation
-		const float defaultQueuePriority(0.0f);
+		std::vector<std::vector<float>> queuePriorities;
+
 		// Graphics queue
 		if ( requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT ) {
 			queueFamilyIndices.graphics = getQueueFamilyIndex(VK_QUEUE_GRAPHICS_BIT);
-			VkDeviceQueueCreateInfo queueInfo{};
-			queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-			queueInfo.queueFamilyIndex = queueFamilyIndices.graphics;
-			queueInfo.queueCount = 1;
-			queueInfo.pQueuePriorities = &defaultQueuePriority;
-			queueCreateInfos.push_back(queueInfo);
 		} else {
 			queueFamilyIndices.graphics = 0; // VK_NULL_HANDLE;
 		}
 		// Dedicated compute queue
 		if ( requestedQueueTypes & VK_QUEUE_COMPUTE_BIT ) {
 			queueFamilyIndices.compute = getQueueFamilyIndex(VK_QUEUE_COMPUTE_BIT);
-			if ( queueFamilyIndices.compute != queueFamilyIndices.graphics ) {
-				// If compute family index differs, we need an additional queue create info for the compute queue
-				VkDeviceQueueCreateInfo queueInfo{};
-				queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-				queueInfo.queueFamilyIndex = queueFamilyIndices.compute;
-				queueInfo.queueCount = 1;
-				queueInfo.pQueuePriorities = &defaultQueuePriority;
-				queueCreateInfos.push_back(queueInfo);
-			}
 		} else {
 			// Else we use the same queue
 			queueFamilyIndices.compute = queueFamilyIndices.graphics;
@@ -1108,18 +1105,49 @@ void ext::vulkan::Device::initialize() {
 		// Dedicated transfer queue
 		if ( requestedQueueTypes & VK_QUEUE_TRANSFER_BIT ) {
 			queueFamilyIndices.transfer = getQueueFamilyIndex(VK_QUEUE_TRANSFER_BIT);
-			if ((queueFamilyIndices.transfer != queueFamilyIndices.graphics) && (queueFamilyIndices.transfer != queueFamilyIndices.compute)) {
-				// If compute family index differs, we need an additional queue create info for the compute queue
-				VkDeviceQueueCreateInfo queueInfo{};
-				queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-				queueInfo.queueFamilyIndex = queueFamilyIndices.transfer;
-				queueInfo.queueCount = 1;
-				queueInfo.pQueuePriorities = &defaultQueuePriority;
-				queueCreateInfos.emplace_back(queueInfo);
-			}
 		} else {
 			// Else we use the same queue
 			queueFamilyIndices.transfer = queueFamilyIndices.graphics;
+		}
+		// Dedicated acquire queue
+		{
+			queueFamilyIndices.acquire = queueFamilyIndices.present;
+		}
+
+		// tally up how many queues we need
+		std::map<uint32_t, uint32_t> requestedQueuesPerFamily;
+		requestedQueuesPerFamily[queueFamilyIndices.graphics]++;
+		requestedQueuesPerFamily[queueFamilyIndices.compute]++;
+		requestedQueuesPerFamily[queueFamilyIndices.transfer]++;
+		requestedQueuesPerFamily[queueFamilyIndices.present]++;
+		requestedQueuesPerFamily[queueFamilyIndices.acquire]++;
+
+		for ( const auto& [ familyIndex, requestedCount ] : requestedQueuesPerFamily ) {
+			uint32_t maxSupported = queueFamilyProperties[familyIndex].queueCount;
+			uint32_t actualCount = std::min( requestedCount, maxSupported );
+
+			queuePriorities.emplace_back(std::vector<float>(actualCount, 1.0f));
+
+			VkDeviceQueueCreateInfo queueInfo{};
+			queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queueInfo.queueFamilyIndex = familyIndex;
+			queueInfo.queueCount = actualCount;
+			queueInfo.pQueuePriorities = queuePriorities.back().data();
+
+			queueCreateInfos.emplace_back(queueInfo);
+		}
+
+		{
+			std::map<uint32_t, uint32_t> familyIndexCounters;
+			auto assignQueueIndex = [&](uint32_t family) -> uint32_t {
+				return familyIndexCounters[family]++;
+			};
+
+			device.queueIndices.graphics = assignQueueIndex( device.queueFamilyIndices.graphics );
+			device.queueIndices.compute  = assignQueueIndex( device.queueFamilyIndices.compute );
+			device.queueIndices.transfer = assignQueueIndex( device.queueFamilyIndices.transfer );
+			device.queueIndices.present  = assignQueueIndex( device.queueFamilyIndices.present );
+			device.queueIndices.acquire  = assignQueueIndex( device.queueFamilyIndices.acquire );
 		}
 
 		// Create the logical device representation
@@ -1311,35 +1339,41 @@ void ext::vulkan::Device::initialize() {
 
 		int i = 0;
 		for (const auto& queueFamily : queueFamilyProperties) {
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT )
+			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
 				graphicsQueueNodeIndex = i;
+			}
 
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT )
+			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT ) {
 				computeQueueNodeIndex = i;
+			}
 
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT )
+			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) {
 				transferQueueNodeIndex = i;
+			}
 
 			VkBool32 presentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
-			if ( queueFamily.queueCount > 0 && presentSupport )
+			if ( queueFamily.queueCount > 0 && presentSupport ) {
 				presentQueueNodeIndex = i;
+			}
 
 			if ( graphicsQueueNodeIndex != UINT32_MAX && presentQueueNodeIndex != UINT32_MAX && computeQueueNodeIndex != UINT32_MAX ) break;
 
 			i++;
 		}
 
-		VK_VALIDATION_MESSAGE("Graphics queue: {}", device.queueFamilyIndices.graphics);
-		VK_VALIDATION_MESSAGE("Compute queue: {}", device.queueFamilyIndices.compute);
-		VK_VALIDATION_MESSAGE("Transfer queue: {}", device.queueFamilyIndices.transfer);
-		VK_VALIDATION_MESSAGE("Present queue: {}", device.queueFamilyIndices.present);
+		VK_VALIDATION_MESSAGE("Graphics queue: family={}, index={}", device.queueFamilyIndices.graphics, device.queueIndices.graphics );
+		VK_VALIDATION_MESSAGE("Compute queue: family={}, index={}", device.queueFamilyIndices.compute, device.queueIndices.compute );
+		VK_VALIDATION_MESSAGE("Transfer queue: family={}, index={}", device.queueFamilyIndices.transfer, device.queueIndices.transfer );
+		VK_VALIDATION_MESSAGE("Present queue: family={}, index={}", device.queueFamilyIndices.present, device.queueIndices.present );
+		VK_VALIDATION_MESSAGE("Acquire queue: family={}, index={}", device.queueFamilyIndices.acquire, device.queueIndices.acquire );
 
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
 		getQueue( QueueEnum::GRAPHICS );
 		getQueue( QueueEnum::PRESENT );
 		getQueue( QueueEnum::COMPUTE );
 		getQueue( QueueEnum::TRANSFER );
+		getQueue( QueueEnum::ACQUIRE );
 	}
 	// Set formats
 	{

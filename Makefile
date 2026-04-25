@@ -90,8 +90,8 @@ ifneq (,$(findstring ffx:sdk,$(REQ_DEPS)))
 	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 		FLAGS 				+= -DUF_USE_FFX_SDK=3
 		#INCS 				+= -I./dep/include/ffx_fsr2/
-		#DEPS 				+= -lffx_fsr3_x64drel -lffx_fsr2_x64drel -lffx_fsr3upscaler_x64drel -lffx_frameinterpolation_x64drel -lffx_opticalflow_x64drel -lffx_backend_vk_x64drel -lamd_fidelityfx_vkdrel
-		DEPS 				+= -lffx_fsr3_x64 -lffx_fsr2_x64 -lffx_fsr3upscaler_x64 -lffx_frameinterpolation_x64 -lffx_opticalflow_x64 -lffx_backend_vk_x64 -lamd_fidelityfx_vk
+		DEPS 				+= -lffx_fsr3_x64drel -lffx_fsr2_x64drel -lffx_fsr3upscaler_x64drel -lffx_frameinterpolation_x64drel -lffx_opticalflow_x64drel -lffx_backend_vk_x64drel -lamd_fidelityfx_vkdrel
+		#DEPS 				+= -lffx_fsr3_x64 -lffx_fsr2_x64 -lffx_fsr3upscaler_x64 -lffx_frameinterpolation_x64 -lffx_opticalflow_x64 -lffx_backend_vk_x64 -lamd_fidelityfx_vk
 	endif
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))

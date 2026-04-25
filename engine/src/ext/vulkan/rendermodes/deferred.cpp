@@ -280,7 +280,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			});
 
 			auto& shader = blitter.material.getShader("fragment");
-			if ( !settings::pipelines::fsr ) {
+			if ( !settings::pipelines::fsr || !ext::fsr::frameUpscale ) {
 				shader.aliasAttachment("output", this);
 			}
 		}
@@ -456,7 +456,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 	// if resized (or initialized)
 	if ( resized ) {
 	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
-		if ( settings::pipelines::fsr ) {
+		if ( settings::pipelines::fsr && ext::fsr::frameUpscale ) {
 			auto& shader = blitter.material.getShader("fragment");
 			shader.textures.clear();
 			shader.textures.emplace_back().aliasTexture( ext::fsr::getRenderTarget() );
@@ -1108,6 +1108,16 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			} );
 		#endif
 		}
+
+	/*
+	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
+		{
+			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "fsr:start" );
+			ext::fsr::render( commandBuffer );
+			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "fsr:end" );
+		}
+	#endif
+	*/
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
