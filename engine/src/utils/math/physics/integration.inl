@@ -147,8 +147,10 @@ namespace {
 	}
 
 	void mergeContacts( pod::Manifold& manifold ) {
-		uf::stl::vector<pod::Contact> result;
+		static thread_local uf::stl::vector<pod::Contact> result;
+		result.clear();
 		result.reserve(4);
+
 		for ( auto& c : manifold.points ) {
 			bool merged = false;
 			for ( auto& r : result ) {
@@ -163,8 +165,6 @@ namespace {
 			if ( !merged ) result.emplace_back( c );
 		}
 		
-	//	UF_MSG_DEBUG("Merged {} => {} contacts", manifold.points.size(), result.size());
-
 		manifold.points = result;
 	}
 

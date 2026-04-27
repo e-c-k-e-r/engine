@@ -99,6 +99,15 @@ struct Bounds {
 	float padding2;
 };
 
+struct LOD {
+	uint indices;
+	uint indexID;
+};
+
+struct LODMetadata {
+	LOD levels[4];
+};
+
 struct Instance {
 	uint materialID;
 	uint primitiveID;

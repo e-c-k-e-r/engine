@@ -363,7 +363,7 @@ std::string uf::Mesh::printIndirects( bool full ) const {
 	return str.str();
 }
 
-uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wanted ) const {
+uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::Mesh::View view;
 	view.vertex = vertex;
 	view.index  = index;
@@ -378,15 +378,15 @@ uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wante
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"] = { index.attributes.front() };
+		view.attributes["index"] = { index.attributes[lod] };
 	}
 
 	return view;
 }
-uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::string>& wanted ) const {
+uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::Mesh::View view;
-	view.vertex = remapVertexInput(i);
-	view.index  = remapIndexInput(i);
+	view.vertex = remapVertexInput(i, lod);
+	view.index  = remapIndexInput(i, lod);
 	view.indirectIndex = i;
 
 	if ( wanted.size() ) {
@@ -399,47 +399,47 @@ uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::stri
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"] = { index.attributes.front() };
+		view.attributes["index"] = { index.attributes[lod] };
 	}
 
 	return view;
 }
-uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::stl::string>& wanted ) const {
+uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::stl::vector<uf::Mesh::View> views;
 	if ( indirect.count > 0 ) {
-		for ( auto i = 0; i < indirect.count; i++ ) views.emplace_back(makeView(i, wanted));
+		for ( auto i = 0; i < indirect.count; i++ ) views.emplace_back(makeView(i, wanted, lod));
 	} else {
-		views.emplace_back( makeView(wanted) );
+		views.emplace_back( makeView(wanted, lod) );
 	}
 	return views;
 }
 
-uf::Mesh::Input uf::Mesh::remapInput( const uf::Mesh::Input& input, size_t i ) const {
+uf::Mesh::Input uf::Mesh::remapInput( const uf::Mesh::Input& input, size_t i, size_t lod ) const {
 	uf::Mesh::Input res = input;
 	UF_ASSERT( &input == &vertex || &input == &index );
 	UF_ASSERT( i < indirect.count );
 	
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect, lod).data())[i];
 	res.first = &input == &vertex ? drawCommand.vertexID : drawCommand.indexID;
 	res.count = &input == &vertex ? drawCommand.vertices : drawCommand.indices;	
 
 	return res;
 }
-uf::Mesh::Input uf::Mesh::remapVertexInput( size_t i ) const {
+uf::Mesh::Input uf::Mesh::remapVertexInput( size_t i, size_t lod ) const {
 	uf::Mesh::Input res = vertex;
 	UF_ASSERT( i < indirect.count );
 
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect, lod).data())[i];
 	res.first = drawCommand.vertexID;
 	res.count = drawCommand.vertices;
 
 	return res;
 }
-uf::Mesh::Input uf::Mesh::remapIndexInput( size_t i ) const {
+uf::Mesh::Input uf::Mesh::remapIndexInput( size_t i, size_t lod ) const {
 	uf::Mesh::Input res = index;
 	UF_ASSERT( i < indirect.count );
 
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect, lod).data())[i];
 	res.first = drawCommand.indexID;
 	res.count = drawCommand.indices;
 
@@ -482,7 +482,13 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 		auto& buffer = buffers[interleaved ? input.interleaved : attribute.buffer];
 		attribute.length = buffer.size();
 		attribute.pointer = buffer.data() + attribute.offset;
-		input.size += attribute.descriptor.size;
+
+		if ( &input == &index || &input == &indirect ) {
+			input.size = attribute.descriptor.size;
+		} else {
+			input.size += attribute.descriptor.size;
+		}
+
 		if ( interleaved ) {
 			attribute.pointer = static_cast<uint8_t*>(attribute.pointer) + attribute.descriptor.offset;
 		}
@@ -588,8 +594,8 @@ void uf::Mesh::_insertIs( uf::Mesh::Input& dstInput, const uf::Mesh& mesh, const
 	// both meshes are de-interleaved, just copy directly
 	} else if ( !isInterleaved(dstInput.interleaved) && !isInterleaved(srcInput.interleaved) ) {
 		for ( auto i = 0; i < dstInput.attributes.size(); ++i ) {
-			auto& src = mesh.getBuffer( srcInput );
-			auto& dst = getBuffer( dstInput );
+			auto& src = mesh.getBuffer( srcInput, i );
+			auto& dst = getBuffer( dstInput, i );
 
 			dst.insert( dst.end(), src.begin(), src.end() );
 		}

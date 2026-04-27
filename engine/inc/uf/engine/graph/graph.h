@@ -106,6 +106,7 @@ namespace pod {
 				uf::renderer::Buffer drawCommands;
 				uf::renderer::Buffer instance;
 				uf::renderer::Buffer instanceAddresses;
+				uf::renderer::Buffer lodMetadata;
 				uf::renderer::Buffer joint;
 				uf::renderer::Buffer object;
 				uf::renderer::Buffer material;

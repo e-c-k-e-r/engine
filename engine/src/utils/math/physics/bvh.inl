@@ -6,6 +6,11 @@ namespace {
 	
 	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
 	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
+
+	void postprocessPairs( pod::BVH::pairs_t& pairs ) {
+		std::sort(pairs.begin(), pairs.end());
+		pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+	}
 }
 
 // BVH
@@ -466,7 +471,7 @@ namespace {
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
-					pairs.emplace(bodyA, bodyB);
+					pairs.emplace_back(bodyA, bodyB);
 				}
 			}
 			return;
@@ -496,17 +501,26 @@ namespace {
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
-					pairs.emplace(bodyA, bodyB);
+					pairs.emplace_back(bodyA, bodyB);
 				}
 			}
 			return;
 		}
 
-		if ( nodeA.getCount() == 0 ) {
+		if ( nodeA.getCount() == 0 && nodeB.getCount() == 0 ) {
+			if ( ::aabbSurfaceArea(bvhA.bounds[nodeAID]) > ::aabbSurfaceArea(bvhB.bounds[nodeBID]) ) {
+				::traverseNodePair( bvhA, nodeA.left, bvhB, nodeBID, pairs );
+				::traverseNodePair( bvhA, nodeA.right, bvhB, nodeBID, pairs );
+			} else {
+				::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.left, pairs );
+				::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.right, pairs );
+			}
+		}
+		else if ( nodeA.getCount() == 0 ) {
 			::traverseNodePair( bvhA, nodeA.left, bvhB, nodeBID, pairs );
 			::traverseNodePair( bvhA, nodeA.right, bvhB, nodeBID, pairs );
 		}
-		if ( nodeB.getCount() == 0 ) {
+		else if ( nodeB.getCount() == 0 ) {
 			::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.left, pairs );
 			::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.right, pairs );
 		}
@@ -524,7 +538,7 @@ namespace {
 					if ( bodyA == bodyB ) continue;
 					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
-					pairs.emplace(bodyA, bodyB);
+					pairs.emplace_back(bodyA, bodyB);
 				}
 			}
 			return;
@@ -539,6 +553,8 @@ namespace {
 		if ( bvh.nodes.empty() ) return;
 		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseBVH( bvh, 0, outPairs );
+
+		::postprocessPairs( outPairs );
 	}
 
 	void queryOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs ) {
@@ -547,6 +563,8 @@ namespace {
 		if ( bvhA.nodes.empty() || bvhB.nodes.empty() ) return;
 		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseNodePair(bvhA, 0, bvhB, 0, outPairs);
+
+		::postprocessPairs( outPairs );
 	}
 }
 
@@ -681,13 +699,15 @@ namespace {
 							if ( indexA == indexB ) continue;
 							if ( indexA > indexB ) std::swap(indexA, indexB);
 
-							outPairs.emplace( indexA, indexB );
+							outPairs.emplace_back( indexA, indexB );
 						}
 					}
 				}
 				++b;
 			}
 		}
+
+		::postprocessPairs( outPairs );
 	}
 	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs ) {
 		auto& nodesA = bvhA.flattened;
@@ -701,34 +721,56 @@ namespace {
 		if ( nodesA.empty() || nodesB.empty() ) return;
 		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 
-		for ( pod::BVH::index_t a = 0; a < nodesA.size(); ++a ) {
-			const auto& nodeA = nodesA[a];
-			if ( nodeA.getCount() <= 0 || nodeA.isAsleep() ) continue;
+		static thread_local uf::stl::vector<std::pair<pod::BVH::index_t, pod::BVH::index_t>> stack;
+		stack.clear();
+		stack.emplace_back(0, 0);
 
-			const auto& bA = boundsA[a];
+		while ( !stack.empty() ) {
+			auto [a, b] = stack.back();
+			stack.pop_back();
 
-			pod::BVH::index_t b = 0;
-			while ( b < nodesB.size() ) {
-				const auto& nodeB = nodesB[b];
+			const auto& nodeA = bvhA.flattened[a];
+			const auto& nodeB = bvhB.flattened[b];
 
-				if ( nodeB.isAsleep() || !::aabbOverlap(bA, boundsB[b]) ) {
-					b = nodeB.skipIndex;
-					continue;
-				}
+			if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
+			if ( !::aabbOverlap( bvhA.flatBounds[a], bvhB.flatBounds[b] ) ) continue;
 
-				if ( nodeB.getCount() > 0 ) {
-					for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
-						for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
-							auto indexA = indicesA[nodeA.start + ia];
-							auto indexB = indicesB[nodeB.start + ib];
+			bool isLeafA = (nodeA.getCount() > 0);
+			bool isLeafB = (nodeB.getCount() > 0);
 
-							outPairs.emplace(indexA, indexB);
-						}
+			if ( isLeafA && isLeafB ) {
+				for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
+					for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
+						auto indexA = bvhA.indices[nodeA.start + ia];
+						auto indexB = bvhB.indices[nodeB.start + ib];
+
+					//	if ( indexA > indexB ) std::swap( indexA, indexB );
+						outPairs.emplace_back(indexA, indexB);
 					}
 				}
-				++b;
+			}
+			else if ( isLeafA ) {
+				pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+				stack.emplace_back(a, b + 1);
+				stack.emplace_back(a, rightB);
+			}
+			else if ( isLeafB ) {
+				pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+				stack.emplace_back(a + 1,  b);
+				stack.emplace_back(rightA, b);
+			}
+			else {
+				pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+				pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+
+				stack.emplace_back(a + 1, b + 1);
+				stack.emplace_back(a + 1, rightB);
+				stack.emplace_back(rightA, b + 1);
+				stack.emplace_back(rightA, rightB);
 			}
 		}
+
+		::postprocessPairs( outPairs );
 	}
 
 	void queryFlatBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& outIndices ) {
@@ -836,10 +878,15 @@ namespace {
 
 			pod::BVH::index_t root = unionizer.find(i);
 
+			auto [ it, inserted ] = rootToIsland.try_emplace( root, (pod::BVH::index_t) islands.size());
+			if ( inserted ) islands.emplace_back();
+
+		/*
 			if ( rootToIsland.find(root) == rootToIsland.end() ) {
 				rootToIsland[root] = (pod::BVH::index_t) islands.size();
 				islands.emplace_back();
 			}
+		*/
 
 			pod::BVH::index_t islandID = rootToIsland[root];
 			islands[islandID].indices.emplace_back( i );
@@ -857,7 +904,8 @@ namespace {
 			pod::BVH::index_t root = unionizer.find(a);
 			if ( rootToIsland.find(root) != rootToIsland.end() ) {
 				pod::BVH::index_t islandID = rootToIsland[root];
-				islands[islandID].pairs.emplace(a, b);
+
+				islands[islandID].pairs.emplace_back(a, b);
 
 				if ( bodies[a]->activity.awake || bodies[b]->activity.awake ) {
 					::wakeBody( *bodies[dynamicIndex] );

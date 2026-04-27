@@ -126,17 +126,26 @@ namespace {
 		// compute overlaps between one BVH and another BVH
 		static thread_local pod::BVH::pairs_t pairs;
 		pairs.clear();
+
+
+		//UF_TIMER_MULTITRACE_START("Colliding {} ({} indices) <=> {} ({} indices)", a.object->getName(), bvhA.indices.size(), b.object->getName(), bvhB.indices.size());
+		//UF_TIMER_MULTITRACE("Querying overlaps...");
 		::queryOverlaps( bvhA, bvhB, pairs );
+		//UF_TIMER_MULTITRACE("Queried overlaps.");
 
 		bool hit = false;
 		// do collision per triangle
+		//UF_TIMER_MULTITRACE("Colliding triangles (pairs={})...", pairs.size());
 		for (auto [idA, idB] : pairs ) {
 			auto tA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
 			auto tB = ::fetchTriangle( meshB, idB, b );
 
-			if ( !::triangleTriangle( tA, tB, manifold, eps ) ) continue;
+			bool collides = ::triangleTriangle( tA, tB, manifold, eps );
+			if ( !collides ) continue;
 			hit = true;
 		}
+		//UF_TIMER_MULTITRACE("Collided triangles.");
+		//UF_TIMER_MULTITRACE_END("Collided mesh.");
 		return hit;
 	}
 }

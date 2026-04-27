@@ -135,10 +135,21 @@ namespace {
 		json["vertices"] = drawCommand.vertices;
 		return json;
 	}
+	uf::Serializer encode( const pod::LODMetadata& lodMetadata, const EncodingSettings& settings, const pod::Graph& graph ) {
+		uf::Serializer json;
+		ext::json::reserve( json, 4 );
+		for ( size_t i = 0; i < 4; ++i ) {
+			auto& value = json.emplace_back();
+			value["indices"] = lodMetadata.levels[i].indices;
+			value["indexID"] = lodMetadata.levels[i].indexID;
+		}
+		return json;
+	}
 	uf::Serializer encode( const pod::Primitive& primitive, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["drawCommand"] = encode( primitive.drawCommand, settings, graph );
 		json["instance"] = encode( primitive.instance, settings, graph );
+		json["lod"] = encode( primitive.lod, settings, graph );
 		return json;
 	}
 

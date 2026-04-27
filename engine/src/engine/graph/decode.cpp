@@ -185,10 +185,20 @@ namespace {
 		return drawCommand;
 	}
 
+	pod::LODMetadata decodeLODMetadata( ext::json::Value& json, pod::Graph& graph ) {
+		pod::LODMetadata lodMetadata;
+		ext::json::forEach( json, [&]( size_t i, ext::json::Value& value ){
+			lodMetadata.levels[i].indices = value["indices"].as( lodMetadata.levels[i].indices );
+			lodMetadata.levels[i].indexID = value["indexID"].as( lodMetadata.levels[i].indexID );
+		});
+		return lodMetadata;
+	}
+
 	pod::Primitive decodePrimitive( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Primitive prim;
 		prim.instance = decodeInstance( json["instance"], graph );
 		prim.drawCommand = decodeDrawCommand( json["drawCommand"], graph );
+		prim.lod = decodeLODMetadata( json["lod"], graph );
 		return prim;
 	}
 

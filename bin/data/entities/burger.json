@@ -5,8 +5,8 @@
 	"import": "/model.json",
 	"assets": [
 	//	"/burger/burger.glb"
-	//	"/burger/burger_simpler.glb"
 	//	"/burger/burger/graph.json"
+	//	"/burger/burger_simpler.glb"
 		"/burger/burger_simpler/graph.json"
 	],
 	"behaviors": [],
@@ -38,7 +38,7 @@
 			"exporter": {
 				"enabled": true,
 				"unwrap": false,
-				"optimize": false
+				"optimize": "tagged"
 			},
 			"baking": {
 				"enabled": false
@@ -48,6 +48,11 @@
 			},
 			"lighting": {
 				"lightmap": false
+			},
+			"tags": {
+				"/^.*/": {
+					"optimize meshlets": { "simplify": 0.125, "print": true }
+				}
 			}
 		}
 	}

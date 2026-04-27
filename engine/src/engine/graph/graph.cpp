@@ -477,6 +477,7 @@ namespace {
 			shader.aliasBuffer( "camera", storage.buffers.camera );
 			shader.aliasBuffer( "indirect", *indirect );
 			shader.aliasBuffer( "instance", storage.buffers.instance );
+			shader.aliasBuffer( "lodMetadata", storage.buffers.lodMetadata );
 			shader.aliasBuffer( "object", storage.buffers.object );
 
 			shader.textures.clear();
@@ -1361,6 +1362,7 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand)  * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	storage.buffers.lodMetadata.initialize( (const void*) nullptr, sizeof(pod::LODMetadata) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.object.initialize( (const void*) nullptr, sizeof(pod::Instance::Object) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * initialElements, uf::renderer::enums::Buffer::STORAGE );
@@ -1397,6 +1399,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 	static thread_local uf::stl::vector<pod::Instance> instances;
 	static thread_local uf::stl::vector<pod::Instance::Addresses> instanceAddresses;
+	static thread_local uf::stl::vector<pod::LODMetadata> lodMetadata;
 	static thread_local uf::stl::vector<pod::Matrix4f> joints;
 	static thread_local uf::stl::vector<pod::Instance::Object> objects;
 	static thread_local uf::stl::vector<pod::Material> materials;
@@ -1430,10 +1433,15 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	rebuild = storage.buffers.object.update( (const void*) objects.data(), objects.size() * sizeof(pod::Instance::Object) ) || rebuild;
 
 	if ( ::newGraphAdded ) {
+		drawCommands.clear();
 		instances.clear();
+		lodMetadata.clear();
+		
 		for ( auto& key : storage.primitives.keys ) {
 			for ( auto& primitive : storage.primitives[key] ) {
+				drawCommands.emplace_back( primitive.drawCommand );
 				instances.emplace_back( primitive.instance );
+				lodMetadata.emplace_back( primitive.lod );
 			}
 		}
 
@@ -1448,14 +1456,10 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		materials.clear();
 		for ( auto& key : storage.materials.keys ) materials.emplace_back( storage.materials.map[key] );
 
-		drawCommands.clear();
-		for ( auto& key : storage.primitives.keys ) {
-			for ( auto& primitive : storage.primitives[key] ) drawCommands.emplace_back( primitive.drawCommand );
-		}
-
 		rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;
 		rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 		rebuild = storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) ) || rebuild;
+		rebuild = storage.buffers.lodMetadata.update( (const void*) lodMetadata.data(), lodMetadata.size() * sizeof(pod::LODMetadata) ) || rebuild;
 		rebuild = storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) ) || rebuild;
 		rebuild = storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) ) || rebuild;
 

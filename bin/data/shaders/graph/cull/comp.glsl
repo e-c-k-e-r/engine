@@ -11,16 +11,18 @@ layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 #define QUERY_MIPMAPS 1
 #define DEPTH_BIAS 0.00005
 #define FRUSTUM_CULLING 1
-#define OCCLUSION_CULLING 0 // currently whack
+#define OCCLUSION_CULLING 1 // currently whack
+#define LODS 1
+#define MAX_LODS 4
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
 float mipLevels( vec2 size ) {
-	return floor(log2(max(size.x, size.y)));
+	return ceil(log2(max(size.x, size.y)));
 }
 float mipLevels( ivec2 size ) {
-	return floor(log2(max(size.x, size.y)));
+	return ceil(log2(max(size.x, size.y)));
 }
 
 vec4 aabbToSphere( Bounds bounds ) {
@@ -61,19 +63,23 @@ layout (binding = 0) uniform Camera {
 	Viewport viewport[PASSES];
 } camera;
 
-layout (std140, binding = 1) buffer DrawCommands {
+layout (std430, binding = 1) buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
 
-layout (std140, binding = 2) buffer Instances {
+layout (std430, binding = 2) buffer Instances {
 	Instance instances[];
 };
 
-layout (std140, binding = 3) buffer Objects {
+layout (std430, binding = 3) buffer LODs {
+	LODMetadata lodMetadata[];
+};
+
+layout (std430, binding = 4) buffer Objects {
 	Object objects[];
 };
 
-layout (binding = 4) uniform sampler2D samplerDepth;
+layout (binding = 5) uniform sampler2D samplerDepth;
 
 shared vec4 sharedPlanes[PASSES][6];
 
@@ -152,7 +158,7 @@ void main() {
 				float width = (aabb.z - aabb.x) * pyramidSize.x;
 				float height = (aabb.w - aabb.y) * pyramidSize.y;
 
-				float level = floor(log2(max(width, height)));
+				float level = mipLevels(vec2(width, height));
 				level = max(0.0, level);
 
 				float d1 = textureLod(samplerDepth, vec2(aabb.x, aabb.y), level).x;
@@ -174,6 +180,27 @@ void main() {
 		}
 	}
 #endif
+#if LODS
+	if ( isVisible ) {
+        vec3 viewCenter = (camera.viewport[0].view * vec4(worldCenter, 1.0)).xyz;
 
+        float P11 = camera.viewport[0].projection[1][1];
+
+        float screenRadius = (worldRadius * P11) / max(abs(viewCenter.z), 0.001);
+
+        uint lodLevel = 0;
+        if ( screenRadius < 0.5 )  lodLevel = 1;
+        if ( screenRadius < 0.2 )  lodLevel = 2;
+        if ( screenRadius < 0.05 ) lodLevel = 3;
+        lodLevel = min(lodLevel, MAX_LODS - 1);
+
+		LOD lod = lodMetadata[drawCommand.instanceID].levels[lodLevel];
+
+		if ( lod.indices > 0 ) {
+			drawCommands[gID].indices = lod.indices;
+			drawCommands[gID].indexID = lod.indexID;
+		}
+	}
+#endif
 	drawCommands[gID].instances = isVisible ? 1 : 0;
 }

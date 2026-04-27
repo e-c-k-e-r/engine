@@ -12,13 +12,13 @@
 				"worldspawn": {
 					"physics": { "type": "mesh", "static": true, "mass": 0 },
 					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
-					"optimize meshlets": { "simplify": 0.125, "print": false },
+					"optimize mesh": { "simplify": 0, "lods": true, "print": true },
 					"unwrap mesh": true
 				},
 				"worldspawn_skybox": {
-					"physics": { "type": "mesh", "static": true, "mass": 0 },
+					"physics": { "type": "aabb", "static": true, "mass": 0 },
 					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
-					"optimize meshlets": { "simplify": 0.125, "print": false },
+					"optimize mesh": { "simplify": 0, "lods": true, "print": true },
 					"unwrap mesh": true
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
@@ -42,8 +42,8 @@
 				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
 				"/^prop_dynamic/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
-				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" }, "optimize mesh": { "simplify": 0, "lods": true, "print": true } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" }, "optimize mesh": { "simplify": 0, "lods": true, "print": true } },
 
 				"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
 			}

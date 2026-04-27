@@ -57,7 +57,7 @@ AF4 SpdLoadSourceImage(ASU2 p, AU1 slice) {
 }
 
 AF4 SpdLoad(ASU2 p, AU1 slice) {
-	uint loadMip = min(6u, MIPS - 1);
+	uint loadMip = min(6u - 1, MIPS - 1);
 	float d = imageLoad(outImage[loadMip], p).r;
 	return AF4(d, d, d, d);
 }

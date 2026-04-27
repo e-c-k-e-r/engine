@@ -282,6 +282,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			struct {
 				bool should = false;
 				bool print = false;
+				bool lods = false;
 				size_t level = SIZE_MAX;
 				float simplify = 1.0f;
 			} meshopt;
@@ -309,6 +310,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 							meshopt.level = value["optimize meshlets"]["level"].as(meshopt.level);
 							meshopt.simplify = value["optimize meshlets"]["simplify"].as(meshopt.simplify);
 							meshopt.print = value["optimize meshlets"]["print"].as(meshopt.print);
+							meshopt.lods = value["optimize meshlets"]["lods"].as(meshopt.lods);
 						}
 					});
 				}
@@ -522,6 +524,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			size_t level = SIZE_MAX;
 			float simplify = 1.0f;
 			bool print = false;
+			bool lods = false;
 
 			if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
 				bool should = false;
@@ -536,6 +539,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 						level = value["optimize mesh"]["level"].as(level);
 						simplify = value["optimize mesh"]["simplify"].as(simplify);
 						print = value["optimize mesh"]["print"].as(print);
+						lods = value["optimize mesh"]["lods"].as(lods);
 					}
 				});
 
@@ -546,6 +550,18 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
 			if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
 				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
+			}
+			if ( lods ) {
+				auto factors = ext::meshopt::computeLODs( mesh.index.count );
+				auto lodMetadata = ext::meshopt::generateLODs( mesh, factors, print );
+				if ( lodMetadata.empty() ) {
+					UF_MSG_ERROR("LOD generation failed: {}", keyName );
+				} else {
+					UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
+					auto& primitives = storage.primitives[keyName];
+                    UF_ASSERT( primitives.size() == lodMetadata.size() );
+					for ( auto i = 0; i < primitives.size(); ++i ) primitives[i].lod = lodMetadata[i];
+				}
 			}
 		}
 

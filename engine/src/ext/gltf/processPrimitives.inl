@@ -356,7 +356,7 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps, meshgrid.clip, meshgrid.cleanup );
 	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: {}: {} -> {} | Partitions: {} -> {}", m.name, meshlets.size(), partitioned.size(), 
 		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z), meshgrid.grid.nodes.size()
-	 );
+	);
 	meshlets = std::move( partitioned );
 }
 
@@ -367,6 +367,15 @@ if ( meshopt.should ) {
 		if ( !ext::meshopt::optimize( meshlet, meshopt.simplify, meshopt.level, meshopt.print ) ) {
 			UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
 		}
+		/*
+		if ( meshopt.lods ) {
+			auto factors = ext::meshopt::computeLODs( meshlet.indices.size() );
+			auto lodMetadata = ext::meshopt::generateLODs( meshlet, factors, meshopt.print );
+			if ( lodMetadata.empty() ) {
+				UF_MSG_ERROR("LOD generation failed: {}", keyName );
+			}
+		}
+		*/
 	}
 }
 #endif

@@ -73,6 +73,14 @@ namespace pod {
 		alignas(4) uint32_t vertices = 0; // stores vertex count, should be unused
 	};
 
+	// stores index offsets for LODs
+	struct UF_API LODMetadata {
+		struct Level {
+			alignas(4) uint32_t indices = 0;
+			alignas(4) uint32_t indexID = 0;
+		} levels[4];
+	};
+
 	// stores information about how to transform a draw call
 	// to-do: clean up this mess
 	struct UF_API Instance {
@@ -133,6 +141,7 @@ namespace pod {
 	struct Primitive {
 		pod::DrawCommand drawCommand;
 		pod::Instance instance;
+		pod::LODMetadata lod;
 	};
 }
 
@@ -265,9 +274,9 @@ namespace uf {
 		void eraseAttribute( uf::Mesh::Input&, const uf::Mesh::Attribute& );
 		void eraseAttribute( uf::Mesh::Input&, size_t );
 
-		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t i = 0 ) const;
-		uf::Mesh::Input remapVertexInput( size_t i = 0 ) const;
-		uf::Mesh::Input remapIndexInput( size_t i = 0 ) const;
+		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t = 0, size_t = 0 ) const;
+		uf::Mesh::Input remapVertexInput( size_t i = 0, size_t = 0 ) const;
+		uf::Mesh::Input remapIndexInput( size_t i = 0, size_t = 0 ) const;
 
 		void print( bool = true ) const;
 
@@ -276,9 +285,9 @@ namespace uf {
 		std::string printInstances( bool = true ) const;
 		std::string printIndirects( bool = true ) const;
 
-		uf::Mesh::View makeView( const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
-		uf::Mesh::View makeView( size_t commandIndex, const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
-		uf::stl::vector<uf::Mesh::View> makeViews( const uf::stl::vector<uf::stl::string>& wanted = {} ) const;
+		uf::Mesh::View makeView( const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
+		uf::Mesh::View makeView( size_t commandIndex, const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
+		uf::stl::vector<uf::Mesh::View> makeViews( const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
 
 		inline bool hasVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
 		inline bool hasVertex( const uf::Mesh& mesh ) const { return _hasV( vertex, mesh.vertex ); }

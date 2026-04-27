@@ -11,6 +11,9 @@ namespace ext {
 	namespace meshopt {
 		bool UF_API optimize( uf::Mesh&, float simplify = 1.0f, size_t = SIZE_MAX, bool verbose = false );
 
+		uf::stl::vector<float> computeLODs( size_t count, size_t maxLODs = 4, size_t minIndices = 32 );
+		uf::stl::vector<pod::LODMetadata> UF_API generateLODs( uf::Mesh&, const uf::stl::vector<float>&, bool verbose = false );
+
 		template<typename T, typename U = uint32_t>
 		bool optimize( uf::Meshlet_T<T,U>& meshlet, float simplify = 1.0f, size_t o = SIZE_MAX, bool verbose = false ) {
 		#if UF_USE_MESHOPT
@@ -39,7 +42,7 @@ namespace ext {
 				float targetError = 1e-2f / simplify;
 
 				float realError = 0.0f;
-				size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), targetError, realError);
+				size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), indicesCount * simplify, targetError);
 			//	size_t realIndices = meshopt_simplifySloppy(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), targetIndices);
 				
 				if ( verbose ) UF_MSG_DEBUG("[Simplified] indices: {} -> {} | error: {} -> {}", indicesCount, realIndices, targetError, realError);
