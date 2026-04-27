@@ -19,6 +19,8 @@
 #include "../scene/behavior.h"
 // #include "../../gui/manager/behavior.h"
 
+#define ONE_OVER_SIXTY 0.016666f
+
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
@@ -94,8 +96,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			const pod::Vector2ui deadZone{0, 0};
 			if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
-			if (abs(payload.mouse.delta.x) > deadZone.x) metadata.mouse.accum.x += payload.mouse.delta.x * uf::physics::time::delta / payload.window.size.x;
-			if (abs(payload.mouse.delta.y) > deadZone.y) metadata.mouse.accum.y += payload.mouse.delta.y * uf::physics::time::delta / payload.window.size.y;
+			if (abs(payload.mouse.delta.x) > deadZone.x) metadata.mouse.accum.x += payload.mouse.delta.x * (ONE_OVER_SIXTY)/* uf::physics::time::delta*/ / payload.window.size.x;
+			if (abs(payload.mouse.delta.y) > deadZone.y) metadata.mouse.accum.y += payload.mouse.delta.y * (ONE_OVER_SIXTY)/* uf::physics::time::delta*/ / payload.window.size.y;
 		});
 	#endif
 #endif
@@ -347,7 +349,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( physicsBody.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
 
 	{
-		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
+		speed.rotate = metadata.movement.rotate * ONE_OVER_SIXTY /*uf::physics::time::delta*/;
 		speed.move = metadata.movement.move;
 		speed.run = metadata.movement.run;
 		speed.walk = metadata.movement.walk;
@@ -466,7 +468,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( stats.noclipped ) {
 				physicsBody.velocity += target * speed.move;
 			} else {
-				physicsBody.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physicsBody.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+				physicsBody.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physicsBody.velocity, target ), 0.0f, speed.move * 10 * ONE_OVER_SIXTY /*uf::physics::time::delta*/ );
 			}
 
 			auto dot = uf::vector::dot( transform.forward, target );
@@ -474,7 +476,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			//	auto cross = uf::vector::normalize( uf::vector::cross( transform.forward, target ) );
 			//	auto axis = cross == pod::Vector3f{0, 0, 0} ? transform.up : cross;
 				auto axis = transform.up;
-				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * uf::physics::time::delta * 4; // speed.rotate;
+				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4; // speed.rotate;
 
 				if ( physicsBody.object ) uf::physics::impl::applyRotation( physicsBody, axis, angle ); else
 				uf::transform::rotate( transform, axis, angle );
@@ -485,9 +487,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	TIMER(0.0625, stats.floored && keys.jump && !stats.noclipped ) {
 		physicsBody.velocity += translator.up * metadata.movement.jump;
 	}
-	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
+	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4.0f;
 	if ( keys.crouch ) {
-		if ( stats.noclipped ) transform.position -= translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
+		if ( stats.noclipped ) transform.position -= translator.up * metadata.movement.jump * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4.0f;
 		else {
 			if ( !metadata.system.crouching )  stats.deltaCrouch = true;
 			metadata.system.crouching = true;
@@ -504,8 +506,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		const auto& mouseDelta = uf::inputs::kbm::states::Mouse;
 		bool shouldnt = (mouseDelta.x == 0 && mouseDelta.y == 0) || !metadata.system.control || metadata.camera.fixed;
 		if ( !shouldnt ) {
-			if (abs(mouseDelta.x) > deadZone.x) metadata.mouse.accum.x += mouseDelta.x * uf::physics::time::delta;
-			if (abs(mouseDelta.y) > deadZone.y) metadata.mouse.accum.y += mouseDelta.y * uf::physics::time::delta;
+			if (abs(mouseDelta.x) > deadZone.x) metadata.mouse.accum.x += mouseDelta.x * (ONE_OVER_SIXTY)/* uf::physics::time::delta*/;
+			if (abs(mouseDelta.y) > deadZone.y) metadata.mouse.accum.y += mouseDelta.y * (ONE_OVER_SIXTY)/* uf::physics::time::delta*/;
 		}
 	}
 	#endif
@@ -564,7 +566,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 	{
 		if ( physicsBody.object ) uf::physics::impl::setVelocity( physicsBody, physicsBody.velocity ); else 
-		transform.position += physicsBody.velocity * uf::physics::time::delta;
+		transform.position += physicsBody.velocity * ONE_OVER_SIXTY /*uf::physics::time::delta*/;
 	//	if ( uf::vector::magnitude( physicsBody.velocity ) > 1.0e-6 ) UF_MSG_DEBUG("Velocity: {}", uf::vector::toString( physicsBody.velocity ));
 	}
 

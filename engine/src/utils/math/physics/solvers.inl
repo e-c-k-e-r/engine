@@ -140,6 +140,7 @@ namespace {
 			pod::Vector3f vB = b.velocity + uf::vector::cross( b.angularVelocity, contact.point - pB );
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
+		/*
 			// penetration bias with clamp
 			float penetrationBias = std::max(contact.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
@@ -148,8 +149,10 @@ namespace {
 			if ( penetrationBias > maxPenetrationRecovery ) penetrationBias = maxPenetrationRecovery;
 
 			float cDot = vRel + penetrationBias;
-
 			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // RHS is magnitude of correction needed
+			lambda[i] = contact.accumulatedNormalImpulse;
+		*/
+			rhs[i]	= (vRel < 0.0f) ? -vRel : 0.0f;
 			lambda[i] = contact.accumulatedNormalImpulse;
 		}
 
@@ -215,7 +218,7 @@ namespace {
 			// restitution bias + baumgarte
 			float e = std::min( a.material.restitution, b.material.restitution );
 			float penetrationBias = std::max( c.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f ) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
-			cc.bias = (vn < -1.0f ? -e * vn : 0.0f) + penetrationBias;
+			cc.bias = 0; // (vn < -1.0f ? -e * vn : 0.0f) + penetrationBias;
 
 			// effective mass (normal)
 			pod::Vector3f rnA = uf::vector::cross( cc.rA, cc.normal );

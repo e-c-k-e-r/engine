@@ -123,7 +123,7 @@ namespace {
 		return false;
 	}
 
-	bool isDegenerate( const pod::Simplex& s, const pod::SupportPoint& newPt, float eps = EPS(1.0e-6f) ) {
+	bool isDegenerate( const pod::Simplex& s, const pod::SupportPoint& newPt, float eps = EPS ) {
 		const float eps2 = eps * eps;
 		// compare to existing
 		for ( auto& sp : s.pts ) {
@@ -150,7 +150,7 @@ namespace {
 		return false;
 	}
 
-	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS(1e-6f) ) {
+	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS ) {
 		const float eps2 = eps * eps;
 		auto dir = ::getPosition( b ) - ::getPosition( a );
 		if ( uf::vector::magnitude( dir ) < eps2 ) dir = {1,0,0}; // fallback direction

@@ -1,5 +1,5 @@
 namespace {
-	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Triangle& tri, float& t, float& u, float& v, float eps = EPS(1.0e-6f) ) {
+	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Triangle& tri, float& t, float& u, float& v, float eps = EPS ) {
 		auto edge1 = tri.points[1] - tri.points[0];
 		auto edge2 = tri.points[2] - tri.points[0];
 		auto h = uf::vector::cross( ray.direction, edge2 );
@@ -20,7 +20,7 @@ namespace {
 		return ( t > eps );
 	}
 	
-	bool rayAabbIntersect( const pod::Ray& ray, const pod::AABB& box, float& tMin, float& tMax, float eps = EPS(1.0e-6f) ) {
+	bool rayAabbIntersect( const pod::Ray& ray, const pod::AABB& box, float& tMin, float& tMax, float eps = EPS ) {
 		tMin = 0.0f;
 		tMax = FLT_MAX;
 
@@ -108,7 +108,7 @@ namespace {
 		rayHit.contact.penetration = t;
 		return true;
 	}
-	bool rayPlane( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit, float eps = EPS(1e-6f) ) {
+	bool rayPlane( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit, float eps = EPS ) {
 		auto& normal = body.collider.plane.normal;
 		float offset = body.collider.plane.offset;
 
@@ -146,7 +146,7 @@ namespace {
 
 		float b = dd * uf::vector::dot(m,n) - nd*md;
 		float discr = b*b - a*c;
-		if ( fabs(a) < EPS(1.0e-6f) || discr < 0.0f ) return false;
+		if ( fabs(a) < EPS || discr < 0.0f ) return false;
 
 		float t = (-b - std::sqrt(discr)) / a;  // nearer hit
 

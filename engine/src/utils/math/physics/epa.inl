@@ -17,7 +17,7 @@ namespace {
 		const auto& C = s.pts[2].p;
 		const auto& D = s.pts[3].p;
 
-		return fabs( uf::vector::dot( (B - A), uf::vector::cross(C - A, D - A) ) ) > EPS(1e-6f);
+		return fabs( uf::vector::dot( (B - A), uf::vector::cross(C - A, D - A) ) ) > EPS;
 	}
 	
 	pod::Face makeFace( const pod::SupportPoint& a, const pod::SupportPoint& b, const pod::SupportPoint& c ) {
@@ -80,7 +80,7 @@ namespace {
 		}
 	}
 
-	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, uint32_t maxIterations = 64, float eps = EPS(1.0e-4f) ) {
+	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, uint32_t maxIterations = 64, float eps = EPS ) {
 		UF_ASSERT( ::isValidSimplex(simplex) );
 
 		auto faces = ::initialPolytope(simplex);

@@ -83,7 +83,7 @@ namespace {
 		float bestCost = std::numeric_limits<float>::infinity();
 
 		for ( auto axis = 0; axis < 3; ++axis ) {
-			if ( extent[axis] < EPS(1e-6f) ) continue;
+			if ( extent[axis] < EPS ) continue;
 			for ( auto i = 0; i < numBins; i++ ) {
 				bins[i].count = 0;
 				bins[i].bounds = {};
@@ -819,7 +819,9 @@ namespace {
 
 		// union all pairs
 		for ( auto& [a, b] : pairs ) {
-			unionizer.unite(a, b);
+			if ( !bodies[a]->isStatic && !bodies[b]->isStatic ) {
+				unionizer.unite(a, b);
+			}
 		}
 
 		// map root to island index
@@ -830,9 +832,11 @@ namespace {
 		islands.reserve(bodies.size());
 
 		for ( auto i = 0; i < bodies.size(); i++ ) {
+			if ( bodies[i]->isStatic ) continue;
+
 			pod::BVH::index_t root = unionizer.find(i);
 
-			if (rootToIsland.find(root) == rootToIsland.end()) {
+			if ( rootToIsland.find(root) == rootToIsland.end() ) {
 				rootToIsland[root] = (pod::BVH::index_t) islands.size();
 				islands.emplace_back();
 			}
@@ -846,9 +850,19 @@ namespace {
 			// do not insert these pairs if they're non-colliding
 			if ( !::shouldCollide( *bodies[a], *bodies[b] ) ) continue;
 
+			// just in case
+			pod::BVH::index_t dynamicIndex = bodies[a]->isStatic ? b : a;
+			if ( bodies[a]->isStatic && bodies[b]->isStatic ) continue;
+
 			pod::BVH::index_t root = unionizer.find(a);
-			pod::BVH::index_t islandID = rootToIsland[root];
-			islands[islandID].pairs.emplace(a, b);
+			if ( rootToIsland.find(root) != rootToIsland.end() ) {
+				pod::BVH::index_t islandID = rootToIsland[root];
+				islands[islandID].pairs.emplace(a, b);
+
+				if ( bodies[a]->activity.awake || bodies[b]->activity.awake ) {
+					::wakeBody( *bodies[dynamicIndex] );
+				}
+			}
 		}
 	}
 
@@ -859,10 +873,10 @@ namespace {
 			auto& body = *bodies[idx];
 			if ( !body.activity.awake ) continue;
 
-			float linSpeed = uf::vector::norm( body.velocity );
-			float angSpeed = uf::vector::norm( body.angularVelocity );
+			float linSpeedSq = uf::vector::magnitude( body.velocity );
+			float angSpeedSq = uf::vector::magnitude( body.angularVelocity );
 
-			if ( linSpeed < pod::Activity::linearSleepEpsilon && angSpeed < pod::Activity::angularSleepEpsilon) {
+			if ( linSpeedSq < pod::Activity::linearSleepEpsilon && angSpeedSq < pod::Activity::angularSleepEpsilon) {
 				body.activity.sleepTimer += dt;
 			} else {
 				body.activity.sleepTimer = 0.0f;

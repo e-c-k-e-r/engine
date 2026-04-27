@@ -161,8 +161,8 @@ namespace pod {
 		float sleepTimer = 0.0f;
 		int32_t islandID = -1;
 		static constexpr float sleepThreshold = 0.5f; // seconds
-		static constexpr float linearSleepEpsilon = 0.01f; // m/s
-		static constexpr float angularSleepEpsilon = 0.01f; // rad/s		
+		static constexpr float linearSleepEpsilon = 0.1f; // m/s
+		static constexpr float angularSleepEpsilon = 0.1f; // rad/s		
 	};
 
 	struct World; // forward declare
@@ -232,7 +232,7 @@ namespace pod {
 		bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
 		bool psgContactSolver = true; // use PSG contact solver
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
-		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
+		bool fixedStep = false; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
 		uint32_t substeps = 4; // number of substeps per frame tick
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 

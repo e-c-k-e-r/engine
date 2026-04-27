@@ -4,8 +4,8 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/memory/stack.h>
 
-#define EPS(x) 1.0e-6f
-#define EPS2 (EPS(1.0e-6) * EPS(1.0e-6))
+#define EPS 1.0e-6f
+#define EPS2 (EPS * EPS)
 #define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
 #define UF_PHYSICS_TEST 0
 
@@ -259,7 +259,7 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
 			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
-			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS(1.0e-6f), EPS(1.0e-6f), EPS(1.0e-6f) } );
+			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
 			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
@@ -295,7 +295,7 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 				totalVolume += extents.x * extents.y * extents.z;
 			}
 
-			if ( totalVolume < EPS(1.0e-6) ) {
+			if ( totalVolume < EPS ) {
 				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
 				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 			} else {

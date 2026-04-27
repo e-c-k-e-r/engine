@@ -15,7 +15,7 @@ namespace {
 		//return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 	}
 
-	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS(1e-6f) ) {
+	bool triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b, float eps = EPS ) {
 		const float eps2 = eps * eps;
 		auto boxA = ::computeTriangleAABB( a );
 		auto boxB = ::computeTriangleAABB( b );
@@ -148,7 +148,7 @@ namespace {
 		return tri;
 	}
 
-	bool computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1, float eps = EPS(1e-6f) ) {
+	bool computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1, float eps = EPS ) {
 		int intersections = 0;
 		pod::Vector3f intersectionBuffers[6];
 
@@ -280,7 +280,7 @@ namespace {
 			if ( triMin > r || triMax < -r ) return false; // separating axis
 
 			// compute overlap depth
-			float overlap = std::min(triMax, r) - std::max(triMin, -r);
+			float overlap = std::min(triMax + r, r - triMin);
 			if ( overlap < minOverlap ) {
 				minOverlap = overlap;
 				bestAxis = n;

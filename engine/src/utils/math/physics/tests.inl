@@ -45,7 +45,7 @@ TEST(SphereSphere_Collision, {
 	bool collided = sphereSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
-	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS(1e-4f));
+	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS);
 })
 
 TEST(AabbAabb_Collision, {
@@ -81,7 +81,7 @@ TEST(RaySphere_Hit, {
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
 
 	EXPECT_TRUE(hit.hit);
-	EXPECT_NEAR(hit.contact.penetration, 4.0f, EPS(1e-4f));
+	EXPECT_NEAR(hit.contact.penetration, 4.0f, EPS);
 })
 
 TEST(SphereSphere_NoCollision, {
@@ -138,7 +138,7 @@ TEST(SpherePlane_Collision, {
 	bool collided = planeSphere(bodyB, bodyA, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
-	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS(1e-4f));
+	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS);
 })
 
 TEST(SpherePlane_NoCollision, {
@@ -308,7 +308,7 @@ TEST(SphereSphere_TouchingButNotOverlapping, {
 	bool collided = sphereSphere(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);	   // should count as a collision
-	EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
+	EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS);
 })
 
 // expects being inside the body will set the hit to where the origin is
@@ -326,7 +326,7 @@ TEST(RaySphere_OriginInside, {
 	auto q = uf::physics::impl::rayCast(ray, world, 100.0f);
 
 	EXPECT_TRUE(q.hit);
-	EXPECT_NEAR(q.contact.penetration, 0.0f, EPS(1e-6f));
+	EXPECT_NEAR(q.contact.penetration, 0.0f, EPS);
 })
 #endif
 
@@ -944,13 +944,13 @@ TEST(TriangleTriangle_Collision_SimpleOverlap, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
 	if ( !m.points.empty() ) {
 		EXPECT_GE(m.points[0].penetration, 0.0f);
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS(1e-6f));
+		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
 	}
 })
 
@@ -976,7 +976,7 @@ TEST(TriangleTriangle_Collision_CoplanarOverlap, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1004,13 +1004,13 @@ TEST(TriangleTriangle_Collision_TouchingEdge, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleTriangle(bodyA, bodyB, m, EPS);
 
 	// Should still report as collision (tangent contact)
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
 	if(!m.points.empty()) {
-		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS(1e-6f));
+		EXPECT_NEAR(uf::vector::norm(m.points[0].normal), 1.0f, EPS);
 	}
 })
 
@@ -1033,7 +1033,7 @@ TEST(TriangleAabb_Collision_OverlapCenter, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1061,7 +1061,7 @@ TEST(TriangleAabb_Collision_NoOverlap, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleAabb(bodyA, bodyB, m, EPS);
 	EXPECT_FALSE(collided);
 })
 
@@ -1085,7 +1085,7 @@ TEST(TrianglePlane_Collision_BelowPlane, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1113,7 +1113,7 @@ TEST(TrianglePlane_NoCollision_AbovePlane, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::trianglePlane(bodyA, bodyB, m, EPS);
 	EXPECT_FALSE(collided);
 })
 
@@ -1137,13 +1137,13 @@ TEST(TriangleSphere_Collision_Tangent, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleSphere(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleSphere(bodyA, bodyB, m, EPS);
 
 	// At tangency: considered collision
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
 	if(!m.points.empty()) {
-		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
+		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS);
 	}
 })
 
@@ -1170,7 +1170,7 @@ TEST(TriangleCapsule_Collision_Overlap, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1201,7 +1201,7 @@ TEST(TriangleCapsule_Collision_NoOverlap, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS);
 	EXPECT_FALSE(collided);
 })
 
@@ -1227,13 +1227,13 @@ TEST(TriangleCapsule_Collision_Tangent, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS);
 
 	// At tangency, should still count as collision (penetration ≈ 0)
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
 	if(!m.points.empty()) {
-		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS(1e-6f));
+		EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS);
 	}
 })
 
@@ -1260,7 +1260,7 @@ TEST(TriangleCapsule_Collision_EdgeAlignment, {
 	bodyB.bounds = ::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS(1e-6f));
+	bool collided = ::triangleCapsule(bodyA, bodyB, m, EPS);
 
 	EXPECT_TRUE(collided);
 })

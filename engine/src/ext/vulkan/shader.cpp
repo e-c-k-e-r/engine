@@ -15,6 +15,8 @@
 #define VK_DEBUG_VALIDATION_MESSAGE(...)\
 	//VK_VALIDATION_MESSAGE(__VA_ARGS__);
 
+#define IS_DYNAMIC(name) name == "UBO_d"
+
 #define UF_SHADER_PARSE_AS_JSON 0
 #if UF_SHADER_PARSE_AS_JSON
 ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& definition ) {
@@ -519,7 +521,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					};
 
 					if ( descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ) {
-						metadata.dynamicRanges.emplace_back( bufferSize );
+						if ( IS_DYNAMIC(name) ) {
+							UF_MSG_DEBUG("Registered dynamic UBO: {}", name);
+						}
+						metadata.dynamicRanges.emplace_back( IS_DYNAMIC(name) ? bufferSize : 0 );
 					}
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:

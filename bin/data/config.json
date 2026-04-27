@@ -66,9 +66,9 @@
 			"vulkan": {
 				"version": 1.3,
 				"validation": {
-					"enabled": false,
-					"messages": false,
-					"checkpoints": false,
+					"enabled": true,
+					"messages": true,
+					"checkpoints": true,
 					"filters": [
 					//	"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI) (seems to be fixed?)
 					//	,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit) (seems to be fixed?)
@@ -101,7 +101,7 @@
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": true, // mostly works
+					"dedicated thread": false, // mostly works
 					"memory budget": false,
 					"register render modes": true,
 					"skip render on rebuild": false
@@ -109,7 +109,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
+					"default command buffer immediate": true,
 					"multithreaded recording": true
 				},
 				"pipelines": {
@@ -117,10 +117,10 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true,
-					"culling": true,
-					"bloom": true,
-					"dof": true,
+					"vxgi": false,
+					"culling": false,
+					"bloom": false,
+					"dof": false,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
@@ -363,7 +363,7 @@
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": 0 // "auto" // for some reason drops to 60
+			"framerate": "auto" // "auto" // for some reason drops to 60
 		},
 		"threads": {
 			"workers" : "auto",

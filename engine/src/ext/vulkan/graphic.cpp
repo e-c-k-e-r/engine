@@ -397,9 +397,6 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
 	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
-	for ( auto i = 0; i < shaders.size(); ++i ) {
-	//	UF_MSG_DEBUG("{} | {}: {}", descriptor.pipeline, i, shaders[i]->filename);
-	}
 
 	// create dynamic offset ranges
 	static thread_local uf::stl::vector<uint32_t> dynamicOffsets;

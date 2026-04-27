@@ -17,7 +17,7 @@ namespace {
 		}
 
 		float result = inverseMass + angularTermA + angularTermB;
-		if (result < EPS(1e-8f)) result = 1.0f; // prevent divide by zero
+		if (result < EPS) result = 1.0f; // prevent divide by zero
 		return result;
 	}
 
@@ -242,16 +242,17 @@ namespace {
 	void snapVelocity( pod::PhysicsBody& body, float dt, float threshold = 0.01f ) {
 		if ( !body.activity.grounded || !body.activity.awake ) return;
 
+		float thresholdSq = threshold * threshold;
 		// snap velocity if body is grounded and nearly still
-		float linSpeed = uf::vector::norm( body.velocity );
-		float angSpeed = uf::vector::norm( body.angularVelocity );
+		float linSpeedSq = uf::vector::magnitude( body.velocity );
+		float angSpeedSq = uf::vector::magnitude( body.angularVelocity );
 
 		// cancel out vertical component
-		if ( fabs(body.velocity.y) < threshold ) body.velocity.y = 0.0f;
+		if ( fabs(body.velocity.y) < thresholdSq ) body.velocity.y = 0.0f;
 		// cancel out velocity entirely
-		if ( linSpeed < threshold ) body.velocity = {};
+		if ( linSpeedSq < thresholdSq ) body.velocity = {};
 		// cancel out rotational velocity entirely
-		if ( angSpeed < threshold ) body.angularVelocity = {};
+		if ( angSpeedSq < thresholdSq ) body.angularVelocity = {};
 	}
 
 	// baumgarte position correction
@@ -267,7 +268,7 @@ namespace {
 		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
 		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
 		float totalInvMass = invMassA + invMassB;
-		if ( totalInvMass <= EPS(1e-8f) ) return;
+		if ( totalInvMass <= EPS ) return;
 
 		// apply correction vector
 		pod::Vector3f correction = contact.normal * (penetration / totalInvMass) * uf::physics::impl::settings.baumgarteCorrectionPercent;
@@ -278,7 +279,6 @@ namespace {
 
 
 	void integrate( pod::PhysicsBody& body, float dt ) {
-
 		// only integrate awake and dynamic bodies
 		if ( !body.activity.awake || body.isStatic || body.mass == 0 ) return;
 
