@@ -62,22 +62,8 @@ for ( auto& p : m.primitives ) {
 		
 		if ( attribute.name == "POSITION" ) {
 			meshlet.vertices.resize(accessor.count);
-			if ( !graph.metadata["renderer"]["invert"].as<bool>(true) ){
-				meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
-				meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
-			} else {
-				meshlet.primitive.instance.bounds.min = pod::Vector3f{  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
-				meshlet.primitive.instance.bounds.max = pod::Vector3f{ -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-			}
-		/*
 			meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
 			meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
-
-			if ( graph.metadata["renderer"]["invert"].as<bool>(true) ){
-				meshlet.primitive.instance.bounds.min.x = -meshlet.primitive.instance.bounds.min.x;
-				meshlet.primitive.instance.bounds.max.x = -meshlet.primitive.instance.bounds.max.x;
-			}
-		*/
 		}
 
 		switch ( accessor.componentType ) {

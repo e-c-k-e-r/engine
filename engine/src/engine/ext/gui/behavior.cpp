@@ -28,14 +28,6 @@
 #define EXT_COLOR_FLOATS 1
 
 namespace {
-	struct {
-		bool initialized = false;
-
-		uf::Mesh mesh;
-		uf::Image image;
-		uf::Serializer settings;
-	} defaults;
-
 	struct Mesh {
 		pod::Vector3f position;
 		pod::Vector2f uv;
@@ -77,26 +69,43 @@ UF_VERTEX_DESCRIPTOR(Mesh,
 )
 
 namespace {
-	uf::Image& generateImage( uf::Image& image ) {
-		image.open(uf::io::root+"/textures/missing.png");
-		return image;
+	// default to center
+	pod::Vector2f parseAnchor( const uf::stl::string& anchor, const pod::Vector2f& def = {0.5f, 0.5f} ) {
+		if ( anchor == "top-center" || anchor == "top" ) return {0.5f, 0.0f};
+		if ( anchor == "top-left" ) return {0.0f, 0.0f};
+		if ( anchor == "top-right" ) return {1.0f, 0.0f};
+
+		if ( anchor == "center" ) return {0.5f, 0.5f};
+		if ( anchor == "center-left" || anchor == "left" ) return {0.0f, 0.5f};
+		if ( anchor == "center-right" || anchor == "right" ) return {1.0f, 0.5f};
+
+		if ( anchor == "bottom-center" || anchor == "bottom" ) return {0.5f, 1.0f};
+		if ( anchor == "bottom-left" ) return {0.0f, 1.0f};
+		if ( anchor == "bottom-right" ) return {1.0f, 1.0f};
+
+		return def;
 	}
-	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color = {1, 1, 1, 1} ) {
+
+	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color, const pod::Vector2f& center ) {
 		mesh.bind<::Mesh, uint16_t>();
 		mesh.insertVertices<::Mesh>({
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, color },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
 		
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
 		});
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 3, 4, 5
 		});
 
 		return mesh;
+	}
+
+	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color = {1, 1, 1, 1}, const uf::stl::string& alignment = "center" ) {
+		return ::generateMesh( mesh, color, ::parseAnchor( alignment ) * 2.0f - 1.0f );
 	}
 }
 
@@ -120,54 +129,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 	auto& scene = uf::scene::getCurrentScene();
 	
-	if ( !::defaults.initialized ) {
-		::defaults.initialized = true;
-
-		::generateImage( ::defaults.image );
-		::generateMesh( ::defaults.mesh );
-	}
-/*
-	if ( ext::json::isNull( ::defaults.settings["metadata"] ) ) ::defaults.settings.readFromFile(uf::io::root+"/entities/gui.json");
-	// set defaults
-	if ( metadataJson["string"].is<uf::stl::string>() ) {
-		auto copyMetadataJson = metadataJson;
-		ext::json::forEach(::defaults.settings["metadata"], [&]( const uf::stl::string& key, ext::json::Value& value ){
-			if ( ext::json::isNull( copyMetadataJson[key] ) ) {
-				metadataJson[key] = value;
-			}
-		});
-	}
-*/
-
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	this->addHook( "gui:Update.%UID%", [&](ext::payloads::GuiInitializationPayload& payload){
 		auto& graphic = this->getComponent<uf::Graphic>();
 
-	/*
-		if ( metadataJson["mode"].as<uf::stl::string>() == "flat" ) {
-			if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = false;
-			if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = true;
-			if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "ccw";
-		} else {
-			if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = true;
-			if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = false;
-			if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "cw";
-		}
-
-		if ( metadataJson["world"].as<bool>() ) {
-		//	metadataJson["gui layer"] = false;
-		} else {
-		#if UF_USE_OPENGL
-			if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
-			if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
-		//	transform.position.z = metadata.depth;
-		#else
-		//	if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
-		#endif
-		//	for ( auto& v : vertices ) v.position.z = metadata.depth;
-		}
-	*/
 		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "back";
 
 		// 
@@ -186,11 +152,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( image );
-			
-			// update transform
-			{
-			
-			}
 
 			if ( payload.free ) {
 				delete payload.image;
@@ -263,6 +224,16 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 		}
 
+		if ( metadata.space == "screen" ) {
+			auto anchor = ::parseAnchor( metadata.anchor, metadata.pivot ) * 2.0f - 1.0f;
+			transform.position.x += anchor.x;
+			transform.position.y += anchor.y;
+		/*
+			transform.position.x += anchor.x * ((float) metadata.size.x / uf::renderer::settings::width) * transform.scale.x;
+			transform.position.y += anchor.y * ((float) metadata.size.y / uf::renderer::settings::height) * transform.scale.y;
+		*/
+		}
+
 
 		metadata.initialized = true;
 	});
@@ -274,7 +245,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		auto& image = uf::asset::get<uf::Image>( payload );
 
 		// generate default mesh
-		::generateMesh( mesh, metadata.color );
+		::generateMesh( mesh, metadata.color, metadata.alignment );
 
 		{
 			ext::payloads::GuiInitializationPayload payload;
@@ -291,12 +262,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		if ( !clickTimer.running() ) clickTimer.start();
 
 		this->addHook( "window:Mouse.Click", [&](pod::payloads::windowMouseClick& payload){
-			if ( metadata.world ) return;
-			//if ( !metadata.boxMin && !metadata.boxMax ) return;
+			if ( metadata.space != "screen" ) return;
 			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
-		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
-		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 			pod::Vector2ui guiSize = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 			
 			bool clicked = false;
@@ -386,12 +354,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		hoverTimer.start( uf::Time<>(-1000000) );
 
 		this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
-			if ( metadata.world ) return;
-			//if ( !metadata.boxMin && !metadata.boxMax ) return;
+			if ( metadata.space != "screen" ) return;
 			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
-		//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
-		//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 			pod::Vector2ui guiSize = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 
 			bool hovered = false;
@@ -488,22 +453,18 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 
-//	uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
-//	pod::Vector2ui guiSize = manager ? manager->getComponent<ext::GuiManagerBehavior::Metadata>().size : pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
-	pod::Vector2ui guiSize = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
+	if ( metadata.space == "screen" ) {
+		pod::Vector2f guiSize = pod::Vector2f{ uf::renderer::settings::width, uf::renderer::settings::height };
+		pod::Vector2f scale = { 1, 1 };	
 
-	if ( metadata.scaleMode == "fixed" || metadata.scaleMode == "fixed-x" ) {
-		flatten.scale.x *= (float) metadata.size.x / (float) guiSize.x;
-	}
-	if ( metadata.scaleMode == "fixed" || metadata.scaleMode == "fixed-y" ) {
-		flatten.scale.y *= (float) metadata.size.x / (float) guiSize.y;
-	}
+		if ( metadata.scaling == "fixed" || metadata.scaling == "fixed-x" ) scale.x = (float) metadata.size.x / guiSize.x;
+		if ( metadata.scaling == "fixed" || metadata.scaling == "fixed-y" ) scale.y = (float) metadata.size.x / guiSize.y;
 
-	if ( metadata.scaleMode == "relative" || metadata.scaleMode == "relative-x" ) {
-		flatten.scale.x *= (float) guiSize.y / (float) guiSize.x;
-	}
-	if ( metadata.scaleMode == "relative" || metadata.scaleMode == "relative-y" ) {
-		flatten.scale.y *= (float) guiSize.x / (float) guiSize.y;
+		if ( metadata.scaling == "relative" || metadata.scaling == "relative-x" ) scale.x = (float) guiSize.y / guiSize.x;
+		if ( metadata.scaling == "relative" || metadata.scaling == "relative-y" ) scale.y = (float) guiSize.x / guiSize.y;
+		
+		flatten.scale.x *= scale.x;
+		flatten.scale.y *= scale.y;
 	}
 
 	// bind UBO
@@ -619,33 +580,48 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 void ext::GuiBehavior::render( uf::Object& self ){}
 void ext::GuiBehavior::destroy( uf::Object& self ){}
 void ext::GuiBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
-	serializer["color"] = uf::vector::encode( /*this->*/color );
-	serializer["uv"] = uf::vector::encode( /*this->*/uv );
-//	serializer["scaling"] = uf::vector::encode( /*this->*/scaling );
-
 	serializer["depth"] = /*this->*/depth;
 	serializer["mode"] = /*this->*/mode;
-	serializer["renderMode"] = /*this->*/renderMode;
-	serializer["scaling"] = /*this->*/scaleMode;
 
 	serializer["clickable"] = /*this->*/clickable;
 	serializer["clicked"] = /*this->*/clicked;
-	
 	serializer["hoverable"] = /*this->*/hoverable;
 	serializer["hovered"] = /*this->*/hovered;
+
+	serializer["size"] = uf::vector::encode( /*this->*/size );
+	serializer["uv"] = uf::vector::encode( /*this->*/uv );
+	serializer["color"] = uf::vector::encode( /*this->*/color );
+
+	serializer["renderMode"] = /*this->*/renderMode;
+	serializer["scaling"] = /*this->*/scaling;
+	//
+	serializer["anchor"] = /*this->*/anchor;
+	serializer["alignment"] = /*this->*/alignment;
+	serializer["space"] = /*this->*/space;
+	serializer["pivot"] = uf::vector::encode(/*this->*/pivot);
+
 }
 void ext::GuiBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
-	/*this->*/color = uf::vector::decode( serializer["color"], /*this->*/color );
-	/*this->*/uv = uf::vector::decode( serializer["uv"], /*this->*/uv );
-//	/*this->*/scaling = uf::vector::decode( serializer["scaling"], /*this->*/scaling );
-
 	/*this->*/depth = serializer["depth"].as( /*this->*/depth );
 	/*this->*/mode = serializer["mode"].as( /*this->*/mode );
-	/*this->*/renderMode = serializer["renderMode"].as( /*this->*/renderMode );
-	/*this->*/scaleMode = serializer["scaling"].as( /*this->*/scaleMode );
-	
+
 	/*this->*/clickable = serializer["clickable"].as( /*this->*/clickable );
+//	/*this->*/clicked = serializer["clicked"].as( /*this->*/clicked );
 	/*this->*/hoverable = serializer["hoverable"].as( /*this->*/hoverable );
+//	/*this->*/hovered = serializer["hovered"].as( /*this->*/hovered );
+
+	/*this->*/size = uf::vector::decode( serializer["size"], /*this->*/size );
+	/*this->*/uv = uf::vector::decode( serializer["uv"], /*this->*/uv );
+	/*this->*/color = uf::vector::decode( serializer["color"], /*this->*/color );
+
+	/*this->*/renderMode = serializer["renderMode"].as( /*this->*/renderMode );
+	/*this->*/scaling = serializer["scaling"].as( /*this->*/scaling );
+	
+	/*this->*/anchor = serializer["anchor"].as( /*this->*/anchor );
+	/*this->*/alignment = serializer["alignment"].as( /*this->*/alignment );
+	/*this->*/space = serializer["space"].as( /*this->*/space );
+	/*this->*/pivot = uf::vector::decode( serializer["pivot"], /*this->*/pivot );
+	
 }
 #undef this
 
@@ -653,7 +629,6 @@ void ext::GuiBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& 
 #include <uf/ext/lua/component.h>
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(ext::GuiBehavior::Metadata,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::initialized),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::world),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::depth),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::mode),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::clickable),
@@ -661,11 +636,14 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(ext::GuiBehavior::Metadata,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::hoverable),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::hovered),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::size),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::scale),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::uv),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::color),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::renderMode),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::scaleMode),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::scaling),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::boxMin),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::boxMax)
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::boxMax),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::anchor),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::alignment),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::space),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::GuiBehavior::Metadata::pivot)
 )

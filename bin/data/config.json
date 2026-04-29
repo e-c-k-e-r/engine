@@ -60,7 +60,7 @@
 		},
 		"graph": {
 			"initial buffer elements": 128,
-			"global storage": true
+			"global storage": false
 		},
 		"ext": {
 			"vulkan": {
@@ -109,7 +109,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": true,
+					"default command buffer immediate": false,
 					"multithreaded recording": true
 				},
 				"pipelines": {
@@ -117,10 +117,10 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": true,
-					"bloom": false,
-					"dof": false,
+					"bloom": true,
+					"dof": true,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
@@ -363,7 +363,7 @@
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": "auto" // "auto" // for some reason drops to 60
+			"framerate": 300 // "auto" // for some reason drops to 60
 		},
 		"threads": {
 			"workers" : "auto",

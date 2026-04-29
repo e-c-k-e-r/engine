@@ -16,15 +16,16 @@ namespace ext {
 
 			bool sdf = true;
 			float size = 96;
-			float spread = 2;
+			float spread = 8;
 
-			pod::Vector2ui padding = { 2, 2 };
+			pod::Vector2ui padding = { 8, 8 };
 
 			size_t reserve = 128;
 
 			struct {
 				float scale = 1.5;
 				float weight = 0.45;
+				float fillWeight = 0.5;
 				pod::Vector4f stroke = { 0, 0, 0, 1 };
 				pod::Vector2i range = { -1, -1 };
 			} shader;

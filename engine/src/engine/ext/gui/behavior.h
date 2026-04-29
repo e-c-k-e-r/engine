@@ -20,8 +20,6 @@ namespace ext {
 		UF_BEHAVIOR_DEFINE_METADATA(
 			bool initialized = false;
 
-			bool world = false;
-
 			float depth = 0;
 			size_t mode = 0;
 
@@ -31,15 +29,19 @@ namespace ext {
 			bool hovered = false;
 
 			pod::Vector2ui size = {};
-			pod::Vector2f scale = { 1, 1 };
 			pod::Vector4f uv = { 0, 0, 1, 1 };
 			pod::Vector4f color = { 1, 1, 1, 1 };
 
 			uf::stl::string renderMode = "Gui";
-			uf::stl::string scaleMode = "fixed";
+			uf::stl::string scaling = "fixed";
 
 			pod::Vector2f boxMin = { 1, 1 };
 			pod::Vector2f boxMax = { 1, 1 };
+
+			uf::stl::string space = "screen";
+			pod::Vector2f pivot = {0.5f, 0.5f}; // if anchor is not a valid string
+			uf::stl::string anchor = ""; // blank as the default changes between normal GUI and glyph
+			uf::stl::string alignment = ""; // ^
 		);
 	}
 }

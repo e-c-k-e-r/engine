@@ -17,13 +17,6 @@
 	},
 	"metadata": {
 		"uv": [ 0, 0, 1, 1 ],
-		"location": "",
-		"scaling": "relative",
-		"text settings": {
-			"stroke": [ 1, 0.749, 0.368, 1 ],
-			"color": [ 1, 0.749, 0.368, 1 ],
-			"depth": 0.5,
-			"string": "."
-		}
+		"scaling": "relative"
 	}
 }

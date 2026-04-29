@@ -29,7 +29,7 @@
 
 		"physics": {
 			"gravity": [ 0, -9.81, 0 ],
-
+			"inertia": null,
 			"mass": 10,
 			"type": "bounding box",
 			"recenter": false
@@ -51,7 +51,7 @@
 			},
 			"tags": {
 				"/^.*/": {
-					"optimize meshlets": { "simplify": 0.125, "print": true }
+					"optimize meshlets": { "simplify": 0.5, "lods": true, "print": true }
 				}
 			}
 		}

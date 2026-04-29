@@ -21,6 +21,7 @@
 	//	"./playerModel.json",
 		"./playerLight.json",
 	//	"./playerHands.json",
+		"./gui/hud/hud.json",
 		"./scripts/player.lua"
 	],
 	"system": {

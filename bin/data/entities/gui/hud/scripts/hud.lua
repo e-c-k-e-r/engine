@@ -10,6 +10,7 @@ for i=1, visorLayers do
 end
 
 local soundEmitter = ent:loadChild("./sound.json",true)
+local text = ent:loadChild("./text.json",true)
 
 local timer = Timer.new()
 if not timer:running() then timer:start() end
@@ -51,9 +52,9 @@ local rotate = function( delta )
 	end
 end
 
-local windowSize = masterdata["system"]["config"]["window"]["size"];
+--local windowSize = masterdata["system"]["config"]["window"]["size"];
 local entTransform = ent:getComponent("Transform")
-entTransform.scale.x = entTransform.scale.x * windowSize.x / windowSize.y;
+--entTransform.scale.x = entTransform.scale.x * windowSize.x / windowSize.y;
 
 for k, obj in pairs(children) do
 	local transform = obj:getComponent("Transform")
@@ -105,7 +106,17 @@ ent:addHook( "window:Mouse.Moved", function( payload )
 end )
 ]]
 
+local fpsCounter = {
+	frames = 0,
+	time = 0,
+	freq = 0.1
+}
+text:callHook( "gui:UpdateText.%UID%", {
+	string = ""
+} )
+
 ent:bind( "tick", function(self)
+	--[[
 	for k, obj in pairs(children) do
 		local metadata = obj:getComponent("Metadata")
 		local glow = math.sin(time.current()) * 0.5 + 0.5 -- constrained to [0,1]
@@ -113,16 +124,33 @@ ent:bind( "tick", function(self)
 		metadata["alpha"] = glow
 		obj:setComponent("Metadata", metadata)
 	end
+	]]
+
+	if fpsCounter["time"] > fpsCounter["freq"] then
+		-- update text
+		text:callHook( "gui:UpdateText.%UID%", {
+			string = tostring(math.floor(fpsCounter["frames"] / fpsCounter["time"]))
+		} )
+
+		fpsCounter["time"] = 0
+		fpsCounter["frames"] = 0
+	else
+		fpsCounter["frames"] = fpsCounter["frames"] + 1
+		fpsCounter["time"] = fpsCounter["time"] + time.delta()
+	end
+
 
 	local controllerTransform = controller:getComponent("Transform")
 	local controllerCamera = controller:getComponent("Camera")
 	local controllerCameraTransform = controllerCamera:getTransform()
 	local transform = ent:getComponent("Transform")
 	
+--[[
 	local speed = 2.5
 	if lerper.a == 1 then return end
 	lerper.a = lerper.a + time.delta() * speed
 	if lerper.a > 1 then lerper.a = 1 end
+]]
 
 	transform.orientation = lerper.from:slerp( lerper.to, lerper.a )
 	local orientation = transform.orientation

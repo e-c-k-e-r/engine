@@ -1,6 +1,7 @@
 #include <uf/ext/meshopt/meshopt.h>
 #if UF_USE_MESHOPT
 #include <meshoptimizer.h>
+#include <cfloat>
 
 bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verbose ) {
 	if ( mesh.isInterleaved() ) {
@@ -53,7 +54,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 		if ( 0.0f < simplify && simplify < 1.0f ) {
 			uf::stl::vector<uint32_t> indicesSimplified(indicesCount);
 
-			float targetError = 0.1; // 1e-2f / simplify;
+			float targetError = FLT_MAX; // 1e-2f / simplify;
 			float realError = 0.0f;
 
 			size_t realIndices = meshopt_simplify(
@@ -64,8 +65,8 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 				mesh.vertex.count,
 				positionsView.stride(),
 				indicesCount * simplify,
-				targetError
-				//,0, &realError
+				targetError,
+				0, &realError
 			);
 
 			if ( verbose ) {
@@ -156,24 +157,26 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 
 		meshopt_optimizeVertexCache(&baseIndices[0], &baseIndices[0], baseIndicesCount, mesh.vertex.count);
 
+		size_t previousIndicesCount = baseIndicesCount;
 		for ( size_t lodIdx = 0; lodIdx < numLODs; ++lodIdx ) {
 			float simplify = lodFactors[lodIdx];
 			uf::stl::vector<uint32_t> lodIndices = baseIndices;
 			size_t currentIndicesCount = baseIndicesCount;
 
 			if ( simplify < 1.0f ) {
-				float targetError = 0.1; // 1e-2f / simplify;
+				float targetError = FLT_MAX; // 1e-2f / simplify;
 				float realError = 0.0f;
 				currentIndicesCount = meshopt_simplify(
 					&lodIndices[0], &baseIndices[0], baseIndicesCount,
 					(const float*)positionsView.data(0), mesh.vertex.count, positionsView.stride(),
-					baseIndicesCount * simplify, targetError
-					//, 0, &realError
+					baseIndicesCount * simplify, targetError,
+					0, &realError
 				);
 
-				if ( baseIndicesCount == currentIndicesCount ) {
+				if ( previousIndicesCount == currentIndicesCount ) {
 					continue;
 				}
+				previousIndicesCount = currentIndicesCount;
 
 				if ( verbose ) {
 					UF_MSG_DEBUG("[View {} Simplified LOD {}] indices: {} -> {} | error: {} -> {}", viewIdx, lodIdx, baseIndicesCount, currentIndicesCount, targetError, realError);

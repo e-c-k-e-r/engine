@@ -42,7 +42,7 @@ namespace ext {
 				float targetError = 1e-2f / simplify;
 
 				float realError = 0.0f;
-				size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), indicesCount * simplify, targetError);
+				size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), indicesCount * simplify, targetError, 0, &realError);
 			//	size_t realIndices = meshopt_simplifySloppy(&indicesSimplified[0], &indices[0], indicesCount, &meshlet.vertices[0].position.x, verticesCount, sizeof(T), targetIndices);
 				
 				if ( verbose ) UF_MSG_DEBUG("[Simplified] indices: {} -> {} | error: {} -> {}", indicesCount, realIndices, targetError, realError);

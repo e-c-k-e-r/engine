@@ -535,6 +535,7 @@ namespace {
 	}
 
 	void bindInstanceAddresses( uf::renderer::Graphic& graphic, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& addresses ) {
+	#if UF_USE_VULKAN
 		if ( !uf::renderer::settings::invariant::deviceAddressing || !mesh.indirect.count ) return;
 		addresses.resize( mesh.indirect.count );
 
@@ -574,6 +575,7 @@ namespace {
 				instanceAddresses.drawID = drawID;
 			}
 		}
+	#endif
 	}
 }
 
@@ -1576,6 +1578,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	if ( !soft ) {
 		storage.buffers.camera.destroy(true);
 		storage.buffers.drawCommands.destroy(true);
+		storage.buffers.lodMetadata.destroy(true);
 		storage.buffers.instance.destroy(true);
 		storage.buffers.instanceAddresses.destroy(true);
 		storage.buffers.joint.destroy(true);
@@ -1583,6 +1586,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 		storage.buffers.material.destroy(true);
 		storage.buffers.texture.destroy(true);
 		storage.buffers.light.destroy(true);
+		storage.buffers.depthPyramid.destroy(true);
 	}
 
 	uf::renderer::states::rebuild = true;
@@ -1777,6 +1781,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				drawCommands[drawID].vertexID = 0;
 			} else {
 				drawCommands[drawID] = primitives[drawID].drawCommand;
+				// to-do: LOD pick here for OpenGL
 			}
 		}
 

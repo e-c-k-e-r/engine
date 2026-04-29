@@ -15,8 +15,8 @@ struct Glyph {
 	int spread;
 	float weight;
 
+	float fillWeight;
 	float scale;
-	uint padding1;
 	uint padding2;
 	uint padding3;
 };

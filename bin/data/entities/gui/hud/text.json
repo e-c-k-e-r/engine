@@ -3,16 +3,14 @@
 	"type": "Gui",
 	"ignore": false,
 	"assets": [
-	//	{ "filename": "./textures/mp.png", "hash": "68e7c459f9aecd6815ff7df1e2eefa82db60a23713b0134f0bfc15d82f55453d" }
-	//	{ "filename": "./textures/ss2.png" }
+
 	],
 	"transform": {
-		"position": [ 0, 0, 0 ],
+		"position": [ -0.9, -0.9, 0 ],
 		"rotation": {
 			"axis": [ 0, 0, 1 ],
 			"angle": 0
 		},
-	//	"scale": [ 1.7776, -1, -1 ]
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
@@ -22,7 +20,6 @@
 		"uv": [ 0, 0, 1, 1 ],
 		"color": [ 1, 1, 1, 1 ],
 		"scaling": "relative",
-		"alpha": 0.75,
-		"mode": 1
+		"string": "1234567890"
 	}
 }

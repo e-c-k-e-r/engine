@@ -11,7 +11,7 @@ layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 #define QUERY_MIPMAPS 1
 #define DEPTH_BIAS 0.00005
 #define FRUSTUM_CULLING 1
-#define OCCLUSION_CULLING 1 // currently whack
+#define OCCLUSION_CULLING 0 // currently whack
 #define LODS 1
 #define MAX_LODS 4
 

@@ -30,7 +30,7 @@ void main() {
 
 	const float sampled = texture(samplerTexture, inUv).r;
 	const float smoothing = ( inGlyph.spread > 0 && inGlyph.scale > 0 ) ? 0.25 / (inGlyph.spread * inGlyph.scale) : 0.25 / (4 * 1.5);
-	const float outlining = smoothstep(0.5 - smoothing, 0.5 + smoothing, sampled);
+	const float outlining = smoothstep(inGlyph.fillWeight - smoothing, inGlyph.fillWeight + smoothing, sampled);
 	const float alpha = smoothstep(inGlyph.weight - smoothing, inGlyph.weight + smoothing, sampled);
 	if ( alpha < 0.001 || alpha > 1 ) discard;
 	C = mix(inGlyph.stroke, inGui.color, outlining);
