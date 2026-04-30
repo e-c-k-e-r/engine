@@ -30,6 +30,16 @@ namespace {
 		};
 	}
 
+	pod::AABB computeConvexHullAABB( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } }  ) {
+		for ( size_t i = 0; i < view.vertex.count; ++i ) {
+			pod::Vector3f v = ::getVertex( view, positions, i );
+			bounds.min = uf::vector::min( bounds.min, v );
+			bounds.max = uf::vector::max( bounds.max, v );
+		}
+
+		return bounds;
+	}
+
 	FORCE_INLINE pod::AABB mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
 		return {
 			uf::vector::min( a.min, b.min ),
@@ -106,6 +116,21 @@ namespace {
 						transform.position + body.collider.mesh.bvh->bounds[0].min,
 						transform.position + body.collider.mesh.bvh->bounds[0].max,
 					};
+				const auto& meshData = *body.collider.mesh.mesh;
+				pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
+				for ( const auto& view : meshData.buffer_views ) ::computeConvexHullAABB( view, view["position"], bounds );
+				return ::transformAabbToWorld( bounds, transform );
+			} break;
+			case pod::ShapeType::CONVEX_HULL: {
+				if ( body.collider.convexHull.bvh && !body.collider.convexHull.bvh->bounds.empty() )
+					return {
+						transform.position + body.collider.convexHull.bvh->bounds[0].min,
+						transform.position + body.collider.convexHull.bvh->bounds[0].max,
+					};
+				const auto& meshData = *body.collider.convexHull.mesh;
+				pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
+				for ( const auto& view : meshData.buffer_views ) ::computeConvexHullAABB( view, view["position"], bounds );
+				return ::transformAabbToWorld( bounds, transform );
 			} break;
 			default: {
 			} break;
@@ -279,5 +304,9 @@ namespace {
 	bool aabbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( AABB, MESH );
 		REVERSE_COLLIDER( a, b, meshAabb );
+	}
+	bool aabbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( AABB, CONVEX_HULL );
+		REVERSE_COLLIDER( a, b, hullAabb );
 	}
 }

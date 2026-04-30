@@ -54,4 +54,8 @@ namespace {
 		ASSERT_COLLIDER_TYPES( PLANE, MESH );
 		REVERSE_COLLIDER( a, b, meshPlane );
 	}
+	bool planeHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( PLANE, CONVEX_HULL );
+		REVERSE_COLLIDER( a, b, hullPlane );
+	}
 }

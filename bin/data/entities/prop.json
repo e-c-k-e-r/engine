@@ -10,6 +10,7 @@
 			"inertia": false,
 			"type": "bounding box"
 		//	"type": "mesh"
+		//	"type": "mesh"
 		}
 	}
 }

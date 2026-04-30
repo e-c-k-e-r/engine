@@ -22,6 +22,7 @@ namespace pod {
 		CAPSULE,
 		TRIANGLE,
 		MESH,
+		CONVEX_HULL,
 	};
 
 	struct SupportPoint {
@@ -107,6 +108,12 @@ namespace pod {
 		const uf::Mesh* mesh;
 	};
 
+	// MIGHT contain additional data, so far mirrors the above
+	struct ConvexHullBVH {
+		pod::BVH* bvh;
+		const uf::Mesh* mesh;
+	};
+
 	typedef uint32_t CollisionMask;
 
 
@@ -147,6 +154,7 @@ namespace pod {
 			pod::Capsule capsule;
 			pod::TriangleWithNormal triangle;
 			pod::MeshBVH mesh;
+			pod::ConvexHullBVH convexHull;
 		};
 	};
 
@@ -176,7 +184,8 @@ namespace pod {
 		bool isStatic = false;
 
 		float mass = 1.0f;
-		float inverseMass = 1.0f;
+		float inverseMass = 1.0f; // for fast division
+		int32_t viewIndex = -1; // -1 means it's not an aliased view
 
 		/*alignas(16)*/ pod::Vector3f offset = {};
 
@@ -232,9 +241,9 @@ namespace pod {
 		bool warmupSolver = true; // cache manifold data to warm up the solver
 		bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
 		bool psgContactSolver = true; // use PSG contact solver
-		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
+		bool useGjk = true; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
-		uint32_t substeps = 1; // number of substeps per frame tick
+		uint32_t substeps = 4; // number of substeps per frame tick
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
 		// increasing these make things lag for reasons I can imagine why
@@ -333,7 +342,7 @@ namespace uf {
 			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
 			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
 			pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::PhysicsBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {}, bool convex = false );
 
 			pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
@@ -341,7 +350,7 @@ namespace uf {
 			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
 			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
 			pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::TriangleWithNormal& tri, float mass = 0.0f, const pod::Vector3f& = {} );
-			pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {} );
+			pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, const uf::Mesh& mesh, float mass = 0.0f, const pod::Vector3f& = {}, bool convex = false );
 
 			void UF_API destroy( uf::Object& );
 			void UF_API destroy( pod::PhysicsBody& );

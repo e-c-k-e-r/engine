@@ -1317,7 +1317,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( ext::json::isObject( phyziks ) ) {
 				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
 
-				if ( type != "mesh" ) {
+				bool isMesh = type == "mesh" || type == "hull";
+				if ( !isMesh ) {
 					auto min = bounds.min; // uf::matrix::multiply<float>( model, bounds.min, 1.0f );
 					auto max = bounds.max; // uf::matrix::multiply<float>( model, bounds.max, 1.0f );
 
@@ -1330,7 +1331,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( max );
 				}
 			#if !UF_GRAPH_EXTENDED
-				if ( type == "mesh" ) {
+				if ( isMesh ) {
 					auto& physicsBody = entity.getComponent<pod::PhysicsBody>();
 					float mass = phyziks["mass"].as(physicsBody.mass);
 					
@@ -1338,8 +1339,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
 					physicsBody.inertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inertiaTensor );
 					physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
-				
-					uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass );
+					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
+			
+					uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
 				}
 			#endif
 			}
@@ -1938,15 +1940,16 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 	}
 	// bind mesh to physics state
-	// to-do: figure out why the mesh just suddenly breaks when re-streamed in dreamcast (could just be the version of reactphysics)
+	// to-do: test if this works in the internal physics system (the entire reason why I wrote it was because of this mess)
 	{
 		auto phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
 		else metadataJson["physics"] = phyziks;
 
 		if ( ext::json::isObject( phyziks ) ) {
-			uf::stl::string type = phyziks["type"].as<uf::stl::string>();	
-			if ( type == "mesh" ) {
+			uf::stl::string type = phyziks["type"].as<uf::stl::string>();
+			bool isMesh = type == "mesh" || type == "hull";
+			if ( isMesh ) {
 				bool exists = entity.hasComponent<pod::PhysicsBody>();
 				if ( exists ) {
 					uf::physics::impl::destroy( entity );
@@ -1959,8 +1962,9 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
 				physicsBody.inertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inertiaTensor );
 				physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
+				auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
 			
-				uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass );
+				uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
 			}
 		}
 	}

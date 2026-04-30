@@ -229,4 +229,38 @@ namespace {
 
 		return rayHit.hit;
 	}
+
+	bool rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
+		const auto& bvh  = *body.collider.convexHull.bvh;
+		const auto& meshData = *body.collider.convexHull.mesh;
+
+		const auto transform = ::getTransform( body );
+
+		pod::Ray ray;
+		ray.origin	= uf::transform::applyInverse( transform, r.origin );
+		ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
+
+		thread_local uf::stl::vector<pod::BVH::index_t> candidates;
+		candidates.clear();
+		::queryBVH( bvh, ray, candidates );
+
+		for ( auto hullID : candidates ) {
+			auto hullView = ::physicsBodyHullView( body, hullID );
+
+			float t;
+			pod::Vector3f normal;
+
+			if ( !::gjk( ray, hullView, rayHit.contact.penetration, t, normal ) ) continue;
+			if ( t >= rayHit.contact.penetration ) continue;
+
+			rayHit.hit = true;
+			rayHit.body = &body;
+
+			rayHit.contact.point = uf::transform::apply( transform, ray.origin + ray.direction * t );
+			rayHit.contact.normal = uf::quaternion::rotate( transform.orientation, normal );
+			rayHit.contact.penetration = t;
+		}
+
+		return rayHit.hit;
+	}
 }

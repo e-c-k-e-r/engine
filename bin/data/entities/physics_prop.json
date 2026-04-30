@@ -6,12 +6,12 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"gravity": [ 0, 0, 0 ],
+		//	"gravity": [ 0, -1, 0 ],
+			"mass": 100,
 			"inertia": false,
-
-			"mass": 1,
-			"type": "aabb",
-			"recenter": false
+		//	"type": "bounding box"
+			"type": "mesh"
+		//	"type": "hull"
 		}
 	}
 }

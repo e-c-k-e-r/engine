@@ -94,4 +94,8 @@ namespace {
 		ASSERT_COLLIDER_TYPES( CAPSULE, MESH );
 		REVERSE_COLLIDER( a, b, meshCapsule );
 	}
+	bool capsuleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( CAPSULE, CONVEX_HULL );
+		REVERSE_COLLIDER( a, b, hullCapsule );
+	}
 }

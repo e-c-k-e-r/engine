@@ -6,6 +6,7 @@ namespace {
 	
 	void queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs );
 	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::BVH::pairs_t& outPairs );
+	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const pod::Transform<>& relTransform, pod::BVH::pairs_t& outPairs );
 
 	void postprocessPairs( pod::BVH::pairs_t& pairs ) {
 		std::sort(pairs.begin(), pairs.end());
@@ -257,6 +258,42 @@ namespace {
 		// recursively build BVH from indices
 		if ( uf::physics::impl::settings.useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
+		// flatten if requested
+		if ( uf::physics::impl::settings.flattenBvhMeshes ) ::flattenBVH( bvh, 0 );
+
+		// mark as clean
+		bvh.dirty = false;
+	}
+
+	void buildConvexHullBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t capacity = 1 ) {
+		const auto& views = mesh.buffer_views;
+		UF_ASSERT( !views.empty() );
+
+		uint32_t hullCount = views.size();
+
+		bvh.indices.clear();
+		bvh.nodes.clear();
+		bvh.indices.reserve( hullCount );
+
+		// stores bounds
+		uf::stl::vector<pod::AABB> bounds;
+		bounds.reserve( hullCount );
+
+		// populate initial indices and bounds
+		for ( size_t viewID = 0; viewID < hullCount; ++viewID ) {
+			const auto& view = views[viewID];
+			auto aabb = ::computeConvexHullAABB( view, view["position"] );
+
+			bounds.emplace_back( aabb );
+			bvh.indices.emplace_back( viewID );
+		}
+
+		UF_ASSERT( !bounds.empty() );
+
+		// recursively build BVH from indices
+		if ( uf::physics::impl::settings.useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
+		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
+
 		// flatten if requested
 		if ( uf::physics::impl::settings.flattenBvhMeshes ) ::flattenBVH( bvh, 0 );
 
@@ -528,6 +565,43 @@ namespace {
 		}
 	}
 
+	void traverseNodePair( const pod::BVH& bvhA, pod::BVH::index_t nodeAID, const pod::BVH& bvhB, pod::BVH::index_t nodeBID, const pod::Transform<>& relTransform, pod::BVH::pairs_t& pairs ) {
+		const auto& nodeA = bvhA.nodes[nodeAID];
+		const auto& nodeB = bvhB.nodes[nodeBID];
+
+		if ( nodeA.isAsleep() && nodeB.isAsleep() ) return;
+
+		pod::AABB boundsB_in_A = ::transformAabbToWorld(bvhB.bounds[nodeBID], relTransform);
+		if ( !::aabbOverlap( bvhA.bounds[nodeAID], boundsB_in_A ) ) return;
+
+		if ( nodeA.getCount() > 0 && nodeB.getCount() > 0 ) {
+			for ( auto i = 0; i < nodeA.getCount(); ++i ) {
+				for ( auto j = 0; j < nodeB.getCount(); ++j ) {
+					pairs.emplace_back(bvhA.indices[nodeA.start + i], bvhB.indices[nodeB.start + j]);
+				}
+			}
+			return;
+		}
+
+		if ( nodeA.getCount() == 0 && nodeB.getCount() == 0 ) {
+			if ( ::aabbSurfaceArea(bvhA.bounds[nodeAID]) > ::aabbSurfaceArea(boundsB_in_A) ) {
+				::traverseNodePair( bvhA, nodeA.left, bvhB, nodeBID, relTransform, pairs );
+				::traverseNodePair( bvhA, nodeA.right, bvhB, nodeBID, relTransform, pairs );
+			} else {
+				::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.left, relTransform, pairs );
+				::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.right, relTransform, pairs );
+			}
+		}
+		else if ( nodeA.getCount() == 0 ) {
+			::traverseNodePair( bvhA, nodeA.left, bvhB, nodeBID, relTransform, pairs );
+			::traverseNodePair( bvhA, nodeA.right, bvhB, nodeBID, relTransform, pairs );
+		}
+		else if ( nodeB.getCount() == 0 ) {
+			::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.left, relTransform, pairs );
+			::traverseNodePair( bvhA, nodeAID, bvhB, nodeB.right, relTransform, pairs );
+		}
+	}
+
 	void traverseBVH( const pod::BVH& bvh, pod::BVH::index_t nodeID, pod::BVH::pairs_t& pairs ) {
 		const auto& node = bvh.nodes[nodeID];
 
@@ -565,6 +639,17 @@ namespace {
 		if ( bvhA.nodes.empty() || bvhB.nodes.empty() ) return;
 		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseNodePair(bvhA, 0, bvhB, 0, outPairs);
+
+		::postprocessPairs( outPairs );
+	}
+
+	void queryOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const pod::Transform<>& relTransform, pod::BVH::pairs_t& outPairs ) {
+		if ( !bvhA.flattened.empty() && !bvhB.flattened.empty() ) return ::queryFlatOverlaps( bvhA, bvhB, relTransform, outPairs );
+
+		if ( bvhA.nodes.empty() || bvhB.nodes.empty() ) return;
+		outPairs.reserve(uf::physics::impl::settings.reserveCount);
+		::traverseNodePair(bvhA, 0, bvhB, 0, relTransform, outPairs);
+		UF_EXCEPTION("unimplemented");
 
 		::postprocessPairs( outPairs );
 	}
@@ -736,6 +821,77 @@ namespace {
 
 			if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
 			if ( !::aabbOverlap( bvhA.flatBounds[a], bvhB.flatBounds[b] ) ) continue;
+
+			bool isLeafA = (nodeA.getCount() > 0);
+			bool isLeafB = (nodeB.getCount() > 0);
+
+			if ( isLeafA && isLeafB ) {
+				for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
+					for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
+						auto indexA = bvhA.indices[nodeA.start + ia];
+						auto indexB = bvhB.indices[nodeB.start + ib];
+
+					//	if ( indexA > indexB ) std::swap( indexA, indexB );
+						outPairs.emplace_back(indexA, indexB);
+					}
+				}
+			}
+			else if ( isLeafA ) {
+				pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+				stack.emplace_back(a, b + 1);
+				stack.emplace_back(a, rightB);
+			}
+			else if ( isLeafB ) {
+				pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+				stack.emplace_back(a + 1,  b);
+				stack.emplace_back(rightA, b);
+			}
+			else {
+				pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+				pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+
+				stack.emplace_back(a + 1, b + 1);
+				stack.emplace_back(a + 1, rightB);
+				stack.emplace_back(rightA, b + 1);
+				stack.emplace_back(rightA, rightB);
+			}
+		}
+
+		::postprocessPairs( outPairs );
+	}
+
+	void queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const pod::Transform<>& relTransform, pod::BVH::pairs_t& outPairs ) {
+		auto& nodesA = bvhA.flattened;
+		auto& boundsA = bvhA.flatBounds;
+		auto& indicesA = bvhA.indices;
+
+		auto& nodesB = bvhB.flattened;
+		auto& boundsB = bvhB.flatBounds;
+		auto& indicesB = bvhB.indices;
+
+		if ( nodesA.empty() || nodesB.empty() ) return;
+		outPairs.reserve(uf::physics::impl::settings.reserveCount);
+
+		static thread_local uf::stl::vector<std::pair<pod::BVH::index_t, pod::BVH::index_t>> stack;
+		stack.clear();
+		stack.emplace_back(0, 0);
+
+		while ( !stack.empty() ) {
+			auto [a, b] = stack.back();
+			stack.pop_back();
+
+			const auto& nodeA = bvhA.flattened[a];
+			const auto& nodeB = bvhB.flattened[b];
+
+			if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
+
+		/*
+			pod::AABB worldBoundsA = ::transformAabbToWorld( boundsA[a], tA );
+			pod::AABB worldBoundsB = ::transformAabbToWorld( boundsB[b], tB );
+			if ( !::aabbOverlap( worldBoundsA, worldBoundsB ) ) continue;
+		*/
+			pod::AABB boundsB_in_A = ::transformAabbToWorld(boundsB[b], relTransform);
+			if ( !::aabbOverlap( boundsA[a], boundsB_in_A ) ) continue;
 
 			bool isLeafA = (nodeA.getCount() > 0);
 			bool isLeafB = (nodeB.getCount() > 0);

@@ -69,7 +69,10 @@ namespace {
 	}
 
 	bool generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		if ( uf::physics::impl::settings.useGjk ) return generateContactsGjk( a, b, manifold, dt );
+		bool useGjk = uf::physics::impl::settings.useGjk;
+		if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) useGjk = false;
+		//if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) useGjk = false;
+		if ( useGjk ) return generateContactsGjk( a, b, manifold, dt );
 		::bindManifold( a, b, manifold, dt );
 
 	#define CHECK_CONTACT( A, B, fun )\
@@ -80,30 +83,44 @@ namespace {
 		CHECK_CONTACT( AABB, PLANE, aabbPlane );
 		CHECK_CONTACT( AABB, CAPSULE, aabbCapsule );
 		CHECK_CONTACT( AABB, MESH, aabbMesh );
+		CHECK_CONTACT( AABB, CONVEX_HULL, aabbHull );
 
 		CHECK_CONTACT( SPHERE, AABB, sphereAabb );
 		CHECK_CONTACT( SPHERE, SPHERE, sphereSphere );
 		CHECK_CONTACT( SPHERE, PLANE, spherePlane );
 		CHECK_CONTACT( SPHERE, CAPSULE, sphereCapsule );
 		CHECK_CONTACT( SPHERE, MESH, sphereMesh );
+		CHECK_CONTACT( SPHERE, CONVEX_HULL, sphereHull );
 
 		CHECK_CONTACT( PLANE, AABB, planeAabb );
 		CHECK_CONTACT( PLANE, SPHERE, planeSphere );
 		CHECK_CONTACT( PLANE, PLANE, planePlane );
 		CHECK_CONTACT( PLANE, CAPSULE, planeCapsule );
 		CHECK_CONTACT( PLANE, MESH, planeMesh );
+		CHECK_CONTACT( PLANE, CONVEX_HULL, planeHull );
 
 		CHECK_CONTACT( CAPSULE, AABB, capsuleAabb );
 		CHECK_CONTACT( CAPSULE, SPHERE, capsuleSphere );
 		CHECK_CONTACT( CAPSULE, PLANE, capsulePlane );
 		CHECK_CONTACT( CAPSULE, CAPSULE, capsuleCapsule );
 		CHECK_CONTACT( CAPSULE, MESH, capsuleMesh );
+		CHECK_CONTACT( CAPSULE, CONVEX_HULL, capsuleHull );
 
 		CHECK_CONTACT( MESH, AABB, meshAabb );
 		CHECK_CONTACT( MESH, SPHERE, meshSphere );
 		CHECK_CONTACT( MESH, PLANE, meshPlane );
 		CHECK_CONTACT( MESH, CAPSULE, meshCapsule );
 		CHECK_CONTACT( MESH, MESH, meshMesh );
+		CHECK_CONTACT( MESH, CONVEX_HULL, meshHull );
+
+		CHECK_CONTACT( CONVEX_HULL, AABB, hullAabb );
+		CHECK_CONTACT( CONVEX_HULL, SPHERE, hullSphere );
+		CHECK_CONTACT( CONVEX_HULL, PLANE, hullPlane );
+		CHECK_CONTACT( CONVEX_HULL, CAPSULE, hullCapsule );
+		CHECK_CONTACT( CONVEX_HULL, MESH, hullMesh );
+		CHECK_CONTACT( CONVEX_HULL, CONVEX_HULL, hullHull );
+
+		UF_EXCEPTION("unregistered contact: {} vs {}", (int) a.collider.type, (int) b.collider.type );
 		
 		return false;
 	}

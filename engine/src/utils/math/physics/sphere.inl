@@ -56,4 +56,8 @@ namespace {
 		ASSERT_COLLIDER_TYPES( SPHERE, MESH );
 		REVERSE_COLLIDER( a, b, meshSphere );
 	}
+	bool sphereHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( SPHERE, CONVEX_HULL );
+		REVERSE_COLLIDER( a, b, hullSphere );
+	}
 }

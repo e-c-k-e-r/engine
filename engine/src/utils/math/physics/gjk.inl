@@ -12,6 +12,18 @@ namespace {
 					( dir.z >= 0.0f ) ? body.bounds.max.z : body.bounds.min.z
 				};
 			} break;
+			case pod::ShapeType::PLANE: {
+				const auto& plane = body.collider.plane;
+				pod::Vector3f n = plane.normal;
+				float d = plane.offset;
+
+				pod::Vector3f basePoint = n * d;
+				float dot = uf::vector::dot( dir, n );
+				if ( std::fabs(dot) > 0.9999f ) return basePoint;
+
+				pod::Vector3f tangent = uf::vector::normalize( dir - (n * dot) );
+				return basePoint + tangent * 100000.0f;
+			} break;
 			case pod::ShapeType::CAPSULE: {
 				auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
 				auto p1 = transform.position + up * body.collider.capsule.halfHeight;
@@ -29,8 +41,34 @@ namespace {
 				if ( d1 > d2 ) return tri.points[1];
 				return tri.points[2];
 			} break;
+			case pod::ShapeType::CONVEX_HULL: {
+				const auto transform = ::getTransform( body );
+				const auto& mesh = *body.collider.convexHull.mesh;
+				auto selectedViewIdx = body.viewIndex;
+
+				pod::Vector3f localDir = uf::quaternion::rotate( uf::quaternion::inverse(transform.orientation), dir );
+				float maxDist = -FLT_MAX;
+				pod::Vector3f furthestVertex;
+
+				for ( auto viewIdx = 0; viewIdx < mesh.buffer_views.size(); ++viewIdx ) {
+					if ( 0 <= selectedViewIdx && selectedViewIdx != viewIdx ) continue; // cringe, but saves code duplication (could just alter the bounds above)
+					const auto& view = mesh.buffer_views[viewIdx];
+					auto& positions = view["position"];
+					for ( size_t i = 0; i < view.vertex.count; ++i ) {
+						pod::Vector3f v = ::getVertex( view, positions, i );
+						float dist = uf::vector::dot( v, localDir );
+						if ( dist > maxDist ) {
+							maxDist = dist;
+							furthestVertex = v;
+						}
+					}
+				}
+
+				return uf::transform::apply( transform, furthestVertex );
+			} break;
 
 			default: {
+				UF_EXCEPTION("unsupported shape: {}", (int)body.collider.type);
 			} break;
 		}
 		return {};
@@ -150,7 +188,7 @@ namespace {
 		return false;
 	}
 
-	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS ) {
+	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations, float eps ) {
 		const float eps2 = eps * eps;
 		auto dir = ::getPosition( b ) - ::getPosition( a );
 		if ( uf::vector::magnitude( dir ) < eps2 ) dir = {1,0,0}; // fallback direction
@@ -204,5 +242,71 @@ namespace {
 
 		return !simplex.pts.empty();
 	#endif
+	}
+}
+
+// GJK ray-cast 
+namespace {
+	pod::Vector3f closestPointOnSimplex( const pod::Vector3f& x, pod::Vector3f* simplex, int& sCount ) {
+		if ( sCount == 1 ) {
+			return simplex[0];
+		} else if ( sCount == 2 ) {
+			auto p = ::closestPointOnSegment( x, simplex[0], simplex[1] );
+			return p;
+		} else if ( sCount == 3 ) {
+			auto p = ::closestPointOnTriangle( x, simplex[0], simplex[1], simplex[2] );
+			return p;
+		}
+
+		return x;
+	}
+
+	bool gjk( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDist, float& outT, pod::Vector3f& outNormal, float eps ) {
+		float t = 0.0f;
+		pod::Vector3f x = ray.origin;
+		pod::Vector3f n = {0, 0, 0};
+
+		pod::Vector3f supportPoint = ::support( body, -ray.direction );
+		pod::Vector3f v = x - supportPoint;
+
+		pod::Vector3f simplex[4];
+		int sCount = 0;
+
+		for ( int iter = 0; iter < 32; ++iter ) {
+			float vSq = uf::vector::dot( v, v );
+			// origin was inside the shape to begin with, or we perfectly converged
+			if ( vSq < eps * eps ) break;
+
+			pod::Vector3f dir = -v;
+			pod::Vector3f p = ::support( body, dir );
+			pod::Vector3f w = x - p;
+
+			if ( uf::vector::dot( v, w ) > 0.0f ) {
+				float vDotD = uf::vector::dot( v, ray.direction );
+				if ( vDotD >= 0.0f ) return false; // miss
+
+				float dt = uf::vector::dot( v, w ) / vDotD;
+				t = t - dt;
+
+				if ( t > maxDist ) return false;
+
+				x = ray.origin + ray.direction * t;
+				n = uf::vector::normalize( v );
+
+				// reset
+				sCount = 0;
+			}
+
+			simplex[sCount++] = p;
+
+			pod::Vector3f closest = ::closestPointOnSimplex( x, simplex, sCount );
+			v = x - closest;
+
+			if ( sCount == 4 ) break; // collided
+		}
+
+		outT = t;
+		outNormal = n;
+		return true;
 	}
 }

@@ -120,7 +120,7 @@ namespace {
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = false ) {
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast ) {
 		auto tri = ::fetchTriangle( mesh, triID );
 
 		auto transform = ::getTransform( body );
@@ -565,5 +565,28 @@ namespace {
 	bool triangleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( TRIANGLE, CAPSULE );
 		return ::triangleCapsule( a.collider.triangle, b, manifold, eps );
+	}
+	bool triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( TRIANGLE, CONVEX_HULL );
+		const auto& tri = a;
+		const auto& hull = b;
+
+		pod::Simplex simplex;
+		if ( !::gjk( tri, hull, simplex ) ) return false;
+
+		auto result = ::epa( tri, hull, simplex );
+
+		if ( !uf::vector::isValid(result.point) ) return false;
+
+		manifold.points.emplace_back( result );
+		return true;
+	}
+
+	bool triangleHull( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
+		pod::PhysicsBody triView = {};
+		triView.collider.type = pod::ShapeType::TRIANGLE;
+		triView.collider.triangle = tri;
+
+		return ::triangleHull( triView, body, manifold, eps );
 	}
 }

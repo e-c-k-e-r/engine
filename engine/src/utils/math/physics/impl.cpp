@@ -16,6 +16,7 @@
 #include "capsule.inl"
 #include "triangle.inl"
 #include "mesh.inl"
+#include "convexHull.inl"
 #include "ray.inl"
 #include "bvh.inl"
 #include "gjk.inl"
@@ -149,7 +150,7 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			// do not do it for planes
 			bool shouldReorient = true;
 			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) shouldReorient = false;
-			if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) shouldReorient = false;
+			//if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) shouldReorient = false;
 			if ( shouldReorient ) {
 				for ( auto& c : manifold.points ) c.normal = ::orientNormalToAB( a, b, c.normal );
 			}
@@ -440,14 +441,23 @@ pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& obje
 	uf::physics::impl::updateInertia( body );
 	return body;
 }
-pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
 	auto& body = uf::physics::impl::create( world, object, mass, offset );
-	body.collider.type = pod::ShapeType::MESH;
-	body.collider.mesh.mesh = &mesh;
-
-	body.collider.mesh.bvh = new pod::BVH;
-	auto& bvh = *body.collider.mesh.bvh;
-	::buildMeshBVH( bvh, mesh, uf::physics::impl::settings.meshBvhCapacity );
+	if ( !convex ) {
+		body.collider.type = pod::ShapeType::MESH;
+		body.collider.mesh.mesh = &mesh;
+		body.collider.mesh.bvh = new pod::BVH;
+		
+		auto& bvh = *body.collider.mesh.bvh;
+		::buildMeshBVH( bvh, mesh, uf::physics::impl::settings.meshBvhCapacity );
+	} else {
+		body.collider.type = pod::ShapeType::CONVEX_HULL;
+		body.collider.convexHull.mesh = &mesh;
+		body.collider.convexHull.bvh = new pod::BVH;
+		
+		auto& bvh = *body.collider.convexHull.bvh;
+		::buildConvexHullBVH( bvh, mesh/*, uf::physics::impl::settings.meshBvhCapacity*/ );
+	}
 
 	body.bounds = ::computeAABB( body );
 	uf::physics::impl::updateInertia( body );
@@ -483,10 +493,10 @@ pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const pod::Caps
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, capsule, mass, offset );
 }
-pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::impl::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
-	return create( world, object, mesh, mass, offset );
+	return create( world, object, mesh, mass, offset, convex );
 }
 
 void uf::physics::impl::destroy( uf::Object& object ) {
@@ -539,6 +549,7 @@ pod::RayQuery uf::physics::impl::rayCast( const pod::Ray& ray, const pod::World&
 			case pod::ShapeType::PLANE: rayPlane( ray, *b, rayHit ); break;
 			case pod::ShapeType::CAPSULE: rayCapsule( ray, *b, rayHit ); break;
 			case pod::ShapeType::MESH: rayMesh( ray, *b, rayHit ); break;
+			case pod::ShapeType::CONVEX_HULL: rayHull( ray, *b, rayHit ); break;
 		}
 	}
 

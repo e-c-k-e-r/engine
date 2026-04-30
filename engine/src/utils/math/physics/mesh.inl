@@ -1,17 +1,3 @@
-/*
-// transform capsule line segments to local space
-		p1 = uf::transform::applyInverse( mesh.transform, p1 );
-		p2 = uf::transform::applyInverse( mesh.transform, p2 );
-
-*/
-/*
-
-contact = uf::transform::apply( mesh.transform, contact );
-normal  = uf::quaternion::rotate( mesh.transform.orientation, normal );
-
-*/
-
-// 
 namespace {
 	bool meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, AABB );
@@ -113,7 +99,7 @@ namespace {
 
 		return hit;
 	}
-	// to-do
+
 	bool meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
 		ASSERT_COLLIDER_TYPES( MESH, MESH );
 
@@ -123,29 +109,61 @@ namespace {
 		const auto& bvhB = *b.collider.mesh.bvh;
 		const auto& meshB = *b.collider.mesh.mesh;
 
+		auto tA = ::getTransform( a );
+		auto tB = ::getTransform( b );
+		auto relTransform = uf::transform::relative( tA, tB );
+
 		// compute overlaps between one BVH and another BVH
 		static thread_local pod::BVH::pairs_t pairs;
 		pairs.clear();
 
-
-		//UF_TIMER_MULTITRACE_START("Colliding {} ({} indices) <=> {} ({} indices)", a.object->getName(), bvhA.indices.size(), b.object->getName(), bvhB.indices.size());
-		//UF_TIMER_MULTITRACE("Querying overlaps...");
-		::queryOverlaps( bvhA, bvhB, pairs );
-		//UF_TIMER_MULTITRACE("Queried overlaps.");
+		::queryOverlaps( bvhA, bvhB, relTransform, pairs );
 
 		bool hit = false;
 		// do collision per triangle
-		//UF_TIMER_MULTITRACE("Colliding triangles (pairs={})...", pairs.size());
 		for (auto [idA, idB] : pairs ) {
-			auto tA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
-			auto tB = ::fetchTriangle( meshB, idB, b );
+			auto triA = ::fetchTriangle( meshA, idA, a ); // transform triangles to world space
+			auto triB = ::fetchTriangle( meshB, idB, b );
 
-			bool collides = ::triangleTriangle( tA, tB, manifold, eps );
+			bool collides = ::triangleTriangle( triA, triB, manifold, eps );
 			if ( !collides ) continue;
 			hit = true;
 		}
-		//UF_TIMER_MULTITRACE("Collided triangles.");
-		//UF_TIMER_MULTITRACE_END("Collided mesh.");
+		return hit;
+	}
+
+	bool meshHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps ) {
+		ASSERT_COLLIDER_TYPES( MESH, CONVEX_HULL );
+
+		const auto& mesh = a;
+		const auto& hull = b;
+
+		const auto& bvhA = *a.collider.mesh.bvh;
+		const auto& meshA = *a.collider.mesh.mesh;
+		
+		const auto& bvhB = *b.collider.convexHull.bvh;
+		const auto& meshB = *b.collider.convexHull.mesh;
+
+		auto tA = ::getTransform( a );
+		auto tB = ::getTransform( b );
+		auto relTransform = uf::transform::relative( tA, tB );
+
+		// compute overlaps between one BVH and another BVH
+		static thread_local pod::BVH::pairs_t pairs;
+		pairs.clear();
+		::queryOverlaps( bvhA, bvhB, relTransform, pairs );
+
+		bool hit = false;
+		// do collision per hull and triangle
+		for (auto [ triID, hullID ] : pairs ) {
+			auto triView = ::physicsBodyTriView( mesh, triID );
+			auto hullView = ::physicsBodyHullView( hull, hullID );
+
+			bool collides = ::triangleHull( triView, hullView, manifold, eps );
+
+			if ( !collides ) continue;
+			hit = true;
+		}
 		return hit;
 	}
 }
