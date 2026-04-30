@@ -425,7 +425,7 @@ void UF_API uf::initialize() {
 			{
 				size_t size = deduceSize( configMemoryPoolJson["pools"]["entity"] );
 				UF_MSG_DEBUG("Requesting {} bytes for entity memory pool: {}", (int) size, (void*) &uf::Entity::memoryPool);
-				uf::Entity::memoryPool.initialize( size );
+				uf::Entity::memoryPool.initialize( size, pod::MemoryPool::Strategy::POOL, sizeof(uf::Entity) );
 			}
 		}
 		uf::allocator::override = configMemoryPoolJson["override"].as( uf::allocator::override );

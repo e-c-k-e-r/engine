@@ -4,12 +4,18 @@
 #include <uf/engine/scene/scene.h>
 #include <assert.h>
 
+namespace {
+	std::mutex queueMutex;
+}
+
 pod::NamedTypes<pod::Instantiator>* uf::instantiator::objects = NULL;
 //pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
 uf::stl::unordered_map<uf::stl::string, pod::Behavior>* uf::instantiator::behaviors = NULL;
+uf::stl::vector<uf::Entity*> uf::instantiator::queue;
 
 uf::Entity* uf::instantiator::reuse( size_t size ) {
 	uf::Entity* laxed = NULL;
+/*
 	auto& allocations = uf::Entity::memoryPool.allocations();
 	for ( auto& allocation : allocations ) {
 		uf::Entity* e = (uf::Entity*) (allocation.pointer);
@@ -31,14 +37,16 @@ uf::Entity* uf::instantiator::reuse( size_t size ) {
 		if ( allocation.size == size ) return e;
 		if ( allocation.size > size ) laxed = e;
 	}
+*/
 	return laxed;
 }
 size_t uf::instantiator::collect( uint8_t level ) {
+/*
+	uf::stl::vector<uf::Entity*> queued;
 	size_t collected = 0;
 	auto& allocations = uf::Entity::memoryPool.allocations();
 	auto& scene = uf::scene::getCurrentScene();
 
-	uf::stl::vector<uf::Entity*> queued;
 	for ( auto& allocation : allocations ) {
 		uf::Entity* e = (uf::Entity*) (allocation.pointer);
 		// no scenes
@@ -58,6 +66,12 @@ size_t uf::instantiator::collect( uint8_t level ) {
 		// UF_MSG_DEBUG("Freeing: {}", uf::string::toString(e->as<uf::Object>()));
 		queued.emplace_back( (uf::Entity*) allocation.pointer );
 	}
+*/
+	// mutex
+	::queueMutex.lock();
+	uf::stl::vector<uf::Entity*> queued = std::move( uf::instantiator::queue );
+	::queueMutex.unlock();
+
 	for ( auto& p : queued ) {
 		if ( p->hasComponent<uf::SceneBehavior::Metadata>() ) continue;
 		// UF_MSG_DEBUG("Destroying: {}", uf::string::toString(*p));
@@ -68,6 +82,7 @@ size_t uf::instantiator::collect( uint8_t level ) {
 		// UF_MSG_DEBUG("Destroying scene: {}", uf::string::toString(*p));
 		uf::instantiator::free( p );
 	}
+
 	return queued.size();
 }
 
@@ -146,6 +161,12 @@ uf::Entity& uf::instantiator::instantiate( const uf::stl::string& name ) {
 	auto& entity = *instantiator.function();
 	bind( name, entity );
 	return entity;
+}
+
+void UF_API uf::instantiator::queueDeletion( uf::Entity& entity ) {
+	::queueMutex.lock();
+	uf::instantiator::queue.emplace_back(&entity);
+	::queueMutex.unlock();
 }
 
 void uf::instantiator::bind( const uf::stl::string& name, uf::Entity& entity ) {

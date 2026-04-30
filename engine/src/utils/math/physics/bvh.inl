@@ -252,6 +252,8 @@ namespace {
 			}
 		}
 
+		UF_ASSERT( !bounds.empty() );
+
 		// recursively build BVH from indices
 		if ( uf::physics::impl::settings.useBvhSahMeshes ) ::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 		else ::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );

@@ -127,13 +127,13 @@ void uf::thread::batchWorkers_Async( const uf::stl::vector<pod::Thread::function
 */
 /*
 void uf::thread::add( pod::Thread& thread, bool queued, const pod::Thread::function_t& function ) {
-	if ( thread.mutex != NULL ) thread.mutex->lock();
+	std::unique_lock<std::mutex> lock(*thread.mutex);
 	queue ? thread.queue.push( function ) : thread.container.push_back( function );
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
 */
 void uf::thread::add( pod::Thread& thread, const pod::Thread::function_t& function ) {
-	if ( thread.mutex != NULL ) thread.mutex->lock();
+	std::unique_lock<std::mutex> lock(*thread.mutex);
 	thread.container.emplace_back( function );
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
@@ -145,7 +145,7 @@ void uf::thread::queue( const pod::Thread::function_t& function ) {
 	return uf::thread::queue( uf::thread::fetchWorker(), function );
 }
 void uf::thread::queue( pod::Thread& thread, const pod::Thread::function_t& function ) {
-	if ( thread.mutex != NULL ) thread.mutex->lock();
+	std::unique_lock<std::mutex> lock(*thread.mutex);
 	thread.queue.emplace( function );
 	thread.conditions.queued.notify_one();
 	thread.pending.fetch_add(1);
@@ -233,6 +233,7 @@ void uf::thread::terminate() {
 	}
 }
 pod::Thread& uf::thread::create( const uf::stl::string& name, bool start, bool locks ) {
+	locks = true; // test
 	if ( name == uf::thread::mainThreadName ) start = false;
 
 	pod::Thread* pointer = NULL;

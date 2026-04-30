@@ -6,11 +6,14 @@
 #include <uf/utils/memory/string.h>
 #include <mutex>
 
+#define UF_MEMORYPOOL_MUTEX 1
 #define UF_MEMORYPOOL_INVALID_MALLOC 1
 #define UF_MEMORYPOOL_INVALID_FREE 1
 
 #define UF_MEMORYPOOL_CACHED_ALLOCATIONS 0
 #define UF_MEMORYPOOL_STORE_ORPHANS 0
+
+#define UF_MAX_BUCKETS 4096 // E.g., 16, 32, 64, 128, 256, 512, 1024, 2048 bytes
 
 namespace pod {
 	struct UF_API Userdata;
@@ -20,22 +23,52 @@ namespace pod {
 		uintptr_t pointer = 0;
 	};
 
-	struct UF_API MemoryPool {
-		typedef std::vector<pod::Allocation, uf::Mallocator<pod::Allocation>> allocations_t;
+	struct MemoryPool {
+		// in order of complexity
+		enum Strategy {
+			LINEAR,
+			POOL,
+			SEGREGATED,
+			BUDDY
+		};
 
+		void* memory = nullptr;
 		size_t size = 0;
-		void* memory = 0;
+		size_t used = 0;
 
+		Strategy strategy = Strategy::BUDDY;
+		union State {
+			// linear
+			struct { size_t offset; } linear;
+
+			// pool
+			struct { void* freeListHead; size_t fixedChunkSize; } pool;
+
+			// segregated
+			struct {
+				void* freeListHeads[UF_MAX_BUCKETS];
+				size_t offset; // To carve new memory when a bucket is empty
+				size_t minChunkSize; // Base size, e.g., 16 bytes
+			} segregated;
+
+			// buddy
+			struct {
+				void* freeLists[32]; // Max 32 levels for powers of two up to 4GB
+                uint8_t* splitBlockBitset; // Tracks if a block was split
+                size_t maxLevel;
+                size_t minBlockSize;
+			} buddy;
+		} state;
+
+		typedef std::vector<pod::Allocation, uf::Mallocator<pod::Allocation>> allocations_t;
+	#if UF_MEMORYPOOL_MUTEX
 		std::mutex mutex;
-		allocations_t allocations;
-
-	#if UF_MEMORYPOOL_CACHED_ALLOCATIONS
-		allocations_t cachedFreeAllocations;
 	#endif
 	#if UF_MEMORYPOOL_STORE_ORPHANS
 		allocations_t orphaned;
 	#endif
 	};
+
 }
 
 namespace uf {
@@ -46,7 +79,7 @@ namespace uf {
 		size_t UF_API size( const pod::MemoryPool& );
 		size_t UF_API allocated( const pod::MemoryPool& );
 		uf::stl::string UF_API stats( const pod::MemoryPool& );
-		void UF_API initialize( pod::MemoryPool&, size_t );
+		void UF_API initialize( pod::MemoryPool&, size_t, pod::MemoryPool::Strategy = pod::MemoryPool::Strategy::BUDDY, size_t = 0 );
 		void UF_API destroy( pod::MemoryPool& );
 
 	//	pod::Allocation UF_API allocate( pod::MemoryPool&, void*, size_t, size_t alignment = uf::memoryPool::alignment );
@@ -79,7 +112,7 @@ namespace uf {
 		inline size_t size() const;
 		inline size_t allocated() const;
 		inline uf::stl::string stats() const;
-		inline void initialize( size_t size );
+		inline void initialize( size_t size, pod::MemoryPool::Strategy = pod::MemoryPool::Strategy::BUDDY, size_t = 0 );
 		inline void destroy();
 
 	//	inline pod::Allocation allocate( void* data, size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
@@ -89,7 +122,7 @@ namespace uf {
 		inline void* alloc( size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
 		inline pod::Allocation& fetch( void* data, size_t size = 0 );
 		inline bool exists( void* data, size_t size = 0 );
-		inline bool free( void* data, size_t size = 0 );
+		inline bool free( void* data, size_t size );
 		
 		inline const pod::MemoryPool::allocations_t& allocations() const;
 		inline pod::MemoryPool& data();

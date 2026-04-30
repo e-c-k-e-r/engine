@@ -41,7 +41,10 @@ void uf::Object::queueDeletion() {
 
 	if ( this->hasParent() ) this->getParent().removeChild(*this);
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+
+	// mark for destruction
 	metadata.system.markedForDeletion = true;
+	uf::instantiator::queueDeletion( *this );
 }
 
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {

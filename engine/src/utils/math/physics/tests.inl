@@ -22,6 +22,7 @@ namespace {
 			//0, 1, 2, 3, 4, 5
 			0, 2, 1, 3, 5, 4 
 		});
+		mesh.updateDescriptor();
 
 		return mesh;
 	}
@@ -75,7 +76,7 @@ TEST(RaySphere_Hit, {
 	body.transform->position = {0,0,0};
 	body.bounds = ::computeAABB( body );
 
-	::buildBroadphaseBVH( world.bvh, world.bodies );
+	::buildBroadphaseBVH( world.dynamicBvh, world.bodies );
 
 	pod::Ray ray{ {0,0,-5}, uf::vector::normalize(pod::Vector3f{0,0,1}) };
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -183,7 +184,7 @@ TEST(RayAabb_Miss, {
 	box.transform->position = {0,0,0};
 	box.bounds = ::computeAABB( box );
 
-	::buildBroadphaseBVH( world.bvh, world.bodies );
+	::buildBroadphaseBVH( world.dynamicBvh, world.bodies );
 
 	pod::Ray ray{{5,5,5}, uf::vector::normalize(pod::Vector3f{1,0,0})};
 	auto hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -320,7 +321,7 @@ TEST(RaySphere_OriginInside, {
 	body.transform->position = {0,0,0};
 	body.bounds = ::computeAABB( body );
 
-	::buildBroadphaseBVH( world.bvh, world.bodies );
+	::buildBroadphaseBVH( world.dynamicBvh, world.bodies );
 
 	pod::Ray ray{ {0,0,0}, {1,0,0} }; // starts inside
 	auto q = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -857,7 +858,7 @@ TEST(RayMesh_Hit, {
 	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
 	bodyA.transform->position = {0,0,0};
 
-	::buildBroadphaseBVH( world.bvh, world.bodies );
+	::buildBroadphaseBVH( world.dynamicBvh, world.bodies );
 
 	pod::Ray ray{ {0,1,0}, {0,-1,0} }; // from above, pointing down
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);
@@ -874,7 +875,7 @@ TEST(RayMesh_Miss, {
 	auto& bodyA = uf::physics::impl::create(world, objMesh, mesh, 0.0f);
 	bodyA.transform->position = {0,0,0};
 
-	::buildBroadphaseBVH( world.bvh, world.bodies );
+	::buildBroadphaseBVH( world.dynamicBvh, world.bodies );
 
 	pod::Ray ray{ {0,2,0}, {1,0,0} }; // parallel, goes sideways
 	pod::RayQuery hit = uf::physics::impl::rayCast(ray, world, 100.0f);

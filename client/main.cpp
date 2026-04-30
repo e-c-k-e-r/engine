@@ -85,8 +85,8 @@ int main(int argc, char** argv){
 	signal(SIGSEGV, ::handlers::segv);
 
 	client::initialize();
-	ext::initialize();
 	uf::initialize();
+	ext::initialize();
 
 	// For Multithreaded initialization
 	while ( !client::ready || !uf::ready ) {

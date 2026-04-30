@@ -27,13 +27,23 @@ bool uf::memoryPool::exists( pod::MemoryPool& pool, const T& data ) {
 }
 template<typename T>
 bool uf::memoryPool::free( pod::MemoryPool& pool, const T& data ) {
-	return std::is_pointer<T>::value ? uf::memoryPool::free( pool, (void*) data ) : uf::memoryPool::free( pool, (void*) &data, sizeof(data) );
+#if __cplusplus >= 201703L
+	if constexpr (std::is_pointer_v<T>) {
+		return uf::memoryPool::free( pool, (void*) data, sizeof(std::remove_pointer_t<T>) );
+	} else {
+		return uf::memoryPool::free( pool, (void*) &data, sizeof(T) );
+	}
+#else
+	return std::is_pointer<T>::value
+		? uf::memoryPool::free( pool, (void*) data, sizeof(typename std::remove_pointer<T>::type) )
+		: uf::memoryPool::free( pool, (void*) &data, sizeof(T) );
+#endif
 }
 
 size_t uf::MemoryPool::size() const { return uf::memoryPool::size( m_pod ); }
 size_t uf::MemoryPool::allocated() const { return uf::memoryPool::allocated( m_pod ); }
 uf::stl::string uf::MemoryPool::stats() const { return uf::memoryPool::stats( m_pod ); }
-void uf::MemoryPool::initialize( size_t size ) { return uf::memoryPool::initialize( m_pod, size ); }
+void uf::MemoryPool::initialize( size_t size, pod::MemoryPool::Strategy strategy, size_t chunkSize ) { return uf::memoryPool::initialize( m_pod, size, strategy, chunkSize ); }
 void uf::MemoryPool::destroy() { return uf::memoryPool::destroy( m_pod ); }
 
 //pod::Allocation uf::MemoryPool::allocate( void* data, size_t size/*, size_t alignment*/ ) { return uf::memoryPool::allocate( m_pod, data, size/*, alignment*/ ); }

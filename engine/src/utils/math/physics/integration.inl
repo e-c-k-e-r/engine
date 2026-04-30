@@ -32,7 +32,7 @@ namespace {
 			b.velocity += impulse * b.inverseMass;
 			//b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
 			pod::Matrix3f invIb = computeWorldInverseInertia( b );
-			a.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
+			b.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 		}
 	}
 

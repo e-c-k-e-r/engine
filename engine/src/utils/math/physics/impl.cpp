@@ -146,7 +146,11 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 
 			// bodies with meshes already reorient the normal to the triangle's center
 			// do not do it for meshes because it'll reorient to the mesh's origin
-			if ( a.collider.type != pod::ShapeType::MESH && b.collider.type != pod::ShapeType::MESH ) {
+			// do not do it for planes
+			bool shouldReorient = true;
+			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) shouldReorient = false;
+			if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) shouldReorient = false;
+			if ( shouldReorient ) {
 				for ( auto& c : manifold.points ) c.normal = ::orientNormalToAB( a, b, c.normal );
 			}
 			// retrieve accumulated impulses

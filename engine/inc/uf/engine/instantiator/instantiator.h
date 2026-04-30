@@ -47,6 +47,7 @@ namespace uf {
 		extern UF_API pod::NamedTypes<pod::Instantiator>* objects;
 	//	extern UF_API pod::NamedTypes<pod::Behavior>* behaviors;
 		extern UF_API uf::stl::unordered_map<uf::stl::string, pod::Behavior>* behaviors;
+		extern UF_API uf::stl::vector<uf::Entity*> queue;
 
 		uf::Entity* UF_API alloc( size_t );
 		template<typename T> T* alloc();
@@ -65,6 +66,8 @@ namespace uf {
 		uf::Entity& UF_API instantiate( const uf::stl::string& );
 		template<typename T> T& instantiate();
 		template<typename T> T* _instantiate();
+
+		void UF_API queueDeletion( uf::Entity& );
 
 		void UF_API bind( const uf::stl::string&, uf::Entity& );
 		template<typename T> void bind( uf::Entity& );

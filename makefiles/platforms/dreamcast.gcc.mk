@@ -10,5 +10,5 @@ FLAGS 				+= $(KOS_CPPFLAGS) -m4-single -std=c++2b $(OPTIMIZATIONS) $(WARNINGS) 
 TARGET_EXTENSION 	= .elf
 
 # KOS
-INCS 				+= $(KOS_INC_PATHS) -I/opt/dreamcast/sh-elf/sh-elf/include
-LIBS 				+= $(KOS_LIB_PATHS) -L/opt/dreamcast/sh-elf/sh-elf/lib
+INCS 				:= $(KOS_INC_PATHS) -I/opt/dreamcast/sh-elf/sh-elf/include $(INCS)
+LIBS 				:= $(KOS_LIB_PATHS) -L/opt/dreamcast/sh-elf/sh-elf/lib $(LIBS)
