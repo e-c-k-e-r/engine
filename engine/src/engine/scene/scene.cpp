@@ -213,8 +213,8 @@ void uf::scene::unloadScene() {
 		uf::graph::destroy( current->getComponent<pod::Graph::Storage>() );
 	}
 	#if 0
-	if ( current->hasComponent<uf::physics::impl::WorldState>() ) {
-		uf::physics::impl::destroy( *current );
+	if ( current->hasComponent<uf::physics::WorldState>() ) {
+		uf::physics::destroy( *current );
 	}
 	#endif
 

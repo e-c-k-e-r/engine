@@ -1,4 +1,8 @@
-namespace {
+#include <uf/utils/math/physics/common.h>
+#include <uf/utils/math/physics/integration.h>
+#include <uf/utils/math/physics/solvers/block.h>
+
+namespace impl {
 	template<size_t N, typename T = float>
 	void blockNxNSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		pod::Matrix<T,N> K = {};
@@ -13,8 +17,8 @@ namespace {
 		pod::Matrix3f invIa = computeWorldInverseInertia( a );
 		pod::Matrix3f invIb = computeWorldInverseInertia( b );
 
-		auto pA = ::getPosition( a, true );
-		auto pB = ::getPosition( b, true );
+		auto pA = impl::getPosition( a, true );
+		auto pB = impl::getPosition( b, true );
 
 		for ( auto i = 0; i < N; i++ ) {
 			pod::Vector3f rA_i = manifold.points[i].point - pA;
@@ -55,7 +59,7 @@ namespace {
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
 			// penetration bias with clamp
-			float penetrationBias = std::max(contact.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
+			float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
 
 			float maxPenetrationRecovery = 2.0f; // limit to 2 units per second
@@ -80,17 +84,17 @@ namespace {
 			pod::Vector3f rA = manifold.points[i].point - pA;
 			pod::Vector3f rB = manifold.points[i].point - pB;
 
-			::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
+			impl::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
 		}
 	}
+}
 
-	void block2x2Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		return ::blockNxNSolver<2>( a, b, manifold, dt );
-	}
-	void block3x3Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		return ::blockNxNSolver<3>( a, b, manifold, dt );
-	}
-	void block4x4Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		return ::blockNxNSolver<4>( a, b, manifold, dt );
-	}
+void impl::block2x2Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+	return impl::blockNxNSolver<2>( a, b, manifold, dt );
+}
+void impl::block3x3Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+	return impl::blockNxNSolver<3>( a, b, manifold, dt );
+}
+void impl::block4x4Solver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+	return impl::blockNxNSolver<4>( a, b, manifold, dt );
 }

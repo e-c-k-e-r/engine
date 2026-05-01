@@ -6,7 +6,6 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-		//	"gravity": [0,0,0],
 			"mass": 100,
 			"inertia": false,
 			"type": "bounding box"

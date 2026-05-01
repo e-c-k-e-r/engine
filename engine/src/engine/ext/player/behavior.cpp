@@ -277,7 +277,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	#if UF_USE_REACTPHYSICS
 		pod::Vector3f origin = transform.position + metadata.movement.floored.feet;
 		pod::Vector3f direction = metadata.movement.floored.floor;
-		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
+		pod::RayQuery query = uf::physics::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
 
 		if ( query.hit ) {
 			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physicsBody.velocity));
@@ -291,7 +291,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		/*
 		pod::Vector3f origin = transform.position + metadata.movement.floored.feet;
 		pod::Vector3f direction = metadata.movement.floored.floor;
-		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
+		pod::RayQuery query = uf::physics::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
 
 		if ( query.hit ) {
 			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physicsBody.velocity));
@@ -313,7 +313,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		pod::Vector3f center = flattened.position;
 		pod::Vector3f direction = flattened.forward * length;
 
-		pointer = uf::physics::impl::rayCast( center, direction, this, depth );
+		pointer = uf::physics::rayCast( center, direction, this, depth );
 		ext::json::Value payload;
 		if ( pointer ) { 
 			payload["user"] = this->getUid();
@@ -435,17 +435,17 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		#if UF_USE_REACTPHYSICS
 			if ( physicsBody.object ) {
 				physicsBody.collider.body->enableGravity(!state);
-				uf::physics::impl::activateCollision(physicsBody, !state);
+				uf::physics::activateCollision(physicsBody, !state);
 			}
 		#else
 			if ( !state ) {
-				uf::physics::impl::setGravity( physicsBody );
-				uf::physics::impl::setColliderCategory( physicsBody, "ALL");
-				uf::physics::impl::setColliderMask( physicsBody, "ALL");
+				uf::physics::setGravity( physicsBody );
+				uf::physics::setColliderCategory( physicsBody, "ALL");
+				uf::physics::setColliderMask( physicsBody, "ALL");
 			} else {
-				uf::physics::impl::setGravity( physicsBody, pod::Vector3f{0,0,0});
-				uf::physics::impl::setColliderCategory( physicsBody, "NONE");
-				uf::physics::impl::setColliderMask( physicsBody, "NONE");
+				uf::physics::setGravity( physicsBody, pod::Vector3f{0,0,0});
+				uf::physics::setColliderCategory( physicsBody, "NONE");
+				uf::physics::setColliderMask( physicsBody, "NONE");
 			}
 		#endif
 			
@@ -478,7 +478,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				auto axis = transform.up;
 				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4; // speed.rotate;
 
-				if ( physicsBody.object ) uf::physics::impl::applyRotation( physicsBody, axis, angle ); else
+				if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, axis, angle ); else
 				uf::transform::rotate( transform, axis, angle );
 			}
 		}
@@ -529,7 +529,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( metadata.camera.invert.x ) lookDelta.x *= -1;
 				metadata.camera.limit.current.x += lookDelta.x;
 				if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-					if ( physicsBody.object ) uf::physics::impl::applyRotation( physicsBody, transform.up, lookDelta.x ); else
+					if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, transform.up, lookDelta.x ); else
 					uf::transform::rotate( transform, transform.up, lookDelta.x );
 				} else metadata.camera.limit.current.x -= lookDelta.x;
 			}
@@ -537,13 +537,13 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( metadata.camera.invert.y ) lookDelta.y *= -1;
 				metadata.camera.limit.current.y += lookDelta.y;
 					if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
-					//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::impl::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
+					//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
 						uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
 				} else metadata.camera.limit.current.y -= lookDelta.y;
 			}
 		} else if ( metadata.system.control ) {
 			if ( keys.lookRight ^ keys.lookLeft ) {
-				if ( physicsBody.object ) uf::physics::impl::applyRotation( physicsBody, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+				if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
 				uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 			}
 			if ( keys.lookUp ^ keys.lookDown ) {
@@ -558,14 +558,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		//	cameraTransform.position = uf::quaternion::rotate( rotation, cameraTransform.position - transform.position );
 		}
 		if ( keys.lookUp ^ keys.lookDown ) {
-		//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::impl::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
+		//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
 			float direction = keys.lookUp ? 1 : -1;
 			if ( metadata.camera.invert.y ) direction *= -1;
 			uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
 		}
 	}
 	{
-		if ( physicsBody.object ) uf::physics::impl::setVelocity( physicsBody, physicsBody.velocity ); else 
+		if ( physicsBody.object ) uf::physics::setVelocity( physicsBody, physicsBody.velocity ); else 
 		transform.position += physicsBody.velocity * ONE_OVER_SIXTY /*uf::physics::time::delta*/;
 	//	if ( uf::vector::magnitude( physicsBody.velocity ) > 1.0e-6 ) UF_MSG_DEBUG("Velocity: {}", uf::vector::toString( physicsBody.velocity ));
 	}

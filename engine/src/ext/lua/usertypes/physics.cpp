@@ -17,19 +17,19 @@ namespace binds {
 		state.collider.body->enableGravity(s);
 	#else
 		if ( s ) {
-			uf::physics::impl::setGravity( state, pod::Vector3f{ 0, -9.81f, 0 } );
+			uf::physics::setGravity( state, pod::Vector3f{ 0, -9.81f, 0 } );
 		} else {
-			uf::physics::impl::setGravity( state );
+			uf::physics::setGravity( state );
 		}
 	#endif
 	}
 	
 	void applyRotation( pod::PhysicsBody& state, const pod::Quaternion<>& q ) {
-		return uf::physics::impl::applyRotation( state, q );
+		return uf::physics::applyRotation( state, q );
 	}
 
 	std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
-		pod::RayQuery query = uf::physics::impl::rayCast( pod::Ray{center, direction}, self, uf::vector::norm( direction ) );
+		pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, direction}, self, uf::vector::norm( direction ) );
 		uf::Object* object = query.hit ? query.body->object : NULL;
 		float depth = query.hit ? query.contact.penetration : -1;		
 		return std::make_tuple( object, depth );
@@ -44,7 +44,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(::binds::setVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(::binds::applyVelocity) ),
 
-	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::applyRotation) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::rayCast) ),

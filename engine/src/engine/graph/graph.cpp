@@ -1341,7 +1341,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
 			
-					uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
+					uf::physics::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
 				}
 			#endif
 			}
@@ -1952,7 +1952,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			if ( isMesh ) {
 				bool exists = entity.hasComponent<pod::PhysicsBody>();
 				if ( exists ) {
-					uf::physics::impl::destroy( entity );
+					uf::physics::destroy( entity );
 				}
 				
 				auto& physicsBody = entity.getComponent<pod::PhysicsBody>();
@@ -1964,7 +1964,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
 				auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
 			
-				uf::physics::impl::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
+				uf::physics::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
 			}
 		}
 	}

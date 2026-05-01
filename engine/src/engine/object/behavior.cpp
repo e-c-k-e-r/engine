@@ -145,21 +145,21 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) offset = (center - transform.position);
 		#endif
 			
-			uf::physics::impl::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
+			uf::physics::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
 		} else if ( type == "plane" ) {
 			pod::Vector3f direction = uf::vector::decode( metadataJsonPhysics["direction"], pod::Vector3f{} );
 			float o = metadataJsonPhysics["offset"].as<float>();
 
-			uf::physics::impl::create( self, pod::Plane{ direction, o }, mass, offset );
+			uf::physics::create( self, pod::Plane{ direction, o }, mass, offset );
 		} else if ( type == "sphere" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
 			
-			uf::physics::impl::create( self, pod::Sphere{ radius }, mass, offset );
+			uf::physics::create( self, pod::Sphere{ radius }, mass, offset );
 		} else if ( type == "capsule" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
 			float halfHeight = metadataJsonPhysics["height"].as<float>() * 0.5f;
 			
-			uf::physics::impl::create( self, pod::Capsule{ radius, halfHeight }, mass, offset );
+			uf::physics::create( self, pod::Capsule{ radius, halfHeight }, mass, offset );
 		}
 
 		if ( this->hasComponent<pod::PhysicsBody>() ) {
@@ -177,9 +177,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			physicsBody.material.staticFriction = metadataJsonPhysics["friction"].as(physicsBody.material.staticFriction);
 			physicsBody.inertiaTensor = uf::vector::decode( metadataJsonPhysics["inertia"], physicsBody.inertiaTensor );
 		#else
-			uf::physics::impl::setColliderCategory( physicsBody, category );
-			uf::physics::impl::setColliderMask( physicsBody, mask );
-			uf::physics::impl::setGravity( physicsBody, gravity );
+			uf::physics::setColliderCategory( physicsBody, category );
+			uf::physics::setColliderMask( physicsBody, mask );
+			uf::physics::setGravity( physicsBody, gravity );
 		#endif
 
 			physicsBody.velocity = uf::vector::decode( metadataJsonPhysics["velocity"], physicsBody.velocity );
@@ -235,7 +235,7 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	#if UF_USE_REACTPHYSICS
 	if ( this->hasComponent<pod::PhysicsBody>() ) {
 		auto& physicsBody = this->getComponent<pod::PhysicsBody>();
-		uf::physics::impl::detach( physicsBody );
+		uf::physics::detach( physicsBody );
 	//	this->deleteComponent<pod::PhysicsBody>();
 	}
 	#endif
