@@ -134,8 +134,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		manifolds.clear();
 		manifolds.reserve(uf::physics::impl::settings.reserveCount);
 
-		// sleeping island, skip
-		if ( !::updateIsland( island, bodies, dt ) ) continue;
+		// sleeping island, skip (asleep islands shouldn't ever be in here)
+		if ( !island.awake ) continue;
+
 		// iterate overlap pairs
 		for ( auto& [ ia, ib ] : island.pairs ) {
 			auto& a = *bodies[ia];
@@ -144,6 +145,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			pod::Manifold manifold;
 			// did not collide
 			if ( !::generateContacts( a, b, manifold, dt ) ) continue;
+
+			// compute local points (for reprojection)
+			::computeLocalContacts( manifold );
 
 			// bodies with meshes already reorient the normal to the triangle's center
 			// do not do it for meshes because it'll reorient to the mesh's origin
@@ -174,9 +178,9 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 			for ( auto& c : manifold.points ) {
 				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > uf::physics::impl::settings.groundedThreshold ) {
 					// only mark if contact point is below body
-			        if ( c.point.y < getPosition(a).y ) a.activity.grounded = true;
-			        if ( c.point.y < getPosition(b).y ) b.activity.grounded = true;
-			    }
+					if ( c.point.y < ::getPosition(a).y ) a.activity.grounded = true;
+					if ( c.point.y < ::getPosition(b).y ) b.activity.grounded = true;
+				}
 			}
 
 			// store manifold
@@ -186,11 +190,11 @@ void uf::physics::impl::step( pod::World& world, float dt ) {
 		// pass manifolds to solver
 		::solveContacts( manifolds, dt );
 		// do position correction
-		::solvePositions( manifolds, dt );
+		// ::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( uf::physics::impl::settings.warmupSolver ) {
-            ::updateManifoldCache( manifolds, uf::physics::impl::settings.manifoldsCache );
-        }
+			::updateManifoldCache( manifolds, uf::physics::impl::settings.manifoldsCache );
+		}
 	}
 
 	if ( uf::physics::impl::settings.warmupSolver ) ::pruneManifoldCache( uf::physics::impl::settings.manifoldsCache );
@@ -253,14 +257,6 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
-			/*
-			// old
-			pod::Vector3f extents = (body.collider.aabb.max - body.collider.aabb.min);
-			extents *= extents; // square it;
-
-			body.inertiaTensor = extents * (body.mass / 12.0f);
-			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
-			*/
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
 			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
@@ -285,7 +281,8 @@ void uf::physics::impl::updateInertia( pod::PhysicsBody& body ) {
 			body.inertiaTensor = { Ixx, Iyy, Izz };
 			body.inverseInertiaTensor = { 1.0f/Ixx, 1.0f/Iyy, 1.0f/Izz };
 		} break;
-		case pod::ShapeType::MESH: {
+		case pod::ShapeType::MESH:
+		case pod::ShapeType::CONVEX_HULL: {
 			const auto& bvh = *body.collider.mesh.bvh;
 
 			pod::Matrix3f inertia = {};

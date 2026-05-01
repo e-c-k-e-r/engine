@@ -41,6 +41,7 @@ namespace {
 				if ( d1 > d2 ) return tri.points[1];
 				return tri.points[2];
 			} break;
+			case pod::ShapeType::MESH:
 			case pod::ShapeType::CONVEX_HULL: {
 				const auto transform = ::getTransform( body );
 				const auto& mesh = *body.collider.convexHull.mesh;
@@ -203,16 +204,10 @@ namespace {
 			if ( uf::vector::dot( newPt.p, dir ) < 0 ) return false; // didn't pass origin, no collision
 			// would invalidate the simplex
 			if ( ::isDegenerate( simplex, newPt ) ) {
-			#if 1
 				// nudge direction with a small orthogonal component
 				if ( fabs(dir.x) < fabs(dir.y) && fabs(dir.x) < fabs(dir.z) ) dir = uf::vector::normalize( pod::Vector3f{1,0,0} + dir * 0.01f );
 				else if ( fabs(dir.y) < fabs(dir.z) ) dir = uf::vector::normalize( pod::Vector3f{0,1,0} + dir * 0.01f );
 				else dir = uf::vector::normalize( pod::Vector3f{0,0,1} + dir * 0.01f );
-			#else
-				// choose an alternate probe
-				static pod::Vector3f fallbackDirs[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
-				dir = fallbackDirs[ (it + simplex.pts.size()) % 3 ];
-			#endif
 				continue; // try again
 			}
 			// add new point to simplex
@@ -221,27 +216,7 @@ namespace {
 			if ( ::updateSimplex(simplex, dir) ) return true; // simplex contains origin, finished
 		}
 
-	#if 1
 		return false;
-	#else
-		// if overlap detected but simplex ended at triangle, fix it, as EPA requires a tetrahedron:
-		if ( simplex.pts.size() == 3 ) {
-			// points
-			auto& A0 = simplex.pts[0].p;
-			auto& B0 = simplex.pts[1].p;
-			auto& C0 = simplex.pts[2].p;
-			// triangle normal
-			auto normal = uf::vector::normalize( uf::vector::cross( B0 - A0, C0 - A0 ) );
-
-			// try support in +normal
-			auto extra = ::supportMinkowskiDetailed( a, b, normal );
-			float vol = fabs( uf::vector::dot( extra.p - A0, uf::vector::cross( B0 - A0, C0 - A0 ) ) );
-			if ( vol < eps ) extra = ::supportMinkowskiDetailed( a, b, -normal ); // if still coplanar, try -normal
-			simplex.pts.emplace_back(extra); // force tetrahedron
-		}
-
-		return !simplex.pts.empty();
-	#endif
 	}
 }
 

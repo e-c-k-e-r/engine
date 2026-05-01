@@ -69,8 +69,6 @@ namespace {
 
 			::applyImpulseTo(a, b, rA, rB, tangent * jt);
 		}
-
-	//	::positionCorrection(a, b, contact);
 	}
 
 	template<size_t N, typename T = float>
@@ -121,18 +119,6 @@ namespace {
 			K(i,i) += 1e-3f;
 		}
 
-		#if 0
-		pod::Vector3f relVelLinear = b.velocity - a.velocity;
-		for ( auto i = 0; i < N; i++ ) {
-			float vRel = uf::vector::dot( relVelLinear, manifold.points[i].normal );
-
-			float penetrationBias = std::max( manifold.points[i].penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f ) * ( uf::physics::impl::settings.baumgarteCorrectionPercent / dt );
-			float cDot = vRel + penetrationBias;
-
-			rhs[i] = (cDot < 0.0f) ? -cDot : 0.0f;
-			lambda[i] = manifold.points[i].accumulatedNormalImpulse; // warmup
-		}
-		#endif
 		for ( auto i = 0; i < N; i++ ) {
 			auto& contact = manifold.points[i];
 			// full relative velocity, linear + angular
@@ -140,7 +126,6 @@ namespace {
 			pod::Vector3f vB = b.velocity + uf::vector::cross( b.angularVelocity, contact.point - pB );
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
-		/*
 			// penetration bias with clamp
 			float penetrationBias = std::max(contact.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
 			penetrationBias = std::min(penetrationBias, 2.0f / dt); // clamp
@@ -148,11 +133,7 @@ namespace {
 			float maxPenetrationRecovery = 2.0f; // limit to 2 units per second
 			if ( penetrationBias > maxPenetrationRecovery ) penetrationBias = maxPenetrationRecovery;
 
-			float cDot = vRel + penetrationBias;
-			rhs[i]	= (cDot < 0.0f) ? -cDot : 0.0f; // RHS is magnitude of correction needed
-			lambda[i] = contact.accumulatedNormalImpulse;
-		*/
-			rhs[i]	= (vRel < 0.0f) ? -vRel : 0.0f;
+			rhs[i]	= -vRel + penetrationBias; // RHS is magnitude of correction needed
 			lambda[i] = contact.accumulatedNormalImpulse;
 		}
 
@@ -172,7 +153,6 @@ namespace {
 			pod::Vector3f rB = manifold.points[i].point - pB;
 
 			::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
-		//	::positionCorrection( a, b, manifold.points[i] );
 		}
 	}
 
@@ -218,7 +198,8 @@ namespace {
 			// restitution bias + baumgarte
 			float e = std::min( a.material.restitution, b.material.restitution );
 			float penetrationBias = std::max( c.penetration - uf::physics::impl::settings.baumgarteCorrectionSlop, 0.0f ) * (uf::physics::impl::settings.baumgarteCorrectionPercent / dt);
-			cc.bias = 0; // (vn < -1.0f ? -e * vn : 0.0f) + penetrationBias;
+			float restitutionBias = (vn < -1.0f) ? -e * vn : 0.0f;
+			cc.bias = restitutionBias + penetrationBias;
 
 			// effective mass (normal)
 			pod::Vector3f rnA = uf::vector::cross( cc.rA, cc.normal );
@@ -256,7 +237,7 @@ namespace {
 
 				// normal constraint
 				float vn = uf::vector::dot( dv, cc.normal );
-				float lambdaN = cc.effectiveMassN * (-(vn + cc.bias));
+				float lambdaN = cc.effectiveMassN * (-vn + cc.bias);
 				float oldImpulseN = cc.accumulatedNormalImpulse;
 				cc.accumulatedNormalImpulse = std::max( oldImpulseN + lambdaN, 0.0f );
 				float dPn = cc.accumulatedNormalImpulse - oldImpulseN;

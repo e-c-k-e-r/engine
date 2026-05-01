@@ -349,7 +349,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( physicsBody.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
 
 	{
-		speed.rotate = metadata.movement.rotate * ONE_OVER_SIXTY /*uf::physics::time::delta*/;
+		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
 		speed.move = metadata.movement.move;
 		speed.run = metadata.movement.run;
 		speed.walk = metadata.movement.walk;
@@ -466,7 +466,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( stats.walking ) {
 			float factor = stats.floored ? 1.0f : speed.air;
 			if ( stats.noclipped ) {
-				physicsBody.velocity += target * speed.move;
+				physicsBody.velocity += target * speed.move * ONE_OVER_SIXTY;
 			} else {
 				physicsBody.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physicsBody.velocity, target ), 0.0f, speed.move * 10 * ONE_OVER_SIXTY /*uf::physics::time::delta*/ );
 			}
@@ -487,9 +487,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	TIMER(0.0625, stats.floored && keys.jump && !stats.noclipped ) {
 		physicsBody.velocity += translator.up * metadata.movement.jump;
 	}
-	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4.0f;
+	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
 	if ( keys.crouch ) {
-		if ( stats.noclipped ) transform.position -= translator.up * metadata.movement.jump * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4.0f;
+		if ( stats.noclipped ) transform.position -= translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
 		else {
 			if ( !metadata.system.crouching )  stats.deltaCrouch = true;
 			metadata.system.crouching = true;

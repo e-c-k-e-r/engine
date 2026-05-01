@@ -19,12 +19,8 @@ namespace {
 
 			pod::Simplex simplex;
 			if ( !::gjk( hullView, body, simplex ) ) continue;
-
 			auto result = ::epa( hullView, body, simplex );
-
-			if ( !uf::vector::isValid(result.point) ) continue;
-
-			manifold.points.emplace_back(result);
+			if ( !::generateClippingManifold( hullView, body, result, manifold ) ) continue;
 			hit = true;
 		}
 		return hit;
@@ -75,10 +71,7 @@ namespace {
 			if ( !::gjk( viewA, viewB, simplex ) ) continue;
 
 			auto result = ::epa( viewA, viewB, simplex );
-
-			if ( !uf::vector::isValid(result.point) ) continue;
-
-			manifold.points.emplace_back(result);
+			if ( !::generateClippingManifold( viewA, viewB, result, manifold ) ) continue;
 			hit = true;
 		}
 		return hit;

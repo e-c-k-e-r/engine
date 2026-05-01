@@ -6,12 +6,11 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-		//	"gravity": [ 0, -1, 0 ],
 			"mass": 100,
 			"inertia": false,
 		//	"type": "bounding box"
-			"type": "mesh"
-		//	"type": "hull"
+		//	"type": "mesh"
+			"type": "hull"
 		}
 	}
 }

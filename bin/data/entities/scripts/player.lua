@@ -198,7 +198,7 @@ ent:bind( "tick", function(self)
 
 			heldObject.uid = 0
 			heldObjectPhysicsState:enableGravity(true)
-			heldObjectPhysicsState:applyImpulse( flattenedTransform.forward * heldObjectPhysicsState:getMass() * 1000 )
+			heldObjectPhysicsState:applyImpulse( flattenedTransform.forward * heldObjectPhysicsState:getMass() * 50 )
 
 			playSound("phys_launch"..math.random(1,4))
 		else

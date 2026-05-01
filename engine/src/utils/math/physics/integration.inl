@@ -8,12 +8,16 @@ namespace {
 		float angularTermB = 0.0f;
 
 		if ( !a.isStatic ) {
-			pod::Vector3f crossA = uf::vector::cross(rA, n);
-			angularTermA = uf::vector::dot(uf::vector::cross(crossA * a.inverseInertiaTensor, rA), n);
+			auto invIa = ::computeWorldInverseInertia(a);
+			auto crossA = uf::vector::cross(rA, n);
+			auto I_crossA = uf::matrix::multiply(invIa, crossA);
+			angularTermA = uf::vector::dot(uf::vector::cross(I_crossA, rA), n);
 		}
 		if ( !b.isStatic ) {
-			pod::Vector3f crossB = uf::vector::cross(rB, n);
-			angularTermB = uf::vector::dot(uf::vector::cross(crossB * b.inverseInertiaTensor, rB), n);
+			auto invIb = ::computeWorldInverseInertia(b);
+			auto crossB = uf::vector::cross(rB, n);
+			auto I_crossB = uf::matrix::multiply(invIb, crossB);
+			angularTermB = uf::vector::dot(uf::vector::cross(I_crossB, rB), n);
 		}
 
 		float result = inverseMass + angularTermA + angularTermB;
@@ -25,13 +29,13 @@ namespace {
 		if ( !a.isStatic ) {
 			a.velocity -= impulse * a.inverseMass;
 			//a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
-			pod::Matrix3f invIa = computeWorldInverseInertia( a );
+			pod::Matrix3f invIa = ::computeWorldInverseInertia( a );
 			a.angularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
 		}
 		if ( !b.isStatic ) {
 			b.velocity += impulse * b.inverseMass;
 			//b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
-			pod::Matrix3f invIb = computeWorldInverseInertia( b );
+			pod::Matrix3f invIb = ::computeWorldInverseInertia( b );
 			b.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 		}
 	}
@@ -43,8 +47,8 @@ namespace {
 		float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
 		if ( angularSpeed2 < EPS2 ) return;
 
-		body.angularVelocity += body.angularVelocity * body.mass * -rollingFriction * dt;
-		// body.angularVelocity *= -rollingFriction * dt;
+		//body.angularVelocity += body.angularVelocity * body.mass * -rollingFriction * dt;
+		body.angularVelocity *= std::max(0.0f, 1.0f - rollingFriction * dt);
 	}
 
 	void bindManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt = 0 ) {
@@ -60,11 +64,9 @@ namespace {
 		pod::Simplex simplex;
 
 		if ( !::gjk(a,b,simplex) ) return false;
-
 		auto result = ::epa( a, b, simplex );
-		
-		manifold.points.clear();
-		manifold.points.emplace_back(result);
+		if ( !::generateClippingManifold( a, b, result, manifold ) ) return false;
+
 		return true;
 	}
 
@@ -123,6 +125,21 @@ namespace {
 		UF_EXCEPTION("unregistered contact: {} vs {}", (int) a.collider.type, (int) b.collider.type );
 		
 		return false;
+	}
+
+	void computeLocalContacts( pod::Manifold& manifold ) {
+		if ( manifold.points.empty() ) return;
+
+		auto& a = *manifold.a;
+		auto& b = *manifold.b;
+
+		auto tA = ::getTransform( a );
+		auto tB = ::getTransform( b );
+
+		for ( auto& c : manifold.points ) {
+			c.localA = uf::transform::applyInverse( tA, c.point - c.normal * (c.penetration * 0.5f) );
+			c.localB = uf::transform::applyInverse( tB, c.point + c.normal * (c.penetration * 0.5f) );
+		}
 	}
 
 	bool similarContact( const pod::Contact& a, const pod::Contact& b, float distSq = 1.0e-2f, float norm = 0.9f ) {
@@ -185,16 +202,54 @@ namespace {
 		manifold.points = result;
 	}
 
-	void retrieveContacts( pod::Manifold& current, const pod::Manifold& previous, float decay = 0.35f ) {
-		for ( auto& c : current.points ) {
-			for ( auto& p : previous.points ) {
-				if ( !::similarContact( c, p ) ) continue;
-				c.accumulatedNormalImpulse = p.accumulatedNormalImpulse * decay;
-				c.accumulatedTangentImpulse = p.accumulatedTangentImpulse * decay;
-				c.lifetime = p.lifetime + 1;
-				break;
+	void retrieveContacts( pod::Manifold& current, const pod::Manifold& previous, float distanceThreshold = 0.1f, float separationThreshold = 0.1f, float decay = 0.85f ) {
+		auto& a = *current.a;
+		auto& b = *current.b;
+
+		auto tA = ::getTransform( a );
+		auto tB = ::getTransform( b );
+
+		uf::stl::vector<pod::Contact> merged = current.points;
+
+		float distSqThresh = distanceThreshold * distanceThreshold;
+		for ( const auto& oldContact : previous.points ) {
+			// reproject point according to current transform
+			auto worldA = uf::transform::apply( tA, oldContact.localA );
+			auto worldB = uf::transform::apply( tB, oldContact.localB );
+
+			auto delta = worldB - worldA;
+			auto normal = current.points.empty() ? oldContact.normal : current.points[0].normal;
+			float penetration = -uf::vector::dot( delta, normal );
+			if ( penetration < -separationThreshold ) continue;
+
+			pod::Vector3f projectedDelta = delta + normal * penetration;
+			float tangentialDriftSq = uf::vector::dot( projectedDelta, projectedDelta );
+			if ( tangentialDriftSq > distSqThresh ) continue;
+
+			pod::Contact validContact = oldContact;
+			validContact.point = (worldA + worldB) * 0.5f;
+			validContact.normal = normal;
+			validContact.penetration = penetration;
+			++validContact.lifetime;
+
+			validContact.accumulatedNormalImpulse *= decay;
+			validContact.accumulatedTangentImpulse *= decay;
+
+			bool isDuplicate = false;
+			for ( auto& c : current.points ) {
+				if ( ::similarContact( validContact, c ) ) {
+					c.accumulatedNormalImpulse = validContact.accumulatedNormalImpulse;
+					c.accumulatedTangentImpulse = validContact.accumulatedTangentImpulse;
+					c.lifetime = validContact.lifetime;
+					isDuplicate = true;
+					break;
+				}
 			}
+
+			if ( !isDuplicate ) merged.emplace_back( validContact );
 		}
+
+		current.points = merged;
 	}
 
 	void prepareManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& cache, const uf::stl::vector<pod::Island>& islands, const uf::stl::vector<pod::PhysicsBody*>& bodies ) {

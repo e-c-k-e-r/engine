@@ -15,7 +15,7 @@
 				"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
 				"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
 				
-			//	"prop_physics_override_5813": { "action": "load", "payload": { "import": "/physics_prop.json" } },
+				"prop_physics_override_5813": { "action": "load", "payload": { "import": "/physics_prop.json" } },
 				
 				// regex matches
 				"/^prop_physics_[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },

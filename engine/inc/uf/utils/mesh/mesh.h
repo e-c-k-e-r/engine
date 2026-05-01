@@ -195,9 +195,10 @@ namespace uf {
 			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
 
 			const AttributeView& operator[](const uf::stl::string& name) const {
-				static AttributeView null{};
+				//static AttributeView null{};
 				if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
-				return null;
+				UF_EXCEPTION("invalid view: {}", name);
+				//return null;
 			}
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;

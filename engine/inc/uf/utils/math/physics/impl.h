@@ -170,8 +170,8 @@ namespace pod {
 		float sleepTimer = 0.0f;
 		int32_t islandID = -1;
 		static constexpr float sleepThreshold = 0.5f; // seconds
-		static constexpr float linearSleepEpsilon = 0.1f; // m/s
-		static constexpr float angularSleepEpsilon = 0.1f; // rad/s		
+		static constexpr float linearSleepEpsilon = 0.2f; // m/s
+		static constexpr float angularSleepEpsilon = 0.2f; // rad/s		
 	};
 
 	struct World; // forward declare
@@ -211,7 +211,10 @@ namespace pod {
 		pod::Vector3f normal;
 		float penetration;
 
-		// Warm-start cached values
+		pod::Vector3f localA;
+		pod::Vector3f localB;
+
+		// warm-start cached values
 		int lifetime = 0;
 		pod::Vector3f tangent = {};
 		float accumulatedNormalImpulse = 0.0f;
@@ -241,7 +244,7 @@ namespace pod {
 		bool warmupSolver = true; // cache manifold data to warm up the solver
 		bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
 		bool psgContactSolver = true; // use PSG contact solver
-		bool useGjk = true; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
+		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
 		uint32_t substeps = 4; // number of substeps per frame tick
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
@@ -262,7 +265,7 @@ namespace pod {
 
 		// to-do: find possibly better values for this
 		uint32_t solverIterations = 10;
-		float baumgarteCorrectionPercent = 0.4f;
+		float baumgarteCorrectionPercent = 0.01f;
 		float baumgarteCorrectionSlop = 0.01f;
 		
 		uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
@@ -272,10 +275,12 @@ namespace pod {
 
 		// to-do: tweak this to not be annoying
 		pod::BVH::UpdatePolicy bvhUpdatePolicy = {
+			// triggers a refit
 			.displacementThreshold = 0.25f,
+			// triggers a rebuild
 			.overlapThreshold = 2.0f,
-			.dirtyRatioThreshold = 0.3f,
-			.maxFramesBeforeRebuild = 60, // * 10, // 10 seconds
+			.dirtyRatioThreshold = 0.3,
+			.maxFramesBeforeRebuild = 60,
 		};
 
 		float groundedThreshold = 0.7f; // threshold before marking a body as grounded

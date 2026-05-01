@@ -55,15 +55,17 @@ namespace {
 	bool hullHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS );
 
 	// ugh
+	pod::AABB computeAABB( const pod::PhysicsBody& body );
 	FORCE_INLINE bool aabbOverlap( const pod::AABB& a, const pod::AABB& b, float eps = EPS );
 	pod::Vector3f aabbCenter( const pod::AABB& aabb );
 	pod::Vector3f getVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast = false );
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body );
 
 	// to-do: define maxIterations as a setting
 	bool gjk( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Simplex& simplex, int maxIterations = 20, float eps = EPS );
-	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, uint32_t maxIterations = 64, float eps = EPS );
 	bool gjk( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDist, float& outT, pod::Vector3f& outNormal, float eps = EPS );
+	pod::Contact epa( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Simplex& simplex, uint32_t maxIterations = 64, float eps = EPS );
+	bool generateClippingManifold( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Contact& contact, pod::Manifold& manifold );
 
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& indices );
 	void queryBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::vector<pod::BVH::index_t>& indices, pod::BVH::index_t nodeID );
@@ -89,13 +91,14 @@ namespace {
 	// marks a body as asleep
 	void wakeBody( pod::PhysicsBody& body ) {
 		bool wasAwake = body.activity.awake;
-		if ( !wasAwake ) UF_MSG_DEBUG("name={} waking up", body.object->getName());
+		if ( !wasAwake ) {
+			body.activity.sleepTimer = 0.0f;
+		}
 
 		body.activity.awake = true;
-		body.activity.sleepTimer = 0.0f;
 	}
 	void sleepBody( pod::PhysicsBody& body ) {
-		if ( body.activity.awake ) UF_MSG_DEBUG("name={} sleeping", body.object->getName());
+		bool wasAsleep = !body.activity.awake;
 
 		body.activity.awake = false;
 		body.velocity = pod::Vector3f{};
@@ -105,6 +108,9 @@ namespace {
 		// reset grounded state
 		bool wasGrounded = body.activity.grounded;
 		body.activity.grounded = false;
+
+		// update bounds
+		body.bounds = ::computeAABB( body );
 
 		// already asleep
 		if ( !body.activity.awake ) return;
@@ -436,5 +442,34 @@ namespace {
 		}
 
 		return best;
+	}
+
+	int clipPolygonAgainstPlane( const pod::Vector3f* inPoly, int inCount, const pod::Vector3f& planeNormal, float planeOffset, pod::Vector3f* outPoly ) {
+		if (inCount == 0) return 0;
+
+		int outCount = 0;
+		pod::Vector3f prevPoint = inPoly[inCount - 1];
+		float prevDistance = uf::vector::dot(prevPoint, planeNormal) - planeOffset;
+
+		for (int i = 0; i < inCount; ++i) {
+			pod::Vector3f currPoint = inPoly[i];
+			float currDistance = uf::vector::dot(currPoint, planeNormal) - planeOffset;
+
+			// If they cross the plane, compute the intersection point
+			if ((prevDistance * currDistance) < 0.0f) {
+				float t = prevDistance / (prevDistance - currDistance);
+				outPoly[outCount++] = prevPoint + (currPoint - prevPoint) * t;
+			}
+
+			// If the current point is 'inside' or on the plane (distance <= 0), keep it
+			if (currDistance <= 0.0f) {
+				outPoly[outCount++] = currPoint;
+			}
+
+			prevPoint = currPoint;
+			prevDistance = currDistance;
+		}
+
+		return outCount;
 	}
 }

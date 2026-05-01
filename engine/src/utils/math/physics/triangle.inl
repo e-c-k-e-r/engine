@@ -91,6 +91,12 @@ namespace {
 		});
 		return tri;
 	}
+	
+	// for clean code, this would be preferable
+	// but this incurs two lookups every triangle fetch, and I doubt the optimizer will optimize that away, so explicitly passing attribute views is preferable
+	FORCE_INLINE pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
+		return ::fetchTriangle( view, view["index"], view["position"], triID );
+	}
 
 	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
 		const auto& views = mesh.buffer_views;
@@ -109,33 +115,24 @@ namespace {
 			triBase += trisInView;
 		}
 		UF_ASSERT( view );
-
-		auto& positions = (*view)["position"];
-		auto& indices   = (*view)["index"];
 		
-		pod::TriangleWithNormal tri = { ::fetchTriangle( *view, indices, positions, triID ) };
+		pod::TriangleWithNormal tri = { ::fetchTriangle( *view, triID ) };
 		tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 
 		return tri;
 	}
 
 	// if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body, bool fast ) {
+	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body ) {
 		auto tri = ::fetchTriangle( mesh, triID );
 
 		auto transform = ::getTransform( body );
 
 		if ( body.collider.type == pod::ShapeType::MESH ) {
-			if ( fast ) {
-				FOR_EACH(3, {
-					tri.points[i] += transform.position;
-				});
-			} else {
-				FOR_EACH(3, {
-					tri.points[i]  = uf::transform::apply( transform, tri.points[i] );
-				});
-				tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
-			}
+			FOR_EACH(3, {
+				tri.points[i] = uf::transform::apply( transform, tri.points[i] );
+			});
+			tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
 		}
 		else {
 		#if REORIENT_NORMALS_ON_FETCH
@@ -237,8 +234,6 @@ namespace {
 
 // triangle colliders
 namespace {
-	// i feel like it'd just be better to treat an AABB as a 12-triangle mesh and do a triangleTriangle collision instead of 3 + 1 + 3 * 3 axis tests
-	// but what do i know
 	bool triangleAabbSAT( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps = 1e-6f ) {
 		const float eps2 = eps * eps;
 
@@ -303,16 +298,6 @@ namespace {
 		float planeDist = uf::vector::dot(triNormal, v0);
 		if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
 		pod::Vector3f contact = boxCenter - bestAxis * (boxHalf.x * fabs(bestAxis.x) + boxHalf.y * fabs(bestAxis.y) + boxHalf.z * fabs(bestAxis.z));
-		
-		//pod::Vector3f contact = boxCenter - triNormal * planeDist;
-	
-	/*
-		float d = uf::vector::dot(triNormal, v0);
-		float dist = uf::vector::dot(triNormal, -boxCenter) - d;
-		pod::Vector3f contact = boxCenter - triNormal * dist;
-
-		if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
-	*/
 
 		manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
 		return true;
@@ -387,12 +372,6 @@ namespace {
 		};
 		
 		if ( uf::vector::dot(bestAxis, ::triangleCenter(b) - ::triangleCenter(a)) < 0.0f ) bestAxis = -bestAxis;
-		/*
-		pod::Vector3f centroid{0,0,0};
-		for ( auto i = 0; i < polyCount; i++ ) centroid += poly[i];
-		centroid /= (float) polyCount;
-		if ( uf::vector::dot(bestAxis, centroid - ::triangleCenter(a)) < 0.0f ) bestAxis = -bestAxis;
-		*/
 
 		for ( auto i = 0; i < 3; i++ ) {
 			auto p0 = a.points[i];
@@ -412,37 +391,8 @@ namespace {
 		return ( polyCount > 0 );
 	}
 
-	bool triangleAabbTri( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
-		// 8 corners
-		pod::Vector3f v[8] = {
-			{body.bounds.min.x, body.bounds.min.y, body.bounds.min.z},
-			{body.bounds.max.x, body.bounds.min.y, body.bounds.min.z},
-			{body.bounds.max.x, body.bounds.max.y, body.bounds.min.z},
-			{body.bounds.min.x, body.bounds.max.y, body.bounds.min.z},
-			{body.bounds.min.x, body.bounds.min.y, body.bounds.max.z},
-			{body.bounds.max.x, body.bounds.min.y, body.bounds.max.z},
-			{body.bounds.max.x, body.bounds.max.y, body.bounds.max.z},
-			{body.bounds.min.x, body.bounds.max.y, body.bounds.max.z}
-		};
-
-		pod::TriangleWithNormal tris[12] = {
-			{ {v[0], v[4], v[7]}, {-1,0,0} }, { {v[0], v[7], v[3]}, {-1,0,0} }, // left (x-)
-			{ {v[1], v[5], v[6]}, {1,0,0} }, { {v[1], v[6], v[2]}, {1,0,0} }, // right (x+)
-			{ {v[0], v[1], v[5]}, {0,-1,0} }, { {v[0], v[5], v[4]}, {0,-1,0} }, // bottom (y-)
-			{ {v[3], v[2], v[6]}, {0,1,0} }, { {v[3], v[6], v[7]}, {0,1,0} }, // top (y+)
-			{ {v[0], v[1], v[2]}, {0,0,-1} }, { {v[0], v[2], v[3]}, {0,0,-1} }, // back (z-)
-			{ {v[4], v[5], v[6]}, {0,0,1} }, { {v[4], v[6], v[7]}, {0,0,1} }, // front (z+)
-		};
-
-		bool hit = false;
-		for ( auto& t : tris ) {
-			if ( ::triangleTriangle( tri, t, manifold, eps ) ) hit = true;
-		}
-		return hit;
-	}
 	bool triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		return ::triangleAabbSAT( tri, body, manifold, eps );
-		//return ::triangleAabbTri( tri, body, manifold, eps );
 	}
 	bool triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold, float eps ) {
 		const auto& sphere = body;
@@ -459,9 +409,11 @@ namespace {
 		if ( dist2 > r * r ) return false;
 		float dist = std::sqrt(dist2);
 
+		auto triNormal = ::triangleNormal( tri );
 		auto contact = ( center + closest ) * 0.5f;
-		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
+		auto normal = ( dist > eps ) ? ( delta / dist ) : triNormal;
 		float penetration = r - dist;
+		if ( uf::vector::dot( normal, triNormal ) > 0.707f ) normal = triNormal;
 
 	#if REORIENT_NORMALS_ON_CONTACT
 		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
@@ -534,9 +486,11 @@ namespace {
 		auto delta = ( closestSeg - closest );
 
 		// to-do: properly derive the contact information
+		auto triNormal = ::triangleNormal( tri );
 		auto contact = closest; // ( closestSeg + closest ) * 0.5f;
-		auto normal = ( dist > eps ) ? ( delta / dist ) : ::triangleNormal( tri );
+		auto normal = ( dist > eps ) ? ( delta / dist ) : triNormal;
 		float penetration = r - dist;
+		if ( uf::vector::dot( normal, triNormal ) > 0.707f ) normal = triNormal;
 
 	#if REORIENT_NORMALS_ON_CONTACT
 		if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
@@ -573,12 +527,8 @@ namespace {
 
 		pod::Simplex simplex;
 		if ( !::gjk( tri, hull, simplex ) ) return false;
-
 		auto result = ::epa( tri, hull, simplex );
-
-		if ( !uf::vector::isValid(result.point) ) return false;
-
-		manifold.points.emplace_back( result );
+		if ( !::generateClippingManifold( tri, hull, result, manifold ) ) return false;
 		return true;
 	}
 

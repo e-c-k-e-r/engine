@@ -282,7 +282,7 @@ namespace {
 		// populate initial indices and bounds
 		for ( size_t viewID = 0; viewID < hullCount; ++viewID ) {
 			const auto& view = views[viewID];
-			auto aabb = ::computeConvexHullAABB( view, view["position"] );
+			auto aabb = ::computeConvexHullAABB( view );
 
 			bounds.emplace_back( aabb );
 			bvh.indices.emplace_back( viewID );
@@ -314,9 +314,29 @@ namespace {
 		float oldRootArea = ::aabbSurfaceArea( bvh.bounds[0] );
 
 		// update/check each body
+		for ( auto i = 0; i < bvh.nodes.size(); ++i ) {
+			auto& node = bvh.nodes[i];
+			if ( /*node.count*/ node.getCount() == 0 ) continue;
+			auto& body = *bodies[bvh.indices[node.start]];
+
+			auto& oldBounds = bvh.bounds[i];
+			auto& newBounds = body.bounds;
+
+			// compute displacement relative to size
+			pod::Vector3f oldCenter = ( oldBounds.min + oldBounds.max ) * 0.5f;
+			pod::Vector3f newCenter = ( newBounds.min + newBounds.max ) * 0.5f;
+			float displacement = uf::vector::distance( newCenter, oldCenter );
+
+			pod::Vector3f extent = oldBounds.max - oldBounds.min;
+			float size = std::max({extent.x, extent.y, extent.z, 1e-6f});
+
+			if ( displacement > policy.displacementThreshold * size ) ++dirtyCount;
+		}
+	/*
 		for ( auto idx : bvh.indices ) {
 			auto& body = *bodies[idx];
 
+			// to-do: instead check against bounds in BVH
 			pod::AABB oldBounds = body.bounds;
 			body.bounds = ::computeAABB( body );
 			pod::AABB newBounds = body.bounds;
@@ -334,11 +354,12 @@ namespace {
 		// update nodes
 		for ( auto i = 0; i < bvh.nodes.size(); ++i ) {
 			auto& node = bvh.nodes[i];
-			if ( /*node.count*/ node.getCount() == 0 ) continue;
+			if ( node.getCount() == 0 ) continue;
 			auto& bound = bvh.bounds[i];
 			bound = bodies[bvh.indices[node.start]]->bounds;
-			for ( auto i = 1; i < node.getCount() /*node.count*/; ++i ) bound = ::mergeAabb( bound, bodies[bvh.indices[node.start + i]]->bounds );
+			for ( auto i = 1; i < node.getCount(); ++i ) bound = ::mergeAabb( bound, bodies[bvh.indices[node.start + i]]->bounds );
 		}
+	*/
 
 		float dirtyRatio = (float) dirtyCount / (float) bodies.size();
 
@@ -388,6 +409,8 @@ namespace {
 				bound = ::mergeAabb(bvh.bounds[node.left], bvh.bounds[node.right]);
 			}
 		}
+
+		if ( !bvh.flattened.empty() ) ::flattenBVH( bvh, 0 );
 	}
 	
 	// avoids creating a vector for bounds
@@ -421,6 +444,8 @@ namespace {
 			bvh.bounds[i] = ::mergeAabb( bvh.bounds[node.left], bvh.bounds[node.right] );
 			node.setAsleep( bvh.nodes[node.left].isAsleep() && bvh.nodes[node.right].isAsleep());
 		}
+
+		if ( !bvh.flattened.empty() ) ::flattenBVH( bvh, 0 );
 	}
 
 	void refitBVH( pod::BVH& bvh, const uf::Mesh& mesh ) {
@@ -500,7 +525,8 @@ namespace {
 		const auto& nodeA = bvh.nodes[nodeAID];
 		const auto& nodeB = bvh.nodes[nodeBID];
 
-		if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !::aabbOverlap( bvh.bounds[nodeAID], bvh.bounds[nodeBID] ) ) return;
+		if ( nodeA.isAsleep() && nodeB.isAsleep() ) return;
+		if ( !::aabbOverlap( bvh.bounds[nodeAID], bvh.bounds[nodeBID] ) ) return;
 
 		if ( nodeA.getCount() > 0 && nodeB.getCount() > 0 ) {
 			for ( auto i = 0; i < nodeA.getCount(); ++i ) {
@@ -519,8 +545,7 @@ namespace {
 		if ( nodeA.getCount() == 0 ) {
 			::traverseNodePair( bvh, nodeA.left, nodeBID, pairs );
 			::traverseNodePair( bvh, nodeA.right, nodeBID, pairs );
-		}
-		if ( nodeB.getCount() == 0 ) {
+		} else if ( nodeB.getCount() == 0 ) {
 			::traverseNodePair( bvh, nodeAID, nodeB.left, pairs );
 			::traverseNodePair( bvh, nodeAID, nodeB.right, pairs );
 		}
@@ -530,7 +555,8 @@ namespace {
 		const auto& nodeA = bvhA.nodes[nodeAID];
 		const auto& nodeB = bvhB.nodes[nodeBID];
 
-		if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !::aabbOverlap( bvhA.bounds[nodeAID], bvhB.bounds[nodeBID] ) ) return;
+		if ( nodeA.isAsleep() && nodeB.isAsleep() ) return;
+		if ( !::aabbOverlap( bvhA.bounds[nodeAID], bvhB.bounds[nodeBID] ) ) return;
 
 		if ( nodeA.getCount() > 0 && nodeB.getCount() > 0 ) {
 			for ( auto i = 0; i < nodeA.getCount(); ++i ) {
@@ -538,7 +564,7 @@ namespace {
 					pod::BVH::index_t bodyA = bvhA.indices[nodeA.start + i];
 					pod::BVH::index_t bodyB = bvhB.indices[nodeB.start + j];
 					if ( bodyA == bodyB ) continue;
-					if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
+					//if ( bodyA > bodyB ) std::swap( bodyA, bodyB );
 
 					pairs.emplace_back(bodyA, bodyB);
 				}
@@ -621,6 +647,9 @@ namespace {
 		}
 
 		::traverseNodePair( bvh, node.left, node.right, pairs );
+
+		::traverseBVH( bvh, node.left, pairs );
+		::traverseBVH( bvh, node.right, pairs );
 	}
 
 	void queryOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs ) {
@@ -649,7 +678,6 @@ namespace {
 		if ( bvhA.nodes.empty() || bvhB.nodes.empty() ) return;
 		outPairs.reserve(uf::physics::impl::settings.reserveCount);
 		::traverseNodePair(bvhA, 0, bvhB, 0, relTransform, outPairs);
-		UF_EXCEPTION("unimplemented");
 
 		::postprocessPairs( outPairs );
 	}
@@ -671,7 +699,8 @@ namespace {
 		while ( !stack.empty() ) {
 			pod::BVH::index_t idx = stack.top(); stack.pop();
 			auto& node = bvh.nodes[idx];
-			if ( node.isAsleep() || !::aabbOverlap( bounds, bvh.bounds[idx] ) ) continue;
+			if ( node.isAsleep() ) continue;
+			if ( !::aabbOverlap( bounds, bvh.bounds[idx] ) ) continue;
 
 			if ( node.getCount() > 0 ) {
 				for ( auto i = 0; i < node.getCount(); ++i) outIndices.emplace_back(bvh.indices[node.start + i]);
@@ -692,7 +721,8 @@ namespace {
 		if ( nodeID == 0 ) outIndices.reserve(uf::physics::impl::settings.reserveCount);
 
 		const auto& node = bvh.nodes[nodeID];
-		if ( node.isAsleep() || !::aabbOverlap( bounds, bvh.bounds[nodeID] ) ) return;
+		if ( node.isAsleep() ) return;
+		if ( !::aabbOverlap( bounds, bvh.bounds[nodeID] ) ) return;
 
 		if ( node.getCount() > 0 ) {
 			for ( auto i = 0; i < node.getCount(); ++i ) outIndices.emplace_back(bvh.indices[node.start + i]);
@@ -720,7 +750,8 @@ namespace {
 			const auto& node = bvh.nodes[idx];
 
 			float tMin, tMax;
-			if ( node.isAsleep() || !::rayAabbIntersect( ray, bvh.bounds[idx], tMin, tMax ) ) continue;
+			//if ( node.isAsleep() ) continue;
+			if ( !::rayAabbIntersect( ray, bvh.bounds[idx], tMin, tMax ) ) continue;
 			if ( tMin > maxDist ) continue;
 
 			if ( node.getCount() > 0 ) {
@@ -739,7 +770,8 @@ namespace {
 
 		const auto& node = bvh.nodes[nodeID];
 		float tMin, tMax;
-		if ( node.isAsleep() || !::rayAabbIntersect( ray, bvh.bounds[nodeID], tMin, tMax ) ) return;
+		//if ( node.isAsleep() ) return;
+		if ( !::rayAabbIntersect( ray, bvh.bounds[nodeID], tMin, tMax ) ) return;
 		if ( tMin > maxDist ) return;
 
 		if ( node.getCount() > 0 ) {
@@ -765,14 +797,14 @@ namespace {
 
 		for ( pod::BVH::index_t a = 0; a < nodes.size(); ++a ) {
 			const auto& nodeA = nodes[a];
-			if ( nodeA.getCount() <= 0 || nodeA.isAsleep() ) continue;
+			if ( nodeA.getCount() <= 0 ) continue;
 
 			const auto& boundsA = bounds[a];
 			pod::BVH::index_t b = a + 1;
 			while ( b < nodes.size() ) {
 				const auto& nodeB = nodes[b];
 
-				if ( nodeB.isAsleep() || !::aabbOverlap( boundsA, bounds[b] ) ) {
+				if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !::aabbOverlap( boundsA, bounds[b] ) ) {
 					b = nodeB.skipIndex;
 					continue;
 				}
@@ -820,7 +852,9 @@ namespace {
 			const auto& nodeB = bvhB.flattened[b];
 
 			if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
-			if ( !::aabbOverlap( bvhA.flatBounds[a], bvhB.flatBounds[b] ) ) continue;
+			if ( !::aabbOverlap( bvhA.flatBounds[a], bvhB.flatBounds[b] ) ) {
+				continue;
+			}
 
 			bool isLeafA = (nodeA.getCount() > 0);
 			bool isLeafB = (nodeB.getCount() > 0);
@@ -885,11 +919,6 @@ namespace {
 
 			if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
 
-		/*
-			pod::AABB worldBoundsA = ::transformAabbToWorld( boundsA[a], tA );
-			pod::AABB worldBoundsB = ::transformAabbToWorld( boundsB[b], tB );
-			if ( !::aabbOverlap( worldBoundsA, worldBoundsB ) ) continue;
-		*/
 			pod::AABB boundsB_in_A = ::transformAabbToWorld(boundsB[b], relTransform);
 			if ( !::aabbOverlap( boundsA[a], boundsB_in_A ) ) continue;
 
@@ -965,7 +994,7 @@ namespace {
 		while ( idx < nodes.size() ) {
 			const auto& node = nodes[idx];
 			float tMin, tMax;
-			if ( !node.isAsleep() && ::rayAabbIntersect( ray, bvh.flatBounds[idx], tMin, tMax ) && tMin <= maxDist ) {
+			if ( /*!node.isAsleep() &&*/ ::rayAabbIntersect( ray, bvh.flatBounds[idx], tMin, tMax ) && tMin <= maxDist ) {
 				// leaf
 				if ( node.getCount() > 0 ) {
 					for ( auto i = 0; i < node.getCount(); ++i ) {
@@ -1014,6 +1043,8 @@ namespace {
 			}
 		}
 	};
+
+	// to-do: rewrite this, I'm pretty sure it's faulty
 	void buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<pod::PhysicsBody*>& bodies, uf::stl::vector<pod::Island>& islands ) {
 		UnionFind unionizer(bodies.size());
 
@@ -1039,13 +1070,6 @@ namespace {
 			auto [ it, inserted ] = rootToIsland.try_emplace( root, (pod::BVH::index_t) islands.size());
 			if ( inserted ) islands.emplace_back();
 
-		/*
-			if ( rootToIsland.find(root) == rootToIsland.end() ) {
-				rootToIsland[root] = (pod::BVH::index_t) islands.size();
-				islands.emplace_back();
-			}
-		*/
-
 			pod::BVH::index_t islandID = rootToIsland[root];
 			islands[islandID].indices.emplace_back( i );
 		}
@@ -1070,34 +1094,29 @@ namespace {
 				}
 			}
 		}
-	}
 
-	bool updateIsland( pod::Island& island, uf::stl::vector<pod::PhysicsBody*>& bodies, float dt ) {
-		island.awake = false;
+		// update islands
+		for ( auto it = islands.begin(); it != islands.end(); ) {
+			auto& island = *it;
+			island.awake = false;
 
-		for ( auto idx : island.indices ) {
-			auto& body = *bodies[idx];
-			if ( !body.activity.awake ) continue;
-
-			float linSpeedSq = uf::vector::magnitude( body.velocity );
-			float angSpeedSq = uf::vector::magnitude( body.angularVelocity );
-
-			if ( linSpeedSq < pod::Activity::linearSleepEpsilon && angSpeedSq < pod::Activity::angularSleepEpsilon) {
-				body.activity.sleepTimer += dt;
-			} else {
-				body.activity.sleepTimer = 0.0f;
+			// wake island if something is awake in it
+			for ( auto idx : island.indices ) {
+				auto& body = *bodies[idx];			
+				if ( !body.activity.awake ) continue;
 				island.awake = true;
 			}
+			
+			// update bodies within island
+			for ( auto idx : island.indices )
+				(island.awake ? ::wakeBody : ::sleepBody)( *bodies[idx] );
 
-			if ( body.activity.sleepTimer < pod::Activity::sleepThreshold ) {
-				island.awake = true;
+			// erase sleeping island
+			if ( !island.awake ) {
+				it = islands.erase(it);
+			} else {
+				++it;
 			}
 		}
-
-		// update bodies within island
-		for ( auto idx : island.indices )
-			(island.awake ? ::wakeBody : ::sleepBody)( *bodies[idx] );
-
-		return island.awake;
 	}
 }

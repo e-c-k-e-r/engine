@@ -39,6 +39,9 @@ namespace {
 
 		return bounds;
 	}
+	FORCE_INLINE pod::AABB computeConvexHullAABB( const uf::Mesh::View& view, pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } }  ) {
+		return ::computeConvexHullAABB( view, view["position"], bounds );
+	}
 
 	FORCE_INLINE pod::AABB mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
 		return {
@@ -110,7 +113,8 @@ namespace {
 				auto [ p1, p2 ] = ::getCapsuleSegment( body );
 				return ::computeSegmentAABB( p1, p2, body.collider.capsule.radius );
 			} break;
-			case pod::ShapeType::MESH: {
+			case pod::ShapeType::MESH:
+			case pod::ShapeType::CONVEX_HULL: {
 				if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->bounds.empty() )
 					return {
 						transform.position + body.collider.mesh.bvh->bounds[0].min,
@@ -120,18 +124,7 @@ namespace {
 				pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
 				for ( const auto& view : meshData.buffer_views ) ::computeConvexHullAABB( view, view["position"], bounds );
 				return ::transformAabbToWorld( bounds, transform );
-			} break;
-			case pod::ShapeType::CONVEX_HULL: {
-				if ( body.collider.convexHull.bvh && !body.collider.convexHull.bvh->bounds.empty() )
-					return {
-						transform.position + body.collider.convexHull.bvh->bounds[0].min,
-						transform.position + body.collider.convexHull.bvh->bounds[0].max,
-					};
-				const auto& meshData = *body.collider.convexHull.mesh;
-				pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
-				for ( const auto& view : meshData.buffer_views ) ::computeConvexHullAABB( view, view["position"], bounds );
-				return ::transformAabbToWorld( bounds, transform );
-			} break;
+			}
 			default: {
 			} break;
 		}
