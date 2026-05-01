@@ -1,10 +1,11 @@
+// to-do: clean this mess
 #define REVERSE_COLLIDER( a, b, fun )\
 	auto start = manifold.points.size();\
 	if ( !::fun( b, a, manifold, eps ) ) return false;\
 	for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;\
 	return true;
 
-// forward declare
+// forward declare (to-do: properly handle this)
 namespace {
 	bool aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS );
 	bool aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold, float eps = EPS );

@@ -10,17 +10,23 @@
 #define UF_PHYSICS_TEST 0
 
 #include "helpers.inl"
-#include "aabb.inl"
-#include "sphere.inl"
-#include "plane.inl"
-#include "capsule.inl"
-#include "triangle.inl"
-#include "mesh.inl"
-#include "convexHull.inl"
-#include "ray.inl"
-#include "bvh.inl"
-#include "gjk.inl"
-#include "epa.inl"
+
+#include "narrowphase/aabb.inl"
+#include "narrowphase/sphere.inl"
+#include "narrowphase/plane.inl"
+#include "narrowphase/capsule.inl"
+#include "narrowphase/triangle.inl"
+#include "narrowphase/mesh.inl"
+#include "narrowphase/convexHull.inl"
+#include "narrowphase/ray.inl"
+
+
+#include "narrowphase/gjk.inl"
+#include "narrowphase/epa.inl"
+
+#include "broadphase/bvh.inl"
+#include "broadphase/island.inl"
+
 #include "integration.inl"
 #include "solvers.inl"
 
