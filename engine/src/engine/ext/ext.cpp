@@ -873,6 +873,11 @@ void UF_API uf::tick() {
 		#if UF_ENV_DREAMCAST
 			DC_STATS();
 		#endif
+		#if UF_THREAD_METRICS
+			auto metrics = uf::thread::collectStats();
+			for ( auto& [ name, stats ] : metrics ) UF_MSG_DEBUG("Thread {}: active={}, idle={}, total={}, tasks={}", name, std::get<0>(stats), std::get<1>(stats), std::get<2>(stats), std::get<3>(stats) );
+		#endif
+
 			/*global*/::times.frames = 0;
 		}
 	}

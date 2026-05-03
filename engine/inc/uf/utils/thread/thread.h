@@ -16,6 +16,8 @@
 #include <functional>
 #include <condition_variable>
 
+#define UF_THREAD_METRICS 1
+
 namespace uf {
 	namespace thread {
 		extern UF_API uf::stl::string mainThreadName;
@@ -29,6 +31,19 @@ namespace pod {
 		typedef uint16_t id_t;
 		typedef std::function<void()> function_t;
 		typedef uf::stl::vector<pod::Thread::function_t> container_t;
+		
+		struct UF_API Tasks {
+			uf::stl::string name = uf::thread::workerThreadName;
+			bool waits = true;
+
+			pod::Thread::container_t container;
+
+			inline void add( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
+			inline void emplace( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
+			inline void queue( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
+			inline bool empty() { return container.empty(); }
+			inline void clear() { container = {}; }
+		};
 
 		pod::Thread::id_t uid;
 		uf::stl::string name;
@@ -51,19 +66,20 @@ namespace pod {
 		pod::Thread::container_t container;
 
 		uint32_t affinity = 0;
+	#if UF_THREAD_METRICS
+		struct Performance {
+			typedef std::tuple<float, float, float, uint32_t> tuple_t;
 
-		struct UF_API Tasks {
-			uf::stl::string name = uf::thread::workerThreadName;
-			bool waits = true;
+			std::atomic<float> activeTimeMs{0.0f};
+			std::atomic<float> idleTimeMs{0.0f};
+			std::atomic<float> totalFrameTimeMs{0.0f};
+			std::atomic<uint32_t> tasksProcessed{0};
 
-			pod::Thread::container_t container;
-
-			inline void add( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
-			inline void emplace( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
-			inline void queue( const pod::Thread::function_t& fun ) { container.emplace_back(fun); }
-			inline bool empty() { return container.empty(); }
-			inline void clear() { container = {}; }
-		};
+			inline tuple_t collect() {
+				return std::make_tuple( activeTimeMs.load(), idleTimeMs.load(), totalFrameTimeMs.load(), tasksProcessed.load() );
+			}
+		} metrics;
+	#endif
 	};
 }
 
@@ -133,5 +149,9 @@ namespace uf {
 		std::thread::id UF_API id( const pod::Thread& );
 		pod::Thread::id_t UF_API uid( const pod::Thread& );
 		bool UF_API running( const pod::Thread& );
+
+	#if UF_THREAD_METRICS
+		uf::stl::unordered_map<uf::stl::string, pod::Thread::Performance::tuple_t> collectStats();
+	#endif
 	}
 }

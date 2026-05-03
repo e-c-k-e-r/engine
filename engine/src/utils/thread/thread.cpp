@@ -119,6 +119,13 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 	local_queue.clear();
 	local_container.clear();
 
+#if UF_THREAD_METRICS
+	uint32_t tasksThisFrame = 0;
+	auto frameStart = std::chrono::high_resolution_clock::now();
+	auto idleStart = std::chrono::high_resolution_clock::now();
+#endif
+
+	// wait for work
 	{
 		std::unique_lock<std::mutex> lock(thread.mutex);
 		if ( thread.limiter > 0 ) {
@@ -139,6 +146,16 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 		std::swap( local_queue, thread.queue );
 	}
 
+	// update stats
+#if UF_THREAD_METRICS
+	{	
+		std::chrono::duration<float, std::milli> idleTime = std::chrono::high_resolution_clock::now() - idleStart;
+		thread.metrics.idleTimeMs.store(idleTime.count(), std::memory_order_relaxed);
+	}
+	auto activeStart = std::chrono::high_resolution_clock::now();
+#endif
+
+	// iterate through queued work
 	for ( auto& function : local_queue ) {
 	#if UF_EXCEPTIONS
 		try {
@@ -149,17 +166,21 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 			UF_MSG_ERROR("Thread {} (UID: {}) caught exception: {}", thread.name, thread.uid, e.what());
 		}
 	#endif
-
 		if ( thread.pending.fetch_sub(1) == 1 ) {
 			thread.conditions.finished.notify_all();
 		}
+	#if UF_THREAD_METRICS
+		++tasksThisFrame;
+	#endif
 	}
 
+	// buffer persistent work
 	{
 		std::lock_guard<std::mutex> lock(thread.mutex);
 		local_container = thread.container;
 	}
 
+	// iterate through persistent work
 	for ( auto& function : local_container ) {
 	#if UF_EXCEPTIONS
 		try {
@@ -170,12 +191,27 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 			UF_MSG_ERROR("Thread {} (UID: {}) caught exception: {}", thread.name, thread.uid, e.what());
 		}
 	#endif
+	#if UF_THREAD_METRICS
+		++tasksThisFrame;
+	#endif
 	}
 
 	{
 		std::lock_guard<std::mutex> lock(thread.mutex);
 		thread.conditions.finished.notify_all();
 	}
+
+	// update metrics
+#if UF_THREAD_METRICS
+	{
+		std::chrono::duration<float, std::milli> activeTime = std::chrono::high_resolution_clock::now() - activeStart;
+		std::chrono::duration<float, std::milli> frameTime = std::chrono::high_resolution_clock::now() - frameStart;
+
+		thread.metrics.activeTimeMs.store(activeTime.count(), std::memory_order_relaxed);
+		thread.metrics.totalFrameTimeMs.store(frameTime.count(), std::memory_order_relaxed);
+		thread.metrics.tasksProcessed.store(tasksThisFrame, std::memory_order_relaxed);
+	}
+#endif
 }
 void uf::thread::wait( pod::Thread& thread ) {
 	std::unique_lock<std::mutex> lock(thread.mutex);
@@ -204,7 +240,7 @@ void uf::thread::terminate() {
 		std::swap( local_threads, uf::thread::threads );
 	}
 
-	for ( auto& [ key, thread ] : local_threads  ) {
+	for ( auto& [ key, thread ] : local_threads ) {
 		uf::thread::quit( *thread );
 		delete thread;
 	}
@@ -253,3 +289,12 @@ pod::Thread& uf::thread::get( const uf::stl::string& name ) {
 	if ( !uf::thread::has(name) ) return uf::thread::create(name);
 	return *uf::thread::threads[name];
 }
+
+#if UF_THREAD_METRICS
+uf::stl::unordered_map<uf::stl::string, pod::Thread::Performance::tuple_t> uf::thread::collectStats() {
+	uf::stl::unordered_map<uf::stl::string, pod::Thread::Performance::tuple_t> stats;
+	// possible mutex issue
+	for ( auto& [ key, thread ] : uf::thread::threads ) stats[thread->name] = thread->metrics.collect();
+	return stats;
+}
+#endif

@@ -1475,23 +1475,24 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		UF_MSG_DEBUG("Graph buffers requesting renderer update");
 		uf::renderer::states::rebuild = true;
 
+	#if UF_USE_VULKAN
 		if ( uf::renderer::hasRenderMode("", true) ) {
 			auto& renderMode = uf::renderer::getRenderMode("", true);
-
-		#if UF_USE_VULKAN
 			auto& blitter = renderMode.getBlitter();
-			auto& shader = blitter.material.getShader(blitter.material.hasShader("compute", "deferred") ? "compute" : "fragment", "deferred");
+			if ( blitter.material.hasShader("compute", "deferred") || blitter.material.hasShader("fragment", "deferred") ) {
+				auto& shader = blitter.material.getShader(blitter.material.hasShader("compute", "deferred") ? "compute" : "fragment", "deferred");
 
-			shader.metadata.aliases.buffers.clear();
+				shader.metadata.aliases.buffers.clear();
 
-			shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
-			shader.aliasBuffer( "instance", storage.buffers.instance );
-			shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
-			shader.aliasBuffer( "material", storage.buffers.material );
-			shader.aliasBuffer( "texture", storage.buffers.texture );
-			shader.aliasBuffer( "light", storage.buffers.light );
-		#endif
+				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "material", storage.buffers.material );
+				shader.aliasBuffer( "texture", storage.buffers.texture );
+				shader.aliasBuffer( "light", storage.buffers.light );
+			}
 		}
+	#endif
 	}
 
 	return rebuild;
