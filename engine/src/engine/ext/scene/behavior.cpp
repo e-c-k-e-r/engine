@@ -39,7 +39,7 @@
 // #include "../../gui/gui.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
+UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, thread = "") // hangs on initialization
 #define this ((uf::Scene*) &self)
 
 namespace {

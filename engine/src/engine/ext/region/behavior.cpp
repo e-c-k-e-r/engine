@@ -21,7 +21,7 @@
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::RegionBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::RegionBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::RegionBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 
 namespace {

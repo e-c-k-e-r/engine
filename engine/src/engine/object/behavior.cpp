@@ -13,7 +13,7 @@
 #include <uf/engine/graph/graph.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
-UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multithread = false) // segfaults @  engine/src/ext/lua/lua.cpp:298 `auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );`
+UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, thread = "") // segfaults @  engine/src/ext/lua/lua.cpp:298 `auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );`
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 #if UF_ENTITY_OBJECT_UNIFIED
@@ -140,11 +140,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
 
-		#if UF_USE_REACTPHYSICS
-			auto center = ( max + min ) * 0.5f;
-			if ( metadataJsonPhysics["recenter"].as<bool>(true) ) offset = (center - transform.position);
-		#endif
-			
 			uf::physics::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
 		} else if ( type == "plane" ) {
 			pod::Vector3f direction = uf::vector::decode( metadataJsonPhysics["direction"], pod::Vector3f{} );
@@ -169,18 +164,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			auto category = metadataJsonPhysics["category"].as<uf::stl::string>("ALL");
 			auto mask = metadataJsonPhysics["mask"].as<uf::stl::string>("ALL");
 
-		#if UF_USE_REACTPHYSICS
-			physicsBody.mass = mass;
-			physicsBody.gravity = gravity;
-
-			physicsBody.material.restitution = metadataJsonPhysics["restitution"].as(physicsBody.material.restitution);
-			physicsBody.material.staticFriction = metadataJsonPhysics["friction"].as(physicsBody.material.staticFriction);
-			physicsBody.inertiaTensor = uf::vector::decode( metadataJsonPhysics["inertia"], physicsBody.inertiaTensor );
-		#else
 			uf::physics::setColliderCategory( physicsBody, category );
 			uf::physics::setColliderMask( physicsBody, mask );
 			uf::physics::setGravity( physicsBody, gravity );
-		#endif
 
 			physicsBody.velocity = uf::vector::decode( metadataJsonPhysics["velocity"], physicsBody.velocity );
 			physicsBody.angularVelocity = uf::vector::decode( metadataJsonPhysics["angularVelocity"], physicsBody.angularVelocity );
@@ -232,13 +218,6 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		atlas.clear();
 	//	this->deleteComponent<uf::Atlas>();
 	}
-	#if UF_USE_REACTPHYSICS
-	if ( this->hasComponent<pod::PhysicsBody>() ) {
-		auto& physicsBody = this->getComponent<pod::PhysicsBody>();
-		uf::physics::detach( physicsBody );
-	//	this->deleteComponent<pod::PhysicsBody>();
-	}
-	#endif
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		if ( uf::renderer::settings::experimental::registerRenderMode ) {

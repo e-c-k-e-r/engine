@@ -15,7 +15,7 @@ namespace {\
 			.traits = {\
 				.ticks = BEHAVIOR::Traits::ticks,\
 				.renders = BEHAVIOR::Traits::renders,\
-				.multithread = BEHAVIOR::Traits::multithread,\
+				.thread = BEHAVIOR::Traits::thread,\
 			},\
 			.initialize = BEHAVIOR::initialize,\
 			.tick = BEHAVIOR::tick,\
@@ -48,7 +48,7 @@ namespace {\
 			.traits = {\
 				.ticks = BEHAVIOR::Traits::ticks,\
 				.renders = BEHAVIOR::Traits::renders,\
-				.multithread = BEHAVIOR::Traits::multithread,\
+				.thread = BEHAVIOR::Traits::thread,\
 			},\
 			.initialize = BEHAVIOR::initialize,\
 			.tick = BEHAVIOR::tick,\

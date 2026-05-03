@@ -93,7 +93,7 @@ namespace {
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiGlyphBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiGlyphBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiGlyphBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 
 namespace {

@@ -15,7 +15,7 @@
 #include <uf/utils/io/inputs.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::GraphBehavior)
-UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 void uf::GraphBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();

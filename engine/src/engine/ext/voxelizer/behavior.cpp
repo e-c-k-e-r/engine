@@ -20,7 +20,7 @@
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerSceneBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerSceneBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerSceneBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN

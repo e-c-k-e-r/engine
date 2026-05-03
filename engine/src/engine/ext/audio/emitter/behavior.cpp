@@ -9,7 +9,7 @@
 #include <mutex>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::SoundEmitterBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::SoundEmitterBehavior, ticks = false, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::SoundEmitterBehavior, ticks = false, renders = false, thread = "")
 #define this ((uf::Object*) &self)
 void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();

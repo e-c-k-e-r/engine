@@ -6,7 +6,7 @@
 #include <uf/engine/graph/graph.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Scene)
-UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, thread = "")
 #define this ((uf::Scene*) &self)
 void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;

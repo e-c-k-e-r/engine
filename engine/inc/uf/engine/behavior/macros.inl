@@ -3,7 +3,7 @@
 #define UF_ENTITY_METADATA_USE_JSON 0
 
 #define UF_BEHAVIOR_DEFINE_TYPE() // static constexpr const char* type = __FILE__;
-#define UF_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern UF_API bool ticks; extern UF_API bool renders; extern UF_API bool multithread; }
+#define UF_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern UF_API bool ticks; extern UF_API bool renders; extern UF_API uf::stl::string thread; }
 #define UF_BEHAVIOR_DEFINE_METADATA(...) struct Metadata : public pod::Behavior::Metadata {\
 public:\
 	/*virtual*/ void serialize( uf::Object&, uf::Serializer& );\
@@ -18,7 +18,7 @@ public:\
 	void UF_API render( uf::Object& );\
 	void UF_API destroy( uf::Object& );
 
-#define EXT_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern bool ticks; extern bool renders; extern bool multithread; }
+#define EXT_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern bool ticks; extern bool renders; extern uf::stl::string thread; }
 #define EXT_BEHAVIOR_DEFINE_FUNCTIONS()\
 	void attach( uf::Entity& );\
 	void initialize( uf::Object& );\
@@ -26,10 +26,10 @@ public:\
 	void render( uf::Object& );\
 	void destroy( uf::Object& );
 
-#define UF_BEHAVIOR_TRAITS_CPP( OBJ, TICKS, RENDERS, MULTITHREAD)\
+#define UF_BEHAVIOR_TRAITS_CPP( OBJ, TICKS, RENDERS, THREAD)\
 	bool OBJ::Traits::TICKS;\
 	bool OBJ::Traits::RENDERS;\
-	bool OBJ::Traits::MULTITHREAD;
+	uf::stl::string OBJ::Traits::THREAD;
 
 #define UF_BEHAVIOR_ENTITY_METADATA_H( OBJ, METADATA )\
 	namespace OBJ ## Behavior {\
@@ -48,7 +48,7 @@ public:\
 			.traits = {\
 				.ticks = OBJ ## Behavior::Traits::ticks,\
 				.renders = OBJ ## Behavior::Traits::renders,\
-				.multithread = OBJ ## Behavior::Traits::multithread,\
+				.thread = OBJ ## Behavior::Traits::thread,\
 			},\
 			.initialize = OBJ ## Behavior::initialize,\
 			.tick = OBJ ## Behavior::tick,\

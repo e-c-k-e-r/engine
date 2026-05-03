@@ -23,7 +23,7 @@ namespace {
 #define UF_USE_EXTERNAL_IMAGE 1
 
 UF_BEHAVIOR_REGISTER_CPP(ext::RayTraceSceneBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, thread = uf::thread::asyncThreadName)
 #define this (&self)
 void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();

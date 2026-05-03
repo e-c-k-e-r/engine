@@ -9,7 +9,7 @@
 #include <mutex>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::BgmEmitterBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::BgmEmitterBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::BgmEmitterBehavior, ticks = true, renders = false, thread = uf::thread::asyncThreadName)
 #define this ((uf::Object*) &self)
 void ext::BgmEmitterBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::BgmEmitterBehavior::Metadata>();

@@ -19,7 +19,7 @@ namespace pod {
 		struct Traits {
 			bool ticks = true;
 			bool renders = true;
-			bool multithread = false;
+			uf::stl::string thread = "";
 		};
 		struct Metadata {
 		public:

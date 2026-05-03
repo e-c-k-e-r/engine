@@ -22,7 +22,7 @@
 #define ONE_OVER_SIXTY 0.016666f
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, thread = uf::thread::asyncThreadName)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
@@ -274,17 +274,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
 	if ( !stats.floored ) {
-	#if UF_USE_REACTPHYSICS
-		pod::Vector3f origin = transform.position + metadata.movement.floored.feet;
-		pod::Vector3f direction = metadata.movement.floored.floor;
-		pod::RayQuery query = uf::physics::rayCast( pod::Ray{origin, direction}, physicsBody, 1.0f );
-
-		if ( query.hit ) {
-			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("{}: {} | {}", query.contact.penetration, uf::string::toString(*query.body->object), uf::vector::toString(physicsBody.velocity));
-			stats.floored = true;
-			//if ( physicsBody.velocity.y < 0.0f ) physicsBody.velocity.y = 0.0f;
-		}
-	#else
 		if ( physicsBody.activity.grounded ) {
 			stats.floored = true;
 		}
@@ -299,7 +288,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			//if ( physicsBody.velocity.y < 0.0f ) physicsBody.velocity.y = 0.0f;
 		}
 		*/
-	#endif
 	}
 #if 0
 	TIMER(0.25, keys.use ) {
@@ -432,12 +420,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		TIMER(0.25, keys.vee ) {
 			bool state = !stats.noclipped;
 			metadata.system.noclipped = state;
-		#if UF_USE_REACTPHYSICS
-			if ( physicsBody.object ) {
-				physicsBody.collider.body->enableGravity(!state);
-				uf::physics::activateCollision(physicsBody, !state);
-			}
-		#else
 			if ( !state ) {
 				uf::physics::setGravity( physicsBody );
 				uf::physics::setColliderCategory( physicsBody, "ALL");
@@ -447,7 +429,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				uf::physics::setColliderCategory( physicsBody, "NONE");
 				uf::physics::setColliderMask( physicsBody, "NONE");
 			}
-		#endif
 			
 			stats.noclipped = state;
 			UF_MSG_DEBUG( "{}abled noclip: {}", (state ? "En" : "Dis"), uf::vector::toString(transform.position));

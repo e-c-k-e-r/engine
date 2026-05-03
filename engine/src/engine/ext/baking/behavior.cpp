@@ -25,7 +25,7 @@ namespace {
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 void ext::BakingBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN

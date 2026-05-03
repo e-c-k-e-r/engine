@@ -214,30 +214,6 @@ void UF_API uf::load( ext::json::Value& json ) {
 	}
 #endif
 
-
-	// set physics parameters
-#if UF_USE_REACTPHYSICS
-	auto& configEngineReactJson = json["engine"]["ext"]["reactphysics"];
-
-	ext::reactphysics::timescale = configEngineReactJson["timescale"].as( ext::reactphysics::timescale );
-	ext::reactphysics::interpolate = configEngineReactJson["interpolate"].as( ext::reactphysics::interpolate );
-	ext::reactphysics::shared = configEngineReactJson["shared"].as( ext::reactphysics::shared );
-	ext::reactphysics::globalStorage = configEngineReactJson["global storage"].as( ext::reactphysics::globalStorage );
-	
-	if ( configEngineReactJson["gravity"]["mode"].is<uf::stl::string>() ) {
-		const auto mode = uf::string::lowercase( configEngineReactJson["gravity"]["mode"].as<uf::stl::string>() );
-		if ( mode == "default" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::DEFAULT;
-		else if ( mode == "per-object" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::PER_OBJECT;
-		else if ( mode == "universal" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::UNIVERSAL;
-		else UF_MSG_WARNING("Invalid Gravity::Mode enum string specified: {}", mode);
-	}
-	ext::reactphysics::gravity::constant = configEngineReactJson["gravity"]["constant"].as( ext::reactphysics::gravity::constant );
-
-	ext::reactphysics::debugDraw::enabled = configEngineReactJson["debug draw"]["enabled"].as( ext::reactphysics::debugDraw::enabled );
-	ext::reactphysics::debugDraw::rate = configEngineReactJson["debug draw"]["rate"].as( ext::reactphysics::debugDraw::rate );
-	ext::reactphysics::debugDraw::layer = configEngineReactJson["debug draw"]["layer"].as( ext::reactphysics::debugDraw::layer );
-	ext::reactphysics::debugDraw::lineWidth = configEngineReactJson["debug draw"]["line width"].as( ext::reactphysics::debugDraw::lineWidth );
-#endif
 #if UF_USE_ULTRALIGHT
 	ext::ultralight::scale = json["engine"]["ext"]["ultralight"]["scale"].as( ext::ultralight::scale );
 	ext::ultralight::log = json["engine"]["ext"]["ultralight"]["log"].as( ext::ultralight::log );

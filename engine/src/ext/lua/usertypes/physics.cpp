@@ -13,15 +13,11 @@ namespace binds {
 
 	void enableGravity( pod::PhysicsBody& state, bool s ) {
 		if ( !state.object ) return;
-	#if UF_USE_REACTPHYSICS
-		state.collider.body->enableGravity(s);
-	#else
 		if ( s ) {
 			uf::physics::setGravity( state, pod::Vector3f{ 0, -9.81f, 0 } );
 		} else {
 			uf::physics::setGravity( state );
 		}
-	#endif
 	}
 	
 	void applyRotation( pod::PhysicsBody& state, const pod::Quaternion<>& q ) {

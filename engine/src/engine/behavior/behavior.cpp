@@ -53,15 +53,11 @@ void uf::Behaviors::generateGraph() {
 	uf::Object* self = (uf::Object*) this;
 	for ( auto& behavior : m_behaviors ) {
 		m_graph.initialize.emplace_back(behavior.initialize);
-	#if 1
 		if ( behavior.traits.ticks ) {
 			auto& f = behavior.tick;
-			if ( behavior.traits.multithread ) m_graph.tick.parallel.emplace_back(f); //m_graph.tickMT.emplace_back([f, self](){f(*self);});
+			if ( behavior.traits.thread != "" ) m_graph.tick.parallel.emplace_back(f); // to-do: tie to thread
 			else m_graph.tick.serial.emplace_back(f);
 		}
-	#else
-		if ( behavior.traits.ticks ) m_graph.tick.serial.emplace_back(behavior.tick);
-	#endif
 		if ( behavior.traits.renders ) m_graph.render.emplace_back(behavior.render);
 		m_graph.destroy.emplace_back(behavior.destroy);
 	}
@@ -98,19 +94,6 @@ void uf::Behaviors::tick() {
 //	if ( !m_graph.tickMT.empty() ) uf::thread::queue(m_graph.tickMT);
 	if ( m_graph.tick.serial.empty() && m_graph.tick.parallel.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
-#if 0
-	UF_TIMER_MULTITRACE_START("Starting tick: {}", uf::string::toString( self ));
-//	for ( auto& behavior : m_behaviors ) if ( behavior.traits.ticks ) UF_MSG_DEBUG( behavior.type.name() );
-	for ( auto& fun : m_graph.tick.serial ) {
-		fun(self);
-		UF_TIMER_MULTITRACE("");
-	}
-	for ( auto& fun : m_graph.tick.parallel ) {
-		fun(self);
-		UF_TIMER_MULTITRACE("");
-	}
-	UF_TIMER_MULTITRACE_END("Finished tick: {}", uf::string::toString( self ))
-#else
 	UF_TIMER_MULTITRACE_START("Starting tick: {}", uf::string::toString( self ));
 	for ( auto& behavior : m_behaviors ) {
 		if ( behavior.traits.ticks ) {
@@ -120,7 +103,6 @@ void uf::Behaviors::tick() {
 		}
 	}
 	UF_TIMER_MULTITRACE_END("Finished tick: {}", uf::string::toString( self ))
-#endif
 #else
 	UF_BEHAVIOR_POLYFILL(tick.serial)
 	UF_BEHAVIOR_POLYFILL(tick.parallel)
@@ -152,10 +134,3 @@ void uf::Behaviors::destroy() {
 	m_graph.render.clear();
 	m_graph.destroy.clear();
 }
-
-#if 0
-void pod::Behavior::Metadata::serialize( uf::Object&, uf::Serializer& ) {}
-void pod::Behavior::Metadata::serialize( uf::Object& self ) { return serialize( self, self.getComponent<uf::Serializer>() ); }
-void pod::Behavior::Metadata::deserialize( uf::Object&, uf::Serializer& ) {}
-void pod::Behavior::Metadata::deserialize( uf::Object& self ) { return deserialize( self, self.getComponent<uf::Serializer>() ); }
-#endif

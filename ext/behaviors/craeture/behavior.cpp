@@ -20,7 +20,7 @@
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::CraetureBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::CraetureBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::CraetureBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 namespace {
 	void load( uf::Object& self, const uf::Image& image ) {

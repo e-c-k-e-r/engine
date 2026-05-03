@@ -118,7 +118,7 @@ UF_OBJECT_REGISTER_BEGIN(ext::Gui)
 UF_OBJECT_REGISTER_END()
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();

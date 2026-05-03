@@ -1,4 +1,3 @@
-#if !UF_USE_REACTPHYSICS
 #include <uf/utils/math/physics/impl.h>
 #include <uf/engine/scene/scene.h>
 
@@ -559,5 +558,4 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 
 #if UF_PHYSICS_TEST
 	#include "tests.inl"
-#endif
 #endif

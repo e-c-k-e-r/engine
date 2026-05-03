@@ -105,11 +105,6 @@ ifneq (,$(findstring lua,$(REQ_DEPS)))
 	endif
 endif
 
-ifneq (,$(findstring reactphysics,$(REQ_DEPS)))
-	FLAGS += -DUF_USE_REACTPHYSICS
-	DEPS  += -lreactphysics3d
-endif
-
 ifneq (,$(findstring simd,$(REQ_DEPS)))
 	ifeq (,$(findstring dreamcast,$(ARCH)))
 		FLAGS += -DUF_USE_SIMD -DUF_ALIGN_FOR_SIMD -DUF_MATRIX_ALIGNED
