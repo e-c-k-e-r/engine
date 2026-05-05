@@ -2,7 +2,8 @@
 	"name": "Gui: Menu",
 	"type": "Gui",
 	"behaviors": [
-		"GuiBehavior"
+		"GuiBehavior",
+		"ImguiBehavior"
 	],
 	"ignore": false,
 	"transform": {

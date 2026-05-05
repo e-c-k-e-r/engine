@@ -81,6 +81,25 @@ uf::stl::vector<const char*> uf::string::cStrings( const uf::stl::vector<uf::stl
 	return v;
 }
 
+uf::stl::string uf::string::ltrim( const uf::stl::string& str ) {
+	auto s = str;
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+    return s;
+}
+
+uf::stl::string uf::string::rtrim( const uf::stl::string& str ) {
+	auto s = str;
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+    return s;
+}
+uf::stl::string uf::string::trim( const uf::stl::string& str ) {
+	return uf::string::rtrim( uf::string::ltrim( str ) );
+}
+
 uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
 	uf::stl::string result = string;
 

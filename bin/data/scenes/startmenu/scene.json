@@ -3,6 +3,7 @@
 	"behaviors": [
 		"SceneBehavior",
 		"ExtSceneBehavior",
+		"ImguiBehavior",
 		"BgmEmitterBehavior"
 	],
 	"assets": [
