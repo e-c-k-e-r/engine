@@ -12,8 +12,7 @@ namespace impl {
 
 		// transform to local space for BVH query
 		auto bounds = impl::transformAabbToLocal( body.bounds, impl::getTransform( hull ) );
-		static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-		candidates.clear();
+		STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 		impl::queryBVH( bvh, bounds, candidates );
 
 		bool hit = false;
@@ -60,8 +59,7 @@ bool impl::hullHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	auto tB = impl::getTransform( b );
 	auto relTransform = uf::transform::relative( tA, tB );
 
-	static thread_local pod::BVH::pairs_t pairs;
-	pairs.clear();
+	STATIC_THREAD_LOCAL(pod::BVH::pairs_t, pairs);
 	impl::queryOverlaps( bvhA, bvhB, relTransform, pairs );
 
 	bool hit = false;

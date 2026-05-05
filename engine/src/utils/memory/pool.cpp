@@ -63,7 +63,11 @@ void uf::memoryPool::initialize( pod::MemoryPool& pool, size_t size, pod::Memory
 
 	pool.size = size;
 	pool.strategy = strategy;
-	pool.memory = uf::allocator::malloc_m(size);
+	if ( uf::memoryPool::subPool && &pool != &uf::memoryPool::global.data() ) {
+		pool.memory = uf::memoryPool::global.alloc( size );
+	} else {
+		pool.memory = uf::allocator::malloc_m( size );
+	}
 	UF_ASSERT( pool.memory );
 
 	switch ( pool.strategy ) {
@@ -130,11 +134,11 @@ void uf::memoryPool::initialize( pod::MemoryPool& pool, size_t size, pod::Memory
 	}
 }
 void uf::memoryPool::destroy( pod::MemoryPool& pool ) {
-	if ( uf::memoryPool::size( pool ) <= 0 ) goto CLEAR;
+	if ( uf::memoryPool::size( pool ) <= 0 || !pool.memory ) goto CLEAR;
 	if ( uf::memoryPool::subPool && &pool != &uf::memoryPool::global.data() ) {
-		uf::memoryPool::global.free( pool.memory );
+		uf::memoryPool::global.free( pool.memory, pool.size );
 	} else {
-		uf::allocator::free_m(pool.memory);
+		uf::allocator::free_m( pool.memory, pool.size );
 	}
 
 	// per-pool destruction
@@ -293,14 +297,14 @@ RETURN:
 }
 
 bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
-	if (!pointer) return false;
+	if ( !pointer ) return false;
 #if UF_MEMORYPOOL_MUTEX
 	std::lock_guard<std::mutex> lock(pool.mutex);
 #endif
 	bool oob = !exists( pool, pointer, size );
 	if ( oob ) goto MANUAL_FREE;
 
-	switch (pool.strategy) {
+	switch ( pool.strategy ) {
 		case pod::MemoryPool::Strategy::LINEAR: {
 			UF_EXCEPTION("cannot free individual allocation");
 			return false;
@@ -322,13 +326,13 @@ bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
 			goto RETURN;
 		}
 		case pod::MemoryPool::Strategy::BUDDY: {
-			UF_ASSERT(size > 0);
+			UF_ASSERT( size > 0 );
 			void* block = pointer;
 
 			// attempt to merge with buddies
 			size_t currentSize = pool.state.buddy.minBlockSize;
 			size_t level = getTargetLevel(size, currentSize, pool.state.buddy.maxLevel);
-			while (level < pool.state.buddy.maxLevel) {
+			while ( level < pool.state.buddy.maxLevel ) {
 				void* buddy = getBuddy(block, currentSize, pool.memory);
 
 				// search for buddy in the current level's free list
@@ -382,11 +386,11 @@ MANUAL_FREE:
 #endif
 
 #if UF_MEMORYPOOL_INVALID_FREE
-	UF_MSG_DEBUG("manually freeing {}", pointer);
+	UF_MSG_DEBUG("memory pool {}: manually freeing {}", (void*) &pool, pointer );
 	uf::allocator::free_m(pointer);
 	return true;
 #else
-	UF_EXCEPTION("cannot free: {}", pointer);
+	UF_ASSERT("cannot free: {}", pointer);
 	return false;
 #endif
 
@@ -420,12 +424,14 @@ uf::stl::string uf::memoryPool::stats( const pod::MemoryPool& pool ) {
 	metadata["pool"] = ss.str();
 	return metadata;
 }
+/*
 pod::Allocation& uf::memoryPool::fetch( pod::MemoryPool& pool, void* pointer, size_t size ) {
 	UF_EXCEPTION("unimplemented");
 }
 const pod::MemoryPool::allocations_t& uf::memoryPool::allocations( const pod::MemoryPool& pool ) {
 	UF_EXCEPTION("unimplemented")
 }
+*/
 //
 uf::MemoryPool::MemoryPool( size_t size ) {
 	if ( size > 0 ) this->initialize( size );

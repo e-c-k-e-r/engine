@@ -447,7 +447,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( stats.walking ) {
 			float factor = stats.floored ? 1.0f : speed.air;
 			if ( stats.noclipped ) {
-				physicsBody.velocity += target * speed.move * ONE_OVER_SIXTY;
+				physicsBody.velocity += target * speed.move * 50 * ONE_OVER_SIXTY;
 			} else {
 				physicsBody.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physicsBody.velocity, target ), 0.0f, speed.move * 10 * ONE_OVER_SIXTY /*uf::physics::time::delta*/ );
 			}

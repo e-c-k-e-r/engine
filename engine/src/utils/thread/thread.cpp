@@ -71,10 +71,18 @@ uf::stl::vector<pod::Thread*> uf::thread::execute( pod::Thread::Tasks& tasks ) {
 	if ( tasks.container.empty() ) return workers;
 
 	if ( tasks.name == uf::thread::mainThreadName ) {
+	#if UF_THREAD_METRICS
+		auto& thread = uf::thread::get( uf::thread::mainThreadName );
+		uint32_t tasksThisFrame = 0;
 		for ( auto& task : tasks.container ) {
 			task();
+			++tasksThisFrame;
 		}
 		tasks.container.clear();
+		thread.metrics.tasksProcessed.store(tasksThisFrame, std::memory_order_relaxed);
+	#else
+		for ( auto& task : tasks.container ) task();
+	#endif
 	} else {
 		for ( auto& task : tasks.container ) {
 			auto& worker = uf::thread::fetchWorker( tasks.name );
@@ -114,10 +122,8 @@ void uf::thread::queue( pod::Thread& thread, const pod::Thread::function_t& func
 	thread.conditions.queued.notify_one();
 }
 void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.name) ) return; // ops
-	static thread_local pod::Thread::container_t local_queue;
-	static thread_local pod::Thread::container_t local_container;
-	local_queue.clear();
-	local_container.clear();
+	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_queue);
+	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_container);
 
 #if UF_THREAD_METRICS
 	uint32_t tasksThisFrame = 0;

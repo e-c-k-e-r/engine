@@ -23,11 +23,7 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 
-#if UF_USE_OPENGL
-	#define UF_GRAPH_SPARSE_READ_MESH 1
-#else
-	#define UF_GRAPH_SPARSE_READ_MESH 1
-#endif
+#define UF_GRAPH_SPARSE_READ_MESH 1
 #define UF_GRAPH_EXTENDED 1
 
 namespace {
@@ -1401,21 +1397,19 @@ void uf::graph::tick( uf::Object& object ) {
 bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	bool rebuild = false;
 
-	static thread_local uf::stl::vector<pod::Instance> instances;
-	static thread_local uf::stl::vector<pod::Instance::Addresses> instanceAddresses;
-	static thread_local uf::stl::vector<pod::LODMetadata> lodMetadata;
-	static thread_local uf::stl::vector<pod::Matrix4f> joints;
-	static thread_local uf::stl::vector<pod::Instance::Object> objects;
-	static thread_local uf::stl::vector<pod::Material> materials;
-	static thread_local uf::stl::vector<pod::Texture> textures;
-	static thread_local uf::stl::vector<pod::DrawCommand> drawCommands;
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance>, instances);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Addresses>, instanceAddresses);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::LODMetadata>, lodMetadata);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Matrix4f>, joints);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Object>, objects);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Material>, materials);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Texture>, textures);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::DrawCommand>, drawCommands);
 
-	joints.clear();
 	for ( auto& key : storage.joints.keys ) {
 		joints.insert( joints.end(), storage.joints.map[key].begin(), storage.joints.map[key].end() );
 	}
 
-	objects.clear();
 	for ( auto& key : storage.objects.keys ) {
 		auto& entity = *storage.entities.map[key];
 		auto& object = storage.objects.map[key];
@@ -1437,10 +1431,6 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	rebuild = storage.buffers.object.update( (const void*) objects.data(), objects.size() * sizeof(pod::Instance::Object) ) || rebuild;
 
 	if ( ::newGraphAdded ) {
-		drawCommands.clear();
-		instances.clear();
-		lodMetadata.clear();
-		
 		for ( auto& key : storage.primitives.keys ) {
 			for ( auto& primitive : storage.primitives[key] ) {
 				drawCommands.emplace_back( primitive.drawCommand );
@@ -1449,15 +1439,12 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 			}
 		}
 
-		instanceAddresses.clear();
 		for ( auto& key : storage.instanceAddresses.keys ) {
 			instanceAddresses.insert( instanceAddresses.end(), storage.instanceAddresses.map[key].begin(), storage.instanceAddresses.map[key].end() );
 		}
 
-		textures.clear();
 		for ( auto& key : storage.textures.keys ) textures.emplace_back( storage.textures.map[key] );
 
-		materials.clear();
 		for ( auto& key : storage.materials.keys ) materials.emplace_back( storage.materials.map[key] );
 
 		rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;

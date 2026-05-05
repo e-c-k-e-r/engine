@@ -296,7 +296,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				meshgrid.metadata = value["grid"];
 			});
 
-		#if UF_USE_MESHOPT
+		#if 0 && UF_USE_MESHOPT
 			// cleanup if blender's exporter is poopy
 			if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
 				if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
@@ -518,7 +518,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 #endif
 #if UF_USE_MESHOPT
 	// cleanup if blender's exporter is poopy
-	if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+	if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" || ext::json::isObject( graph.metadata["exporter"]["optimize"] ) ) {
 		UF_MSG_DEBUG( "Optimizing meshes..." );
 		for ( auto& keyName : graph.meshes ) {
 			size_t level = SIZE_MAX;
@@ -544,6 +544,11 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				});
 
 				if ( !should ) continue;
+			} else if ( ext::json::isObject( graph.metadata["exporter"]["optimize"] ) ) {
+				level = graph.metadata["exporter"]["optimize"]["level"].as( level );
+				simplify = graph.metadata["exporter"]["optimize"]["simplify"].as( simplify );
+				print = graph.metadata["exporter"]["optimize"]["print"].as( print );
+				lods = graph.metadata["exporter"]["optimize"]["lods"].as( lods );
 			}
 
 			auto& mesh = storage.meshes[keyName];
@@ -559,7 +564,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				} else {
 					UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
 					auto& primitives = storage.primitives[keyName];
-                    UF_ASSERT( primitives.size() == lodMetadata.size() );
+					UF_ASSERT( primitives.size() == lodMetadata.size() );
 					for ( auto i = 0; i < primitives.size(); ++i ) primitives[i].lod = lodMetadata[i];
 				}
 			}

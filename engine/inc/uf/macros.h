@@ -143,6 +143,12 @@
 	#define UF_MSG(...) {}
 #endif
 
+#if 1
+	#define STATIC_THREAD_LOCAL(T, name) T name;
+#else
+	#define STATIC_THREAD_LOCAL(T, name) static thread_local T name; name.clear();
+#endif
+
 #ifndef UF_DEBUG
 	#define UF_DEBUG 1
 #endif

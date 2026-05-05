@@ -65,7 +65,7 @@ namespace pod {
 		alignas(4) uint32_t indices = 0; // triangle count
 		alignas(4) uint32_t instances = 0; // instance count
 		alignas(4) uint32_t indexID = 0; // starting triangle position
-		alignas(4)  int32_t vertexID = 0; // starting vertex position
+		alignas(4) uint32_t vertexID = 0; // starting vertex position
 		alignas(4) uint32_t instanceID = 0; // starting instance position
 		// extra data for padding
 		alignas(4) uint32_t auxID = 0; // used for storing which grid this belongs to when slicing, otherwise unused
@@ -77,7 +77,9 @@ namespace pod {
 	struct UF_API LODMetadata {
 		struct Level {
 			alignas(4) uint32_t indices = 0;
+			alignas(4) uint32_t vertexID = 0;
 			alignas(4) uint32_t indexID = 0;
+			alignas(4) uint32_t vertices = 0;
 		} levels[4];
 	};
 

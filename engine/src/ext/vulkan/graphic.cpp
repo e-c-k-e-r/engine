@@ -399,8 +399,7 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
 
 	// create dynamic offset ranges
-	static thread_local uf::stl::vector<uint32_t> dynamicOffsets;
-	dynamicOffsets.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<uint32_t>, dynamicOffsets);
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 

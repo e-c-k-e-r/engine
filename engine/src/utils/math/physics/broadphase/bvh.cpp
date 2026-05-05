@@ -68,7 +68,7 @@ pod::BVH::index_t impl::buildBVHNode_SAH( pod::BVH& bvh, const uf::stl::vector<p
 	}
 
 	constexpr auto numBins = 16;
-	static thread_local Bin bins[numBins];
+	static thread_local Bin bins[numBins]; // do I even need to make this a static buffer......
 
 	auto extent = bound.max - bound.min;
 	auto bestAxis = -1, bestSplit = -1;
@@ -813,8 +813,7 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::B
 	if ( nodesA.empty() || nodesB.empty() ) return;
 	outPairs.reserve(uf::physics::settings.reserveCount);
 
-	static thread_local uf::stl::vector<std::pair<pod::BVH::index_t, pod::BVH::index_t>> stack;
-	stack.clear();
+	STATIC_THREAD_LOCAL(pod::BVH::pairs_t, stack);
 	stack.emplace_back(0, 0);
 
 	while ( !stack.empty() ) {
@@ -879,8 +878,7 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const 
 	if ( nodesA.empty() || nodesB.empty() ) return;
 	outPairs.reserve(uf::physics::settings.reserveCount);
 
-	static thread_local uf::stl::vector<std::pair<pod::BVH::index_t, pod::BVH::index_t>> stack;
-	stack.clear();
+	STATIC_THREAD_LOCAL(pod::BVH::pairs_t, stack);
 	stack.emplace_back(0, 0);
 
 	while ( !stack.empty() ) {

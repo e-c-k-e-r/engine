@@ -13,8 +13,7 @@ bool impl::meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 	// transform to local space for BVH query
 	auto bounds = impl::transformAabbToLocal( aabb.bounds, impl::getTransform( mesh ) );
-	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-	candidates.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 	impl::queryBVH( bvh, bounds, candidates );
 
 	bool hit = false;
@@ -37,8 +36,7 @@ bool impl::meshSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 
 	// transform to local space for BVH query
 	auto bounds = impl::transformAabbToLocal( sphere.bounds, impl::getTransform( mesh ) );		
-	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-	candidates.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 	impl::queryBVH( bvh, bounds, candidates );
 
 	bool hit = false;
@@ -63,8 +61,7 @@ bool impl::meshPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 
 	// transform to local space for BVH query
 	auto bounds = impl::transformAabbToLocal( plane.bounds, impl::getTransform( mesh ) );		
-	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-	candidates.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 	impl::queryBVH( bvh, bounds, candidates );
 
 	bool hit = false;
@@ -88,8 +85,7 @@ bool impl::meshCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 
 	// transform to local space for BVH query
 	auto bounds = impl::transformAabbToLocal( capsule.bounds, impl::getTransform( mesh ) );		
-	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-	candidates.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 	impl::queryBVH( bvh, bounds, candidates );
 
 	bool hit = false;
@@ -117,8 +113,7 @@ bool impl::meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	auto relTransform = uf::transform::relative( tA, tB );
 
 	// compute overlaps between one BVH and another BVH
-	static thread_local pod::BVH::pairs_t pairs;
-	pairs.clear();
+	STATIC_THREAD_LOCAL(pod::BVH::pairs_t, pairs);
 
 	impl::queryOverlaps( bvhA, bvhB, relTransform, pairs );
 
@@ -152,8 +147,7 @@ bool impl::meshHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	auto relTransform = uf::transform::relative( tA, tB );
 
 	// compute overlaps between one BVH and another BVH
-	static thread_local pod::BVH::pairs_t pairs;
-	pairs.clear();
+	STATIC_THREAD_LOCAL(pod::BVH::pairs_t, pairs);
 	impl::queryOverlaps( bvhA, bvhB, relTransform, pairs );
 
 	bool hit = false;

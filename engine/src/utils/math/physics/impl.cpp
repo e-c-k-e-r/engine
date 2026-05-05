@@ -133,8 +133,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 	// iterate islands
 	#pragma omp parallel for schedule(dynamic)
 	for ( auto& island : islands ) {
-		static thread_local uf::stl::vector<pod::Manifold> manifolds;
-		manifolds.clear();
+		STATIC_THREAD_LOCAL(uf::stl::vector<pod::Manifold>, manifolds);
 		manifolds.reserve(uf::physics::settings.reserveCount);
 
 		// sleeping island, skip (asleep islands shouldn't ever be in here)
@@ -533,8 +532,7 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 	auto& staticBvh = world.staticBvh;
 	auto& bodies = world.bodies;
 
-	static thread_local uf::stl::vector<pod::BVH::index_t> candidates;
-	candidates.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
 	impl::queryBVH( dynamicBvh, ray, candidates );
 	if ( uf::physics::settings.useSplitBvhs ) impl::queryBVH( staticBvh, ray, candidates );
 

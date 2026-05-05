@@ -48,8 +48,8 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 	}
 
 	// map root to island index
-	static thread_local uf::stl::unordered_map<pod::BVH::index_t, pod::BVH::index_t> rootToIsland;
-	rootToIsland.clear();
+	typedef uf::stl::unordered_map<pod::BVH::index_t, pod::BVH::index_t> map_t;
+	STATIC_THREAD_LOCAL(map_t, rootToIsland);
 
 	islands.clear();
 	islands.reserve(bodies.size());

@@ -51,11 +51,11 @@ void uf::MemoryPool::destroy() { return uf::memoryPool::destroy( m_pod ); }
 //void* uf::MemoryPool::alloc( size_t size, void* data/*, size_t alignment*/ ) { return uf::memoryPool::alloc( m_pod, data, size/*, alignment*/ ); }
 pod::Allocation uf::MemoryPool::allocate( size_t size/*, size_t alignment*/ ) { return uf::memoryPool::allocate( m_pod, size/*, alignment*/ ); }
 void* uf::MemoryPool::alloc( size_t size/*, size_t alignment*/ ) { return uf::memoryPool::alloc( m_pod, size/*, alignment*/ ); }
-pod::Allocation& uf::MemoryPool::fetch( void* data, size_t size ) { return uf::memoryPool::fetch( m_pod, data, size ); }
+//pod::Allocation& uf::MemoryPool::fetch( void* data, size_t size ) { return uf::memoryPool::fetch( m_pod, data, size ); }
 bool uf::MemoryPool::exists( void* data, size_t size ) { return uf::memoryPool::exists( m_pod, data, size ); }
 bool uf::MemoryPool::free( void* data, size_t size ) { return uf::memoryPool::free( m_pod, data, size ); }
 
-const pod::MemoryPool::allocations_t& uf::MemoryPool::allocations() const { return uf::memoryPool::allocations( m_pod ); }
+//const pod::MemoryPool::allocations_t& uf::MemoryPool::allocations() const { return uf::memoryPool::allocations( m_pod ); }
 inline pod::MemoryPool& uf::MemoryPool::data() { return m_pod; }
 inline const pod::MemoryPool& uf::MemoryPool::data() const { return m_pod; }
 

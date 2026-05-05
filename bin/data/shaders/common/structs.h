@@ -84,7 +84,7 @@ struct DrawCommand {
 	uint indices; // triangle count
 	uint instances; // instance count
 	uint indexID; // starting triangle position
-	 int vertexID; // starting vertex position
+	uint vertexID; // starting vertex position
 
 	uint instanceID; // starting instance position
 	float padding1; //
@@ -101,7 +101,9 @@ struct Bounds {
 
 struct LOD {
 	uint indices;
+	uint vertexID;
 	uint indexID;
+	uint vertices;
 };
 
 struct LODMetadata {

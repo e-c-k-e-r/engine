@@ -208,15 +208,14 @@ void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 	current->queueDeletion();
 	
-	// destroy phyiscs state
+	// destroy graph
 	if ( current->hasComponent<pod::Graph::Storage>() ) {
 		uf::graph::destroy( current->getComponent<pod::Graph::Storage>() );
 	}
-	#if 0
-	if ( current->hasComponent<uf::physics::WorldState>() ) {
+	// destroy physics state
+	if ( current->hasComponent<pod::World>() ) {
 		uf::physics::destroy( *current );
 	}
-	#endif
 
 	// mark rendermodes as disabled immediately
 	auto graph = current->getGraph(true);

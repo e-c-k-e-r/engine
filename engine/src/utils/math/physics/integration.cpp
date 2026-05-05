@@ -152,8 +152,7 @@ bool impl::similarContact( const pod::Contact& a, const pod::Contact& b, float d
 void impl::reduceContacts( pod::Manifold& manifold ) {
 	if ( manifold.points.size() <= 4 ) return;
 
-	static thread_local uf::stl::vector<pod::Contact> result;
-	result.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Contact>, result);
 	result.reserve(4);
 
 	for ( auto& c : manifold.points ) {
@@ -184,8 +183,7 @@ void impl::reduceContacts( pod::Manifold& manifold ) {
 }
 
 void impl::mergeContacts( pod::Manifold& manifold ) {
-	static thread_local uf::stl::vector<pod::Contact> result;
-	result.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Contact>, result);
 	result.reserve(4);
 
 	for ( auto& c : manifold.points ) {

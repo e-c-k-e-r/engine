@@ -221,8 +221,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 }
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
-	static thread_local uf::stl::vector<ext::vulkan::Graphic*> graphics;
-	graphics.clear();
+	STATIC_THREAD_LOCAL(uf::stl::vector<ext::vulkan::Graphic*>, graphics);
 	
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto/*&*/ graph = scene.getGraph();

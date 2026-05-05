@@ -390,18 +390,18 @@ void UF_API uf::initialize() {
 		if ( size <= 0 || uf::memoryPool::subPool ) {
 			{
 				size_t size = deduceSize( configMemoryPoolJson["pools"]["component"] );
-				UF_MSG_DEBUG("Requesting {} bytes for component memory pool: {}", (int) size, (void*) &uf::component::memoryPool);
 				uf::component::memoryPool.initialize( size );
+				UF_MSG_DEBUG("Requested {} bytes for component memory pool: {}", (int) size, uf::component::memoryPool.data().memory);
 			}
 			{
 				size_t size = deduceSize( configMemoryPoolJson["pools"]["userdata"] );
-				UF_MSG_DEBUG("Requesting {} bytes for userdata memory pool: {}", (int) size, (void*) &uf::userdata::memoryPool);
 				uf::userdata::memoryPool.initialize( size );
+				UF_MSG_DEBUG("Requested {} bytes for userdata memory pool: {}", (int) size, uf::userdata::memoryPool.data().memory);
 			}
 			{
 				size_t size = deduceSize( configMemoryPoolJson["pools"]["entity"] );
-				UF_MSG_DEBUG("Requesting {} bytes for entity memory pool: {}", (int) size, (void*) &uf::Entity::memoryPool);
 				uf::Entity::memoryPool.initialize( size, pod::MemoryPool::Strategy::POOL, sizeof(uf::Entity) );
+				UF_MSG_DEBUG("Requested {} bytes for entity memory pool: {}", (int) size, uf::Entity::memoryPool.data().memory);
 			}
 		}
 		uf::allocator::override = configMemoryPoolJson["override"].as( uf::allocator::override );
@@ -873,7 +873,7 @@ void UF_API uf::tick() {
 		#if UF_ENV_DREAMCAST
 			DC_STATS();
 		#endif
-		#if UF_THREAD_METRICS
+		#if 0 && UF_THREAD_METRICS
 			auto metrics = uf::thread::collectStats();
 			for ( auto& [ name, stats ] : metrics ) UF_MSG_DEBUG("Thread {}: active={}, idle={}, total={}, tasks={}", name, std::get<0>(stats), std::get<1>(stats), std::get<2>(stats), std::get<3>(stats) );
 		#endif
@@ -993,9 +993,6 @@ void UF_API uf::terminate() {
 	{
 		uf::scene::destroy();
 	}
-	/* Kill physics */ {
-	//	uf::physics::terminate();
-	}
 	/* Garbage collection */ if ( /*global*/::config.engine.gc.enabled ) {
 		size_t collected = uf::instantiator::collect( /*global*/::config.engine.gc.mode );
 		if ( collected > 0 ) {
@@ -1017,6 +1014,14 @@ void UF_API uf::terminate() {
 			ext::al::destroy();
 		}
 	#endif
+
+	/* Destroy memory pools */ {
+		uf::component::memoryPool.destroy();
+		uf::userdata::memoryPool.destroy();
+		uf::Entity::memoryPool.destroy();
+
+		uf::memoryPool::global.destroy(); // should probably leave this to be statically destructed
+	}
 
 	/* Print system stats */ {
 		/*global*/::times.total.time = /*global*/::times.sys.elapsed().asDouble();

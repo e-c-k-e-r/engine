@@ -60,11 +60,11 @@ namespace pod {
 			} buddy;
 		} state;
 
-		typedef std::vector<pod::Allocation, uf::Mallocator<pod::Allocation>> allocations_t;
 	#if UF_MEMORYPOOL_MUTEX
 		std::mutex mutex;
 	#endif
 	#if UF_MEMORYPOOL_STORE_ORPHANS
+		typedef std::vector<pod::Allocation, uf::Mallocator<pod::Allocation>> allocations_t;
 		allocations_t orphaned;
 	#endif
 	};
@@ -88,11 +88,11 @@ namespace uf {
 		pod::Allocation UF_API allocate( pod::MemoryPool&, size_t, size_t alignment = uf::memoryPool::alignment );
 		void* UF_API alloc( pod::MemoryPool&, size_t, size_t alignment = uf::memoryPool::alignment );
 
-		pod::Allocation& UF_API fetch( pod::MemoryPool&, void*, size_t = 0 );
+	//	pod::Allocation& UF_API fetch( pod::MemoryPool&, void*, size_t = 0 );
 		bool UF_API exists( pod::MemoryPool&, void*, size_t = 0 );
 		bool UF_API free( pod::MemoryPool&, void*, size_t = 0 );
 
-		const pod::MemoryPool::allocations_t& UF_API allocations( const pod::MemoryPool& );
+	//	const pod::MemoryPool::allocations_t& UF_API allocations( const pod::MemoryPool& );
 		
 		template<typename T> T& alloc( pod::MemoryPool&, const T& = T()/*, size_t alignment = uf::memoryPool::alignment*/ );
 		template<typename T> pod::Allocation allocate( pod::MemoryPool&, const T& = T()/*, size_t alignment = uf::memoryPool::alignment*/ );
@@ -120,11 +120,11 @@ namespace uf {
 	//	inline void* alloc( size_t size, void* data = NULL/*, size_t alignment = uf::memoryPool::alignment*/ );
 		inline pod::Allocation allocate( size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
 		inline void* alloc( size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
-		inline pod::Allocation& fetch( void* data, size_t size = 0 );
+	//	inline pod::Allocation& fetch( void* data, size_t size = 0 );
 		inline bool exists( void* data, size_t size = 0 );
 		inline bool free( void* data, size_t size );
 		
-		inline const pod::MemoryPool::allocations_t& allocations() const;
+	//	inline const pod::MemoryPool::allocations_t& allocations() const;
 		inline pod::MemoryPool& data();
 		inline const pod::MemoryPool& data() const;
 

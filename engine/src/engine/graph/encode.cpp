@@ -142,6 +142,8 @@ namespace {
 			auto& value = json.emplace_back();
 			value["indices"] = lodMetadata.levels[i].indices;
 			value["indexID"] = lodMetadata.levels[i].indexID;
+			value["vertexID"] = lodMetadata.levels[i].vertexID;
+			value["vertices"] = lodMetadata.levels[i].vertices;
 		}
 		return json;
 	}

@@ -2,7 +2,7 @@
 #if UF_USE_XATLAS
 #include <xatlas/xatlas.h>
 
-#define UF_XATLAS_UNWRAP_MULTITHREAD 0 // prone to crashing
+#define UF_XATLAS_UNWRAP_MULTITHREAD 1 // prone to crashing
 
 size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 	struct Entry {

@@ -182,23 +182,25 @@ void main() {
 #endif
 #if LODS
 	if ( isVisible ) {
-        vec3 viewCenter = (camera.viewport[0].view * vec4(worldCenter, 1.0)).xyz;
+		vec3 viewCenter = (camera.viewport[0].view * vec4(worldCenter, 1.0)).xyz;
+		float dist = length(viewCenter);
+		float P11 = abs(camera.viewport[0].projection[1][1]);
+		float projectedSize = (worldRadius * P11) / max(dist, 0.001);
 
-        float P11 = camera.viewport[0].projection[1][1];
-
-        float screenRadius = (worldRadius * P11) / max(abs(viewCenter.z), 0.001);
-
-        uint lodLevel = 0;
-        if ( screenRadius < 0.5 )  lodLevel = 1;
-        if ( screenRadius < 0.2 )  lodLevel = 2;
-        if ( screenRadius < 0.05 ) lodLevel = 3;
-        lodLevel = min(lodLevel, MAX_LODS - 1);
+		uint lodLevel = 0;
+		if ( projectedSize < 0.20 ) lodLevel = 1;
+		if ( projectedSize < 0.08 ) lodLevel = 2;
+		if ( projectedSize < 0.02 ) lodLevel = 3;
+		lodLevel = min(lodLevel, MAX_LODS - 1);
+		lodLevel = 3;
 
 		LOD lod = lodMetadata[drawCommand.instanceID].levels[lodLevel];
 
 		if ( lod.indices > 0 ) {
 			drawCommands[gID].indices = lod.indices;
 			drawCommands[gID].indexID = lod.indexID;
+			drawCommands[gID].vertexID = lod.vertexID;
+			drawCommands[gID].vertices = lod.vertices;
 		}
 	}
 #endif

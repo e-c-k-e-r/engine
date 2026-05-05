@@ -1,31 +1,54 @@
 #include <uf/utils/memory/allocator.h>
 #include <uf/utils/memory/pool.h>
 
-#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
 bool uf::allocator::override = false;
+
 void* uf::allocator::allocate( size_t n ) {
-	return uf::memoryPool::global.size() > 0 && uf::allocator::override ? uf::memoryPool::global.alloc( n ) : malloc( n );
+	if ( override && uf::memoryPool::global.size() > 0 ) return uf::memoryPool::global.alloc( n );
+	return std::malloc( n );
 }
 
 void uf::allocator::deallocate( void* p, size_t n ) {
-	if ( uf::memoryPool::global.size() > 0 && uf::allocator::override ) uf::memoryPool::global.free( p );
-	else free( p );
-}
+	if ( !p ) return;
 
+	if ( override && uf::memoryPool::global.size() > 0 ) uf::memoryPool::global.free( p, n );
+	else std::free( p );
+}
 
 void* uf::allocator::malloc_m( size_t n ) {
 	return std::malloc( n );
 }
-void uf::allocator::free_m( void* p, size_t n ) {
+
+void uf::allocator::free_m( void* p, size_t /*n*/ ) {
 	std::free( p );
 }
 
-//
 #if UF_MEMORYPOOL_OVERRIDE_NEW_DELETE
 void* operator new( size_t n ) {
-	return uf::allocator::allocate( n );
+	void* p = uf::allocator::allocate( n );
+	if ( !p ) throw std::bad_alloc();
+	return p;
 }
-void operator delete( void* p ) {
-	uf::allocator::deallocate( p );
+
+void operator delete( void* p ) noexcept {
+	uf::allocator::deallocate( p, 0 );
+}
+
+void* operator new[]( size_t n ) {
+	void* p = uf::allocator::allocate( n );
+	if ( !p ) throw std::bad_alloc();
+	return p;
+}
+
+void operator delete[]( void* p ) noexcept {
+	uf::allocator::deallocate( p, 0 );
+}
+
+void operator delete( void* p, size_t n ) noexcept {
+	uf::allocator::deallocate( p, n );
+}
+
+void operator delete[]( void* p, size_t n ) noexcept {
+	uf::allocator::deallocate( p, n );
 }
 #endif

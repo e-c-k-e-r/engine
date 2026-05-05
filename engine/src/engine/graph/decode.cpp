@@ -14,7 +14,7 @@
 #if UF_USE_OPENGL
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
+	#define UF_GRAPH_LOAD_MULTITHREAD 1
 #endif
 
 #define UF_GRAPH_EXTENDED 1
@@ -190,6 +190,8 @@ namespace {
 		ext::json::forEach( json, [&]( size_t i, ext::json::Value& value ){
 			lodMetadata.levels[i].indices = value["indices"].as( lodMetadata.levels[i].indices );
 			lodMetadata.levels[i].indexID = value["indexID"].as( lodMetadata.levels[i].indexID );
+			lodMetadata.levels[i].vertices = value["vertices"].as( lodMetadata.levels[i].vertices );
+			lodMetadata.levels[i].vertexID = value["vertexID"].as( lodMetadata.levels[i].vertexID );
 		});
 		return lodMetadata;
 	}
