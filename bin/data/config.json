@@ -309,21 +309,6 @@
 				"jitter scale": 0.0625,
 				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
-			"reactphysics": {
-				"global storage": false,
-				"timescale": 0.01666666666, // 0.03333333333,
-				"interpolate": true,
-				"gravity": {
-					"mode": "default", // default / per-object / universal
-					"constant": 6.67408e-11
-				},
-				"debug draw": {
-					"enabled": false,
-					"line width": 8,
-					"layer": "Gui",
-					"rate": 0.0125
-				}
-			},
 			"vr" :  {
 				"enable" : false,
 				"manifest": "./data/openvr_manifest.json",
@@ -349,7 +334,7 @@
 			}
 		},
 		"memory pool": {
-			"enabled": true, // needs to be kept on for GC
+			"enabled": true,
 			"subPools": true,
 			"alignment": 64,
 			"override": true,
@@ -363,7 +348,7 @@
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": "auto" // "auto" // for some reason drops to 60
+			"framerate": "auto"
 		},
 		"threads": {
 			"workers" : "auto",

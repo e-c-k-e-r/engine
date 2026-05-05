@@ -66,7 +66,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 		uf::stl::vector<meshopt_Stream> streams;
 		for ( auto& attr : mesh.vertex.attributes ) {
 			const uint8_t* basePtr = (const uint8_t*)attr.pointer + srcVertexOffset * attr.stride;
-			streams.emplace_back({ basePtr, attr.descriptor.size, attr.stride });
+			streams.emplace_back(meshopt_Stream{ basePtr, attr.descriptor.size, attr.stride });
 		}
 
 		// deduplicate vertices

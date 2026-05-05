@@ -726,15 +726,7 @@ void UF_API uf::initialize() {
 		payload["scene"] = uf::config["engine"]["scenes"]["start"];
 		/*global*/::sceneTransition.payload = payload;
 		/*global*/::sceneTransition.phase = 0;
-
-	//	auto& scene = uf::scene::loadScene( uf::config["engine"]["scenes"]["start"] );
 	}
-	
-/*
-	uf::thread::add( uf::thread::fetchWorker(), [&]{
-		uf::asset::processQueue();
-	});
-*/
 	
 	uf::ready = true;
 	UF_MSG_INFO("EXT took {} seconds to initialize", /*global*/::times.sys.elapsed().asDouble());
@@ -743,13 +735,20 @@ void UF_API uf::initialize() {
 void UF_API uf::tick() {
 	++uf::time::frame;
 
+	static pod::Thread& threadMain = uf::thread::get(uf::thread::mainThreadName);
+#if UF_THREAD_METRICS
+	auto activeStart = std::chrono::high_resolution_clock::now();
+#endif
+
 #if 1
+	// skip the next tick to load the next scene to ensure nothing's happening
 	if ( /*global*/::sceneTransition.phase >= 0 ) {
 		auto target = /*global*/::sceneTransition.payload["scene"].as<uf::stl::string>();
 		auto& phase = /*global*/::sceneTransition.phase;
 
 		++phase;
 
+	// might be necessary since i bluescreened with a dedicated thread
 	#if UF_USE_VULKAN
 		uf::renderer::flushCommandBuffers();
 	#endif
@@ -775,9 +774,6 @@ void UF_API uf::tick() {
 		uf::renderer::flushCommandBuffers();
 	#endif
 		uf::renderer::synchronize();
-		
-	//	uf::scene::tick();
-	//	uf::renderer::tick();
 
 		return;
 	}
@@ -844,7 +840,7 @@ void UF_API uf::tick() {
 	}
 
 	/* Tick Main Thread Queue */ {
-		uf::thread::process( uf::thread::get(uf::thread::mainThreadName) );
+		uf::thread::process( threadMain );
 	}
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( /*global*/::config.engine.ext.ultralight.enabled ) {
@@ -865,6 +861,66 @@ void UF_API uf::tick() {
 		ext::imgui::tick();
 	}
 #endif
+	
+	// perform GC on entities
+	if ( /*global*/::config.engine.gc.enabled ) {
+		TIMER( /*global*/::config.engine.gc.every ) {
+			size_t collected = uf::instantiator::collect( /*global*/::config.engine.gc.mode );
+			if ( collected > 0 ) {
+				if ( /*global*/::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
+			}
+		}
+	}
+#if UF_THREAD_METRICS
+	// Mark the end of active work and the start of idle/sleep time
+	auto idleStart = std::chrono::high_resolution_clock::now();
+#endif
+
+#if !UF_ENV_DREAMCAST
+	if ( /*global*/::times.limiter > 0 ) {
+		static auto nextFrameTime = std::chrono::steady_clock::now();
+		
+		double limiterMs = /*global*/::times.limiter * 1000.0;
+		auto limiterDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(limiterMs));
+		nextFrameTime += limiterDuration;
+
+		auto now = std::chrono::steady_clock::now();
+		if ( now < nextFrameTime ) {
+			auto timeRemaining = nextFrameTime - now;
+			if ( timeRemaining > std::chrono::milliseconds(2) ) std::this_thread::sleep_for(timeRemaining - std::chrono::milliseconds(1));
+			while ( std::chrono::steady_clock::now() < nextFrameTime ) std::this_thread::yield();
+		} else {
+			nextFrameTime = std::chrono::steady_clock::now();
+		}
+	}
+
+	auto& controller = uf::scene::getCurrentScene().getController();
+	if ( /*global*/::requestDedicatedRenderThread && controller.getName() == "Player" ) {
+		/*global*/::requestDedicatedRenderThread = false;
+		uf::renderer::settings::experimental::dedicatedThread = true;
+		UF_MSG_DEBUG("Dedicated render requested");
+	}
+#if UF_USE_VULKAN
+	if ( /*global*/::requestDeferredCommandBufferSubmit && controller.getName() == "Player" ) {
+		/*global*/::requestDeferredCommandBufferSubmit = false;
+		uf::renderer::settings::defaultCommandBufferImmediate = false;
+		UF_MSG_DEBUG("Defer command buffer submit requested");
+	}
+#endif
+#endif
+
+#if UF_THREAD_METRICS
+	auto tickEnd = std::chrono::high_resolution_clock::now();
+
+	std::chrono::duration<float, std::milli> activeTime = idleStart - activeStart;
+	std::chrono::duration<float, std::milli> idleTime = tickEnd - idleStart;
+	std::chrono::duration<float, std::milli> frameTime = tickEnd - activeStart;
+
+	threadMain.metrics.activeTimeMs.store(activeTime.count(), std::memory_order_relaxed);
+	threadMain.metrics.idleTimeMs.store(idleTime.count(), std::memory_order_relaxed);
+	threadMain.metrics.totalFrameTimeMs.store(frameTime.count(), std::memory_order_relaxed);
+#endif
+
 	/* FPS Print */ if ( /*global*/::config.engine.fps.print ) {
 		++/*global*/::times.frames;
 		++/*global*/::times.total.frames;
@@ -881,48 +937,6 @@ void UF_API uf::tick() {
 			/*global*/::times.frames = 0;
 		}
 	}
-	
-	auto& controller = uf::scene::getCurrentScene().getController();
-	
-	// to-do: handle when the memory pool is disabled, because entities are NOT cleaned up at all
-	// should also handle entity deletion when GC is disabled
-	if ( /*global*/::config.engine.gc.enabled ) {
-		TIMER( /*global*/::config.engine.gc.every ) {
-			size_t collected = uf::instantiator::collect( /*global*/::config.engine.gc.mode );
-			if ( collected > 0 ) {
-				if ( /*global*/::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
-			}
-		}
-	}
-#if !UF_ENV_DREAMCAST
-	if ( /*global*/::times.limiter > 0 ) {
-		double limiter = /*global*/::times.limiter * 1000.0;
-
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		auto elapsed = timer.elapsed().asMilliseconds();
-		if ( elapsed < limiter ) {
-			std::chrono::duration<double, std::milli> delta(limiter - elapsed);
-			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
-			std::this_thread::sleep_for(std::chrono::milliseconds(duration.count()));
-		}
-		timer.reset();
-	}
-
-
-	if ( /*global*/::requestDedicatedRenderThread && controller.getName() == "Player" ) {
-		/*global*/::requestDedicatedRenderThread = false;
-		uf::renderer::settings::experimental::dedicatedThread = true;
-		UF_MSG_DEBUG("Dedicated render requested");
-	}
-#if UF_USE_VULKAN
-	if ( /*global*/::requestDeferredCommandBufferSubmit && controller.getName() == "Player" ) {
-		/*global*/::requestDeferredCommandBufferSubmit = false;
-		uf::renderer::settings::defaultCommandBufferImmediate = false;
-		UF_MSG_DEBUG("Defer command buffer submit requested");
-	}
-#endif
-#endif
 }
 void UF_API uf::render() {
 	if ( uf::scene::scenes.empty() ) return;
