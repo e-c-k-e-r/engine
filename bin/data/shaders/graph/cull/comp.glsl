@@ -192,6 +192,9 @@ void main() {
 		if ( projectedSize < 0.08 ) lodLevel = 2;
 		if ( projectedSize < 0.02 ) lodLevel = 3;
 		lodLevel = min(lodLevel, MAX_LODS - 1);
+		while ( lodLevel > 0 && lodMetadata[drawCommand.instanceID].levels[lodLevel].indices == 0 ) {
+			lodLevel--;
+		}
 
 		LOD lod = lodMetadata[drawCommand.instanceID].levels[lodLevel];
 

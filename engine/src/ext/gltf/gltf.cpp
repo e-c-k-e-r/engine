@@ -552,6 +552,8 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			}
 
 			auto& mesh = storage.meshes[keyName];
+			auto& primitives = storage.primitives[keyName];
+
 			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
 			if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
 				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
@@ -563,9 +565,10 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 					UF_MSG_ERROR("LOD generation failed: {}", keyName );
 				} else {
 					UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
-					auto& primitives = storage.primitives[keyName];
 					UF_ASSERT( primitives.size() == lodMetadata.size() );
-					for ( auto i = 0; i < primitives.size(); ++i ) primitives[i].lod = lodMetadata[i];
+					for ( auto i = 0; i < primitives.size(); ++i ) {
+						primitives[i].lod = lodMetadata[i];
+					}
 				}
 			}
 		}
@@ -573,6 +576,21 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_MSG_DEBUG( "Optimized mesh" );
 	}
 #endif
+	{
+		// update primitive info
+		for ( auto& keyName : graph.meshes ) {
+			auto& mesh = storage.meshes[keyName];
+			auto& primitives = storage.primitives[keyName];
+			
+			UF_ASSERT( primitives.size() == mesh.indirect.count );
+			auto& attribute = mesh.indirect.attributes.front();
+			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
+			for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
+				primitives[drawID].drawCommand = drawCommands[drawID];
+			}
+		}
+	}
 
 	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
 	#if !UF_ENV_DREAMCAST

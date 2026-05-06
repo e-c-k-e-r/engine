@@ -23,8 +23,10 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 
-#define UF_GRAPH_SPARSE_READ_MESH 1
+
 #define UF_GRAPH_EXTENDED 1
+#define UF_GRAPH_SPARSE_READ_MESH 1
+// to-do: fix LOD1+ breaking, fix physics mesh not updating
 
 namespace {
 	bool newGraphAdded = true;
@@ -35,6 +37,14 @@ namespace {
 		uint64_t hash = 1469598103934665603ULL;
 		for (bool b : bits) {
 			hash ^= static_cast<uint64_t>(b);
+			hash *= 1099511628211ULL;
+		}
+		return hash;
+	}
+	inline uint64_t fnv1aHash(const uf::stl::vector<int8_t>& values) {
+		uint64_t hash = 1469598103934665603ULL;
+		for (bool v : values) {
+			hash ^= static_cast<uint64_t>(static_cast<uint8_t>(v));
 			hash *= 1099511628211ULL;
 		}
 		return hash;
@@ -1280,13 +1290,15 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		pod::Instance::Bounds bounds = {};
 		size_t baseInstanceID = ::allocateInstanceID( storage, graph.primitives[node.mesh] );
 		// setup instances
-		for ( auto i = 0; i < primitives.size(); ++i ) {
-			auto& primitive = primitives[i];
+		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
+			auto& primitive = primitives[drawID];
 			auto& instance = primitive.instance;
-			size_t instanceID = baseInstanceID + i;
+			size_t instanceID = baseInstanceID + drawID;
 
 			instance.objectID = node.object;
 			instance.jointID = graphMetadataJson["renderer"]["skinned"].as<bool>() ? 0 : -1;
+
+			primitive.drawCommand.instanceID = instanceID;
 
 			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
@@ -1295,7 +1307,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				auto& attribute = mesh.indirect.attributes.front();
 				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-				auto& drawCommand = drawCommands[i];
+				auto& drawCommand = drawCommands[drawID];
 				drawCommand.instanceID = instanceID;
 			}
 		}
@@ -1615,6 +1627,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 	}
 
+	bool meshUpdated = false;
 	auto model = uf::transform::model( transform );
 	auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
@@ -1622,6 +1635,11 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	float radius = graph.settings.stream.radius;
 	float radiusSquared = radius * radius;
+
+	// force update if entity isn't already bound to the graphic
+	if ( !entity.hasComponent<uf::renderer::Graphic>() ) {
+		meshUpdated = true;
+	}
 
 	// disable if not tagged for streaming
 	// to-do: check tag
@@ -1640,7 +1658,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 		// queues
 		uf::stl::unordered_map<size_t, uf::stl::vector<pod::Range>> ranges;
-		uf::stl::vector<bool> queuedDrawIDs( primitives.size(), false ); // this is to maintain draw command order because apparently my code requires draw commands to stay in order
+		uf::stl::vector<int8_t> queuedLODs( primitives.size(), -1 ); // this is to maintain draw command order because apparently my code requires draw commands to stay in order
 		// fallbacks for when no draw calls are requested (mainly for the collision mesh)
 		float closestDistance = std::numeric_limits<float>::max();
 		size_t closestDrawID = 0;
@@ -1661,24 +1679,37 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				closestDrawID = drawID;
 			}
 			// queue if we're within the radius
-			if ( (queuedDrawIDs[drawID] = distanceSquared <= radiusSquared) ) {
+			if ( distanceSquared <= radiusSquared ) {
 				found = true;
+
+				int8_t lodLevel = 0;
+				// deduce a simple ratio [0.0 to 1.0] of how far we are into the streaming radius
+				float distRatio = distanceSquared / radiusSquared;
+				if ( distRatio > 0.6f ) 	 lodLevel = 3;
+				else if ( distRatio > 0.3f ) lodLevel = 2;
+				else if ( distRatio > 0.1f ) lodLevel = 1;
+
+				while ( lodLevel > 0 && primitive.lod.levels[lodLevel].indices == 0 ) {
+					lodLevel--;
+				}
+
+				queuedLODs[drawID] = lodLevel;
 			}
 		}
 
 		// insert closest primitive if all are out of range (because of cringe logic)
 		if ( !found ) {
-			queuedDrawIDs[closestDrawID] = true;
+			queuedLODs[closestDrawID] = 0;
 		}
 
 		// bail if no update is detected
-		auto drawCommandHash = ::fnv1aHash(queuedDrawIDs);
+		auto drawCommandHash = ::fnv1aHash(queuedLODs);
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
-
 		if ( drawCommandHash == graph.settings.stream.hash ) {
 			return;
 		}
 		graph.settings.stream.hash = drawCommandHash;
+		meshUpdated = true;
 
 	// read from disk
 	#if UF_GRAPH_SPARSE_READ_MESH
@@ -1707,14 +1738,24 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		mesh.vertex.count = 0;
 		mesh.index.count = 0;
 
-		for (size_t drawID = 0; drawID < queuedDrawIDs.size(); ++drawID) {
-			bool queued = queuedDrawIDs[drawID];
+		for (size_t drawID = 0; drawID < queuedLODs.size(); ++drawID) {
+			auto lodLevel = queuedLODs[drawID];
 			auto& primitive = primitives[drawID];
 			auto& drawCommand = drawCommands[drawID];
+
+			// reset from LOD0
+			//primitives[drawID].drawCommand.instances = 1;
+			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
+			primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
+			primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
+			primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
+
+			// copy from primitive
+			drawCommand = primitive.drawCommand;
 			
 			// disable draw call
-			if ( !queued ) {
-				drawCommand.instances = 0;
+			if ( lodLevel < 0 ) {
+				//drawCommand.instances = 0;
 				drawCommand.vertices = 0;
 				drawCommand.indices = 0;
 				drawCommand.vertexID = 0;
@@ -1722,26 +1763,33 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				continue;
 			}
 
-			// queue up ranges to read from disk
+			auto& lod = primitive.lod.levels[lodLevel];
+
+			// queue up ranges to read from disk using LOD bounds
 			for (auto& attribute : mesh.index.attributes) {
 				auto size = attribute.descriptor.size;
 				ranges[attribute.buffer].emplace_back(pod::Range{
-					primitive.drawCommand.indexID * size,
-					primitive.drawCommand.indices * size,
+					lod.indexID * size,
+					lod.indices * size,
 				});
 			}
 			for (auto& attribute : mesh.vertex.attributes) {
 				auto size = attribute.descriptor.size;
 				ranges[attribute.buffer].emplace_back(pod::Range{
-					primitive.drawCommand.vertexID * size,
-					primitive.drawCommand.vertices * size,
+					lod.vertexID * size,
+					lod.vertices * size,
 				});
 			}
 
-			// reset draw call and remap
-			drawCommand = primitive.drawCommand;
+			// reset draw call and remap to local compacted buffers
+			drawCommand.vertices = lod.vertices;
+			drawCommand.indices  = lod.indices;
 			drawCommand.vertexID = mesh.vertex.count;
 			drawCommand.indexID  = mesh.index.count;
+
+			// synchronize primitive
+			primitives[drawID].drawCommand = drawCommands[drawID];
+
 			// increment remap indices
 			mesh.vertex.count += drawCommand.vertices;
 			mesh.index.count  += drawCommand.indices;
@@ -1762,17 +1810,34 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	#else
 		// disable remaining draw commands
 		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
-			bool queued = queuedDrawIDs[drawID];
-			if ( !queued ) {
-				drawCommands[drawID].instances = 0;
+			int8_t lodLevel = queuedLODs[drawID];
+			// reset from LOD0
+			//primitives[drawID].drawCommand.instances = 1;
+			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
+			primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
+			primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
+			primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
+
+			// copy from primitive
+			drawCommands[drawID] = primitives[drawID].drawCommand;
+
+			if ( lodLevel < 0 ) {
+				//drawCommands[drawID].instances = 0;
 				drawCommands[drawID].vertices = 0;
 				drawCommands[drawID].indices = 0;
 				drawCommands[drawID].indexID = 0;
 				drawCommands[drawID].vertexID = 0;
 			} else {
-				drawCommands[drawID] = primitives[drawID].drawCommand;
-				// to-do: LOD pick here for OpenGL
+				auto& lod = primitives[drawID].lod.levels[lodLevel];
+
+				drawCommands[drawID].indexID  = lod.indexID;
+				drawCommands[drawID].indices  = lod.indices;
+				drawCommands[drawID].vertexID = lod.vertexID;
+				drawCommands[drawID].vertices = lod.vertices;
 			}
+
+			// synchronize primitive
+			primitives[drawID].drawCommand = drawCommands[drawID];
 		}
 
 		#define STREAM_MESH_DATA( N ) \
@@ -1868,16 +1933,20 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				}
 			}
 		}
-	} else { // this shouldn't be reached
+	} else {
+		// load mesh if not already loaded
 		#define LOAD_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
 				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
+				meshUpdated = true;\
 				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer] );\
 			}
 
 		LOAD_MESH_DATA( index );
 		LOAD_MESH_DATA( vertex );
 	}
+
+	if ( !meshUpdated ) return;
 
 	// in the event streamed in mesh data from any pathway isn't already converted
 	{
@@ -1907,6 +1976,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 #if UF_USE_OPENGL
 	uf::renderer::states::rebuild = true;
 #endif
+
+	::newGraphAdded = true; // force rebuffering the draw commands
 
 	// update graphic
 	if ( graphMetadataJson["renderer"]["render"].as<bool>() ) {

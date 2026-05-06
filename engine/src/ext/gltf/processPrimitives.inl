@@ -385,6 +385,12 @@ if ( meshopt.should ) {
 		meshlet.primitive.drawCommand.vertexID = vertexID;
 		meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 
+		// copy to LOD metadata
+		meshlet.primitive.lod.levels[0].indexID = indexID;
+		meshlet.primitive.lod.levels[0].indices = meshlet.indices.size();
+		meshlet.primitive.lod.levels[0].vertexID = vertexID;
+		meshlet.primitive.lod.levels[0].vertices = meshlet.vertices.size();
+
 		drawCommands.emplace_back(meshlet.primitive.drawCommand);
 
 		primitives.emplace_back( meshlet.primitive );

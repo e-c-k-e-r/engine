@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SourceEngine",
+			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": false,
@@ -109,7 +109,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
+					"default command buffer immediate": true,
 					"multithreaded recording": true
 				},
 				"pipelines": {
@@ -118,7 +118,7 @@
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
 					"vxgi": false,
-					"culling": true,
+					"culling": false,
 					"bloom": true,
 					"dof": true,
 					"rt": false,

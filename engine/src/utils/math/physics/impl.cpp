@@ -516,6 +516,9 @@ void uf::physics::destroy( pod::PhysicsBody& body ) {
 	if ( body.collider.type == pod::ShapeType::MESH ) {
 		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
 	}
+	if ( body.collider.type == pod::ShapeType::CONVEX_HULL ) {
+		if ( body.collider.convexHull.bvh ) delete body.collider.convexHull.bvh;
+	}
 }
 
 pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance ) {

@@ -11,7 +11,7 @@ namespace ext {
 	namespace meshopt {
 		bool UF_API optimize( uf::Mesh&, float simplify = 1.0f, size_t = SIZE_MAX, bool verbose = false );
 
-		uf::stl::vector<float> computeLODs( size_t count, size_t maxLODs = 4, size_t minIndices = 32 );
+		uf::stl::vector<float> computeLODs( size_t count, size_t maxLODs = 4, size_t minIndices = 3 );
 		uf::stl::vector<pod::LODMetadata> UF_API generateLODs( uf::Mesh&, const uf::stl::vector<float>&, bool verbose = false );
 
 		template<typename T, typename U = uint32_t>

@@ -90,7 +90,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 		size_t optimizedIndexCount = srcIndexCount;
 		if ( 0.0f < simplify && simplify < 1.0f ) {
 			uf::stl::vector<uint32_t> simplified(srcIndexCount);
-			float targetError = 1e-2f / simplify;
+			float targetError = FLT_MAX; // 1e-2f / simplify;
 			float realError = 0.0f;
 
 			optimizedIndexCount = meshopt_simplify(
@@ -233,16 +233,18 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 
 			// source from LOD0
 			auto& cmd0 = lodMetadata[cmdIdx].levels[0];
-			size_t previousIndicesCount = lodMetadata[cmdIdx].levels[lodIdx - 1].indices;
 
-			uf::stl::vector<uint32_t> baseIndices(cmd0.indices);
-			for ( size_t i = 0; i < cmd0.indices; ++i ) baseIndices[i] = outIndices[cmd0.indexID + i];
+			// copy from LOD0
+			lodMetadata[cmdIdx].levels[lodIdx] = lodMetadata[cmdIdx].levels[0];
 
 			// generate LOD
 			if ( 0.0f < simplify && simplify < 1.0f ) {
-				float targetError = 1e-2f / simplify;
+				float targetError = FLT_MAX; // 1e-2f / simplify;
 				float realError = 0.0f;
 				size_t currentIndicesCount = cmd0.indices;
+				uf::stl::vector<uint32_t> baseIndices(cmd0.indices);
+				for ( size_t i = 0; i < cmd0.indices; ++i ) baseIndices[i] = outIndices[cmd0.indexID + i];
+
 				uf::stl::vector<uint32_t> lodIndices = baseIndices;
 
 				const float* basePositions = (const float*) (outVertices[posAttrIdx].data() + cmd0.vertexID * mesh.vertex.attributes[posAttrIdx].stride);
@@ -254,6 +256,7 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 				);
 
 				// couldn't simplify further, use previous LOD
+				size_t previousIndicesCount = lodMetadata[cmdIdx].levels[lodIdx - 1].indices;
 				if ( currentIndicesCount == previousIndicesCount ) {
 					lodMetadata[cmdIdx].levels[lodIdx] = lodMetadata[cmdIdx].levels[lodIdx - 1];
 					continue;
@@ -288,9 +291,6 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 					meshopt_remapVertexBuffer(packed.data(), srcPtr, cmd0.vertices, attr.stride, fetchRemap.data());
 					outVertices[a].insert(outVertices[a].end(), packed.begin(), packed.end());
 				}
-			} else {
-				// no simplification, just use LOD0 (shouldn't happen)
-				lodMetadata[cmdIdx].levels[lodIdx] = lodMetadata[cmdIdx].levels[0];
 			}
 		}
 	}

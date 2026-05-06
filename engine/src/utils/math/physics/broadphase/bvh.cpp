@@ -232,7 +232,7 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 			auto aabb = impl::computeTriangleAABB( tri );
 			auto triID = triIndexID + (view.index.first / 3);
 
-			if ( triID != bounds.size() ) UF_MSG_DEBUG("triID={}, bounds.size()={}", triID, bounds.size());
+		//	if ( triID != bounds.size() ) UF_MSG_DEBUG("triID={}, bounds.size()={}", triID, bounds.size());
 
 			bounds.emplace_back( aabb );
 			bvh.indices.emplace_back( triID ); // triID => mesh.index.buffer[triID * 3];

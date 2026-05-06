@@ -407,7 +407,11 @@ uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::stri
 uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::stl::vector<uf::Mesh::View> views;
 	if ( indirect.count > 0 ) {
-		for ( auto i = 0; i < indirect.count; i++ ) views.emplace_back(makeView(i, wanted, lod));
+		for ( auto i = 0; i < indirect.count; i++ ) {
+			auto view = makeView( i, wanted, lod );
+			if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
+			views.emplace_back( view );
+		}
 	} else {
 		views.emplace_back( makeView(wanted, lod) );
 	}
