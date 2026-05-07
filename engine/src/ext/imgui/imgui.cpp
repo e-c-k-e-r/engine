@@ -173,10 +173,12 @@ void ext::imgui::tick() {
 	auto& renderMode = uf::renderer::getRenderMode("Gui", true);
 
 	// check if rendermode changed
+#if UF_USE_VULKAN
 	if ( ::boundRenderMode != &renderMode ) {
 		::shutdownRenderer();
 		::initRenderer();
 	}
+#endif
 
 	ImGuiIO& io = ImGui::GetIO();
 	io.DeltaTime = uf::physics::time::delta;

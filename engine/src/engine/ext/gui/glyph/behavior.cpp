@@ -384,7 +384,9 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 		bool forced = payload["force"].as(false);
 
 		// override
-		// metadata.sdf = false;
+	#if UF_USE_OPENGL
+		metadata.sdf = false;
+	#endif
 		metadataGui.scaling = "none";
 
 		auto& scene = uf::scene::getCurrentScene();

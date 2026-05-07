@@ -1226,13 +1226,13 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		uf::stl::vector<VkAccelerationStructureBuildRangeInfoKHR> asBuildOffsetInfo;
 		VkBuildAccelerationStructureFlagsKHR flags{};
 
-    	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
-    	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
 
-    	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo;
-    	uf::renderer::AccelerationStructure as;
-    	
-    	uf::renderer::AccelerationStructure previous;
+		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo;
+		uf::renderer::AccelerationStructure as;
+		
+		uf::renderer::AccelerationStructure previous;
   	};
   	uf::stl::vector<BlasData> blasDatas;
 
@@ -1297,7 +1297,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 				triangles.indexData.deviceAddress	= indexBufferAddress;
 
 				VkAccelerationStructureBuildRangeInfoKHR& offset = blasData.asBuildOffsetInfo.emplace_back();
-				offset.firstVertex     				= vertexInput.first;
+				offset.firstVertex	 				= vertexInput.first;
 				offset.primitiveCount  				= vertexInput.count / 3;
 				offset.primitiveOffset 				= indexInput.first * indexInput.size;
 				offset.transformOffset 				= 0;
@@ -1334,7 +1334,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			triangles.indexData.deviceAddress	= indexBufferAddress;
 
 			VkAccelerationStructureBuildRangeInfoKHR& offset = blasData.asBuildOffsetInfo.emplace_back();
-			offset.firstVertex     				= vertexInput.first;
+			offset.firstVertex	 				= vertexInput.first;
 			offset.primitiveCount  				= vertexInput.count / 3;
 			offset.primitiveOffset 				= indexInput.first * indexInput.size;
 			offset.transformOffset 				= 0;
@@ -1715,7 +1715,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		buildInfo.dstAccelerationStructure  = tlas.handle;
 		buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
 
-		VkAccelerationStructureBuildRangeInfoKHR        buildOffsetInfo{countInstance, 0, 0, 0};
+		VkAccelerationStructureBuildRangeInfoKHR		buildOffsetInfo{countInstance, 0, 0, 0};
 		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo = &buildOffsetInfo;
 
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);

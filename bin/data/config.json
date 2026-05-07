@@ -109,7 +109,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": true,
+					"default command buffer immediate": false,
 					"multithreaded recording": true
 				},
 				"pipelines": {
@@ -117,10 +117,10 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": false,
-					"bloom": true,
-					"dof": true,
+					"bloom": false,
+					"dof": false,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
@@ -299,7 +299,7 @@
 				"enabled": true
 			},
 			"imgui": {
-				"enabled": true
+				"enabled": false
 			},
 			"fsr": {
 				"enabled": true,

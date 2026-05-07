@@ -225,39 +225,11 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures2D },
 					{ "samplerCubemaps", maxTexturesCube },
-					{ "voxelDrawId", maxCascades },
-					{ "voxelInstanceId", maxCascades },
-					{ "voxelNormalX", maxCascades },
-					{ "voxelNormalY", maxCascades },
-					{ "voxelRadianceR", maxCascades },
-					{ "voxelRadianceG", maxCascades },
-					{ "voxelRadianceB", maxCascades },
-					{ "voxelRadianceA", maxCascades },
-					{ "voxelCount", maxCascades },
+					{ "voxelId", maxCascades },
+					{ "voxelNormal", maxCascades },
+					{ "voxelRadiance", maxCascades },
 					{ "voxelOutput", maxCascades },
 				});
-
-			/*
-				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-					auto& sc = pair.second;
-					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
-					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
-					else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
-				}
-				for ( auto pair : shader.metadata.definitions.textures ) {
-					auto& tx = pair.second;
-					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding != tx.binding ) continue;
-						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
-						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
-						else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
-					}
-				}
-			*/
 			}
 		}
 	}

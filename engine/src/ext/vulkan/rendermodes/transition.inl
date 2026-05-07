@@ -36,14 +36,14 @@ namespace {
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
 			subresourceRange.baseMipLevel = 0;
-            subresourceRange.levelCount = 1;
+			subresourceRange.levelCount = 1;
 			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 			uf::renderer::Texture::setImageLayout( commandBuffer, image, layout, descriptor.layout, subresourceRange );
 			if ( mips > 1 ) {
-                subresourceRange.baseMipLevel = 1;
-                subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-                uf::renderer::Texture::setImageLayout( commandBuffer, image, initialLayout, descriptor.layout, subresourceRange );
-            }
+				subresourceRange.baseMipLevel = 1;
+				subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+				uf::renderer::Texture::setImageLayout( commandBuffer, image, initialLayout, descriptor.layout, subresourceRange );
+			}
 		}
 	}
 	void transitionAttachmentsFrom(
@@ -83,14 +83,14 @@ namespace {
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
 			subresourceRange.baseMipLevel = 0;
-            subresourceRange.levelCount = 1;
+			subresourceRange.levelCount = 1;
 			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 			uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, layout, subresourceRange );
 			if ( mips > 1 ) {
-                subresourceRange.baseMipLevel = 1;
-                subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-                uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, initialLayout, subresourceRange );
-            }
+				subresourceRange.baseMipLevel = 1;
+				subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+				uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, initialLayout, subresourceRange );
+			}
 		}
 	}
 }

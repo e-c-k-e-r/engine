@@ -316,6 +316,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
+
 		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 			auto& shader = blitter.material.getShader("compute");
 			
@@ -333,17 +334,21 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures2D },
 				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelDrawId", maxCascades },
-				{ "voxelInstanceId", maxCascades },
-				{ "voxelNormalX", maxCascades },
-				{ "voxelNormalY", maxCascades },
-				{ "voxelRadianceR", maxCascades },
-				{ "voxelRadianceG", maxCascades },
-				{ "voxelRadianceB", maxCascades },
-				{ "voxelRadianceA", maxCascades },
-				{ "voxelCount", maxCascades },
+				{ "voxelId", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
 				{ "voxelOutput", maxCascades },
 			});
+
+			auto& scene = uf::scene::getCurrentScene();
+			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+			
+			shader.textures.clear();
+			
+			for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
 		#if 0
 			auto& shader = blitter.material.getShader("fragment");

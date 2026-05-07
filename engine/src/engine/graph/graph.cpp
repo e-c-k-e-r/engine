@@ -80,20 +80,23 @@ namespace {
 		for ( auto& key : storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
 
 		// bind scene's voxel texture
-	#if UF_USE_VULKAN
+	#if 0 && UF_USE_VULKAN
 		if ( uf::renderer::settings::pipelines::vxgi ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-			for ( auto& t : sceneTextures.voxels.drawId ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.instanceId ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normalX ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normalY ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceR ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceG ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceB ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radianceA ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.count ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
 			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
+		/*
+			auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
+			shader.textures.clear();
+
+			for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
+		*/
 		}
 	#endif
 	}
@@ -219,21 +222,9 @@ namespace {
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, uf::renderer::settings::pipelines::names::vxgi);
 			}
 
-			uint32_t voxelTypes = 0;
-			if ( !sceneTextures.voxels.drawId.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.instanceId.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.normalX.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.normalY.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceR.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceG.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceB.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.radianceA.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.count.empty() ) ++voxelTypes;
-			if ( !sceneTextures.voxels.output.empty() ) ++voxelTypes;
-
 			uint32_t maxTextures = texture2Ds;
-			uint32_t maxCascades = texture3Ds / voxelTypes;
-			
+			uint32_t maxCascades = sceneTextures.voxels.id.size();
+
 			// fragment shader
 			{
 				auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
@@ -243,17 +234,16 @@ namespace {
 				});
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures },
-					{ "voxelDrawId", maxCascades },
-					{ "voxelInstanceId", maxCascades },
-					{ "voxelNormalX", maxCascades },
-					{ "voxelNormalY", maxCascades },
-					{ "voxelRadianceR", maxCascades },
-					{ "voxelRadianceG", maxCascades },
-					{ "voxelRadianceB", maxCascades },
-					{ "voxelRadianceA", maxCascades },
-					{ "voxelCount", maxCascades },
+					{ "voxelId", maxCascades },
+					{ "voxelNormal", maxCascades },
+					{ "voxelRadiance", maxCascades },
 					{ "voxelOutput", maxCascades },
 				});
+
+				for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
 			}
 		}
 		// baking pipeline

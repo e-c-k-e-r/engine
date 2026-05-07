@@ -371,35 +371,39 @@ void ext::vulkan::Texture::loadFromFile(
 	const uf::stl::string& filename, 
 	VkFormat format,
 	VkImageUsageFlags usage,
-	VkImageLayout layout
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
-	return loadFromFile( filename, ext::vulkan::device, format, usage, layout );
+	return loadFromFile( filename, ext::vulkan::device, format, usage, layout, flags );
 }
 void ext::vulkan::Texture::loadFromFile(
 	const uf::stl::string& filename, 
 	Device& device,
 	VkFormat format,
 	VkImageUsageFlags usage,
-	VkImageLayout layout 
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
 	uf::Image image;
 	image.open( filename );
-	return loadFromImage( image, device, format, usage, layout );
+	return loadFromImage( image, device, format, usage, layout, flags );
 }
 void ext::vulkan::Texture::loadFromImage(
 	const uf::Image& image,
 	VkFormat format,
 	VkImageUsageFlags usage,
-	VkImageLayout layout
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
-	return loadFromImage( image, ext::vulkan::device, format, usage, layout );
+	return loadFromImage( image, ext::vulkan::device, format, usage, layout, flags );
 }
 void ext::vulkan::Texture::loadFromImage(
 	const uf::Image& image, 
 	Device& device,
 	VkFormat format,
 	VkImageUsageFlags usage,
-	VkImageLayout layout
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
 /*
 	switch ( format ) {
@@ -474,7 +478,8 @@ void ext::vulkan::Texture::loadFromImage(
 		1,
 		device,
 		usage,
-		layout
+		layout,
+		flags
 	);
 }
 
@@ -487,9 +492,10 @@ void ext::vulkan::Texture::fromBuffers(
 	uint32_t texDepth,
 	uint32_t layers,
 	VkImageUsageFlags usage,
-	VkImageLayout layout
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
-	return this->fromBuffers( buffer, bufferSize, format, texWidth, texHeight, texDepth, layers, ext::vulkan::device, usage, layout );
+	return this->fromBuffers( buffer, bufferSize, format, texWidth, texHeight, texDepth, layers, ext::vulkan::device, usage, layout, flags );
 }
 
 
@@ -503,11 +509,13 @@ void ext::vulkan::Texture::fromBuffers(
 	uint32_t layers,
 	Device& device,
 	VkImageUsageFlags usage,
-	VkImageLayout layout
+	VkImageLayout layout,
+	VkImageCreateFlags flags
 ) {
-	this->initialize(device, texWidth, texHeight, texDepth, layers);
-	this->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	this->initialize( device, texWidth, texHeight, texDepth, layers );
 	this->usage = usage;
+	this->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	this->flags = flags;
 
 	if ( this->mips == 0 ) {
 		this->mips = 1;
@@ -545,6 +553,7 @@ void ext::vulkan::Texture::fromBuffers(
 	imageCreateInfo.initialLayout = this->layout;
 	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.usage = this->usage;
+	imageCreateInfo.flags = this->flags;
 	// Ensure that the TRANSFER_SRC bit is set for mip creation
 	if ( this->mips > 1 && !(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
 		imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -555,7 +564,7 @@ void ext::vulkan::Texture::fromBuffers(
 	}
 	// Ensure cube maps get the compat flag bit
 	if ( this->viewType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE || this->viewType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE_ARRAY ) {
-		imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+		imageCreateInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	}
 
 	VmaAllocationCreateInfo allocInfo = {};
@@ -955,8 +964,8 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 		);
 
 		if (mipWidth > 1) mipWidth /= 2;
-    	if (mipHeight > 1) mipHeight /= 2;
-    	if (mipDepth > 1) mipDepth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+		if (mipDepth > 1) mipDepth /= 2;
 	}
 }
 

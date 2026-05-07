@@ -2,6 +2,10 @@
 float random(vec3 seed, int i){ return fract(sin(dot(vec4(seed,i), vec4(12.9898,78.233,45.164,94.673))) * 43758.5453); }
 float rand2(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453); }
 float rand3(vec3 co){ return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453); }
+float interleavedGradientNoise(vec2 co) {
+	vec3 seed = vec3(0.06711056, 0.00583715, 52.9829189);
+	return fract(seed.z * fract(dot(co, seed.xy)));
+}
 //
 float mipLevel( in vec2 dx_vtc, in vec2 dy_vtc ) {
 	const float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
@@ -44,7 +48,8 @@ void gammaCorrect( inout vec3 color, float gamma ) {
 }
 void toneMap( inout vec4 color, float exposure ) { toneMap(color.rgb, exposure); }
 void gammaCorrect( inout vec4 color, float gamma ) { gammaCorrect(color.rgb, gamma); }
-float luma( vec3 color ) { return dot(color, vec3(0.2126, 0.7152, 0.0722)); }
+float luma( vec3 color ) { return dot(color, vec3(0.2126, 0.7152, 0.0722)); } // REF 709
+float luminance( vec3 color ) { return dot(color, vec3(0.299, 0.587, 0.114)); } // REF 601
 //
 uint tea(uint val0, uint val1) {
 	uint v0 = val0;

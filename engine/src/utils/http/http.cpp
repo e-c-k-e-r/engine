@@ -6,8 +6,8 @@
 
 namespace {
 	size_t writeFunction(void *ptr, size_t size, size_t nmemb, uf::stl::string* data) {
-    	data->append((char*) ptr, size * nmemb);
-    	return size * nmemb;
+		data->append((char*) ptr, size * nmemb);
+		return size * nmemb;
 	}
 }
 
@@ -39,5 +39,5 @@ uf::Http uf::http::get( const uf::stl::string& url ) {
 	curl_easy_cleanup(curl);
 	curl = NULL;
 #endif
-    return http;
+	return http;
 }

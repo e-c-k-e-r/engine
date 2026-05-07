@@ -19,6 +19,7 @@ namespace {
 		struct Pair {
 			bool aliased = false;
 			size_t index = 0;
+			size_t size = 0;
 		};
 		uf::stl::vector<void*> local;
 		uf::stl::vector<void*> aliases;
@@ -105,7 +106,7 @@ void ext::opengl::Device::initialize() {
 #endif
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	{
-		::buffers::type.emplace_back(::buffers::Pair{.aliased = false, .index = 0});
+		::buffers::type.emplace_back(::buffers::Pair{.aliased = false, .index = 0, .size = 0});
 		::buffers::local.emplace_back((void*) NULL);
 	}
 #endif
@@ -172,7 +173,7 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 #else
 // CPU-based buffer
 	index = ::buffers::type.size();
-	::buffers::type.emplace_back( ::buffers::Pair{.aliased = aliased, .index = index} );
+	::buffers::type.emplace_back( ::buffers::Pair{.aliased = aliased, .index = index, .size = size} );
 	
 	if ( aliased ) {
 		::buffers::aliases.emplace_back( data );
@@ -215,11 +216,11 @@ void ext::opengl::Device::destroyBuffer( GLuint& index ) {
 	auto& buffer = ::buffers::local[type.index];
 	if ( buffer ) {
 	#if UF_MEMORYPOOL_INVALID_FREE
-		uf::memoryPool::global.free( buffer );
+		uf::memoryPool::global.free( buffer, type.size );
 	#else
 		uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;	
-		if ( memoryPool ) memoryPool->free( buffer );
-		else free( buffer );
+		if ( memoryPool ) memoryPool->free( buffer, type.size );
+		else free( buffer, type.size );
 	#endif
 	}
 #endif

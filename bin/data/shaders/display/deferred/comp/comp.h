@@ -94,19 +94,10 @@ layout (binding = 18) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 19) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 20) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 21) uniform usampler3D voxelDrawId[CASCADES];
-	layout (binding = 22) uniform usampler3D voxelInstanceId[CASCADES];
-	layout (binding = 23) uniform sampler3D voxelNormalX[CASCADES];
-	layout (binding = 24) uniform sampler3D voxelNormalY[CASCADES];
-	layout (binding = 25) uniform sampler3D voxelRadianceR[CASCADES];
-	layout (binding = 26) uniform sampler3D voxelRadianceG[CASCADES];
-	layout (binding = 27) uniform sampler3D voxelRadianceB[CASCADES];
-	layout (binding = 28) uniform sampler3D voxelRadianceA[CASCADES];
-	layout (binding = 29) uniform sampler3D voxelCount[CASCADES];
-	layout (binding = 30) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 21) uniform sampler3D voxelOutput[CASCADES];
 #endif
 #if RT
-	layout (binding = 31) uniform accelerationStructureEXT tlas;
+	layout (binding = 22) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -296,7 +287,7 @@ void directLighting() {
 		surface.material.albedo.rgb = radiance.rgb;
 		surface.material.indirect.rgb = vec3(0);
 		surface.fragment.rgb = radiance.rgb;
-		surface.fragment.a = radiance.a;
+		surface.fragment.a = 1; // radiance.a;
 		//return;
 	}
 #endif

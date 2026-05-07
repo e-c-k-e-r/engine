@@ -57,10 +57,10 @@ namespace {
 		}
 	}
 	LRESULT CALLBACK globalOnEvent(spec::win32::Window::handle_t handle, UINT message, WPARAM wParam, LPARAM lParam) {
-    #if UF_USE_IMGUI
+	#if UF_USE_IMGUI
 		if (ImGui_ImplWin32_WndProcHandler(handle, message, wParam, lParam))
-        	return true;
-    #endif
+			return true;
+	#endif
 		if (message == WM_CREATE) {
 			LONG_PTR window = (LONG_PTR)reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams;
 			SetWindowLongPtrW(handle, GWLP_USERDATA, window);

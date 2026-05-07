@@ -59,6 +59,7 @@ namespace ext {
 			VkImageViewType viewType = enums::Image::VIEW_TYPE_2D;
 			VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
 			VkImageUsageFlags usage = {};
+			VkImageCreateFlags flags = {};
 			VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 			VkDescriptorImageInfo descriptor = {};
 			VkFormat format = enums::Format::R8G8B8A8_UNORM;
@@ -102,29 +103,45 @@ namespace ext {
 				const uf::stl::string& filename, 
 				VkFormat format = DefaultFormat,
 				VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VkImageCreateFlags flags = {}
 			);
 			void loadFromFile(
 				const uf::stl::string& filename, 
 				Device& device,
 				VkFormat format = DefaultFormat,
 				VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VkImageCreateFlags flags = {}
 			);
 			void loadFromImage(
 				const uf::Image& image, 
 				Device& device,
 				VkFormat format = DefaultFormat,
 				VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VkImageCreateFlags flags = {}
 			);
 			void loadFromImage(
 				const uf::Image& image,
 				VkFormat format = DefaultFormat,
 				VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VkImageCreateFlags flags = {}
 			);
-			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, Device& device, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+			void fromBuffers(
+				void* buffer,
+				VkDeviceSize bufferSize,
+				VkFormat format,
+				uint32_t texWidth,
+				uint32_t texHeight,
+				uint32_t texDepth,
+				uint32_t layers,
+				Device& device,
+				VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT,
+				VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				VkImageCreateFlags flags = {}
+			);
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = DefaultFormat );
 			
 			Texture alias() const;
@@ -136,14 +153,14 @@ namespace ext {
 			void update( uf::Image& image, VkImageLayout, uint32_t layer = 1 );
 			void update( void*, VkDeviceSize, VkImageLayout, uint32_t layer = 1 );
 
-			inline void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, Device& device, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, device, usage, layout); }
+			inline void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, Device& device, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageCreateFlags flags = {} ) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, device, usage, layout, flags); }
 			inline void update( uf::Image& image, uint32_t layer = 1 ) { return this->update(image, this->layout, layer); }
 			inline void update( void* data, VkDeviceSize size, uint32_t layer = 1 ) { return this->update(data, size, this->layout, layer); }
 			
 			void generateMipmaps(VkCommandBuffer commandBuffer, uint32_t layer = 0);
 
-			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-			inline void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, usage, layout); }
+			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageCreateFlags flags = {} );
+			inline void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageCreateFlags flags = {} ) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, usage, layout, flags); }
 		};
 		class UF_API Texture2D : public Texture {
 		public:

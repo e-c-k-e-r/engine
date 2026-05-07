@@ -273,17 +273,17 @@ for ( auto& p : m.primitives ) {
 				};
 
 				float r = 1.0f / (deltaTriUV[0].x * deltaTriUV[1].y - deltaTriUV[0].y * deltaTriUV[1].x);
-        		auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
-        		auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
+				auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
+				auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
 
-        		for ( auto i = 0; i < 3; ++i ) {
-        			auto& normal = meshlet.vertices[indices[0]].normal;
-        			auto& tangent = meshlet.vertices[indices[0]].tangent;
+				for ( auto i = 0; i < 3; ++i ) {
+					auto& normal = meshlet.vertices[indices[0]].normal;
+					auto& tangent = meshlet.vertices[indices[0]].tangent;
 					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
 			
 					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
 						tangent = tangent * -1.0f;
-        		}
+				}
 			}
 		} else {
 			for ( size_t i = 0; i < meshlet.vertices.size() / 3; ++i ) {
@@ -313,17 +313,17 @@ for ( auto& p : m.primitives ) {
 				};
 
 				float r = 1.0f / (deltaTriUV[0].x * deltaTriUV[1].y - deltaTriUV[0].y * deltaTriUV[1].x);
-        		auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
-        		auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
+				auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
+				auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
 
-        		for ( auto i = 0; i < 3; ++i ) {
-        			auto& normal = meshlet.vertices[indices[0]].normal;
-        			auto& tangent = meshlet.vertices[indices[0]].tangent;
+				for ( auto i = 0; i < 3; ++i ) {
+					auto& normal = meshlet.vertices[indices[0]].normal;
+					auto& tangent = meshlet.vertices[indices[0]].tangent;
 					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
 			
 					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
 						tangent = tangent * -1.0f;
-        		}
+				}
 			}
 		}
 	}

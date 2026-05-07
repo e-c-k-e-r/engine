@@ -37,16 +37,10 @@ layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 13, r32ui) uniform volatile uimage3D voxelDrawId[CASCADES];
-layout (binding = 14, r32ui) uniform volatile uimage3D voxelInstanceId[CASCADES];
-layout (binding = 15, r32ui) uniform volatile uimage3D voxelNormalX[CASCADES];
-layout (binding = 16, r32ui) uniform volatile uimage3D voxelNormalY[CASCADES];
-layout (binding = 17, r32ui) uniform volatile uimage3D voxelRadianceR[CASCADES];
-layout (binding = 18, r32ui) uniform volatile uimage3D voxelRadianceG[CASCADES];
-layout (binding = 19, r32ui) uniform volatile uimage3D voxelRadianceB[CASCADES];
-layout (binding = 20, r32ui) uniform volatile uimage3D voxelRadianceA[CASCADES];
-layout (binding = 21, r32ui) uniform volatile uimage3D voxelCount[CASCADES];
-layout (binding = 22, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
+layout (binding = 13, r32ui) uniform volatile uimage3D voxelId[CASCADES];
+layout (binding = 14, r32ui) uniform volatile uimage3D voxelNormal[CASCADES];
+layout (binding = 15, r32ui) uniform volatile uimage3D voxelRadiance[CASCADES];
+layout (binding = 16, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;
@@ -94,7 +88,8 @@ void main() {
 		A.a = 1;
 	// alpha mode BLEND
 	} else if ( material.modeAlpha == 1 ) {
-
+		float dither = interleavedGradientNoise(gl_FragCoord.xy);
+	//	if ( A.a < dither ) discard;
 	// alpha mode MASK
 	} else if ( material.modeAlpha == 2 ) {
 		if ( A.a < abs(material.factorAlphaCutoff) ) discard;
@@ -121,16 +116,13 @@ void main() {
 
 	const ivec3 uvw = ivec3(P * imageSize(voxelOutput[CASCADE]));
 
-	imageAtomicMax(voxelDrawId[CASCADE], ivec3(uvw), uint( drawID + 1 ) );
-	imageAtomicMax(voxelInstanceId[CASCADE], ivec3(uvw), uint( instanceID + 1 ) );
+	uint packedId = ( instanceID + 1 ) << 16 | ( drawID + 1 );
+	imageAtomicMax(voxelId[CASCADE], ivec3(uvw), packedId);
 
 	vec2 N_E = encodeNormals( normalize( N ) );
-	imageAtomicMin(voxelNormalX[CASCADE], ivec3(uvw), uint( floatBitsToUint( N_E.x ) ) );
-	imageAtomicMin(voxelNormalY[CASCADE], ivec3(uvw), uint( floatBitsToUint( N_E.y ) ) );
-
-	imageAtomicAdd(voxelRadianceR[CASCADE], ivec3(uvw), uint( A.r * 256 ) );
-	imageAtomicAdd(voxelRadianceG[CASCADE], ivec3(uvw), uint( A.g * 256 ) );
-	imageAtomicAdd(voxelRadianceB[CASCADE], ivec3(uvw), uint( A.b * 256 ) );
-	imageAtomicAdd(voxelRadianceA[CASCADE], ivec3(uvw), uint( A.a * 256 ) );
-	imageAtomicAdd(voxelCount[CASCADE], ivec3(uvw), uint( 1 ) );
+	uint packedNormal = packHalf2x16(N_E);
+	imageAtomicMin(voxelNormal[CASCADE], uvw, packedNormal);
+	
+	uint packedRadiance = packUnorm4x8(vec4(A.rgb, luminance(A.rgb)));
+	imageAtomicMax(voxelRadiance[CASCADE], uvw, packedRadiance);
 }

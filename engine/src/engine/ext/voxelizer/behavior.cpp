@@ -18,6 +18,7 @@
 #include "../scene/behavior.h"
 #include <uf/engine/ext.h>
 
+#define ALIAS_OUTPUT_TO_RADIANCE 1
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerSceneBehavior, ticks = true, renders = false, thread = "")
@@ -35,44 +36,46 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 
 	for ( size_t i = 0; i < metadata.cascades; ++i ) {
 		const bool HDR = false;
-		auto& drawId = sceneTextures.voxels.drawId.emplace_back();
-		drawId.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-		drawId.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-		drawId.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		
-		auto& instanceId = sceneTextures.voxels.instanceId.emplace_back();
-		instanceId.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-		instanceId.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-		instanceId.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		auto& id = sceneTextures.voxels.id.emplace_back();
+		id.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+		id.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
-		auto& normalX = sceneTextures.voxels.normalX.emplace_back();
-		normalX.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		
-		auto& normalY = sceneTextures.voxels.normalY.emplace_back();
-		normalY.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		auto& normal = sceneTextures.voxels.normal.emplace_back();
+		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );		
 
-		auto& radianceR = sceneTextures.voxels.radianceR.emplace_back();
-		radianceR.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
+		radiance.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 		
-		auto& radianceG = sceneTextures.voxels.radianceG.emplace_back();
-		radianceG.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		
-		auto& radianceB = sceneTextures.voxels.radianceB.emplace_back();
-		radianceB.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		
-		auto& radianceA = sceneTextures.voxels.radianceA.emplace_back();
-		radianceA.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		
-		auto& count = sceneTextures.voxels.count.emplace_back();
-		count.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-	
 		auto& output = sceneTextures.voxels.output.emplace_back();
+	/*
 		if ( metadata.filtering == "NEAREST" ) {
 			output.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 			output.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 		}
+	*/
 	//	output.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );	
+	#if ALIAS_OUTPUT_TO_RADIANCE
+		output.aliasTexture( radiance );
+		{
+			VkImageViewCreateInfo viewCreateInfo = {};
+			viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCreateInfo.image = radiance.image;
+			viewCreateInfo.viewType = radiance.viewType;
+			viewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+			viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+			viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCreateInfo.subresourceRange.baseMipLevel = 0;
+			viewCreateInfo.subresourceRange.levelCount = radiance.mips;
+			viewCreateInfo.subresourceRange.baseArrayLayer = 0;
+			viewCreateInfo.subresourceRange.layerCount = 1;
+
+			VK_CHECK_RESULT(vkCreateImageView(uf::renderer::device.logicalDevice, &viewCreateInfo, nullptr, &output.view));
+			VK_REGISTER_HANDLE( output.view );
+		}
+	#else
 		output.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );	
+	#endif
 	}
 	// initialize render mode
 	{
@@ -120,15 +123,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		for ( size_t i = 0; i < maxTexturesCube; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
 		for ( size_t i = 0; i < maxTextures3D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 		
-		for ( auto& t : sceneTextures.voxels.drawId ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.instanceId ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.normalX ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.normalY ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radianceR ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radianceG ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radianceB ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radianceA ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.count ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.normal ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.output ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
@@ -141,15 +138,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			subresourceRange.layerCount = 1;
 
 			VkClearColorValue clearColor = { 0.0, 0.0, 0.0, 0.0 };
-			for ( auto& t : sceneTextures.voxels.drawId ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.instanceId ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.normalX ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.normalY ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceR ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceG ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceB ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.radianceA ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
-			for ( auto& t : sceneTextures.voxels.count ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.id ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.output ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
 		});
 
@@ -287,15 +278,16 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 }
 void ext::VoxelizerSceneBehavior::render( uf::Object& self ){}
 void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
-#if UF_USE_VULKAN
-/*
-	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		
-		uf::renderer::removeRenderMode( &renderMode, false );
-	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
+#if ALIAS_OUTPUT_TO_RADIANCE
+	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
+	for ( auto& t : sceneTextures.voxels.output ) {
+		ext::vulkan::mutex.lock();
+		auto& texture = uf::renderer::device.transient.textures.emplace_back();
+		ext::vulkan::mutex.unlock();
+
+		texture.device = &uf::renderer::device;
+		texture.view = t.view;
 	}
-*/
 #endif
 }
 void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {

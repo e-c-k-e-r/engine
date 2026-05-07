@@ -190,11 +190,11 @@ uf::stl::vector<uint8_t>& uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer
 
 		// Read each range
 		size_t currentOffset = 0;
-        for (const auto& r : ranges) {
-            is.seekg(r.start, std::ios::beg);
-            is.read(reinterpret_cast<char*>(buffer.data() + currentOffset), r.len);
-            currentOffset += static_cast<size_t>(is.gcount());
-        }
+		for (const auto& r : ranges) {
+			is.seekg(r.start, std::ios::beg);
+			is.read(reinterpret_cast<char*>(buffer.data() + currentOffset), r.len);
+			currentOffset += static_cast<size_t>(is.gcount());
+		}
 	}
 
 	uf::stl::string expected;

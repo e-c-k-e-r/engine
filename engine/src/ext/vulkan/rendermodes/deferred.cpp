@@ -329,15 +329,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures2D },
 				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelDrawId", maxCascades },
-				{ "voxelInstanceId", maxCascades },
-				{ "voxelNormalX", maxCascades },
-				{ "voxelNormalY", maxCascades },
-				{ "voxelRadianceR", maxCascades },
-				{ "voxelRadianceG", maxCascades },
-				{ "voxelRadianceB", maxCascades },
-				{ "voxelRadianceA", maxCascades },
-				{ "voxelCount", maxCascades },
+				{ "voxelId", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
 				{ "voxelOutput", maxCascades },
 			});
 

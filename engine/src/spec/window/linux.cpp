@@ -74,14 +74,14 @@ namespace {
 
 		for (int i = 0; i < res->noutput; i++) {
 			XRROutputInfo *output_info =
-			    XRRGetOutputInfo(display, res, res->outputs[i]);
+				XRRGetOutputInfo(display, res, res->outputs[i]);
 			if (!output_info || output_info->connection == RR_Disconnected) {
 				if (output_info) XRRFreeOutputInfo(output_info);
 				continue;
 			}
 
 			XRRCrtcInfo *crtc_info =
-			    XRRGetCrtcInfo(display, res, output_info->crtc);
+				XRRGetCrtcInfo(display, res, output_info->crtc);
 			if (!crtc_info) {
 				XRRFreeOutputInfo(output_info);
 				continue;
@@ -168,22 +168,22 @@ namespace {
 }  // namespace
 
 spec::x11::Window::Window()
-    : m_display(nullptr),
-      m_screen(0),
-      m_handle(0),
-      m_gc(0),
-      m_xim(nullptr),
-      m_xic(nullptr),
-      m_context(nullptr),
-      m_lastSize({}),
-      m_keyRepeatEnabled(true),
-      m_resizing(false),
-      m_mouseGrabbed(false),
-      m_syncParse(true),
-      m_asyncParse(false) {}
+	: m_display(nullptr),
+	  m_screen(0),
+	  m_handle(0),
+	  m_gc(0),
+	  m_xim(nullptr),
+	  m_xic(nullptr),
+	  m_context(nullptr),
+	  m_lastSize({}),
+	  m_keyRepeatEnabled(true),
+	  m_resizing(false),
+	  m_mouseGrabbed(false),
+	  m_syncParse(true),
+	  m_asyncParse(false) {}
 
 spec::x11::Window::Window(const vector_t &size, const title_t &title)
-    : Window() {
+	: Window() {
 	create(size, title);
 }
 
@@ -197,14 +197,14 @@ void spec::x11::Window::create(const vector_t &size, const title_t &title) {
 	int dimH = size.y > 0 ? size.y : DisplayHeight(m_display, m_screen);
 
 	m_handle = XCreateSimpleWindow(
-	    m_display, RootWindow(m_display, m_screen), 0, 0, dimW, dimH, 1,
-	    BlackPixel(m_display, m_screen), WhitePixel(m_display, m_screen));
+		m_display, RootWindow(m_display, m_screen), 0, 0, dimW, dimH, 1,
+		BlackPixel(m_display, m_screen), WhitePixel(m_display, m_screen));
 
 	// Input events mask
 	XSelectInput(m_display, m_handle,
-	             ExposureMask | KeyPressMask | KeyReleaseMask |
-	                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
-	                 StructureNotifyMask | FocusChangeMask);
+				 ExposureMask | KeyPressMask | KeyReleaseMask |
+					 ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
+					 StructureNotifyMask | FocusChangeMask);
 
 	// Set Title
 	setTitle(title);
@@ -217,7 +217,7 @@ void spec::x11::Window::create(const vector_t &size, const title_t &title) {
 		m_xim = XOpenIM(m_display, nullptr, nullptr, nullptr);
 	}
 	m_xic = XCreateIC(m_xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-	                  XNClientWindow, m_handle, XNFocusWindow, m_handle, NULL);
+					  XNClientWindow, m_handle, XNFocusWindow, m_handle, NULL);
 
 	Atom WM_DELETE_WINDOW = XInternAtom(m_display, "WM_DELETE_WINDOW", False);
 	XSetWMProtocols(m_display, m_handle, &WM_DELETE_WINDOW, 1);
@@ -260,7 +260,7 @@ spec::x11::Window::vector_t spec::x11::Window::getPosition() const {
 	int x, y;
 	::Window child;
 	XTranslateCoordinates(m_display, m_handle, RootWindow(m_display, m_screen),
-	                      0, 0, &x, &y, &child);
+						  0, 0, &x, &y, &child);
 	return {(unsigned)x, (unsigned)y};
 }
 
@@ -273,13 +273,13 @@ spec::x11::Window::vector_t spec::x11::Window::getSize() const {
 /*
 
 float spec::x11::Window::getDPIScale() const {
-    if (!m_display) return 1.0f;
+	if (!m_display) return 1.0f;
 
-    float dpi = getXftDPI(m_display);
-    if (dpi <= 0.0f) dpi = getRandRDPI(m_display, m_screen);
-    if (dpi <= 0.0f) dpi = 96.0f;
+	float dpi = getXftDPI(m_display);
+	if (dpi <= 0.0f) dpi = getRandRDPI(m_display, m_screen);
+	if (dpi <= 0.0f) dpi = 96.0f;
 
-    return dpi / 96.0f; // scale relative to Win32 baseline
+	return dpi / 96.0f; // scale relative to Win32 baseline
 }
 
 */
@@ -287,46 +287,46 @@ float spec::x11::Window::getDPIScale() const {
 size_t spec::x11::Window::getRefreshRate() const {
 	return 60;
 	/*
-	    if (!m_display) return 60; // safe default
+		if (!m_display) return 60; // safe default
 
-	    Window root = RootWindow(m_display, m_screen);
+		Window root = RootWindow(m_display, m_screen);
 
-	    XRRScreenResources* res = XRRGetScreenResourcesCurrent(m_display, root);
-	    if (!res) return 60;
+		XRRScreenResources* res = XRRGetScreenResourcesCurrent(m_display, root);
+		if (!res) return 60;
 
-	    RROutput primary = XRRGetOutputPrimary(m_display, root);
-	    if (primary == None && res->noutput > 0)
-	        primary = res->outputs[0]; // fallback
+		RROutput primary = XRRGetOutputPrimary(m_display, root);
+		if (primary == None && res->noutput > 0)
+			primary = res->outputs[0]; // fallback
 
-	    XRROutputInfo* output_info = XRRGetOutputInfo(m_display, res, primary);
-	    if (!output_info) {
-	        XRRFreeScreenResources(res);
-	        return 60;
-	    }
+		XRROutputInfo* output_info = XRRGetOutputInfo(m_display, res, primary);
+		if (!output_info) {
+			XRRFreeScreenResources(res);
+			return 60;
+		}
 
-	    XRRCrtcInfo* crtc_info = XRRGetCrtcInfo(m_display, res,
+		XRRCrtcInfo* crtc_info = XRRGetCrtcInfo(m_display, res,
 	   output_info->crtc);
 
-	    size_t refresh = 60; // default fallback
-	    if (crtc_info) {
-	        for (int i = 0; i < res->nmode; i++) {
-	            XRRModeInfo& mode = res->modes[i];
-	            if (mode.id == crtc_info->mode) {
-	                if (mode.hTotal > 0 && mode.vTotal > 0) {
-	                    double rate = (double)mode.dotClock /
-	                                 ((double)mode.hTotal *
+		size_t refresh = 60; // default fallback
+		if (crtc_info) {
+			for (int i = 0; i < res->nmode; i++) {
+				XRRModeInfo& mode = res->modes[i];
+				if (mode.id == crtc_info->mode) {
+					if (mode.hTotal > 0 && mode.vTotal > 0) {
+						double rate = (double)mode.dotClock /
+									 ((double)mode.hTotal *
 	   (double)mode.vTotal); refresh = static_cast<size_t>(std::round(rate));
-	                }
-	                break;
-	            }
-	        }
-	        XRRFreeCrtcInfo(crtc_info);
-	    }
+					}
+					break;
+				}
+			}
+			XRRFreeCrtcInfo(crtc_info);
+		}
 
-	    XRRFreeOutputInfo(output_info);
-	    XRRFreeScreenResources(res);
+		XRRFreeOutputInfo(output_info);
+		XRRFreeScreenResources(res);
 
-	    return refresh;
+		return refresh;
 	*/
 }
 
@@ -370,7 +370,7 @@ void spec::x11::Window::centerWindow() {
 	MonitorInfo target = monitors[0];
 	for (auto &mon : monitors) {
 		if (winCenterX >= mon.x && winCenterX < mon.x + mon.width &&
-		    winCenterY >= mon.y && winCenterY < mon.y + mon.height) {
+			winCenterY >= mon.y && winCenterY < mon.y + mon.height) {
 			target = mon;
 			break;
 		}
@@ -394,7 +394,7 @@ spec::x11::Window::vector_t spec::x11::Window::getMousePosition() {
 	unsigned mask;
 	::Window child, root;
 	XQueryPointer(m_display, m_handle, &root, &child, &root_x, &root_y, &win_x,
-	              &win_y, &mask);
+				  &win_y, &mask);
 	return {(unsigned)win_x, (unsigned)win_y};
 }
 
@@ -407,26 +407,26 @@ void spec::x11::Window::setTitle(const title_t &title) {
 }
 /*
 void spec::x11::Window::setIcon(const vector_t&, uint8_t*) {
-    // Convert RGBA8 -> ARGB32 (unsigned long)
-    uf::stl::vector<unsigned long> icon;
-    icon.resize(2 + size.x * size.y);
-    icon[0] = size.x;
-    icon[1] = size.y;
+	// Convert RGBA8 -> ARGB32 (unsigned long)
+	uf::stl::vector<unsigned long> icon;
+	icon.resize(2 + size.x * size.y);
+	icon[0] = size.x;
+	icon[1] = size.y;
 
-    for (int i = 0; i < size.x * size.y; i++) {
-        unsigned char r = pixels[i*4+0];
-        unsigned char g = pixels[i*4+1];
-        unsigned char b = pixels[i*4+2];
-        unsigned char a = pixels[i*4+3];
-        unsigned long argb = ((unsigned long)a << 24) |
-                             ((unsigned long)r << 16) |
-                             ((unsigned long)g <<  8) |
-                             ((unsigned long)b);
-        icon[2+i] = argb;
-    }
+	for (int i = 0; i < size.x * size.y; i++) {
+		unsigned char r = pixels[i*4+0];
+		unsigned char g = pixels[i*4+1];
+		unsigned char b = pixels[i*4+2];
+		unsigned char a = pixels[i*4+3];
+		unsigned long argb = ((unsigned long)a << 24) |
+							 ((unsigned long)r << 16) |
+							 ((unsigned long)g <<  8) |
+							 ((unsigned long)b);
+		icon[2+i] = argb;
+	}
 
-    Atom property = XInternAtom(m_display, "_NET_WM_ICON", False);
-    XChangeProperty(m_display, m_handle, property, XA_CARDINAL, 32,
+	Atom property = XInternAtom(m_display, "_NET_WM_ICON", False);
+	XChangeProperty(m_display, m_handle, property, XA_CARDINAL, 32,
 PropModeReplace, (unsigned char*)icon.data(), icon.size()); XFlush(m_display);
 }
 */
@@ -445,16 +445,16 @@ void spec::x11::Window::setIcon(const vector_t &size, uint8_t *pixels) {
 
 		// Pack ARGB as required by X
 		unsigned long argb = ((unsigned long)a << 24) |
-		                     ((unsigned long)r << 16) |
-		                     ((unsigned long)g << 8) | ((unsigned long)b);
+							 ((unsigned long)r << 16) |
+							 ((unsigned long)g << 8) | ((unsigned long)b);
 
 		icon[2 + i] = argb;
 	}
 
 	Atom property = XInternAtom(m_display, "_NET_WM_ICON", False);
 	XChangeProperty(
-	    m_display, m_handle, property, XA_CARDINAL, 32, PropModeReplace,
-	    reinterpret_cast<unsigned char *>(icon.data()), icon.size());
+		m_display, m_handle, property, XA_CARDINAL, 32, PropModeReplace,
+		reinterpret_cast<unsigned char *>(icon.data()), icon.size());
 	XFlush(m_display);
 }
 void spec::x11::Window::setVisible(bool vis) {
@@ -467,19 +467,19 @@ void spec::x11::Window::setVisible(bool vis) {
 
 /*
 void spec::x11::Window::setCursorVisible(bool vis) {
-    if (!vis) {
-        // hide cursor
-        Pixmap bm_no;
-        XColor black; memset(&black, 0, sizeof(black));
-        char no_data[] = { 0 };
-        bm_no = XCreateBitmapFromData(m_display, m_handle, no_data, 1, 1);
-        Cursor invisible = XCreatePixmapCursor(m_display, bm_no, bm_no,
-                                               &black, &black, 0, 0);
-        XDefineCursor(m_display, m_handle, invisible);
-        XFreeCursor(m_display, invisible);
-    } else {
-        XUndefineCursor(m_display, m_handle);
-    }
+	if (!vis) {
+		// hide cursor
+		Pixmap bm_no;
+		XColor black; memset(&black, 0, sizeof(black));
+		char no_data[] = { 0 };
+		bm_no = XCreateBitmapFromData(m_display, m_handle, no_data, 1, 1);
+		Cursor invisible = XCreatePixmapCursor(m_display, bm_no, bm_no,
+											   &black, &black, 0, 0);
+		XDefineCursor(m_display, m_handle, invisible);
+		XFreeCursor(m_display, invisible);
+	} else {
+		XUndefineCursor(m_display, m_handle);
+	}
 }
 */
 
@@ -497,7 +497,7 @@ void spec::x11::Window::setCursorVisible(bool visibility) {
 		dummy.red = dummy.green = dummy.blue = 0;
 
 		Cursor invisible =
-		    XCreatePixmapCursor(m_display, bm_no, bm_no, &dummy, &dummy, 0, 0);
+			XCreatePixmapCursor(m_display, bm_no, bm_no, &dummy, &dummy, 0, 0);
 		XDefineCursor(m_display, m_handle, invisible);
 		XFreeCursor(m_display, invisible);
 		XFreePixmap(m_display, bm_no);
@@ -509,31 +509,31 @@ void spec::x11::Window::setCursorVisible(bool visibility) {
 #include <X11/Xcursor/Xcursor.h>
 
 void spec::x11::Window::setCustomCursor(const vector_t& size, uint8_t* pixels) {
-    XcursorImage* img = XcursorImageCreate(size.x, size.y);
-    if (!img) return;
+	XcursorImage* img = XcursorImageCreate(size.x, size.y);
+	if (!img) return;
 
-    img->xhot = size.x / 2; // center hot spot
-    img->yhot = size.y / 2;
+	img->xhot = size.x / 2; // center hot spot
+	img->yhot = size.y / 2;
 
-    // Fill ARGB pixels
-    for (size_t i = 0; i < size.x * size.y; i++) {
-        uint8_t r = pixels[i * 4 + 0];
-        uint8_t g = pixels[i * 4 + 1];
-        uint8_t b = pixels[i * 4 + 2];
-        uint8_t a = pixels[i * 4 + 3];
+	// Fill ARGB pixels
+	for (size_t i = 0; i < size.x * size.y; i++) {
+		uint8_t r = pixels[i * 4 + 0];
+		uint8_t g = pixels[i * 4 + 1];
+		uint8_t b = pixels[i * 4 + 2];
+		uint8_t a = pixels[i * 4 + 3];
 
-        img->pixels[i] = ((unsigned long)a << 24) |
-                         ((unsigned long)r << 16) |
-                         ((unsigned long)g << 8)  |
-                         ((unsigned long)b);
-    }
+		img->pixels[i] = ((unsigned long)a << 24) |
+						 ((unsigned long)r << 16) |
+						 ((unsigned long)g << 8)  |
+						 ((unsigned long)b);
+	}
 
-    Cursor cursor = XcursorImageLoadCursor(m_display, img);
-    XcursorImageDestroy(img);
+	Cursor cursor = XcursorImageLoadCursor(m_display, img);
+	XcursorImageDestroy(img);
 
-    XDefineCursor(m_display, m_handle, cursor);
-    XFreeCursor(m_display, cursor);
-    XFlush(m_display);
+	XDefineCursor(m_display, m_handle, cursor);
+	XFreeCursor(m_display, cursor);
+	XFlush(m_display);
 }
 */
 
@@ -550,12 +550,12 @@ void spec::x11::Window::grabMouse(bool state) {
 	if (state) {
 		// Grab pointer: locks input focus to this window
 		int result = XGrabPointer(
-		    m_display, m_handle,
-		    True,  // owner_events
-		    ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-		    GrabModeAsync, GrabModeAsync,
-		    m_handle,  // confine to this window
-		    None, CurrentTime);
+			m_display, m_handle,
+			True,  // owner_events
+			ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+			GrabModeAsync, GrabModeAsync,
+			m_handle,  // confine to this window
+			None, CurrentTime);
 
 		if (result != GrabSuccess) {
 			UF_MSG_ERROR("Failed to grab mouse pointer via XGrabPointer");
@@ -591,8 +591,8 @@ void spec::x11::Window::bufferInputs() {
 	char keys[32];
 	XQueryKeymap(m_display, keys);
 
-#define GET_KEYSTATE(SYMBOL)                           \
-	(uf::Window::focused &&                            \
+#define GET_KEYSTATE(SYMBOL)						   \
+	(uf::Window::focused &&							\
 	 (keys[XKeysymToKeycode(m_display, SYMBOL) >> 3] & \
 	  (1 << (XKeysymToKeycode(m_display, SYMBOL) & 7))))
 
@@ -719,209 +719,209 @@ void spec::x11::Window::bufferInputs() {
 	int rootX, rootY, winX, winY;
 	unsigned int mask;
 	XQueryPointer(m_display, m_handle, &root, &child, &rootX, &rootY, &winX,
-	              &winY, &mask);
+				  &winY, &mask);
 
 	uf::inputs::kbm::states::Mouse1 = (mask & Button1Mask);  // Left
 	uf::inputs::kbm::states::Mouse2 = (mask & Button3Mask);  // Right
 	uf::inputs::kbm::states::Mouse3 = (mask & Button2Mask);  // Middle
 
 	uf::inputs::kbm::states::MouseWheel =
-	    uf::Window::focused ? ::lastMouseWheel : 0;
+		uf::Window::focused ? ::lastMouseWheel : 0;
 	::lastMouseWheel = 0;
 }
 /*
 void spec::x11::Window::processEvents() {
-    uf::stl::string prettyName = NormalizeKeyName( KeySymToString( sym ) );
-    while (XPending(m_display) > 0) {
-        XEvent ev;
-        XNextEvent(m_display, &ev);
+	uf::stl::string prettyName = NormalizeKeyName( KeySymToString( sym ) );
+	while (XPending(m_display) > 0) {
+		XEvent ev;
+		XNextEvent(m_display, &ev);
 
-        switch (ev.type) {
-            case ConfigureNotify: {
-                vector_t newSize = { (unsigned)ev.xconfigure.width,
+		switch (ev.type) {
+			case ConfigureNotify: {
+				vector_t newSize = { (unsigned)ev.xconfigure.width,
 (unsigned)ev.xconfigure.height }; if (newSize != m_lastSize) { m_lastSize =
 newSize; pod::payloads::windowResized event { { "window:Resized", "os" }, {
 m_lastSize }
-                    };
-                    this->pushEvent(event.type, event);
-                }
-            } break;
+					};
+					this->pushEvent(event.type, event);
+				}
+			} break;
 
-            case DestroyNotify: {
-                pod::payloads::windowEvent event { "window:Closed", "os" };
-                this->pushEvent(event.type, event);
-                this->terminate();
-            } break;
+			case DestroyNotify: {
+				pod::payloads::windowEvent event { "window:Closed", "os" };
+				this->pushEvent(event.type, event);
+				this->terminate();
+			} break;
 
-            case FocusIn: {
-                pod::payloads::windowFocusedChanged event {
-                    { "window:Focus.Changed", "os" },
-                    { 1 } // gained
-                };
-                this->pushEvent(event.type, event);
-            } break;
-            case FocusOut: {
-                pod::payloads::windowFocusedChanged event {
-                    { "window:Focus.Changed", "os" },
-                    { -1 } // lost
-                };
-                this->pushEvent(event.type, event);
-            } break;
+			case FocusIn: {
+				pod::payloads::windowFocusedChanged event {
+					{ "window:Focus.Changed", "os" },
+					{ 1 } // gained
+				};
+				this->pushEvent(event.type, event);
+			} break;
+			case FocusOut: {
+				pod::payloads::windowFocusedChanged event {
+					{ "window:Focus.Changed", "os" },
+					{ -1 } // lost
+				};
+				this->pushEvent(event.type, event);
+			} break;
 
-            case KeyPress: {
-                KeySym sym;
-                char buffer[32];
-                Status status;
-                int len = Xutf8LookupString(m_xic, &ev.xkey, buffer,
+			case KeyPress: {
+				KeySym sym;
+				char buffer[32];
+				Status status;
+				int len = Xutf8LookupString(m_xic, &ev.xkey, buffer,
 sizeof(buffer)-1, &sym, &status); buffer[len] = '\0';
 
-                // Key info
-                uf::stl::string keycode = KeySymToString(sym);
+				// Key info
+				uf::stl::string keycode = KeySymToString(sym);
 
-                pod::payloads::windowKey event{
-                    { "window:Key", "os" },
-                    {
-                        keycode,
-                        (unsigned long)sym,
-                        -1, // pressed
-                        false,
-                        {
-                            .alt  = (ev.xkey.state & Mod1Mask),
-                            .ctrl = (ev.xkey.state & ControlMask),
-                            .shift= (ev.xkey.state & ShiftMask),
-                            .sys  = (ev.xkey.state & Mod4Mask)
-                        }
-                    }
-                };
-                this->pushEvent(event.type, event);
-                this->pushEvent(event.type + "." + keycode, event);
+				pod::payloads::windowKey event{
+					{ "window:Key", "os" },
+					{
+						keycode,
+						(unsigned long)sym,
+						-1, // pressed
+						false,
+						{
+							.alt  = (ev.xkey.state & Mod1Mask),
+							.ctrl = (ev.xkey.state & ControlMask),
+							.shift= (ev.xkey.state & ShiftMask),
+							.sys  = (ev.xkey.state & Mod4Mask)
+						}
+					}
+				};
+				this->pushEvent(event.type, event);
+				this->pushEvent(event.type + "." + keycode, event);
 
-                // Text input (if UTF-8 char is present)
-                if (len > 0) {
-                    uf::stl::string utf8(buffer);
-                    pod::payloads::windowTextEntered textEvent{
-                        { "window:Text.Entered", "os" },
-                        { (uint32_t)utf8[0], utf8 } // simplistic, full UTF-32
+				// Text input (if UTF-8 char is present)
+				if (len > 0) {
+					uf::stl::string utf8(buffer);
+					pod::payloads::windowTextEntered textEvent{
+						{ "window:Text.Entered", "os" },
+						{ (uint32_t)utf8[0], utf8 } // simplistic, full UTF-32
 conversion recommended
-                    };
-                    this->pushEvent(textEvent.type, textEvent);
-                }
-            } break;
+					};
+					this->pushEvent(textEvent.type, textEvent);
+				}
+			} break;
 
-            case KeyRelease: {
-                KeySym sym = XLookupKeysym(&ev.xkey, 0);
-                uf::stl::string keycode = KeySymToString(sym);
+			case KeyRelease: {
+				KeySym sym = XLookupKeysym(&ev.xkey, 0);
+				uf::stl::string keycode = KeySymToString(sym);
 
-                pod::payloads::windowKey event{
-                    { "window:Key", "os" },
-                    {
-                        keycode,
-                        (unsigned long)sym,
-                        1, // released
-                        false,
-                        {
-                            .alt  = (ev.xkey.state & Mod1Mask),
-                            .ctrl = (ev.xkey.state & ControlMask),
-                            .shift= (ev.xkey.state & ShiftMask),
-                            .sys  = (ev.xkey.state & Mod4Mask)
-                        }
-                    }
-                };
-                this->pushEvent(event.type, event);
-                this->pushEvent(event.type + "." + keycode, event);
-            } break;
+				pod::payloads::windowKey event{
+					{ "window:Key", "os" },
+					{
+						keycode,
+						(unsigned long)sym,
+						1, // released
+						false,
+						{
+							.alt  = (ev.xkey.state & Mod1Mask),
+							.ctrl = (ev.xkey.state & ControlMask),
+							.shift= (ev.xkey.state & ShiftMask),
+							.sys  = (ev.xkey.state & Mod4Mask)
+						}
+					}
+				};
+				this->pushEvent(event.type, event);
+				this->pushEvent(event.type + "." + keycode, event);
+			} break;
 
-            case ButtonPress: {
-                pod::Vector2i pos = { ev.xbutton.x, ev.xbutton.y };
-                int state = -1;
-                uf::stl::string button;
+			case ButtonPress: {
+				pod::Vector2i pos = { ev.xbutton.x, ev.xbutton.y };
+				int state = -1;
+				uf::stl::string button;
 
-                switch (ev.xbutton.button) {
-                    case 1: button = "Left"; break;
-                    case 2: button = "Middle"; break;
-                    case 3: button = "Right"; break;
-                    case 8: // aux typical
-                    case 9: button = "Aux"; break;
-                    case 4: { // wheel up
-                        pod::payloads::windowMouseWheel wheelEvent {
-                            { "window:Mouse.Wheel", "os" },
-                            { { (unsigned)pos.x, (unsigned)pos.y }, +120 }
-                        };
-                        this->pushEvent(wheelEvent.type, wheelEvent);
-                        continue;
-                    }
-                    case 5: { // wheel down
-                        pod::payloads::windowMouseWheel wheelEvent {
-                            { "window:Mouse.Wheel", "os" },
-                            { { (unsigned)pos.x, (unsigned)pos.y }, -120 }
-                        };
-                        this->pushEvent(wheelEvent.type, wheelEvent);
-                        continue;
-                    }
-                }
+				switch (ev.xbutton.button) {
+					case 1: button = "Left"; break;
+					case 2: button = "Middle"; break;
+					case 3: button = "Right"; break;
+					case 8: // aux typical
+					case 9: button = "Aux"; break;
+					case 4: { // wheel up
+						pod::payloads::windowMouseWheel wheelEvent {
+							{ "window:Mouse.Wheel", "os" },
+							{ { (unsigned)pos.x, (unsigned)pos.y }, +120 }
+						};
+						this->pushEvent(wheelEvent.type, wheelEvent);
+						continue;
+					}
+					case 5: { // wheel down
+						pod::payloads::windowMouseWheel wheelEvent {
+							{ "window:Mouse.Wheel", "os" },
+							{ { (unsigned)pos.x, (unsigned)pos.y }, -120 }
+						};
+						this->pushEvent(wheelEvent.type, wheelEvent);
+						continue;
+					}
+				}
 
-                pod::payloads::windowMouseClick event{
-                    { "window:Mouse.Click", "os" },
-                    { pos, {0,0}, button, state }
-                };
-                this->pushEvent(event.type, event);
-            } break;
+				pod::payloads::windowMouseClick event{
+					{ "window:Mouse.Click", "os" },
+					{ pos, {0,0}, button, state }
+				};
+				this->pushEvent(event.type, event);
+			} break;
 
-            case ButtonRelease: {
-                pod::Vector2i pos = { ev.xbutton.x, ev.xbutton.y };
-                int state = 1;
-                uf::stl::string button;
+			case ButtonRelease: {
+				pod::Vector2i pos = { ev.xbutton.x, ev.xbutton.y };
+				int state = 1;
+				uf::stl::string button;
 
-                switch (ev.xbutton.button) {
-                    case 1: button = "Left"; break;
-                    case 2: button = "Middle"; break;
-                    case 3: button = "Right"; break;
-                    case 8:
-                    case 9: button = "Aux"; break;
-                }
+				switch (ev.xbutton.button) {
+					case 1: button = "Left"; break;
+					case 2: button = "Middle"; break;
+					case 3: button = "Right"; break;
+					case 8:
+					case 9: button = "Aux"; break;
+				}
 
-                pod::payloads::windowMouseClick event{
-                    { "window:Mouse.Click", "os" },
-                    { pos, {0,0}, button, state }
-                };
-                this->pushEvent(event.type, event);
-            } break;
-            case MotionNotify: {
-                static pod::Vector2i lastPosition{};
-                pod::Vector2i current = { ev.xmotion.x, ev.xmotion.y };
+				pod::payloads::windowMouseClick event{
+					{ "window:Mouse.Click", "os" },
+					{ pos, {0,0}, button, state }
+				};
+				this->pushEvent(event.type, event);
+			} break;
+			case MotionNotify: {
+				static pod::Vector2i lastPosition{};
+				pod::Vector2i current = { ev.xmotion.x, ev.xmotion.y };
 
-                // Hard clamp inside window bounds
-                auto winSize = getSize();
-                bool clamped = false;
-                if (current.x < 0) { current.x = 0; clamped = true; }
-                if (current.y < 0) { current.y = 0; clamped = true; }
-                if (current.x >= (int)winSize.x) { current.x = winSize.x-1;
+				// Hard clamp inside window bounds
+				auto winSize = getSize();
+				bool clamped = false;
+				if (current.x < 0) { current.x = 0; clamped = true; }
+				if (current.y < 0) { current.y = 0; clamped = true; }
+				if (current.x >= (int)winSize.x) { current.x = winSize.x-1;
 clamped = true; } if (current.y >= (int)winSize.y) { current.y = winSize.y-1;
 clamped = true; }
 
-                if (clamped) {
-                    // Warp pointer back into client area
-                    XWarpPointer(m_display, None, m_handle, 0,0,0,0, current.x,
+				if (clamped) {
+					// Warp pointer back into client area
+					XWarpPointer(m_display, None, m_handle, 0,0,0,0, current.x,
 current.y); XFlush(m_display);
-                }
+				}
 
-                // Fire payload as usual
-                pod::payloads::windowMouseMoved event {
-                    { { "window:Mouse.Moved", "client" }, { winSize } },
-                    { current, current - lastPosition, 0 }
-                };
-                this->pushEvent(event.type, event);
+				// Fire payload as usual
+				pod::payloads::windowMouseMoved event {
+					{ { "window:Mouse.Moved", "client" }, { winSize } },
+					{ current, current - lastPosition, 0 }
+				};
+				this->pushEvent(event.type, event);
 
-                lastPosition = current;
-            } break;
-            case ClientMessage: {
-                if ((Atom)ev.xclient.data.l[0] == XInternAtom(m_display,
+				lastPosition = current;
+			} break;
+			case ClientMessage: {
+				if ((Atom)ev.xclient.data.l[0] == XInternAtom(m_display,
 "WM_DELETE_WINDOW", False)) { pod::payloads::windowEvent event {
 "window:Closed", "os" }; this->pushEvent(event.type, event); this->terminate();
-                }
-            } break;
-        }
-    }
+				}
+			} break;
+		}
+	}
 }
 */
 void spec::x11::Window::processEvents() {
@@ -932,11 +932,11 @@ void spec::x11::Window::processEvents() {
 		switch (ev.type) {
 			case ConfigureNotify: {
 				vector_t newSize = {(unsigned)ev.xconfigure.width,
-				                    (unsigned)ev.xconfigure.height};
+									(unsigned)ev.xconfigure.height};
 				if (newSize != m_lastSize) {
 					m_lastSize = newSize;
 					pod::payloads::windowResized event{{"window:Resized", "os"},
-					                                   {m_lastSize}};
+													   {m_lastSize}};
 					this->pushEvent(event.type, event);
 				} else {
 					pod::payloads::windowEvent moved{"window:Moved", "os"};
@@ -946,7 +946,7 @@ void spec::x11::Window::processEvents() {
 
 			case ClientMessage: {
 				Atom wmDelete =
-				    XInternAtom(m_display, "WM_DELETE_WINDOW", False);
+					XInternAtom(m_display, "WM_DELETE_WINDOW", False);
 				if ((Atom)ev.xclient.data.l[0] == wmDelete) {
 					pod::payloads::windowEvent event{"window:Closed", "os"};
 					this->pushEvent(event.type, event);
@@ -956,13 +956,13 @@ void spec::x11::Window::processEvents() {
 
 			case FocusIn: {
 				pod::payloads::windowFocusedChanged focusEvent{
-				    {"window:Focus.Changed", "os"}, {1}};
+					{"window:Focus.Changed", "os"}, {1}};
 				this->pushEvent(focusEvent.type, focusEvent);
 			} break;
 
 			case FocusOut: {
 				pod::payloads::windowFocusedChanged focusEvent{
-				    {"window:Focus.Changed", "os"}, {-1}};
+					{"window:Focus.Changed", "os"}, {-1}};
 				this->pushEvent(focusEvent.type, focusEvent);
 			} break;
 
@@ -971,30 +971,30 @@ void spec::x11::Window::processEvents() {
 				char buffer[32];
 				Status status;
 				int len = Xutf8LookupString(m_xic, &ev.xkey, buffer,
-				                            sizeof(buffer) - 1, &sym, &status);
+											sizeof(buffer) - 1, &sym, &status);
 				buffer[len] = '\0';
 
 				uf::stl::string keyName = NormalizeKeyName(KeySymToString(sym));
 
 				pod::payloads::windowKey keyEvent{
-				    {"window:Key", "os"},
-				    {keyName,
-				     (unsigned long)sym,
-				     -1,  // pressed
-				     false,
-				     {.alt = (ev.xkey.state & Mod1Mask),
-				      .ctrl = (ev.xkey.state & ControlMask),
-				      .shift = (ev.xkey.state & ShiftMask),
-				      .sys = (ev.xkey.state & Mod4Mask)}}};
+					{"window:Key", "os"},
+					{keyName,
+					 (unsigned long)sym,
+					 -1,  // pressed
+					 false,
+					 {.alt = (ev.xkey.state & Mod1Mask),
+					  .ctrl = (ev.xkey.state & ControlMask),
+					  .shift = (ev.xkey.state & ShiftMask),
+					  .sys = (ev.xkey.state & Mod4Mask)}}};
 				this->pushEvent(keyEvent.type, keyEvent);
 				this->pushEvent(keyEvent.type + "." + keyName, keyEvent);
 
 				if (len > 0) {
 					uf::stl::string utf8(buffer);
 					uint32_t codepoint =
-					    (uint8_t)utf8[0];  // simple, but can be upgraded
+						(uint8_t)utf8[0];  // simple, but can be upgraded
 					pod::payloads::windowTextEntered textEvent{
-					    {"window:Text.Entered", "os"}, {codepoint, utf8}};
+						{"window:Text.Entered", "os"}, {codepoint, utf8}};
 					this->pushEvent(textEvent.type, textEvent);
 				}
 			} break;
@@ -1004,15 +1004,15 @@ void spec::x11::Window::processEvents() {
 				uf::stl::string keyName = NormalizeKeyName(KeySymToString(sym));
 
 				pod::payloads::windowKey keyEvent{
-				    {"window:Key", "os"},
-				    {keyName,
-				     (unsigned long)sym,
-				     1,  // released
-				     false,
-				     {.alt = (ev.xkey.state & Mod1Mask),
-				      .ctrl = (ev.xkey.state & ControlMask),
-				      .shift = (ev.xkey.state & ShiftMask),
-				      .sys = (ev.xkey.state & Mod4Mask)}}};
+					{"window:Key", "os"},
+					{keyName,
+					 (unsigned long)sym,
+					 1,  // released
+					 false,
+					 {.alt = (ev.xkey.state & Mod1Mask),
+					  .ctrl = (ev.xkey.state & ControlMask),
+					  .shift = (ev.xkey.state & ShiftMask),
+					  .sys = (ev.xkey.state & Mod4Mask)}}};
 				this->pushEvent(keyEvent.type, keyEvent);
 				this->pushEvent(keyEvent.type + "." + keyName, keyEvent);
 			} break;
@@ -1022,17 +1022,17 @@ void spec::x11::Window::processEvents() {
 
 				if (ev.xbutton.button == 4) {  // wheel up
 					pod::payloads::windowMouseWheel w{
-					    {"window:Mouse.Wheel", "os"},
-					    {{(unsigned)pos.x, (unsigned)pos.y},
-					     ::lastMouseWheel = +120}};
+						{"window:Mouse.Wheel", "os"},
+						{{(unsigned)pos.x, (unsigned)pos.y},
+						 ::lastMouseWheel = +120}};
 					this->pushEvent(w.type, w);
 					break;
 				}
 				if (ev.xbutton.button == 5) {  // wheel down
 					pod::payloads::windowMouseWheel w{
-					    {"window:Mouse.Wheel", "os"},
-					    {{(unsigned)pos.x, (unsigned)pos.y},
-					     ::lastMouseWheel = -120}};
+						{"window:Mouse.Wheel", "os"},
+						{{(unsigned)pos.x, (unsigned)pos.y},
+						 ::lastMouseWheel = -120}};
 					this->pushEvent(w.type, w);
 					break;
 				}
@@ -1043,7 +1043,7 @@ void spec::x11::Window::processEvents() {
 				if (ev.xbutton.button == 3) button = "Right";
 
 				pod::payloads::windowMouseClick click{
-				    {"window:Mouse.Click", "os"}, {pos, {0, 0}, button, -1}};
+					{"window:Mouse.Click", "os"}, {pos, {0, 0}, button, -1}};
 				this->pushEvent(click.type, click);
 			} break;
 
@@ -1055,7 +1055,7 @@ void spec::x11::Window::processEvents() {
 				if (ev.xbutton.button == 3) button = "Right";
 
 				pod::payloads::windowMouseClick click{
-				    {"window:Mouse.Click", "os"}, {pos, {0, 0}, button, 1}};
+					{"window:Mouse.Click", "os"}, {pos, {0, 0}, button, 1}};
 				this->pushEvent(click.type, click);
 			} break;
 
@@ -1064,8 +1064,8 @@ void spec::x11::Window::processEvents() {
 				pod::Vector2i current = {ev.xmotion.x, ev.xmotion.y};
 
 				pod::payloads::windowMouseMoved move{
-				    {{"window:Mouse.Moved", "client"}, {getSize()}},
-				    {current, current - last, 0}};
+					{{"window:Mouse.Moved", "client"}, {getSize()}},
+					{current, current - last, 0}};
 
 				if ( current == last ) break;
 
@@ -1080,10 +1080,10 @@ void spec::x11::Window::processEvents() {
 bool spec::x11::Window::pollEvents(bool block) {
 	/*
 	if (block) {
-	    // Block until one event is received
-	    XEvent ev;
-	    XNextEvent(m_display, &ev);  // this blocks
-	    XPutBackEvent(m_display, &ev); // push back into event queue
+		// Block until one event is received
+		XEvent ev;
+		XNextEvent(m_display, &ev);  // this blocks
+		XPutBackEvent(m_display, &ev); // push back into event queue
 	}
 	*/
 	if (block && XPending(m_display) == 0) {
@@ -1092,7 +1092,7 @@ bool spec::x11::Window::pollEvents(bool block) {
 		FD_ZERO(&in_fds);
 		FD_SET(fd, &in_fds);
 		select(fd + 1, &in_fds, NULL, NULL,
-		       NULL);  // block until input available
+			   NULL);  // block until input available
 	}
 
 	// Process whatever is pending now
@@ -1115,7 +1115,7 @@ pod::Vector2ui spec::x11::Window::getResolution() {
 	auto monitors = getMonitors(m_display, m_screen);
 	if (monitors.empty())
 		return {(unsigned)DisplayWidth(m_display, m_screen),
-		        (unsigned)DisplayHeight(m_display, m_screen)};
+				(unsigned)DisplayHeight(m_display, m_screen)};
 
 	// Use primary monitor
 	for (auto &mon : monitors) {
@@ -1128,32 +1128,32 @@ pod::Vector2ui spec::x11::Window::getResolution() {
 
 /*
 void spec::x11::Window::toggleFullscreen(bool borderless) {
-    Atom wm_state	  = XInternAtom(m_display, "_NET_WM_STATE", False);
-    Atom fullscreen	= XInternAtom(m_display, "_NET_WM_STATE_FULLSCREEN", False);
+	Atom wm_state	  = XInternAtom(m_display, "_NET_WM_STATE", False);
+	Atom fullscreen	= XInternAtom(m_display, "_NET_WM_STATE_FULLSCREEN", False);
 
-    XEvent xev{};
-    xev.type = ClientMessage;
-    xev.xclient.window = m_handle;
-    xev.xclient.message_type = wm_state;
-    xev.xclient.format = 32;
-    xev.xclient.data.l[0] = 2; // _NET_WM_STATE_TOGGLE
-    xev.xclient.data.l[1] = fullscreen;
-    xev.xclient.data.l[2] = 0; // No second property
-    xev.xclient.data.l[3] = 1; // Source indication: application
-    xev.xclient.data.l[4] = 0;
+	XEvent xev{};
+	xev.type = ClientMessage;
+	xev.xclient.window = m_handle;
+	xev.xclient.message_type = wm_state;
+	xev.xclient.format = 32;
+	xev.xclient.data.l[0] = 2; // _NET_WM_STATE_TOGGLE
+	xev.xclient.data.l[1] = fullscreen;
+	xev.xclient.data.l[2] = 0; // No second property
+	xev.xclient.data.l[3] = 1; // Source indication: application
+	xev.xclient.data.l[4] = 0;
 
-    XSendEvent(m_display, DefaultRootWindow(m_display), False,
-               SubstructureRedirectMask | SubstructureNotifyMask, &xev);
-    XFlush(m_display);
+	XSendEvent(m_display, DefaultRootWindow(m_display), False,
+			   SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+	XFlush(m_display);
 }
 */
 
 void spec::x11::Window::toggleFullscreen(bool borderless) {
 	Atom wmState = XInternAtom(m_display, "_NET_WM_STATE", False);
 	Atom wmFullscreen =
-	    XInternAtom(m_display, "_NET_WM_STATE_FULLSCREEN", False);
+		XInternAtom(m_display, "_NET_WM_STATE_FULLSCREEN", False);
 	Atom wmMonitors =
-	    XInternAtom(m_display, "_NET_WM_FULLSCREEN_MONITORS", False);
+		XInternAtom(m_display, "_NET_WM_FULLSCREEN_MONITORS", False);
 
 	// Find the monitor where the window currently resides
 	auto monitors = getMonitors(m_display, m_screen);
@@ -1168,7 +1168,7 @@ void spec::x11::Window::toggleFullscreen(bool borderless) {
 	for (size_t i = 0; i < monitors.size(); i++) {
 		auto &mon = monitors[i];
 		if (winCenterX >= mon.x && winCenterX < mon.x + mon.width &&
-		    winCenterY >= mon.y && winCenterY < mon.y + mon.height) {
+			winCenterY >= mon.y && winCenterY < mon.y + mon.height) {
 			// Select this monitor index
 			top = bottom = left = right = i;
 			break;
@@ -1181,14 +1181,14 @@ void spec::x11::Window::toggleFullscreen(bool borderless) {
 	monEvent.xclient.window = m_handle;
 	monEvent.xclient.message_type = wmMonitors;
 	monEvent.xclient.format = 32;
-	monEvent.xclient.data.l[0] = top;     // top monitor index
+	monEvent.xclient.data.l[0] = top;	 // top monitor index
 	monEvent.xclient.data.l[1] = bottom;  // bottom monitor index
-	monEvent.xclient.data.l[2] = left;    // left monitor index
+	monEvent.xclient.data.l[2] = left;	// left monitor index
 	monEvent.xclient.data.l[3] = right;   // right monitor index
 	monEvent.xclient.data.l[4] = 0;
 
 	XSendEvent(m_display, DefaultRootWindow(m_display), False,
-	           SubstructureRedirectMask | SubstructureNotifyMask, &monEvent);
+			   SubstructureRedirectMask | SubstructureNotifyMask, &monEvent);
 
 	// Toggle fullscreen
 	XEvent ev{};
@@ -1203,7 +1203,7 @@ void spec::x11::Window::toggleFullscreen(bool borderless) {
 	ev.xclient.data.l[4] = 0;
 
 	XSendEvent(m_display, DefaultRootWindow(m_display), False,
-	           SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+			   SubstructureRedirectMask | SubstructureNotifyMask, &ev);
 
 	if (borderless) {
 		Atom wmHints = XInternAtom(m_display, "_MOTIF_WM_HINTS", True);
@@ -1217,10 +1217,10 @@ void spec::x11::Window::toggleFullscreen(bool borderless) {
 			};
 
 			MotifHints hints;
-			hints.flags = 2;        // Decorations
+			hints.flags = 2;		// Decorations
 			hints.decorations = 0;  // No borders/title
 			XChangeProperty(m_display, m_handle, wmHints, wmHints, 32,
-			                PropModeReplace, (unsigned char *)&hints, 5);
+							PropModeReplace, (unsigned char *)&hints, 5);
 		}
 	}
 
@@ -1244,33 +1244,33 @@ void spec::x11::Window::display() {
 
 #if UF_USE_OPENGL
 void spec::x11::Window::createGLContext() {
-    static int visualAttribs[] = {
-        GLX_RGBA,
-        GLX_DOUBLEBUFFER,
-        GLX_DEPTH_SIZE, 24,
-        GLX_STENCIL_SIZE, 8,
-        None
-    };
+	static int visualAttribs[] = {
+		GLX_RGBA,
+		GLX_DOUBLEBUFFER,
+		GLX_DEPTH_SIZE, 24,
+		GLX_STENCIL_SIZE, 8,
+		None
+	};
 
-    int screen = DefaultScreen(m_display);
-    XVisualInfo* vi = glXChooseVisual(m_display, screen, visualAttribs);
-    if (!vi) {
-        UF_EXCEPTION("Failed to choose X11 GLX visual");
-    }
+	int screen = DefaultScreen(m_display);
+	XVisualInfo* vi = glXChooseVisual(m_display, screen, visualAttribs);
+	if (!vi) {
+		UF_EXCEPTION("Failed to choose X11 GLX visual");
+	}
 
-    GLXContext ctx = glXCreateContext(m_display, vi, NULL, GL_TRUE);
-    if (!ctx) {
-        UF_EXCEPTION("Failed to create GLX context");
-    }
+	GLXContext ctx = glXCreateContext(m_display, vi, NULL, GL_TRUE);
+	if (!ctx) {
+		UF_EXCEPTION("Failed to create GLX context");
+	}
 
-    glXMakeCurrent(m_display, m_handle, ctx);
-    this->m_context = ctx;
+	glXMakeCurrent(m_display, m_handle, ctx);
+	this->m_context = ctx;
 }
 
 void spec::x11::Window::display() {
-    if (m_context) {
-        glXSwapBuffers(m_display, m_handle);
-    }
+	if (m_context) {
+		glXSwapBuffers(m_display, m_handle);
+	}
 }
 #endif
 
@@ -1278,22 +1278,22 @@ void spec::x11::Window::display() {
 
 #if UF_USE_VULKAN
 uf::stl::vector<uf::stl::string> spec::x11::Window::getExtensions(
-    bool validationEnabled) {
+	bool validationEnabled) {
 	uf::stl::vector<uf::stl::string> exts = {
-	    VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
+		VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
 	if (validationEnabled) exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	return exts;
 }
 
 void spec::x11::Window::createSurface(VkInstance instance,
-                                      VkSurfaceKHR &surface) {
+									  VkSurfaceKHR &surface) {
 	VkXlibSurfaceCreateInfoKHR info{};
 	info.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
 	info.dpy = m_display;
 	info.window = m_handle;
 
 	VkResult result =
-	    vkCreateXlibSurfaceKHR(instance, &info, nullptr, &surface);
+		vkCreateXlibSurfaceKHR(instance, &info, nullptr, &surface);
 	if (result != VK_SUCCESS) {
 		UF_EXCEPTION("Failed to create Xlib Vulkan surface");
 	}

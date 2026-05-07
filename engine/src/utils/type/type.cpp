@@ -9,10 +9,10 @@ namespace {
 
 		int status = -4;
 		std::unique_ptr<char, void(*)(void*)> demangled{
-	        abi::__cxa_demangle(mangled.c_str(), NULL, NULL, &status),
-	        std::free
-	    };
-	    return ( status == 0 ) ? demangled.get() : mangled;
+			abi::__cxa_demangle(mangled.c_str(), NULL, NULL, &status),
+			std::free
+		};
+		return ( status == 0 ) ? demangled.get() : mangled;
 	/*
 		int status;
 		char* pointer = abi::__cxa_demangle(mangled.c_str(), 0, 0, &status);
