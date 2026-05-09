@@ -29,6 +29,30 @@ namespace ext {
 			operator VkCommandBuffer() { return handle; }
 		};
 
+		struct DescriptorAllocator {
+			VkDevice device = VK_NULL_HANDLE;
+			VkDescriptorPool currentPool = VK_NULL_HANDLE;
+			uf::stl::vector<VkDescriptorPool> usedPools;
+
+			uf::stl::vector<VkDescriptorPoolSize> poolSizes = {
+				{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+				{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4000 },
+				{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 4000 },
+				{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+				{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2000 },
+				{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+				{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2000 },
+				{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+				{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 500 },
+				{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 100 }
+			};
+
+			void initialize( VkDevice );
+			void destroy();
+			VkDescriptorPool createPool();
+			bool allocate( VkDescriptorSet* set, VkDescriptorSetLayout layout );
+		};
+
 		struct Texture;
 
 		struct UF_API Device {
@@ -69,6 +93,7 @@ namespace ext {
 			} extensions;
 			
 			VkPipelineCache pipelineCache;
+			DescriptorAllocator descriptorAllocator;
 
 			uf::stl::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			

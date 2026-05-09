@@ -12,6 +12,8 @@ namespace ext {
 		struct Graphic;
 
 		struct UF_API Pipeline : public Buffers {
+			static uf::stl::unordered_map<GraphicDescriptor, Pipeline> pipelines;
+
 			bool aliased = false;
 
 			Device* device = NULL;
@@ -42,9 +44,6 @@ namespace ext {
 			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void destroy();
 
-			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>&, const uf::stl::string& = "" );
-			uf::stl::vector<const Shader*> getShaders( const uf::stl::vector<Shader>&, const uf::stl::string& = "" ) const;
-
 			void collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const;
 		};
 
@@ -72,6 +71,8 @@ namespace ext {
 			bool hasShader( const uf::stl::string& type, const uf::stl::string& pipeline = "" ) const;
 			Shader& getShader( const uf::stl::string& type, const uf::stl::string& pipeline = "" );
 			const Shader& getShader( const uf::stl::string& type, const uf::stl::string& pipeline = "" ) const;
+
+			uf::stl::vector<const Shader*> getShaders( const uf::stl::string& = "" ) const;
 
 			bool validate();
 		};

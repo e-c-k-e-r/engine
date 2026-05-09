@@ -2,6 +2,7 @@
 
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/string/ext.h>
@@ -1178,8 +1179,8 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		struct BaseStructure {
-			VkStructureType    sType;
-			void*              pNext;
+			VkStructureType	sType;
+			void*			  pNext;
 		};
 		std::queue<void*> chain = {};
 
@@ -1457,7 +1458,7 @@ void ext::vulkan::Device::initialize() {
 		if ( uf::io::exists( uf::io::root + "/cache/vulkan/cache.bin" ) ) {
 			uf::io::readAsBuffer( buffer, uf::io::root + "/cache/vulkan/cache.bin" );
 			pipelineCacheCreateInfo.initialDataSize = buffer.size();
-			pipelineCacheCreateInfo.pInitialData    = buffer.data();
+			pipelineCacheCreateInfo.pInitialData	= buffer.data();
 		}
 
 		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
@@ -1505,6 +1506,10 @@ void ext::vulkan::Device::initialize() {
 		 
 		vmaCreateAllocator(&allocatorInfo, &allocator);
 		VK_REGISTER_HANDLE( allocator );
+	}
+
+	{
+		descriptorAllocator.initialize( logicalDevice );
 	}
 
 	{
@@ -1569,6 +1574,12 @@ void ext::vulkan::Device::destroy() {
 		VK_UNREGISTER_HANDLE( this->pipelineCache );
 		this->pipelineCache = nullptr;
 	}
+
+	for ( auto& pair : Pipeline::pipelines ) pair.second.destroy();
+	Pipeline::pipelines.clear();
+
+	descriptorAllocator.destroy();
+
 	for ( auto& pair : this->commandPool.graphics.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
 		VK_UNREGISTER_HANDLE( pair.second );
@@ -1606,6 +1617,52 @@ void ext::vulkan::Device::destroy() {
 
 //	vmaDestroyAllocator( allocator );
 	VK_UNREGISTER_HANDLE( allocator );
+}
+
+void ext::vulkan::DescriptorAllocator::initialize(VkDevice inDevice) {
+	device = inDevice;
+	currentPool = createPool();
+}
+
+void ext::vulkan::DescriptorAllocator::destroy() {
+	if ( currentPool ) vkDestroyDescriptorPool(device, currentPool, nullptr);
+	for ( auto p : usedPools ) vkDestroyDescriptorPool(device, p, nullptr);
+	usedPools.clear();
+}
+
+VkDescriptorPool ext::vulkan::DescriptorAllocator::createPool() {
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.maxSets = 1000;
+	poolInfo.poolSizeCount = (uint32_t) poolSizes.size();
+	poolInfo.pPoolSizes = poolSizes.data();
+
+	VkDescriptorPool pool;
+	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool));
+	return pool;
+}
+
+bool ext::vulkan::DescriptorAllocator::allocate( VkDescriptorSet* set, VkDescriptorSetLayout layout ) {
+	if ( currentPool == VK_NULL_HANDLE ) currentPool = createPool();
+
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = currentPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &layout;
+
+	VkResult result = vkAllocateDescriptorSets(device, &allocInfo, set);
+
+	if ( result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL ) {
+		usedPools.push_back(currentPool);
+		currentPool = createPool();
+		allocInfo.descriptorPool = currentPool;
+
+		result = vkAllocateDescriptorSets(device, &allocInfo, set);
+	}
+
+	return result == VK_SUCCESS;
 }
 
 #endif

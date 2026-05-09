@@ -19,6 +19,8 @@ namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
 }
 
+uf::stl::unordered_map<ext::vulkan::GraphicDescriptor, ext::vulkan::Pipeline> ext::vulkan::Pipeline::pipelines;
+
 PFN_vkGetBufferDeviceAddressKHR ext::vulkan::vkGetBufferDeviceAddressKHR = NULL; // = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
 PFN_vkCmdBuildAccelerationStructuresKHR ext::vulkan::vkCmdBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
 PFN_vkBuildAccelerationStructuresKHR ext::vulkan::vkBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
@@ -41,7 +43,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	this->metadata.type = descriptor.pipeline;
 	Device& device = *graphic.device;
 
-	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
+	auto shaders = graphic.material.getShaders( descriptor.pipeline );
 	assert( shaders.size() > 0 );
 
 	uint32_t subpass = descriptor.subpass;
@@ -78,6 +80,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 				offset += len;
 			}
 		}
+	/*
 		for ( auto& descriptor : descriptorSetLayoutBindings ) {
 			if ( descriptorTypes.count( descriptor.descriptorType ) < 0 ) descriptorTypes[descriptor.descriptorType] = 0;
 			descriptorTypes[descriptor.descriptorType] += descriptor.descriptorCount;
@@ -92,6 +95,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 		VK_REGISTER_HANDLE( descriptorPool );
+	*/
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = ext::vulkan::initializers::descriptorSetLayoutCreateInfo(
 			descriptorSetLayoutBindings.data(),
@@ -100,12 +104,16 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout( device, &descriptorLayout, nullptr, &descriptorSetLayout ));
 		VK_REGISTER_HANDLE( descriptorSetLayout );
 
+		UF_ASSERT(device.descriptorAllocator.allocate( &descriptorSet, descriptorSetLayout ));
+
+	/*
 		VkDescriptorSetAllocateInfo allocInfo = ext::vulkan::initializers::descriptorSetAllocateInfo(
 			descriptorPool,
 			&descriptorSetLayout,
 			1
 		);
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
+	*/
 
 		VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = ext::vulkan::initializers::pipelineLayoutCreateInfo(
 			&descriptorSetLayout,
@@ -396,7 +404,7 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 	return record( graphic, descriptor, commandBuffer, pass, draw, offset );
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw, size_t offset ) const {
-	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
+	auto shaders = graphic.material.getShaders( descriptor.pipeline );
 
 	// create dynamic offset ranges
 	STATIC_THREAD_LOCAL(uf::stl::vector<uint32_t>, dynamicOffsets);
@@ -507,7 +515,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 	auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
 
-	auto shaders = getShaders( graphic.material.shaders, descriptor.pipeline );
+	auto shaders = graphic.material.getShaders( descriptor.pipeline );
 	uf::stl::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	uf::stl::vector<uf::renderer::AccelerationStructure> tlases;
 
@@ -948,32 +956,17 @@ void ext::vulkan::Pipeline::destroy() {
 	}
 */
 }
-uf::stl::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( uf::stl::vector<ext::vulkan::Shader>& shaders, const uf::stl::string& type ) {
-	uf::stl::unordered_map<uf::stl::string, ext::vulkan::Shader*> map;
-	uf::stl::vector<ext::vulkan::Shader*> res;
-	bool isCompute = false;
-	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
-		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
-	}
-	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
-		if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
-		map[shader.metadata.type] = &shader;
-	}
-	for ( auto pair : map ) res.insert( res.begin(), pair.second);
-	return res;
-}
-uf::stl::vector<const ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( const uf::stl::vector<ext::vulkan::Shader>& shaders, const uf::stl::string& type ) const {
+
+uf::stl::vector<const ext::vulkan::Shader*> ext::vulkan::Material::getShaders( const uf::stl::string& type ) const {
 	uf::stl::unordered_map<uf::stl::string, const ext::vulkan::Shader*> map;
 	uf::stl::vector<const ext::vulkan::Shader*> res;
 	bool isCompute = false;
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != type ) continue;
 		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
 	}
 	for ( auto& shader : shaders ) {
-		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != (type == "" ? metadata.type : type) ) continue;
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != type ) continue;
 		if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 		map[shader.metadata.type] = &shader;
 	}
@@ -1852,7 +1845,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 	if ( !pipeline.metadata.process ) return;
 	pipeline.record(*this, descriptor, commandBuffer, pass, draw, offset);
 
-	auto shaders = pipeline.getShaders( material.shaders, descriptor.pipeline );
+	auto shaders = material.getShaders( descriptor.pipeline );
 	for ( auto* shader : shaders ) {
 		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;
 		if (
