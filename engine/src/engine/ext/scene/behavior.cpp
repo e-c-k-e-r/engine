@@ -1111,16 +1111,22 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	// bind scene textures
 	for ( auto& key : storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
 	
-	// bind shadow maps
-	for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
-	for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
+	size_t indexSkybox = 0;
+	size_t indexNoise = 0;
 
-	// bind skybox
-	size_t indexSkybox = texturesCube.size();
-	texturesCube.emplace_back().aliasTexture(sceneTextures.skybox);
-	// bind noise texture
-	size_t indexNoise = textures3D.size();
-	textures3D.emplace_back().aliasTexture(sceneTextures.noise);
+	// bind only if this is the deferred rendermode
+	if ( shaderPipeline == "deferred" ) {
+		// bind shadow maps
+		for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
+		for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
+
+		// bind skybox
+		indexSkybox = texturesCube.size();
+		texturesCube.emplace_back().aliasTexture(sceneTextures.skybox);
+		// bind noise texture
+		indexNoise = textures3D.size();
+		textures3D.emplace_back().aliasTexture(sceneTextures.noise);
+	}
 
 	// attach VXGI voxels
 	if ( uf::renderer::settings::pipelines::vxgi ) {

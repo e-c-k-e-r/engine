@@ -8,10 +8,10 @@
 	},
 	"system": {
 		"renderer": {
-		//	"limiter": 128
+			"limiter": 128
 		//	"mode": "round robin"
 		//	"mode": "once"
-			"mode": "in-range"
+		//	"mode": "in-range"
 		},
 		"hot reload": {
 			"enabled": true

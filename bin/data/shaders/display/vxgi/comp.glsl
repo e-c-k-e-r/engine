@@ -104,7 +104,7 @@ void main() {
 		vec4 A = imageLoad(voxelOutput[CASCADE], ivec3(tUvw) );
 	#else
 		vec4 A = unpackUnorm4x8(imageLoad(voxelRadiance[CASCADE], ivec3(tUvw)).r);
-		A.a = 1.0;
+		A.a = float(uint(A.a * 255.0 + 0.5) & 0xF) / 15.0;
 	#endif
 
 		surface.material.albedo = A;

@@ -232,7 +232,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 		graphics.emplace_back(&graphic);
 	}
 
-	this->synchronize();
+//	this->synchronize();
 //	bindPipelines( graphics );
 
 	//lockMutex();
@@ -327,7 +327,7 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) continue;
 		graphics.emplace_back(&graphic);
 	}
-	this->synchronize();
+	//this->synchronize();
 	this->bindPipelines( graphics );
 	this->execute = true;
 }
@@ -432,7 +432,7 @@ void ext::vulkan::RenderMode::tick() {
 		cleanupAllCommands();
 	}
 	
-	this->synchronize();
+	//this->synchronize();
 	
 	if ( metadata.limiter.frequency > 0 ) {
 		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
@@ -446,7 +446,7 @@ void ext::vulkan::RenderMode::tick() {
 }
 
 void ext::vulkan::RenderMode::render() {
-	this->synchronize();
+	//this->synchronize();
 }
 
 void ext::vulkan::RenderMode::destroy() {

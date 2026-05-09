@@ -116,13 +116,20 @@ void main() {
 
 	const ivec3 uvw = ivec3(P * imageSize(voxelOutput[CASCADE]));
 
-	uint packedId = ( instanceID + 1 ) << 16 | ( drawID + 1 );
-	imageAtomicMax(voxelId[CASCADE], ivec3(uvw), packedId);
-
-	vec2 N_E = encodeNormals( normalize( N ) );
-	uint packedNormal = packHalf2x16(N_E);
-	imageAtomicMin(voxelNormal[CASCADE], uvw, packedNormal);
-	
-	uint packedRadiance = packUnorm4x8(vec4(A.rgb, luminance(A.rgb)));
-	imageAtomicMax(voxelRadiance[CASCADE], uvw, packedRadiance);
+	{
+		uint packedId = ( instanceID + 1 ) << 16 | ( drawID + 1 );
+		imageAtomicMax(voxelId[CASCADE], ivec3(uvw), packedId);
+	}
+	{
+		vec2 N_E = encodeNormals( normalize( N ) );
+		uint packedNormal = packHalf2x16(N_E);
+		imageAtomicMin(voxelNormal[CASCADE], uvw, packedNormal);
+	}
+	{
+		uint l = uint(clamp(luma(A.rgb), 0.0, 1.0) * 15.0) & 0xF;
+		uint a = uint(clamp(        A.a, 0.0, 1.0) * 15.0) & 0xF;
+		float packedLumaAlpha = float((l << 4) | a) / 255.0;
+		uint packedRadiance = packUnorm4x8(vec4(A.rgb, packedLumaAlpha));
+		imageAtomicMax(voxelRadiance[CASCADE], uvw, packedRadiance);
+	}
 }

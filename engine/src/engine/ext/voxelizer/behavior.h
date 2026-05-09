@@ -6,6 +6,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
+#include <uf/utils/renderer/renderer.h>
 
 namespace ext {
 	namespace VoxelizerSceneBehavior {
@@ -17,6 +18,9 @@ namespace ext {
 			pod::Vector3ui voxelSize = { 0, 0, 0 };
 			pod::Vector3ui dispatchSize = { 0, 0, 0 };
 			uf::stl::string renderModeName = "VXGI";
+
+			uf::renderer::Buffer atomicCounter;
+			uf::stl::vector<VkImageView> views;
 			
 			size_t cascades = 0;
 			float cascadePower = 0;

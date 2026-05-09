@@ -884,6 +884,12 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 		#if 1
 			if ( settings::pipelines::deferred && DEFERRED_MODE == "compute" && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
+				VkMemoryBarrier computeBarrier = {};
+				computeBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+				computeBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+				computeBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &computeBarrier, 0, nullptr, 0, nullptr );
+
 				auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 				descriptor.renderMode = "";

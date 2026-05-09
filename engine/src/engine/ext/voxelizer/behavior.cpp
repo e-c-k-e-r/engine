@@ -19,11 +19,25 @@
 #include <uf/engine/ext.h>
 
 #define ALIAS_OUTPUT_TO_RADIANCE 1
+#define COMPUTE_MIPMAP_GENERATION 1
+
+namespace {
+	struct AtomicCounter {
+		uint32_t counter;
+	};
+	struct PushConstants {
+		uint32_t mips;
+		uint32_t cascade;
+		uint32_t numWorkGroups;
+		uint32_t workGroupOffset;
+	};
+}
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerSceneBehavior, ticks = true, renders = false, thread = "")
 #define this (&self)
 void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
+	if ( this->getName() == "Main Menu" ) return; // do not setup
 #if UF_USE_VULKAN
 	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -34,30 +48,29 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
+	auto mips = uf::vector::mips( metadata.voxelSize );
 	for ( size_t i = 0; i < metadata.cascades; ++i ) {
 		const bool HDR = false;
 		auto& id = sceneTextures.voxels.id.emplace_back();
 		id.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 		id.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		id.mips = 0;
 		id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
 		auto& normal = sceneTextures.voxels.normal.emplace_back();
+		normal.mips = 0;
 		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );		
 
 		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
-		radiance.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		radiance.mips = ALIAS_OUTPUT_TO_RADIANCE ? mips : 0;
+		radiance.fromBuffers( NULL, 0, uf::renderer::enums::Format::R32_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL, ALIAS_OUTPUT_TO_RADIANCE ? VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT : VkImageCreateFlags{} );
 		
 		auto& output = sceneTextures.voxels.output.emplace_back();
-	/*
-		if ( metadata.filtering == "NEAREST" ) {
-			output.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-			output.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-		}
-	*/
-	//	output.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );	
+		output.mips = mips;
+
 	#if ALIAS_OUTPUT_TO_RADIANCE
-		output.aliasTexture( radiance );
 		{
+			output.aliasTexture( radiance );
 			VkImageViewCreateInfo viewCreateInfo = {};
 			viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			viewCreateInfo.image = radiance.image;
@@ -66,15 +79,38 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 			viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			viewCreateInfo.subresourceRange.baseMipLevel = 0;
-			viewCreateInfo.subresourceRange.levelCount = radiance.mips;
+			viewCreateInfo.subresourceRange.levelCount = mips;
 			viewCreateInfo.subresourceRange.baseArrayLayer = 0;
 			viewCreateInfo.subresourceRange.layerCount = 1;
 
 			VK_CHECK_RESULT(vkCreateImageView(uf::renderer::device.logicalDevice, &viewCreateInfo, nullptr, &output.view));
 			VK_REGISTER_HANDLE( output.view );
+			metadata.views.emplace_back( output.view );
 		}
 	#else
 		output.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );	
+	#endif
+
+	#if COMPUTE_MIPMAP_GENERATION
+		for ( auto i = 1; i < mips; ++i ) {
+			auto& mip = sceneTextures.voxels.outputMipmaps.emplace_back();
+			mip.aliasTexture( output );
+			VkImageViewCreateInfo viewCreateInfo = {};
+			viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewCreateInfo.image = output.image;
+			viewCreateInfo.viewType = output.viewType;
+			viewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+			viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+			viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewCreateInfo.subresourceRange.baseMipLevel = i;
+			viewCreateInfo.subresourceRange.levelCount = 1;
+			viewCreateInfo.subresourceRange.baseArrayLayer = 0;
+			viewCreateInfo.subresourceRange.layerCount = 1;
+
+			VK_CHECK_RESULT(vkCreateImageView(uf::renderer::device.logicalDevice, &viewCreateInfo, nullptr, &mip.view));
+			VK_REGISTER_HANDLE( mip.view );
+			metadata.views.emplace_back( mip.view );
+		}
 	#endif
 	}
 	// initialize render mode
@@ -87,6 +123,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.name = metadata.renderModeName;
 		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 
+		auto& blitter = renderMode.blitter;
 		renderMode.metadata.type = uf::renderer::settings::pipelines::names::vxgi;
 		renderMode.metadata.pipeline = uf::renderer::settings::pipelines::names::vxgi;
 		if ( uf::renderer::settings::pipelines::culling ) {
@@ -95,38 +132,85 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;
 		renderMode.metadata.subpasses = metadata.cascades;
-
-		renderMode.blitter.device = &uf::renderer::device;
+		
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 
-	//	renderMode.metadata.limiter.frequency = metadata.limiter.frequency;
+		blitter.device = &uf::renderer::device;
+		blitter.material.device = &uf::renderer::device;
 
-		uf::stl::string computeShaderFilename = "/shaders/display/vxgi/comp.spv";
-		if ( renderMode.metadata.samples > 1 ) {
-			computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", "msaa.comp" );
-		}
-		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
-		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
-		renderMode.blitter.descriptor.subpass = -1;
-		renderMode.blitter.descriptor.bind.width = metadata.voxelSize.x;
-		renderMode.blitter.descriptor.bind.height = metadata.voxelSize.y;
-		renderMode.blitter.descriptor.bind.depth = metadata.voxelSize.z;
-		renderMode.blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-		renderMode.blitter.process = true;
+		blitter.descriptor.renderMode = metadata.renderModeName;
+		blitter.descriptor.subpass = -1;
+		blitter.descriptor.bind.width = metadata.voxelSize.x;
+		blitter.descriptor.bind.height = metadata.voxelSize.y;
+		blitter.descriptor.bind.depth = metadata.voxelSize.z;
+		blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+		blitter.process = true;
 
+		size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
 		size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
 		size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 		size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+		size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+		size_t maxMips = uf::vector::mips( pod::Vector3ui{ 256, 256, 256 } ); // log2(256) = 9
 
-		for ( size_t i = 0; i < maxTextures2D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
-		for ( size_t i = 0; i < maxTexturesCube; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
-		for ( size_t i = 0; i < maxTextures3D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
-		
-		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.normal ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.output ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		renderMode.metadata.json["shaders"] = true;
+		{
+			blitter.material.attachShader( uf::io::root+"/shaders/display/vxgi/comp.spv", uf::renderer::enums::Shader::COMPUTE, "" );
+			auto& shader = blitter.material.getShader("compute", "");
+
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures2D },
+				{ "CUBEMAPS", maxTexturesCube },
+				{ "CASCADES", maxCascades },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures2D },
+				{ "samplerCubemaps", maxTexturesCube },
+				{ "voxelId", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
+				{ "voxelOutput", maxCascades },
+			});
+
+			auto& scene = uf::scene::getCurrentScene();
+			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+			
+			shader.textures.clear();
+			
+			for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
+		}
+
+	#if COMPUTE_MIPMAP_GENERATION
+		{
+			blitter.material.attachShader( uf::io::root+"/shaders/display/vxgi/mips.comp.spv", uf::renderer::enums::Shader::COMPUTE, "mipmap" );
+			auto& shader = blitter.material.getShader("compute", "mipmap");
+
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures2D },
+				{ "CUBEMAPS", maxTexturesCube },
+				{ "CASCADES", maxCascades },
+				{ "MIPS", maxMips },
+			});
+			shader.setDescriptorCounts({
+				{ "voxelRadiance", maxCascades },
+				{ "voxelMips", maxCascades * (maxMips - 1) },
+			});
+
+			auto& scene = uf::scene::getCurrentScene();
+			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+			
+			shader.textures.clear();				
+			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.outputMipmaps ) shader.textures.emplace_back().aliasTexture(t);
+
+			metadata.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			shader.aliasBuffer("atomicCounter", metadata.atomicCounter);	
+		}
+	#endif
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			// clear textures
@@ -147,12 +231,43 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		// 
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			// parse voxel lighting
-			if ( renderMode.blitter.initialized ) {
-				auto& pipeline = renderMode.blitter.getPipeline();
-				pipeline.record(renderMode.blitter, commandBuffer);
+			if ( blitter.initialized ) {
+				auto descriptor = blitter.descriptor;
+				//descriptor.pipeline = "lighting";
+
+				auto& pipeline = blitter.getPipeline( descriptor );
+				pipeline.record( blitter, commandBuffer );
 			}
 			
 			// generate mipmaps
+		#if COMPUTE_MIPMAP_GENERATION
+			if ( blitter.initialized ) {
+				auto& shader = blitter.material.getShader("compute", "mipmap");
+				auto mips = uf::vector::mips( pod::Vector3ui{ blitter.descriptor.bind.width, blitter.descriptor.bind.height, blitter.descriptor.bind.depth } );
+
+				for ( auto cascade = 0; cascade < sceneTextures.voxels.output.size(); ++cascade ) {
+					vkCmdFillBuffer(commandBuffer, metadata.atomicCounter.buffer, 0, 4, 0);
+					VkMemoryBarrier counterBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+					counterBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+					counterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &counterBarrier, 0, nullptr, 0, nullptr);
+
+
+					auto& pushConstant = shader.pushConstants.front().get<::PushConstants>();
+					pushConstant = {
+						.mips = mips,
+						.cascade = cascade,
+						.numWorkGroups = 0,
+						.workGroupOffset = 0,
+					};
+					auto descriptor = blitter.descriptor;
+					descriptor.pipeline = "mipmap";
+
+					auto& pipeline = blitter.getPipeline( descriptor );
+					pipeline.record( blitter, commandBuffer );
+				}
+			}
+		#else
 			VkImageSubresourceRange subresourceRange = {};
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			subresourceRange.baseMipLevel = 0;
@@ -160,22 +275,11 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			subresourceRange.layerCount = 1;
 			for ( auto& t : sceneTextures.voxels.output ) {
 				subresourceRange.levelCount = t.mips;
-				t.setImageLayout(
-					commandBuffer,
-					t.image,
-					t.layout,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					subresourceRange
-				);
+				t.setImageLayout( commandBuffer, t.image, t.layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange );
 				t.generateMipmaps( commandBuffer, 0 );
-				t.setImageLayout(
-					commandBuffer,
-					t.image,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					t.layout,
-					subresourceRange
-				);
+				t.setImageLayout( commandBuffer, t.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, t.layout, subresourceRange );
 			}
+		#endif
 		});
 	}
 #endif
@@ -215,14 +319,22 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 			auto& controller = scene.getController();
 			auto& camera = scene.getCamera( controller ); // controller.getComponent<uf::Camera>();
 			auto controllerTransform = uf::transform::flatten( camera.getTransform() );
+			
+			float voxelWorldSizeX = (metadata.extents.max.x - metadata.extents.min.x) / (float)(metadata.voxelSize.x);
+			float voxelWorldSizeY = (metadata.extents.max.y - metadata.extents.min.y) / (float)(metadata.voxelSize.y);
+			float voxelWorldSizeZ = (metadata.extents.max.z - metadata.extents.min.z) / (float)(metadata.voxelSize.z);
+
 			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
-			controllerPosition.x = floor(controllerPosition.x);
-			controllerPosition.y = floor(controllerPosition.y);
-			controllerPosition.z = floor(controllerPosition.z);
+
+			controllerPosition.x = std::floor(controllerPosition.x / voxelWorldSizeX) * voxelWorldSizeX;
+			controllerPosition.y = std::floor(controllerPosition.y / voxelWorldSizeY) * voxelWorldSizeY;
+			controllerPosition.z = std::floor(controllerPosition.z / voxelWorldSizeZ) * voxelWorldSizeZ;
+
 			controllerPosition += metadata.extents.min;
-			controllerPosition.x = floor(controllerPosition.x);
-			controllerPosition.y = floor(controllerPosition.y);
-			controllerPosition.z = -floor(controllerPosition.z);
+
+			controllerPosition.x = std::floor(controllerPosition.x / voxelWorldSizeX) * voxelWorldSizeX;
+			controllerPosition.y = std::floor(controllerPosition.y / voxelWorldSizeY) * voxelWorldSizeY;
+			controllerPosition.z = -std::floor(controllerPosition.z / voxelWorldSizeZ) * voxelWorldSizeZ;
 
 			pod::Vector3f min = metadata.extents.min + controllerPosition;
 			pod::Vector3f max = metadata.extents.max + controllerPosition;
@@ -232,9 +344,9 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 			auto/*&*/ graph = scene.getGraph();
 			for ( auto entity : graph ) {
 				if ( !entity->hasComponent<uf::Graphic>() ) continue;
-				auto& graphic = entity->getComponent<uf::Graphic>();
-				if ( graphic.material.hasShader("geometry", uf::renderer::settings::pipelines::names::vxgi) ) {
-					auto& shader = graphic.material.getShader("geometry", uf::renderer::settings::pipelines::names::vxgi);
+				auto& blitter = entity->getComponent<uf::Graphic>();
+				if ( blitter.material.hasShader("geometry", uf::renderer::settings::pipelines::names::vxgi) ) {
+					auto& shader = blitter.material.getShader("geometry", uf::renderer::settings::pipelines::names::vxgi);
 					struct UniformDescriptor {
 						/*alignas(16)*/ pod::Matrix4f matrix;
 						/*alignas(4)*/ float cascadePower;
@@ -278,17 +390,16 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 }
 void ext::VoxelizerSceneBehavior::render( uf::Object& self ){}
 void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
-#if ALIAS_OUTPUT_TO_RADIANCE
-	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
-	for ( auto& t : sceneTextures.voxels.output ) {
+	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
+	metadata.atomicCounter.destroy(false);
+	for ( auto& view : metadata.views ) {
 		ext::vulkan::mutex.lock();
 		auto& texture = uf::renderer::device.transient.textures.emplace_back();
 		ext::vulkan::mutex.unlock();
 
 		texture.device = &uf::renderer::device;
-		texture.view = t.view;
+		texture.view = view;
 	}
-#endif
 }
 void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
 	serializer["vxgi"]["size"] = /*this->*/voxelSize.x;

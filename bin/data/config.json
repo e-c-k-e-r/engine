@@ -4,13 +4,13 @@
 			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
-			"lights": { "enabled": false,
+			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 16,
+				"max": 32,
 				"shadows": {
-					"enabled": false,
+					"enabled": false, // to-do: fix
 					"update": 4,
-					"max": 16,
+					"max": 8,
 					"samples": 2
 				},
 				"bloom": {
@@ -29,13 +29,14 @@
 				}
 			},
 			"vxgi": {
-			//	"limiter": 0,
-				"limiter": 0.0125,
+				"limiter": 0,
+			//	"limiter": 0.0125,
+			//	"limiter": 5,
 				"size": 256,
 				"dispatch": 16,
 				"cascades": 3,
-				"cascadePower": 2,
-				"granularity": 10,
+				"cascadePower": 1.5,
+				"granularity": 32,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
@@ -117,7 +118,7 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true,
+					"vxgi": false,
 					"culling": false,
 					"bloom": false,
 					"dof": false,

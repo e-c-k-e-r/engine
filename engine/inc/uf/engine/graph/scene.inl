@@ -9,6 +9,8 @@ namespace pod {
 			uf::stl::vector<uf::renderer::Texture3D> normal;
 			uf::stl::vector<uf::renderer::Texture3D> radiance;
 			uf::stl::vector<uf::renderer::Texture3D> output;
+			
+			uf::stl::vector<uf::renderer::Texture3D> outputMipmaps;
 		} voxels;
 	};
 }

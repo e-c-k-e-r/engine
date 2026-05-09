@@ -66,10 +66,11 @@ const uf::Entity& uf::Scene::getController() const {
 
 uf::Camera& uf::Scene::getCamera(uf::Entity& controller) {
 	// ???
+/*
 	if ( auto currentRenderMode = uf::renderer::getCurrentRenderMode(); currentRenderMode && !currentRenderMode->getName().empty() ) {
 		return controller.getComponent<uf::Camera>();
 	}
-
+*/
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif

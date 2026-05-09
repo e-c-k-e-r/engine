@@ -99,6 +99,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		
 		uf::stl::string name = "RT:" + std::to_string((int) this->getUid());
 		renderMode.blitter.process = false;
+		renderMode.execute = false;
 		renderMode.width = size.x;
 		renderMode.height = size.y;
 		renderMode.metadata.name = name;
@@ -182,6 +183,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		// enable renderer every X seconds
 		if ( metadata.renderer.limiter > 0 ) {
+			UF_MSG_DEBUG("limiter={}, timer={}, execute={}", metadata.renderer.limiter, metadata.renderer.timer, renderMode.execute );
 			if ( metadata.renderer.timer > metadata.renderer.limiter ) {
 				metadata.renderer.timer = 0;
 				renderMode.execute = true;

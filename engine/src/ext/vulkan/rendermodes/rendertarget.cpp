@@ -278,6 +278,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					else if ( sType == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
 					else if ( sType == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
 				}
+				if ( filename == "" ) return;
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
 		} else if ( ext::json::isObject( metadata.json["shaders"] ) ) {
@@ -295,11 +296,12 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				else if ( key == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
 				else if ( key == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
 				else if ( key == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
+				if ( filename == "" ) return;
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
-		} else if ( metadata.json["shaders"].is<bool>() && !metadata.json["shaders"].as<bool>() ) {
+		} else if ( metadata.json["shaders"].is<bool>() && !ext::json::isNull( metadata.json["shaders"] ) ) {
 			// do not attach if we're requesting no blitter shaders
-			blitter.process = false;
+			blitter.process = metadata.json["shaders"].as<bool>();
 		} else {
 			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget/vert.spv";
 			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget/frag.spv"; {
@@ -318,43 +320,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 
 		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
-			auto& shader = blitter.material.getShader("compute");
-			
-			size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-			size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-			size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
-
-			shader.setSpecializationConstants({
-				{ "TEXTURES", maxTextures2D },
-				{ "CUBEMAPS", maxTexturesCube },
-				{ "CASCADES", maxCascades },
-			});
-			shader.setDescriptorCounts({
-				{ "samplerTextures", maxTextures2D },
-				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelId", maxCascades },
-				{ "voxelNormal", maxCascades },
-				{ "voxelRadiance", maxCascades },
-				{ "voxelOutput", maxCascades },
-			});
-
-			auto& scene = uf::scene::getCurrentScene();
-			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-			
-			shader.textures.clear();
-			
-			for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
+			// handled by its rendermode
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
-		#if 0
-			auto& shader = blitter.material.getShader("fragment");
-			shader.aliasAttachment("output", this);
-		#endif
-		} else {
+			// handled by its rendermode
+		} else {	
 			auto& shader = blitter.material.getShader("fragment");
 			for ( auto i = 0; i < renderTarget.attachments.size(); ++i ) {
 				if ( !(renderTarget.attachments[i].descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
@@ -398,7 +367,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 	}
 
 	// (re)initialize pipelines
-	{
+	if ( blitter.process ) {
 		blitter.descriptor.bind.width = width;
 		blitter.descriptor.bind.height = height;
 
@@ -406,6 +375,30 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 			blitter.initializePipeline( blitter.descriptor );
 		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
 			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		}
+	}
+	
+	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
+		auto descriptor = blitter.descriptor;
+		//descriptor.pipeline = "lighting";
+		descriptor.subpass = -1;
+		descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+		if ( blitter.hasPipeline( descriptor ) ) {
+			blitter.getPipeline( descriptor ).update( blitter, descriptor );
+		} else {
+			blitter.initializePipeline( descriptor );
+		}
+	}
+
+	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
+		auto descriptor = blitter.descriptor;
+		descriptor.pipeline = "mipmap";
+		descriptor.subpass = -1;
+		descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+		if ( blitter.hasPipeline( descriptor ) ) {
+			blitter.getPipeline( descriptor ).update( blitter, descriptor );
+		} else {
+			blitter.initializePipeline( descriptor );
 		}
 	}
 }

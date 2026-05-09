@@ -519,15 +519,16 @@ void ext::vulkan::Texture::fromBuffers(
 
 	if ( this->mips == 0 ) {
 		this->mips = 1;
-//	} else if ( this->depth == 1 ) {
 	} else {
-	//	this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 		this->mips = uf::vector::mips( pod::Vector3ui{ texWidth, texHeight, texDepth } );
-		VkFormatProperties formatProperties;
-		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
-		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-			this->mips = 1;
-		//	VK_VALIDATION_MESSAGE("Texture image format {} does not support linear blitting", format);
+		// cringe override for 3D textures that explicitly request mipmapping
+		if ( texDepth <= 1 ) {
+			VkFormatProperties formatProperties;
+			vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
+			if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+				this->mips = 1;
+			//	VK_VALIDATION_MESSAGE("Texture image format {} does not support linear blitting", format);
+			}
 		}
 	}
 
