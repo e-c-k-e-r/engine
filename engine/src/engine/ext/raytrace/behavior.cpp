@@ -245,7 +245,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			graphic.descriptor.bind.height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
 			graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 			graphic.descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
-			graphic.getPipeline().update( graphic );
+			graphic.update();
 		}
 	#else
 		{
@@ -288,7 +288,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				graphic.descriptor.bind.height = image.height;
 				graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 				
-				graphic.getPipeline().update( graphic );
+				graphic.update();
 
 				if ( blitter.material.hasShader("fragment") ) {
 					auto& shader = blitter.material.getShader("fragment");

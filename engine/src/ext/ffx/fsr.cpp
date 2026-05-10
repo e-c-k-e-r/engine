@@ -663,11 +663,7 @@ void ext::fsr::initialize() {
 		blitter.descriptor.bind.height = uf::renderer::settings::height;
 		blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 
-		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
-			blitter.initializePipeline( blitter.descriptor );
-		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
-			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-		}
+		blitter.update( blitter.descriptor );
 	}
 
 	ext::fsr::initialized = true;
@@ -763,11 +759,7 @@ void ext::fsr::tick() {
 			blitter.descriptor.bind.width = displaySize.x;
 			blitter.descriptor.bind.height = displaySize.y;
 
-			if ( !blitter.hasPipeline( blitter.descriptor ) ) {
-				blitter.initializePipeline( blitter.descriptor );
-			} else if ( blitter.hasPipeline( blitter.descriptor ) ){
-				blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-			}
+			blitter.update( blitter.descriptor );
 		}
 	}
 

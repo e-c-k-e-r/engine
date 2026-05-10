@@ -21,19 +21,27 @@ namespace ext {
 			VkPipeline pipeline = VK_NULL_HANDLE;
 			VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 			VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-			VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-			VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 			GraphicDescriptor descriptor = {};
 
 			uf::stl::vector<VkStridedDeviceAddressRegionKHR> sbtEntries;
 
+			void initialize( const Graphic& graphic );
+			void initialize( const Graphic& graphic, const GraphicDescriptor& descriptor );
+			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
+			void destroy();
+		};
+
+		struct UF_API DescriptorSet : public Buffers {
+			bool aliased = false;
+
+			Device* device = NULL;
+
+			VkDescriptorSet descriptorSet = {};
+			GraphicDescriptor descriptor = {};
+
 			struct {
-				uf::Serializer json;
-				
-				uf::stl::string type = "";
-				bool process = true;
-				bool rebuild = false;
 				bool built = false;
+				bool process = true;
 			} metadata;
 
 			void initialize( const Graphic& graphic );
@@ -43,7 +51,7 @@ namespace ext {
 			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void destroy();
-
+			
 			void collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const;
 		};
 
@@ -83,7 +91,9 @@ namespace ext {
 			bool initialized = false;
 			bool process = true;
 			Material material = {};
+			
 			uf::stl::unordered_map<GraphicDescriptor, Pipeline> pipelines;
+			uf::stl::unordered_map<GraphicDescriptor, DescriptorSet> descriptorSets;
 
 			struct {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
@@ -96,6 +106,9 @@ namespace ext {
 
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );
+			void initialize( const GraphicDescriptor& );
+			void update();
+			void update( const GraphicDescriptor& );
 			void destroy();
 
 			// raster
@@ -105,17 +118,22 @@ namespace ext {
 			void generateBottomAccelerationStructures();
 			void generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>&, const uf::stl::vector<pod::Instance>&, const uf::stl::vector<pod::Matrix4f>&  );
 
-			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();
-			Pipeline& initializePipeline( const GraphicDescriptor& descriptor, bool update = true );
-			
+			Pipeline& initializePipeline( const GraphicDescriptor& descriptor );
+
+			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			Pipeline& getPipeline();
 			const Pipeline& getPipeline() const;
-
 			Pipeline& getPipeline( const GraphicDescriptor& descriptor );
 			const Pipeline& getPipeline( const GraphicDescriptor& descriptor ) const;
 
-			void updatePipelines();
+			void initializeDescriptorSet();
+			DescriptorSet& initializeDescriptorSet( const GraphicDescriptor& descriptor );
+			bool hasDescriptorSet( const GraphicDescriptor& descriptor ) const;
+			DescriptorSet& getDescriptorSet();
+			const DescriptorSet& getDescriptorSet() const;
+			DescriptorSet& getDescriptorSet( const GraphicDescriptor& descriptor );
+			const DescriptorSet& getDescriptorSet( const GraphicDescriptor& descriptor ) const;
 			
 			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;
 			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;

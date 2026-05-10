@@ -236,7 +236,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 				//descriptor.pipeline = "lighting";
 
 				auto& pipeline = blitter.getPipeline( descriptor );
+				auto& descriptorSet = blitter.getDescriptorSet( descriptor );
 				pipeline.record( blitter, commandBuffer );
+				descriptorSet.record( blitter, commandBuffer );
 			}
 			
 			// generate mipmaps
@@ -264,7 +266,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 					descriptor.pipeline = "mipmap";
 
 					auto& pipeline = blitter.getPipeline( descriptor );
+					auto& descriptorSet = blitter.getDescriptorSet( descriptor );
 					pipeline.record( blitter, commandBuffer );
+					descriptorSet.record( blitter, commandBuffer );
 				}
 			}
 		#else

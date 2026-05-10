@@ -371,11 +371,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		blitter.descriptor.bind.width = width;
 		blitter.descriptor.bind.height = height;
 
-		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
-			blitter.initializePipeline( blitter.descriptor );
-		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
-			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-		}
+		blitter.update( blitter.descriptor );
 	}
 	
 	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
@@ -383,11 +379,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		//descriptor.pipeline = "lighting";
 		descriptor.subpass = -1;
 		descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-		if ( blitter.hasPipeline( descriptor ) ) {
-			blitter.getPipeline( descriptor ).update( blitter, descriptor );
-		} else {
-			blitter.initializePipeline( descriptor );
-		}
+		blitter.update( descriptor );
 	}
 
 	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
@@ -395,11 +387,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		descriptor.pipeline = "mipmap";
 		descriptor.subpass = -1;
 		descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-		if ( blitter.hasPipeline( descriptor ) ) {
-			blitter.getPipeline( descriptor ).update( blitter, descriptor );
-		} else {
-			blitter.initializePipeline( descriptor );
-		}
+		blitter.update( descriptor );
 	}
 }
 

@@ -519,7 +519,7 @@ void ext::vulkan::tick() {
 		if ( entity->hasComponent<uf::Graphic>() ) {
 			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
-			graphic.initializePipeline();
+			graphic.update();
 			ext::vulkan::states::rebuild = true;
 		}
 	}
@@ -527,7 +527,7 @@ void ext::vulkan::tick() {
 	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 	for ( auto& renderMode : renderModes ) { if ( !renderMode || (renderMode->executed && !renderMode->execute) ) continue;
 		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([renderMode]{
-			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+			renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
 		else if ( renderMode->rerecord ) tasks.queue([renderMode]{

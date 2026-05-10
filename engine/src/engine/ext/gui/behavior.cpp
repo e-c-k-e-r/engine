@@ -215,7 +215,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			#endif
 			} else {
 				graphic.initializeMesh( mesh );
-				graphic.getPipeline().update( graphic );
+				graphic.update();
 			}
 			
 			if ( payload.free ) {

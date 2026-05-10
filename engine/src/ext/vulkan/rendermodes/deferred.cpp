@@ -525,12 +525,8 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 	// (re)initialize pipelines
 	{
 		ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-		
-		if ( blitter.hasPipeline( blitter.descriptor ) ){
-			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-		} else {
-			blitter.initializePipeline( blitter.descriptor );
-		}
+
+		blitter.update( blitter.descriptor );
 
 		descriptor.renderMode = "";
 		descriptor.bind.width = width;
@@ -546,11 +542,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 				descriptor.subpass = 0;
 				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 			}
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 
 		if ( settings::pipelines::bloom ) {
@@ -558,11 +550,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "bloom-down";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 
 		if ( settings::pipelines::bloom ) {
@@ -570,11 +558,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "bloom-up";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 
 		if ( settings::pipelines::dof ) {
@@ -582,11 +566,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "dof-down";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 
 		if ( settings::pipelines::dof ) {
@@ -594,11 +574,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "dof-up";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 
 		if ( settings::pipelines::culling ) {
@@ -606,11 +582,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "depth-pyramid";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			if ( blitter.hasPipeline( descriptor ) ) {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			} else {
-				blitter.initializePipeline( descriptor );
-			}
+			blitter.update( descriptor );
 		}
 	}
 }

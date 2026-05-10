@@ -1245,7 +1245,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 	}
 	if ( shouldUpdate ) {
-		graphic.updatePipelines();
+	//	graphic.updatePipelines();
 		metadata.shader.invalidated = false;
 	}
 	

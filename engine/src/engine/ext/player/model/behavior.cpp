@@ -51,8 +51,8 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	this->process([&](uf::Entity* entity){
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		auto& graphic = entity->getComponent<uf::Graphic>();
-		auto& pipeline = graphic.getPipeline();
-		pipeline.metadata.process = !metadata.hide;
+		auto& descriptorSet = graphic.getDescriptorSet();
+		descriptorSet.metadata.process = !metadata.hide;
 		metadata.set = true;
 	});
 	metadata.set = true;

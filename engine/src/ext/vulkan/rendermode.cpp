@@ -351,7 +351,7 @@ void ext::vulkan::RenderMode::bindPipelines( const uf::stl::vector<ext::vulkan::
 				size_t shaders = 0;
 				for ( auto& shader : graphic.material.shaders ) if ( shader.metadata.pipeline == descriptor.pipeline ) ++shaders;
 				if ( shaders == 0 ) continue;
-				graphic.initializePipeline( descriptor );
+				graphic.update( descriptor );
 			}
 		}
 	}
