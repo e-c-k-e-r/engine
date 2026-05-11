@@ -494,10 +494,13 @@ void ext::vulkan::initialize( bool soft ) {
 }
 void ext::vulkan::tick() {
 //	ext::vulkan::mutex.lock();
-	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
-		synchronize(0b11);
+	if ( ext::vulkan::states::resized ) {
+	//	synchronize(0b11);
 		ext::vulkan::states::rebuild = true;
 		::skip = true;
+	}
+	if ( ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
+		ext::vulkan::states::rebuild = true;
 	}
 
 	ext::fsr::tick();

@@ -68,6 +68,7 @@ namespace ext {
 				bool autoInitializeUniformBuffers = true;
 				bool autoInitializeUniformUserdatas = false;
 				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
+				uf::stl::unordered_map<uf::stl::string, size_t> hashes;
 			} metadata;
 
 			void initialize( Device& device );

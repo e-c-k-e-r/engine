@@ -430,6 +430,7 @@ namespace ext {
 			
 			uf::stl::string renderMode = "";
 			uf::stl::string pipeline = "";
+			hash_t material = {};
 
 			uint32_t renderTarget = 0;
 			uint32_t subpass = 0;

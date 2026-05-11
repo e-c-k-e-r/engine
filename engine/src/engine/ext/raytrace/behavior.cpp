@@ -235,7 +235,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	}
 	if ( metadata.renderer.full ) {
 		/* Update lights */ {
-			ext::ExtSceneBehavior::bindBuffers( *this, graphic, "ray:gen", uf::renderer::settings::pipelines::names::rt );
+			ext::ExtSceneBehavior::bindBuffers( *this, graphic, "", "ray:gen", uf::renderer::settings::pipelines::names::rt );
 		}
 		if ( !metadata.renderer.bound ) return;
 	#if !UF_USE_EXTERNAL_IMAGE

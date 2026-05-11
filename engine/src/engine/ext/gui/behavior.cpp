@@ -201,8 +201,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
 					{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 				});
-
-
 			#if UF_USE_VULKAN
 				{
 					auto& shader = graphic.material.getShader("vertex");

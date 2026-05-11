@@ -733,7 +733,7 @@ void UF_API uf::initialize() {
 }
 
 void UF_API uf::tick() {
-	++uf::time::frame;
+	//++uf::time::frame;
 
 	static pod::Thread& threadMain = uf::thread::get(uf::thread::mainThreadName);
 #if UF_THREAD_METRICS

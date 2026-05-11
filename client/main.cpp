@@ -102,6 +102,8 @@ int main(int argc, char** argv){
 	}
 
 	while ( client::ready && uf::ready ) {
+		++uf::time::frame;
+		
 	#if UF_EXCEPTIONS
 		try {	
 	#endif

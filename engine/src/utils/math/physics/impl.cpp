@@ -131,13 +131,14 @@ void uf::physics::step( pod::World& world, float dt ) {
 	if ( uf::physics::settings.warmupSolver ) impl::prepareManifoldCache( uf::physics::settings.manifoldsCache, islands, bodies );
 
 	// iterate islands
-	#pragma omp parallel for schedule(dynamic)
-	for ( auto& island : islands ) {
+	//#pragma omp parallel for schedule(dynamic)
+	auto tasks = uf::thread::schedule(true);
+	for ( auto& island : islands ) tasks.queue([&]{
 		STATIC_THREAD_LOCAL(uf::stl::vector<pod::Manifold>, manifolds);
 		manifolds.reserve(uf::physics::settings.reserveCount);
 
 		// sleeping island, skip (asleep islands shouldn't ever be in here)
-		if ( !island.awake ) continue;
+		if ( !island.awake ) return;
 
 		// iterate overlap pairs
 		for ( auto& [ ia, ib ] : island.pairs ) {
@@ -197,7 +198,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 		if ( uf::physics::settings.warmupSolver ) {
 			impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
 		}
-	}
+	});
+	uf::thread::execute( tasks );
 
 	if ( uf::physics::settings.warmupSolver ) impl::pruneManifoldCache( uf::physics::settings.manifoldsCache );
 

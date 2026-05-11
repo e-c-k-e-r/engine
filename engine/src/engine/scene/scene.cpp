@@ -64,7 +64,7 @@ const uf::Entity& uf::Scene::getController() const {
 	return scene.getController();
 }
 
-uf::Camera& uf::Scene::getCamera(uf::Entity& controller) {
+uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
 	// ???
 /*
 	if ( auto currentRenderMode = uf::renderer::getCurrentRenderMode(); currentRenderMode && !currentRenderMode->getName().empty() ) {
@@ -75,18 +75,21 @@ uf::Camera& uf::Scene::getCamera(uf::Entity& controller) {
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
 	auto uid = controller.getUid();
-	auto& cachedCamera = metadata.cache.cameras[uid].camera;
-	auto& lastFrame = metadata.cache.cameras[uid].lastFrame;
+	auto& cache = metadata.cache.cameras[uid];
+	auto& cachedCamera = cache.camera;
+	auto& lastFrame = cache.lastFrame;
 
 	if ( lastFrame != uf::time::frame ) {
 		auto& sourceCamera = controller.getComponent<uf::Camera>();
-		cachedCamera.setTransform(uf::transform::flatten(sourceCamera.getTransform()));
-
+		// update if camera wasn't already updated
+		//sourceCamera.update(true);
+		// copy all matrices
 		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
 			cachedCamera.setView(sourceCamera.getView(i), i);
 			cachedCamera.setProjection(sourceCamera.getProjection(i), i);
 		}
-		cachedCamera.update(true);
+		// flatten the transform in the event the parent transform updates later
+		cachedCamera.setTransform(uf::transform::flatten(cachedCamera.getTransform()));
 		lastFrame = uf::time::frame;
 	}
 	return cachedCamera;
@@ -104,8 +107,9 @@ void uf::Scene::invalidateGraph() {
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
 	metadata.invalidationQueued = true;
-/*
 	metadata.cache.controllers.clear();
+	metadata.cache.cameras.clear();
+/*
 	metadata.tasks.serial.clear();
 	metadata.tasks.parallel.clear();
 

@@ -458,7 +458,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 	//	auto& camera = controller.getComponent<uf::Camera>();
-		auto& camera = this->getCamera( controller );
+	//	auto& camera = this->getCamera( controller );
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -524,8 +524,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		auto& storage = uf::graph::globalStorage ? uf::graph::storage : this->getComponent<pod::Graph::Storage>();
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
-	//	auto& camera = controller.getComponent<uf::Camera>();
-		auto& camera = this->getCamera( controller );
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -919,9 +917,13 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
-	bindBuffers( self, renderMode.getBlitter(), shaderType, shaderPipeline );
+	bindBuffers( self, renderMode.getBlitter(), renderMode, shaderType, shaderPipeline );
 }
-void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
+void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
+	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
+	bindBuffers( self, graphic, renderMode, shaderType, shaderPipeline );
+}
+void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, uf::renderer::RenderMode& renderMode, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto/*&*/ graph = this->getGraph();
 	auto& controller = this->getController();
 //	auto& camera = controller.getComponent<uf::Camera>();
@@ -1246,6 +1248,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	}
 	if ( shouldUpdate ) {
 	//	graphic.updatePipelines();
+		graphic.update();
+		renderMode.rebuild = true;
 		metadata.shader.invalidated = false;
 	}
 	

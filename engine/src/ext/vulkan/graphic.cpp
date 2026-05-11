@@ -12,6 +12,8 @@
 #include <fstream>
 #include <regex>
 
+#define USE_SHARED_PIPELINES 0
+
 #define VK_DEBUG_VALIDATION_MESSAGE(...)\
 //	VK_VALIDATION_MESSAGE(x);
 
@@ -38,6 +40,8 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic ) {
 	return this->initialize( graphic, graphic.descriptor );
 }
 void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDescriptor& descriptor ) {
+	if ( pipeline != VK_NULL_HANDLE ) return;
+
 	this->device = graphic.device;
 	this->descriptor = descriptor;
 	Device& device = *graphic.device;
@@ -1057,6 +1061,8 @@ void ext::vulkan::Material::attachShader( const uf::stl::string& filename, VkSha
 	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
 	metadata.json["shaders"][pipeline][type]["filename"] = filename;
 	metadata.shaders[pipeline+":"+type] = shaders.size() - 1;
+
+	uf::hash( metadata.hashes[pipeline], filename );
 }
 void ext::vulkan::Material::initializeShaders( const uf::stl::vector<std::pair<uf::stl::string, VkShaderStageFlagBits>>& layout, const uf::stl::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
@@ -1101,6 +1107,8 @@ void ext::vulkan::Graphic::initialize( const GraphicDescriptor& descriptor ) {
 	update( descriptor );
 }
 void ext::vulkan::Graphic::update() {
+	// update descriptor
+	this->descriptor.material = material.metadata.hashes[descriptor.pipeline];
 	update( this->descriptor );
 }
 void ext::vulkan::Graphic::update( const GraphicDescriptor& descriptor ) {
@@ -1114,7 +1122,11 @@ void ext::vulkan::Graphic::initializePipeline() {
 	initializePipeline( this->descriptor );
 }
 ext::vulkan::Pipeline& ext::vulkan::Graphic::initializePipeline( const GraphicDescriptor& descriptor ) {
+#if USE_SHARED_PIPELINES
+	auto& pipeline = Pipeline::pipelines[descriptor];
+#else
 	auto& pipeline = pipelines[descriptor];
+#endif
 	pipeline.initialize(*this, descriptor);
 	return pipeline;
 }
@@ -1828,7 +1840,11 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	}
 }
 bool ext::vulkan::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
+#if USE_SHARED_PIPELINES
+	return Pipeline::pipelines.count( descriptor ) > 0;
+#else
 	return pipelines.count( descriptor ) > 0;
+#endif
 }
 ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline() {
 	return getPipeline( descriptor );
@@ -1838,11 +1854,19 @@ const ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline() const {
 }
 ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( const GraphicDescriptor& descriptor ) {
 	if ( !hasPipeline(descriptor) ) return initializePipeline( descriptor );
+#if USE_SHARED_PIPELINES
+	return Pipeline::pipelines[descriptor];
+#else
 	return pipelines[descriptor];
+#endif
 }
 const ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( const GraphicDescriptor& descriptor ) const {
 	if ( !hasPipeline(descriptor) ) UF_EXCEPTION("does not have pipeline");
+#if USE_SHARED_PIPELINES
+	return Pipeline::pipelines.at(descriptor);
+#else
 	return pipelines.at(descriptor);
+#endif
 }
 bool ext::vulkan::Graphic::hasDescriptorSet( const GraphicDescriptor& descriptor ) const {
 	return descriptorSets.count( descriptor ) > 0;
@@ -1852,7 +1876,11 @@ void ext::vulkan::Graphic::initializeDescriptorSet() {
 	initializeDescriptorSet( this->descriptor );
 }
 ext::vulkan::DescriptorSet& ext::vulkan::Graphic::initializeDescriptorSet( const GraphicDescriptor& descriptor ) {
+	auto& pipeline = getPipeline();
 	auto& descriptorSet = descriptorSets[descriptor];
+
+	// ensure pipeline exists (because we're passing this as const)
+	pipeline.initialize(*this, descriptor);
 
 	descriptorSet.initialize(*this, descriptor);
 	descriptorSet.update(*this, descriptor);
@@ -1879,12 +1907,17 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, s
 }
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw, size_t offset ) const {
 	if ( !process ) return;
-	if ( !this->hasPipeline( descriptor ) ) {
-		//UF_MSG_DEBUG("{} has no valid pipeline ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
+#if USE_SHARED_PIPELINES
+	if ( Pipeline::pipelines.count( descriptor ) == 0 ) {
+		Pipeline::pipelines[descriptor].initialize(*this, descriptor);
+	}
+#endif
+	if ( !hasPipeline( descriptor ) ) {
+	//	UF_MSG_DEBUG("{} has no valid pipeline ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
 		return;
 	}
-	if ( !this->hasDescriptorSet( descriptor ) ) {
-		//UF_MSG_DEBUG("{} has no valid descriptor set ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
+	if ( !hasDescriptorSet( descriptor ) ) {
+	//	UF_MSG_DEBUG("{} has no valid descriptor set ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
 		return;
 	}
 
@@ -2063,7 +2096,7 @@ void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 }
 ext::vulkan::GraphicDescriptor::hash_t ext::vulkan::GraphicDescriptor::hash() const {
 	size_t seed{};
-	uf::hash( seed, aux, subpass, renderMode, renderTarget, pipeline, topology, cullMode, fill, lineWidth, frontFace, depth.test, depth.write, depth.operation, depth.bias.enable, depth.bias.constant, depth.bias.slope, depth.bias.clamp );
+	uf::hash( seed, aux, subpass, renderMode, renderTarget, material, pipeline, topology, cullMode, fill, lineWidth, frontFace, depth.test, depth.write, depth.operation, depth.bias.enable, depth.bias.constant, depth.bias.slope, depth.bias.clamp );
 	return seed;
 }
 

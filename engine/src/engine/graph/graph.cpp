@@ -1511,8 +1511,6 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 	}
 #endif
 
-//	if ( controller.getName() == "Player" ) UF_MSG_DEBUG("frame={}, camera={}, renderMode={}, {}", uf::time::frame, uf::matrix::toString( viewport.matrices[0].view ), renderMode->getName(), renderMode->getType() );
-
 	storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 
 #if UF_USE_VULKAN

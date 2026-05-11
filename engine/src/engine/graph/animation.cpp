@@ -25,7 +25,10 @@ namespace {
 		
 		auto& animation = storage.animations.map[name];
 
-		UF_ASSERT( animation.path != "" );
+		//UF_ASSERT( animation.path != "" );
+		if ( animation.path == "" ) {
+			return;
+		}
 
 		uf::Serializer json;
 		json.readFromFile( animation.path );

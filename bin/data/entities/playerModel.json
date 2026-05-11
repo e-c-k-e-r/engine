@@ -1,11 +1,11 @@
 {
 	"type": "Object",
 	"name": "Player: Model",
-	"ignore": true,
+	"ignore": false,
 	"import": "/model.json",
 	"assets": [
-		"/player/ben.glb"
-	//	{ "filename": "/player/bear/graph.json" }
+	//	"/player/ben.glb"
+		{ "filename": "/player/bear/graph.json" }
 	],
 	"behaviors": [
 		"PlayerModelBehavior"
@@ -22,7 +22,7 @@
 	},
 	"metadata": {
 		"track": true,
-		"hide": false,
+		"hide": true,
 		"graph": {
 			"debug": {
 				"print": {

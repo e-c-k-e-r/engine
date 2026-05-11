@@ -44,7 +44,7 @@ void uf::camera::update( pod::Camera& camera, bool override ) {
 #if UF_USE_OPENVR
 	if ( this->m_pod.stereoscopic && ext::openvr::context ) {
 		camera.transform.orientation = uf::quaternion::identity();
-		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( camera.transform, false, 1 ) );
+		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( camera.transform ) );
 		camera.transform.orientation = ext::openvr::hmdQuaternion();
 
 		uf::camera::view( camera, ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
@@ -52,7 +52,7 @@ void uf::camera::update( pod::Camera& camera, bool override ) {
 	} else
 #endif
 	{
-		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( camera.transform, false, 1 ) );
+		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( camera.transform ) );
 		uf::camera::view( camera, view );
 	}
 }

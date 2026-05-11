@@ -83,7 +83,9 @@ namespace ext {
 			} framebuffer;
 		);
 
-		void bindBuffers( uf::Object&, const uf::stl::string& = "", const uf::stl::string& = "fragment", const uf::stl::string& = "deferred" );
-		void bindBuffers( uf::Object&, uf::renderer::Graphic&, const uf::stl::string& = "fragment", const uf::stl::string& = "deferred" );
+		void bindBuffers( uf::Object&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		void bindBuffers( uf::Object&, uf::renderer::Graphic&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		
+		void bindBuffers( uf::Object&, uf::renderer::Graphic&, uf::renderer::RenderMode&, const uf::stl::string& = "compute", const uf::stl::string& = "deferred" );
 	}
 }

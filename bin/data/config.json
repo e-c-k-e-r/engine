@@ -8,9 +8,9 @@
 				"useLightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": false, // to-do: fix
+					"enabled": true, // to-do: fix
 					"update": 4,
-					"max": 8,
+					"max": 16,
 					"samples": 2
 				},
 				"bloom": {
@@ -118,7 +118,7 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true,
+					"vxgi": false,
 					"culling": false,
 					"bloom": false,
 					"dof": false,

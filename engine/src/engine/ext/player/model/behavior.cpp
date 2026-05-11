@@ -51,12 +51,12 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	this->process([&](uf::Entity* entity){
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		auto& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized ) return;
 		auto& descriptorSet = graphic.getDescriptorSet();
 		descriptorSet.metadata.process = !metadata.hide;
 		metadata.set = true;
+		uf::renderer::states::rebuild = true;
 	});
-	metadata.set = true;
-	uf::renderer::states::rebuild = true;
 }
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){}
