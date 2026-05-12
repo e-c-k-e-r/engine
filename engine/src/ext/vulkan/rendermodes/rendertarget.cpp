@@ -18,15 +18,6 @@ const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
-/*
-	descriptor.parse(metadata.json["descriptor"]);
-	// invalidate
-	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
-		descriptor.invalidated = true;
-	} else {
-		descriptor.renderMode = this->getName();
-	}
-*/
 
 	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
@@ -56,7 +47,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	}
 
 	if ( metadata.type == "depth" || metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
-		renderTarget.views = metadata.subpasses;
 		struct {
 			size_t depth;
 		} attachments = {};
@@ -82,152 +72,33 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			);
 		}
 	} else if ( metadata.type == settings::pipelines::names::rt )  {
-	#if 1
-		struct {
-			size_t depth, color, bright, motion, scratch, output;
-		} attachments = {};
-
-		bool blend = true;
-		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */ext::vulkan::settings::formats::depth,
-			/*.layout = */VK_IMAGE_LAYOUT_GENERAL,
-			/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-			/*.blend = */false,
-			/*.samples = */1,
-		});
-		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
-			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
-			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			/*.blend =*/ blend,
-			/*.samples =*/ 1,
-		});
-		attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
-			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
-			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			/*.blend =*/ blend,
-			/*.samples =*/ 1,
-		});
-		attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
-			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
-			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			/*.blend =*/ blend,
-			/*.samples =*/ 1,
-		});
-		attachments.motion = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
-			/*.format = */VK_FORMAT_R16G16_SFLOAT,
-			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
-			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			/*.blend = */false,
-			/*.samples = */1,
-		});
-
-		renderTarget.addPass(
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			{},
-			{},
-			{},
-			attachments.depth,
-			0,
-			true
-		);
-
-		metadata.attachments["depth"] = attachments.depth;
-		metadata.attachments["color"] = attachments.color;
-		metadata.attachments["bright"] = attachments.bright;
-		metadata.attachments["motion"] = attachments.motion;
-		metadata.attachments["scratch"] = attachments.scratch;
-		
-		metadata.attachments["output"] = attachments.color;
-	#endif
+		UF_EXCEPTION("unimplemented");
 	} else if ( metadata.type == "full" ) {
-	#if 0
+		UF_EXCEPTION("unimplemented");
+	} else {
 		struct {
-			size_t id, position, normal, depth, color;
+			size_t color, depth;
 		} attachments = {};
 
-		// input g-buffers
-		attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */VK_FORMAT_R32G32_UINT,
+		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-			/*.blend = */false,
-			/*.samples = */msaa,
-		});
-		attachments.position = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
-			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-			/*.blend = */false,
-			/*.samples = */msaa,
-		});
-		attachments.normal = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
-			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-			/*.blend = */false,
+			/*.blend = */true,
 			/*.samples = */msaa,
 		});
 		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */ext::vulkan::settings::formats::depth,
-			/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-			/*.blend = */false,
-			/*.samples = */msaa,
-		});
-		// output buffers
-		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
-			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			/*.blend =*/ blend,
-			/*.samples =*/ 1,
+			/*.format = */ ext::vulkan::settings::formats::depth,
+			/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend = */ false,
+			/*.samples = */ 1,
 		});
 
-		metadata.attachments["id"] = attachments.id;
-		metadata.attachments["position"] = attachments.position;
-		metadata.attachments["normal"] = attachments.normal;
-		
-		metadata.attachments["depth"] = attachments.depth;
 		metadata.attachments["color"] = attachments.color;
-		metadata.attachments["output"] = attachments.color;
+		metadata.attachments["depth"] = attachments.depth;
 
-		// First pass: fill the G-Buffer
-		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-			renderTarget.addPass(
-				/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				/*.colors =*/ { attachments.id, attachments.uv, attachments.normal },
-				/*.inputs =*/ {},
-				/*.resolve =*/{},
-				/*.depth = */ attachments.depth,
-				/*.layer = */eye,
-				/*.autoBuildPipeline =*/ true
-			);
-		}
-	#endif
-	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
-			struct {
-				size_t color, depth;
-			} attachments = {};
-
-			attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-				/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
-				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-				/*.blend = */true,
-				/*.samples = */msaa,
-			});
-			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-				/*.format = */ ext::vulkan::settings::formats::depth,
-				/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-				/*.blend = */ false,
-				/*.samples = */ 1,
-			});
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{ attachments.color },
@@ -237,9 +108,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				0,
 				true
 			);
-
-			metadata.attachments["color"] = attachments.color;
-			metadata.attachments["depth"] = attachments.depth;
 		}
 	}
 
@@ -413,39 +281,28 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 }
 
 void ext::vulkan::RenderTargetRenderMode::render() {
-//	if ( this->executed ) return;
 	if ( this->commands.container().empty() ) return;
 
-	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
 
-	// Submit commands
-	// Use a fence to ensure that command buffer has finished executing before using it again
-	/*
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
-	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
-	*/
-
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL; 								// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
-	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pWaitDstStageMask = NULL;
+	submitInfo.pWaitSemaphores = NULL;
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pSignalSemaphores = NULL;
+	submitInfo.signalSemaphoreCount = 0;
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
 
-//	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
 	this->executed = true;
-	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
 	ext::vulkan::RenderMode::pipelineBarrier( commandBuffer, state );
@@ -463,17 +320,15 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
 	uf::stl::vector<VkClearValue> clearValues;
-	for ( size_t j = 0; j < renderTarget.views; ++j ) {
-		for ( auto& attachment : renderTarget.attachments ) {
-			auto& clearValue = clearValues.emplace_back();
-			if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-				clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-			} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-				if ( uf::matrix::reverseInfiniteProjection ) {
-					clearValue.depthStencil = { 0.0f, 0 };
-				} else {
-					clearValue.depthStencil = { 1.0f, 0 };
-				}
+	for ( auto& attachment : renderTarget.attachments ) {
+		auto& clearValue = clearValues.emplace_back();
+		if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+			clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+		} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+			if ( uf::matrix::reverseInfiniteProjection ) {
+				clearValue.depthStencil = { 0.0f, 0 };
+			} else {
+				clearValue.depthStencil = { 1.0f, 0 };
 			}
 		}
 	}
@@ -513,29 +368,6 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 
 			size_t subpasses = renderTarget.passes.size();
 			size_t currentPass = 0;
-
-			//
-		//	this->pipelineBarrier( commands[frame], 1 );
-
-		// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-		// VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-
-		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
-
-		#if 0
-			for ( auto& attachment : renderTarget.attachments ) {
-				// transition attachments to general attachments for imageStore
-				VkImageSubresourceRange subresourceRange;
-				subresourceRange.baseMipLevel = 0;
-				subresourceRange.baseArrayLayer = 0;
-				subresourceRange.levelCount = attachment.descriptor.mips;
-				subresourceRange.layerCount = renderTarget.views;
-				subresourceRange.aspectMask = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
-			}
-		#endif
 
 			// pre-renderpass commands
 			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_BEGIN, commandBuffer, frame, {
@@ -605,8 +437,6 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
 			} );
-
-		//	this->pipelineBarrier( commands[frame], 1 );
 		}
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

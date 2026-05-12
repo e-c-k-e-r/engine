@@ -378,6 +378,58 @@ namespace {
 		return json;
 	}
 
+	void enableRequestedDeviceFeatures11( VkPhysicalDeviceVulkan11Features& features, VkPhysicalDeviceVulkan11Features& enabledFeatures ) {
+		ext::json::Value json;
+
+	#define CHECK_FEATURE( NAME )\
+		if ( feature == #NAME ) {\
+			if ( features.NAME == VK_TRUE ) {\
+				enabledFeatures.NAME = true;\
+				VK_VALIDATION_MESSAGE("Enabled feature: {}", feature);\
+			} else VK_VALIDATION_MESSAGE("Failed to enable feature: {}", feature);\
+		}
+
+		for ( auto& feature : ext::vulkan::settings::requested::deviceFeatures ) {
+			CHECK_FEATURE(storageBuffer16BitAccess);
+			CHECK_FEATURE(uniformAndStorageBuffer16BitAccess);
+			CHECK_FEATURE(storagePushConstant16);
+			CHECK_FEATURE(storageInputOutput16);
+			CHECK_FEATURE(multiview);
+			CHECK_FEATURE(multiviewGeometryShader);
+			CHECK_FEATURE(multiviewTessellationShader);
+			CHECK_FEATURE(variablePointersStorageBuffer);
+			CHECK_FEATURE(variablePointers);
+			CHECK_FEATURE(protectedMemory);
+			CHECK_FEATURE(samplerYcbcrConversion);
+			CHECK_FEATURE(shaderDrawParameters);
+		}
+	#undef CHECK_FEATURE
+	}
+
+	ext::json::Value retrieveDeviceFeatures11( ext::vulkan::Device& device, VkPhysicalDeviceVulkan11Features& features, VkPhysicalDeviceVulkan11Features& enabledFeatures ) {
+		ext::json::Value json;
+
+	#define CHECK_FEATURE( NAME )\
+		json[#NAME]["supported"] = features.NAME;\
+		json[#NAME]["enabled"] = enabledFeatures.NAME;
+
+		CHECK_FEATURE(storageBuffer16BitAccess);
+		CHECK_FEATURE(uniformAndStorageBuffer16BitAccess);
+		CHECK_FEATURE(storagePushConstant16);
+		CHECK_FEATURE(storageInputOutput16);
+		CHECK_FEATURE(multiview);
+		CHECK_FEATURE(multiviewGeometryShader);
+		CHECK_FEATURE(multiviewTessellationShader);
+		CHECK_FEATURE(variablePointersStorageBuffer);
+		CHECK_FEATURE(variablePointers);
+		CHECK_FEATURE(protectedMemory);
+		CHECK_FEATURE(samplerYcbcrConversion);
+		CHECK_FEATURE(shaderDrawParameters);
+	#undef CHECK_FEATURE
+
+		return json;
+	}
+
 	void enableRequestedDeviceFeatures12( VkPhysicalDeviceVulkan12Features& features, VkPhysicalDeviceVulkan12Features& enabledFeatures ) {
 		ext::json::Value json;
 
@@ -1185,6 +1237,7 @@ void ext::vulkan::Device::initialize() {
 		std::queue<void*> chain = {};
 
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
+		VkPhysicalDeviceVulkan11Features physicalDeviceVulkan11Features{};
 		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features{};
 		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
 		VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{};
@@ -1197,12 +1250,16 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR fragmentShaderBarycentricFeatures{};
 		VkPhysicalDeviceSubgroupSizeControlFeatures subgroupSizeControlFeatures{};
 
+		VkPhysicalDeviceFeatures2 enabledDeviceFeatures2{};
+		VkPhysicalDeviceVulkan11Features enabledPhysicalDeviceVulkan11Features{};
 		VkPhysicalDeviceVulkan12Features enabledPhysicalDeviceVulkan12Features{};
-		VkPhysicalDeviceFeatures2 enabledDeviceFeatures2{}; {
+		{
+			enabledDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			enabledPhysicalDeviceVulkan11Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
 			enabledPhysicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-			enabledDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-			enabledDeviceFeatures2.pNext = &enabledPhysicalDeviceVulkan12Features;
+			enabledPhysicalDeviceVulkan11Features.pNext = &enabledPhysicalDeviceVulkan12Features;
+			enabledDeviceFeatures2.pNext = &enabledPhysicalDeviceVulkan11Features;
 
 			vkGetPhysicalDeviceFeatures2(device.physicalDevice, &enabledDeviceFeatures2);
 		}
@@ -1212,6 +1269,20 @@ void ext::vulkan::Device::initialize() {
 			physicalDeviceFeatures2.features = enabledFeatures;
 			chain.push( &physicalDeviceFeatures2 );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceFeatures2" );
+		}
+		if ( ext::vulkan::settings::requested::featureChain["physicalDeviceVulkan11"].as<bool>(false) ) {
+			physicalDeviceVulkan11Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+			enableRequestedDeviceFeatures11( enabledPhysicalDeviceVulkan11Features, physicalDeviceVulkan11Features );
+			chain.push( &physicalDeviceVulkan11Features );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceVulkan11Features" );
+		} else {
+			// Only add the standalone extension struct if we ARE NOT using the Vulkan 1.1 core struct!
+			if ( ext::vulkan::settings::requested::featureChain["shaderDrawParameters"].as<bool>(false) ) {
+				shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+				shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
+				chain.push( &shaderDrawParametersFeatures );
+				VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderDrawParametersFeatures" );
+			}
 		}
 		if ( ext::vulkan::settings::requested::featureChain["physicalDeviceVulkan12"].as<bool>(false) ) {
 			physicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -1239,12 +1310,6 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		//
-		if ( ext::vulkan::settings::requested::featureChain["shaderDrawParameters"].as<bool>(false) ) {
-			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
-			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
-			chain.push( &shaderDrawParametersFeatures );
-			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderDrawParametersFeatures" );
-		}
 		if ( ext::vulkan::settings::requested::featureChain["robustness"].as<bool>(false) ) {
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;

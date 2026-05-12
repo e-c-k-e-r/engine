@@ -78,7 +78,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 
 		if ( metadataJson["light"]["type"].as<uf::stl::string>() == "point" ) {
 			metadataJson["light"]["fov"] = 90.0f;
-			renderMode.metadata.subpasses = 6;
+			renderMode.metadata.views = 6;
 		}
 
 		float fov = metadataJson["light"]["fov"].as<float>(90) * (3.14159265358f / 180.0f);

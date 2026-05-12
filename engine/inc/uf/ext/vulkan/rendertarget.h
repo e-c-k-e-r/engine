@@ -23,6 +23,7 @@ namespace ext {
 				VkImage image;
 				VkDeviceMemory mem;
 				VkImageView view;
+				VkImageView framebufferView;
 				uf::stl::vector<VkImageView> views;
 				VmaAllocation allocation;
 				VmaAllocationInfo allocationInfo;

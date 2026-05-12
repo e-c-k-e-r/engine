@@ -26,33 +26,33 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 #endif
 
 #if !MULTISAMPLING
-	layout(binding = 0) uniform utexture2D samplerId;
+	layout(binding = 0) uniform utexture2DArray samplerId;
 	#if BARYCENTRIC
 		#if !BARYCENTRIC_CALCULATE
-			layout(binding = 1) uniform texture2D samplerBary;
+			layout(binding = 1) uniform texture2DArray samplerBary;
 		#endif
 	#else
-		layout(binding = 1) uniform texture2D samplerUv;
-		layout(binding = 2) uniform texture2D samplerNormal;
+		layout(binding = 1) uniform texture2DArray samplerUv;
+		layout(binding = 2) uniform texture2DArray samplerNormal;
 	#endif
-	layout(binding = 3) uniform texture2D samplerDepth;
+	layout(binding = 3) uniform texture2DArray samplerDepth;
 #else
-	layout(binding = 0) uniform utexture2DMS samplerId;
+	layout(binding = 0) uniform utexture2DMSArray samplerId;
 	#if BARYCENTRIC
 		#if !BARYCENTRIC_CALCULATE
-			layout(binding = 1) uniform texture2DMS samplerBary;
+			layout(binding = 1) uniform texture2DMSArray samplerBary;
 		#endif
 	#else
-		layout(binding = 1) uniform texture2DMS samplerUv;
-		layout(binding = 2) uniform texture2DMS samplerNormal;
+		layout(binding = 1) uniform texture2DMSArray samplerUv;
+		layout(binding = 2) uniform texture2DMSArray samplerNormal;
 	#endif
-	layout(binding = 3) uniform texture2DMS samplerDepth;
+	layout(binding = 3) uniform texture2DMSArray samplerDepth;
 #endif
 
 
-layout(binding = 7, rgba16f) uniform writeonly image2D imageColor;
-layout(binding = 8, rgba16f) uniform writeonly image2D imageBright;
-layout(binding = 9, rg16f) uniform writeonly image2D imageMotion;
+layout(binding = 7, rgba16f) uniform writeonly image2DArray imageColor;
+layout(binding = 8, rgba16f) uniform writeonly image2DArray imageBright;
+layout(binding = 9, rg16f) uniform writeonly image2DArray imageMotion;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -132,12 +132,12 @@ layout (binding = 20) uniform sampler3D samplerNoise;
 #endif
 
 #if MULTISAMPLING
-	#define IMAGE_LOAD(X) texelFetch( X, ivec2(gl_GlobalInvocationID.xy), msaa.currentID )
+	#define IMAGE_LOAD(X) texelFetch( X, ivec3(gl_GlobalInvocationID.xyz), msaa.currentID )
 #else
-	#define IMAGE_LOAD(X) texelFetch( X, ivec2(gl_GlobalInvocationID.xy), 0 )
+	#define IMAGE_LOAD(X) texelFetch( X, ivec3(gl_GlobalInvocationID.xyz), 0 )
 #endif
 
-#define IMAGE_STORE(X, Y) imageStore( X, ivec2(gl_GlobalInvocationID.xy), Y )
+#define IMAGE_STORE(X, Y) imageStore( X, ivec3(gl_GlobalInvocationID.xyz), Y )
 
 bool USE_SKYBOX_ON_DIVERGENCE = false;
 
@@ -158,7 +158,7 @@ void postProcess() {
 	vec2 outFragMotion = surface.motion;
 
 	if ( ubo.settings.mode.type > 0x0000 ) {
-		uvec2 renderSize = imageSize(imageColor);
+		uvec2 renderSize = imageSize(imageColor).xy;
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 		if ( true ) {
 		//	if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.barycentric.rgb, 1);
@@ -180,10 +180,10 @@ void postProcess() {
 }
 
 void populateSurface() {
-	const uvec2 renderSize = imageSize(imageColor);
-	if ( gl_GlobalInvocationID.x >= renderSize.x || gl_GlobalInvocationID.y >= renderSize.y || gl_GlobalInvocationID.z > PushConstant.pass ) return;
+	const uvec2 renderSize = imageSize(imageColor).xy;
+	if ( gl_GlobalInvocationID.x >= renderSize.x || gl_GlobalInvocationID.y >= renderSize.y /*|| gl_GlobalInvocationID.z > PushConstant.pass*/ ) return;
 
-	surface.pass = PushConstant.pass;
+	surface.pass = gl_GlobalInvocationID.z;
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
 	surface.motion = vec2(0);

@@ -205,45 +205,41 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	metadata.attachments["output"] = attachments.color;
 
 	// First pass: fill the G-Buffer
-	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+	renderTarget.addPass(
+		/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+	#if BARYCENTRIC
+		#if !BARYCENTRIC_CALCULATE
+			/*.colors =*/ { attachments.id, attachments.bary },
+		#else
+			/*.colors =*/ { attachments.id },
+		#endif
+	#else
+		/*.colors =*/ { attachments.id, attachments.uv, attachments.normal },
+	#endif
+		/*.inputs =*/ {},
+		/*.resolve =*/{},
+		/*.depth = */ attachments.depth,
+		/*.layer = */0,
+		/*.autoBuildPipeline =*/ true
+	);
+	if ( DEFERRED_MODE == "fragment" ) {
 		renderTarget.addPass(
-			/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+			/*.colors =*/ { attachments.color, attachments.scratch, attachments.motion },
 		#if BARYCENTRIC
 			#if !BARYCENTRIC_CALCULATE
-				/*.colors =*/ { attachments.id, attachments.bary },
+				/*.inputs =*/ { attachments.id, attachments.depth, attachments.bary },
 			#else
-				/*.colors =*/ { attachments.id },
+				/*.inputs =*/ { attachments.id, attachments.depth },
 			#endif
 		#else
-			/*.colors =*/ { attachments.id, attachments.uv, attachments.normal },
+			/*.inputs =*/ { attachments.id, attachments.depth, attachments.uv, attachments.normal },
 		#endif
-			/*.inputs =*/ {},
 			/*.resolve =*/{},
-			/*.depth = */ attachments.depth,
-			/*.layer = */eye,
-			/*.autoBuildPipeline =*/ true
+			/*.depth = */attachments.depth,
+			/*.layer = */0,
+			/*.autoBuildPipeline =*/ false
 		);
-	}
-	if ( DEFERRED_MODE == "fragment" ) {
-		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-			renderTarget.addPass(
-				/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-				/*.colors =*/ { attachments.color, attachments.scratch, attachments.motion },
-			#if BARYCENTRIC
-				#if !BARYCENTRIC_CALCULATE
-					/*.inputs =*/ { attachments.id, attachments.depth, attachments.bary },
-				#else
-					/*.inputs =*/ { attachments.id, attachments.depth },
-				#endif
-			#else
-				/*.inputs =*/ { attachments.id, attachments.depth, attachments.uv, attachments.normal },
-			#endif
-				/*.resolve =*/{},
-				/*.depth = */attachments.depth,
-				/*.layer = */eye,
-				/*.autoBuildPipeline =*/ false
-			);
-		}
 	}
 
 	// metadata.outputs.emplace_back(metadata.attachments["output"]);
@@ -818,7 +814,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 				// render to geometry buffers
-				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {		
+				{		
 					size_t currentPass = 0;
 					size_t currentDraw = 0;
 					for ( auto graphic : graphics ) {
@@ -826,15 +822,14 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
-						graphic->record( commandBuffer, descriptor, eye, currentDraw++, frame );
-					}
-					if ( eye + 1 < metadata.eyes ) {
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
-						vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
 					}
 				}
 				// skip deferred pass if RT is enabled, we still process geometry for a depth buffer
-				if ( DEFERRED_MODE == "fragment" ) for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {		
+				if ( DEFERRED_MODE == "fragment" ) {		
+					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
+					vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+
 					size_t currentPass = 0;
 					size_t currentDraw = 0;
 					{
@@ -844,11 +839,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						descriptor.subpass = currentSubpass;
 						descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "deferred" );
-						blitter.record(commandBuffer, descriptor, eye, currentDraw++, frame);
-					}
-					if ( eye + 1 < metadata.eyes ) {
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
-						vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+						blitter.record(commandBuffer, descriptor, 0, currentDraw++, frame);
 					}
 				}
 			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "renderPass[end]" );

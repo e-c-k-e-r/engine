@@ -1,5 +1,6 @@
 layout (constant_id = 0) const uint PASSES = 6;
 #extension GL_ARB_shader_draw_parameters : enable
+#extension GL_EXT_multiview : enable
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
@@ -73,8 +74,8 @@ void main() {
 	const mat4 view = mat4(1);
 	const mat4 projection = mat4(1);
 #else
-	const mat4 view = camera.viewport[PushConstant.pass].view;
-	const mat4 projection = camera.viewport[PushConstant.pass].projection;
+	const mat4 view = camera.viewport[/*PushConstant.pass*/gl_ViewIndex].view;
+	const mat4 projection = camera.viewport[/*PushConstant.pass*/gl_ViewIndex].projection;
 #endif
 #if SKINNED 
 	const mat4 skinned = joints.length() <= 0 || jointID < 0 ? mat4(1.0) : inWeights.x * joints[jointID + int(inJoints.x)] + inWeights.y * joints[jointID + int(inJoints.y)] + inWeights.z * joints[jointID + int(inJoints.z)] + inWeights.w * joints[jointID + int(inJoints.w)];
@@ -93,7 +94,7 @@ void main() {
 	outPOS0 = gl_Position;
 	outPOS1 = gl_Position;
 
-	outId = uvec4(triangleID, drawID, instanceID, PushConstant.pass);
+	outId = uvec4(triangleID, drawID, instanceID, /*PushConstant.pass*/gl_ViewIndex);
 	
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outUv = inUv;

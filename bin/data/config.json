@@ -8,7 +8,7 @@
 				"useLightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": true, // to-do: fix
+					"enabled": true,
 					"update": 4,
 					"max": 16,
 					"samples": 2
@@ -67,9 +67,9 @@
 			"vulkan": {
 				"version": 1.3,
 				"validation": {
-					"enabled": false,
-					"messages": false,
-					"checkpoints": false,
+					"enabled": true,
+					"messages": true,
+					"checkpoints": true,
 					"filters": [
 					//	"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI) (seems to be fixed?)
 					//	,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit) (seems to be fixed?)
@@ -169,10 +169,14 @@
 								,"VK_KHR_get_memory_requirements2"
 								,"VK_KHR_bind_memory2"
 								,"VK_KHR_dedicated_allocation"
+								,"VK_KHR_multiview"
 							]
 						},
 						"features": [
-							"nullDescriptor"
+							// 1.1
+							"multiview"
+							//
+							,"nullDescriptor"
 							,"fragmentStoresAndAtomics"
 							,"geometryShader"
 							,"multiViewport"
@@ -192,7 +196,10 @@
 							,"bufferDeviceAddress"
 						],
 						"featureChain": [
-							"physicalDevice2"
+							// 1.1
+							"physicalDeviceVulkan11"
+							//
+							,"physicalDevice2"
 							,"shaderDrawParameters"
 							,"robustness"
 							,"shaderClock"
@@ -303,7 +310,7 @@
 				"enabled": false
 			},
 			"fsr": {
-				"enabled": true,
+				"enabled": false,
 				"upscale": true,
 				"interpolation": true, // it works but i don't think it's presenting the frame
 				"sharpness": 0,

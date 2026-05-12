@@ -495,7 +495,7 @@ void ext::vulkan::initialize( bool soft ) {
 void ext::vulkan::tick() {
 //	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::states::resized ) {
-	//	synchronize(0b11);
+		synchronize(0b11);
 		ext::vulkan::states::rebuild = true;
 		::skip = true;
 	}

@@ -85,9 +85,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = 1;
 		subresourceRange.baseArrayLayer = 0;
-		subresourceRange.layerCount = 1;
 		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.layerCount = 1;
+		subresourceRange.layerCount = this->views;
 
 		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
 		for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
@@ -167,6 +166,12 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
 	VK_REGISTER_HANDLE( attachment->view );
 
+	if ( imageView.subresourceRange.levelCount > 1 ) {
+		imageView.subresourceRange.levelCount = 1;
+		VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->framebufferView));
+		VK_REGISTER_HANDLE( attachment->framebufferView );
+	}
+
 	size_t viewIndex = 0;
 	for ( size_t layer = 0; layer < this->views; ++layer ) {
 		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -237,21 +242,19 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 	if ( !renderPass ) {
 		uf::stl::vector<VkAttachmentDescription> attachments; attachments.reserve( this->attachments.size() );
-		for ( size_t i = 0; i < this->views; ++i ) {
-			for ( auto& attachment : this->attachments ) {
-				VkAttachmentDescription description;
-				description.format = attachment.descriptor.format;
-				description.samples = ext::vulkan::sampleCount( attachment.descriptor.samples );
-				description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-				description.storeOp = attachment.descriptor.usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
-				description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // isSwapchain ? VK_IMAGE_LAYOUT_UNDEFINED : attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
-				description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
-				description.flags = 0;
+		for ( auto& attachment : this->attachments ) {
+			VkAttachmentDescription description;
+			description.format = attachment.descriptor.format;
+			description.samples = ext::vulkan::sampleCount( attachment.descriptor.samples );
+			description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+			description.storeOp = attachment.descriptor.usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+			description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // isSwapchain ? VK_IMAGE_LAYOUT_UNDEFINED : attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
+			description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
+			description.flags = 0;
 
-				attachments.emplace_back(description);
-			}
+			attachments.emplace_back(description);
 		}
 
 		// ensure that the subpasses are already described
@@ -259,12 +262,14 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		assert( passes.size() > 0 );
 		
 		// expand attachment indices
+		/*
 		for ( auto& pass : passes ) {
 			for ( auto& input : pass.inputs ) input.attachment += pass.layer * this->attachments.size();
 			for ( auto& color : pass.colors ) color.attachment += pass.layer * this->attachments.size();
 			for ( auto& resolve : pass.resolves ) resolve.attachment += pass.layer * this->attachments.size();
 			pass.depth.attachment += pass.layer * this->attachments.size();
 		}
+		*/
 
 		uf::stl::vector<VkSubpassDescription> descriptions;
 		uf::stl::vector<VkSubpassDependency> dependencies;
@@ -380,6 +385,26 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 		renderPassInfo.pDependencies = &dependencies[0];
 
+		uint32_t viewMask = (1 << this->views) - 1;
+
+		uf::stl::vector<uint32_t> viewMasks(descriptions.size(), viewMask);
+		uf::stl::vector<uint32_t> correlationMasks = { viewMask };
+
+		VkRenderPassMultiviewCreateInfo multiviewInfo = {};
+		multiviewInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
+		
+		if ( this->views > 1 ) {
+			multiviewInfo.pNext = nullptr;
+			multiviewInfo.subpassCount = static_cast<uint32_t>(viewMasks.size());
+			multiviewInfo.pViewMasks = viewMasks.data();
+			multiviewInfo.dependencyCount = 0;
+			multiviewInfo.pViewOffsets = nullptr;
+			multiviewInfo.correlationMaskCount = 1;
+			multiviewInfo.pCorrelationMasks = correlationMasks.data();
+
+			renderPassInfo.pNext = &multiviewInfo;
+		}
+
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 		VK_REGISTER_HANDLE( renderPass );
 	}
@@ -394,13 +419,13 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		for ( size_t frame = 0; frame < framebuffers.size(); ++frame ) {
 			uf::stl::vector<VkImageView> attachmentViews;										
 
-			for ( auto view = 0; view < this->views; ++view ) {
-				for ( auto& attachment : this->attachments ) {
-					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
-						attachmentViews.emplace_back(attachment.views[frame]);
-					} else {
-						attachmentViews.emplace_back(attachment.views[view * attachment.descriptor.mips]);
-					}
+			for ( auto& attachment : this->attachments ) {
+				if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
+					attachmentViews.emplace_back(attachment.views[frame]);
+				} else if ( attachment.framebufferView != VK_NULL_HANDLE )  {
+					attachmentViews.emplace_back(attachment.framebufferView);
+				} else {
+					attachmentViews.emplace_back(attachment.view);
 				}
 			}
 
@@ -434,6 +459,11 @@ void ext::vulkan::RenderTarget::destroy() {
 	
 	for ( auto& attachment : attachments ) {
 		if ( attachment.descriptor.aliased ) continue;
+		if ( attachment.framebufferView ) {
+			vkDestroyImageView(*device, attachment.framebufferView, nullptr);
+			VK_UNREGISTER_HANDLE( attachment.framebufferView );
+
+		}
 		if ( attachment.view ) {
 			if ( attachment.view != attachment.views.front() ) {
 				vkDestroyImageView(*device, attachment.view, nullptr);

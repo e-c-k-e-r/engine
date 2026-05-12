@@ -1,5 +1,6 @@
 #version 450
 #pragma shader_stage(geometry)
+#extension GL_EXT_multiview : require 
 
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
@@ -56,7 +57,7 @@ void main(){
  	A = N.z > N[A] ? 2 : A;
 #endif
 	
-	const uint CASCADE = inId[0].w;
+	const uint CASCADE = gl_ViewIndex; // inId[0].w;
 	const float power = cascadePower(CASCADE);
 	vec3 P[3] = {
 		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / power,
@@ -77,6 +78,7 @@ void main(){
 		outNormal = inNormal[i];
 		outTangent = inTangent[i];
 		outId = inId[i];
+		outId.w = gl_ViewIndex;
 
 		const vec3 P = outPosition; // + D;
 	#if USE_CROSS

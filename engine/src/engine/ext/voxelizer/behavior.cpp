@@ -131,7 +131,8 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		}
 		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;
-		renderMode.metadata.subpasses = metadata.cascades;
+	//	renderMode.metadata.subpasses = metadata.cascades;
+		renderMode.renderTarget.views = metadata.cascades;
 		
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
