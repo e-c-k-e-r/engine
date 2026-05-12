@@ -89,7 +89,7 @@ uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
 			cachedCamera.setProjection(sourceCamera.getProjection(i), i);
 		}
 		// flatten the transform in the event the parent transform updates later
-		cachedCamera.setTransform(uf::transform::flatten(cachedCamera.getTransform()));
+		cachedCamera.setTransform(uf::transform::flatten(sourceCamera.getTransform()));
 		lastFrame = uf::time::frame;
 	}
 	return cachedCamera;

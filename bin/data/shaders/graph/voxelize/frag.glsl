@@ -123,7 +123,7 @@ void main() {
 	{
 		vec2 N_E = encodeNormals( normalize( N ) );
 		uint packedNormal = packHalf2x16(N_E);
-		imageAtomicMin(voxelNormal[CASCADE], uvw, packedNormal);
+		imageAtomicMax(voxelNormal[CASCADE], uvw, packedNormal);
 	}
 	{
 		uint l = uint(clamp(luma(A.rgb), 0.0, 1.0) * 15.0) & 0xF;

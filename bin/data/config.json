@@ -67,9 +67,9 @@
 			"vulkan": {
 				"version": 1.3,
 				"validation": {
-					"enabled": true,
-					"messages": true,
-					"checkpoints": true,
+					"enabled": false,
+					"messages": false,
+					"checkpoints": false,
 					"filters": [
 					//	"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI) (seems to be fixed?)
 					//	,"0x6714bd0c" // VUID-vkCmdDispatch-format-07753 (for some dumb shit) (seems to be fixed?)
@@ -118,7 +118,7 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": false,
 					"bloom": false,
 					"dof": false,

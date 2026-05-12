@@ -132,7 +132,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;
 	//	renderMode.metadata.subpasses = metadata.cascades;
-		renderMode.renderTarget.views = metadata.cascades;
+		renderMode.metadata.views = metadata.cascades;
 		
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
@@ -322,7 +322,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		if ( renderMode.metadata.limiter.execute ) {
 	//	if ( should ) {
 			auto& controller = scene.getController();
-			auto& camera = scene.getCamera( controller ); // controller.getComponent<uf::Camera>();
+			auto& camera = scene.getCamera( controller );
 			auto controllerTransform = uf::transform::flatten( camera.getTransform() );
 			
 			float voxelWorldSizeX = (metadata.extents.max.x - metadata.extents.min.x) / (float)(metadata.voxelSize.x);
