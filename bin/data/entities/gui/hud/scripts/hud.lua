@@ -109,13 +109,15 @@ end )
 local fpsCounter = {
 	frames = 0,
 	time = 0,
-	freq = 0.1
+	freq = 0.1,
+	enabled = false,
 }
---[[
-text:callHook( "gui:UpdateText.%UID%", {
-	string = ""
-} )
-]]
+
+if fpsCounter["enabled"] then
+	text:callHook( "gui:UpdateText.%UID%", {
+		string = ""
+	} )
+end
 
 ent:bind( "tick", function(self)
 	--[[
@@ -128,20 +130,20 @@ ent:bind( "tick", function(self)
 	end
 	]]
 
---[[
-	if fpsCounter["time"] > fpsCounter["freq"] then
-		-- update text
-		text:callHook( "gui:UpdateText.%UID%", {
-			string = tostring(math.floor(fpsCounter["frames"] / fpsCounter["time"]))
-		} )
+	if fpsCounter["enabled"] then
+		if fpsCounter["time"] > fpsCounter["freq"] then
+			-- update text
+			text:callHook( "gui:UpdateText.%UID%", {
+				string = tostring(math.floor(fpsCounter["frames"] / fpsCounter["time"]))
+			} )
 
-		fpsCounter["time"] = 0
-		fpsCounter["frames"] = 0
-	else
-		fpsCounter["frames"] = fpsCounter["frames"] + 1
-		fpsCounter["time"] = fpsCounter["time"] + time.delta()
+			fpsCounter["time"] = 0
+			fpsCounter["frames"] = 0
+		else
+			fpsCounter["frames"] = fpsCounter["frames"] + 1
+			fpsCounter["time"] = fpsCounter["time"] + time.delta()
+		end
 	end
-]]
 
 
 	local controllerTransform = controller:getComponent("Transform")

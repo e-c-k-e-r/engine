@@ -128,9 +128,8 @@ local function handleSelectionIndex()
 	end
 end
 
-ent:bind( "tick", function(self)
-	handleSelectionIndex()
 
+local function updateVisuals(self, dt)
 	local static = Static.get(self)
 	if not static.alpha then
 		static.alpha = 0
@@ -148,7 +147,7 @@ ent:bind( "tick", function(self)
 			closing = false
 			closed = true
 		else
-			static.alpha = static.alpha - time.delta()
+			static.alpha = static.alpha - dt
 		end
 	elseif closed then
 		timer:stop()
@@ -175,11 +174,13 @@ ent:bind( "tick", function(self)
 		if not metadata.initialized then
 			static.alpha = 0
 		end
-		metadata.initialized = true;
+		if dt > 0 then
+			metadata.initialized = true;
+		end
 		if  static.alpha >= 1.0 then
 			static.alpha = 1.0
 		else
-			static.alpha = static.alpha + time.delta() * 1.5
+			static.alpha = static.alpha + dt * 1.5
 		end
 	end
 
@@ -230,7 +231,7 @@ ent:bind( "tick", function(self)
 		if static.delta >= 1 then
 			static.delta = 1
 		else
-			static.delta = static.delta + time.delta() * 1.5
+			static.delta = static.delta + dt * 1.5
 			transform.position = Vector3f.lerp( static.from, static.to, static.delta )
 		end
 
@@ -245,7 +246,7 @@ ent:bind( "tick", function(self)
 		local transform = child:getComponent("Transform")
 		local metadata = child:getComponent("GuiBehavior::Metadata")
 		local speed = metadata.hovered and 0.25 or 0.0125
-		static.time = (static.time or 0) + time.delta() * -speed
+		static.time = (static.time or 0) + dt * -speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end
 	-- circle out
@@ -256,7 +257,14 @@ ent:bind( "tick", function(self)
 		local transform = child:getComponent("Transform")
 		local metadata = child:getComponent("GuiBehavior::Metadata")
 		local speed = metadata.hovered and 0.25 or 0.0125
-		static.time = (static.time or 0) + time.delta() * speed
+		static.time = (static.time or 0) + dt * speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end
+end
+
+updateVisuals(ent, 0)
+
+ent:bind( "tick", function(self)
+	handleSelectionIndex()
+	updateVisuals(self, time.delta())
 end )
