@@ -1,7 +1,7 @@
 {
 	"name": "HUD Overlay",
 	"type": "Gui",
-	"ignore": false,
+	"ignore": true,
 	"assets": [
 
 	],

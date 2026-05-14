@@ -23,6 +23,9 @@ namespace {
 }
 
 bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verbose ) {
+	if ( o == 0 ) {
+		return false; // true, since theres no error technically?
+	}
 	if ( mesh.isInterleaved() ) {
 		UF_MSG_ERROR("Optimization of interleaved meshes is currently not supported.");
 		return false;

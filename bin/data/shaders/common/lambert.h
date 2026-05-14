@@ -28,7 +28,7 @@ void lambert() {
 		// skip if attenuation factor is too low
 	//	if ( Lattenuation <= LIGHT_POWER_CUTOFF ) continue;
 		// ray cast if our surface is occluded from the light
-		const float Lshadow = ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
+		const float Lshadow = shadowFactor( lights[i], 0.0 );
 		// skip if our shadow factor is too low
 //		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue; // in case of any divergence
 		// light radiance

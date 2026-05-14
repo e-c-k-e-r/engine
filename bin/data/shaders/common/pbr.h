@@ -35,7 +35,7 @@ void pbr() {
 		// skip if attenuation factor is too low
 	//	if ( Lattenuation <= LIGHT_POWER_CUTOFF ) continue;
 		// ray cast if our surface is occluded from the light
-		const float Lshadow = ( shadows++ < MAX_SHADOWS ) ? shadowFactor( lights[i], 0.0 ) : 1;
+		const float Lshadow = shadowFactor( lights[i], 0.0 );
 		// skip if our shadow factor is too low
 //		if ( Lshadow <= LIGHT_POWER_CUTOFF ) continue; // in case of any divergence
 		// light radiance
@@ -58,7 +58,7 @@ void pbr() {
 
 		// final lighting
 		const vec3 diffuse = mix(vec3(1.0) - F, vec3(0), surface.material.metallic) * surface.material.albedo.rgb;
-		const vec3 specular = ( shadows < MAX_SHADOWS ) ? ((F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo)) : vec3(0);
+		const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 
 		surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 		surface.light.a += lights[i].power * Lattenuation * Lshadow;

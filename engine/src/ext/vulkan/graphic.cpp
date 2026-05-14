@@ -48,8 +48,6 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 
 	auto shaders = graphic.material.getShaders( descriptor.pipeline );
 	assert( shaders.size() > 0 );
-
-	uint32_t subpass = descriptor.subpass;
 	
 	uf::stl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 	uf::stl::vector<VkPushConstantRange> pushConstantRanges;
@@ -61,22 +59,41 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	uf::stl::vector<VkSpecializationInfo> shaderSpecializationInfos;
 	uf::stl::vector<VkVertexInputBindingDescription> inputBindingDescriptions;
 	uf::stl::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-	{
 
-		for ( auto* shaderPointer : shaders ) {
-			auto& shader = *shaderPointer;
-			descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.end(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
+	{
+		uf::stl::vector<VkDescriptorBindingFlags> bindingFlags;
+
+		bool hasDynamicBuffer = false;
+		for ( auto* shader : shaders ) {
+			for ( auto& binding : shader->descriptorSetLayoutBindings ) {
+				switch ( binding.descriptorType ) {
+					case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+					case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+						hasDynamicBuffer = true;
+					break;
+				}
+			}
+		}
+
+		for ( auto* shader : shaders ) {
+			for ( auto& binding : shader->descriptorSetLayoutBindings ) {
+				descriptorSetLayoutBindings.emplace_back( binding );	
+				auto& flags = bindingFlags.emplace_back();
+
+				flags |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+				if ( !hasDynamicBuffer ) flags |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+			}
 
 			size_t offset = 0;
-			for ( auto& pushConstant : shader.pushConstants ) {
+			for ( auto& pushConstant : shader->pushConstants ) {
 				size_t len = pushConstant.data().len;
 				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
-					VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of {} for shader {}", len, shader.filename);
+					VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of {} for shader {}", len, shader->filename);
 				//	goto PIPELINE_INITIALIZATION_INVALID;
 					len = device.properties.limits.maxPushConstantsSize;
 				}
 				pushConstantRanges.emplace_back(ext::vulkan::initializers::pushConstantRange(
-					shader.descriptor.stage,
+					shader->descriptor.stage,
 					len,
 					offset
 				));
@@ -84,10 +101,19 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			}
 		}
 
+		VkDescriptorSetLayoutBindingFlagsCreateInfo layoutBindingFlags = {};
+		layoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+		layoutBindingFlags.bindingCount = bindingFlags.size();
+		layoutBindingFlags.pBindingFlags = bindingFlags.data();
+
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = ext::vulkan::initializers::descriptorSetLayoutCreateInfo(
 			descriptorSetLayoutBindings.data(),
 			descriptorSetLayoutBindings.size()
 		);
+
+		descriptorLayout.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+		descriptorLayout.pNext = &layoutBindingFlags;
+
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout( device, &descriptorLayout, nullptr, &descriptorSetLayout ));
 		VK_REGISTER_HANDLE( descriptorSetLayout );
 
@@ -189,16 +215,15 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	}
 
 	// Compute
-	for ( auto* shaderPointer : shaders ) {
-		auto& shader = *shaderPointer;
-		if ( shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+	for ( auto* shader : shaders ) {
+		if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 
 		// Create compute shader pipelines
 		VkComputePipelineCreateInfo computePipelineCreateInfo = ext::vulkan::initializers::computePipelineCreateInfo(
 			pipelineLayout,
 			0
 		);
-		computePipelineCreateInfo.stage = shader.descriptor;
+		computePipelineCreateInfo.stage = shader->descriptor;
 		VK_CHECK_RESULT(vkCreateComputePipelines(device, device.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
 		VK_REGISTER_HANDLE( pipeline );
 	
@@ -242,8 +267,6 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 				}
 			}
 		} else {
-			subpass = 0;
-
 			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 				descriptor.blend.colorWriteMask,
 				descriptor.blend.enabled ? VK_TRUE : VK_FALSE
@@ -507,7 +530,9 @@ void ext::vulkan::DescriptorSet::record( const Graphic& graphic, const GraphicDe
 			else continue;
 		}
 		
+	#if VK_UBO_USE_N_BUFFERS
 		dynamicOffsets.insert( dynamicOffsets.end(), shader->metadata.dynamicRanges.begin(), shader->metadata.dynamicRanges.end() );
+	#endif
 	}
 
 	for ( auto& dynamicOffset : dynamicOffsets ) {
@@ -520,44 +545,7 @@ void ext::vulkan::DescriptorSet::record( const Graphic& graphic, const GraphicDe
 	}
 
 	// Bind descriptor sets describing shader binding points
-#if VK_UBO_USE_N_BUFFERS
 	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint) descriptor.bind.point, pipeline.pipelineLayout, 0, 1, &descriptorSet, dynamicOffsets.size(), dynamicOffsets.data());
-#else
-	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint) descriptor.bind.point, pipeline.pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-#endif
-
-	uint32_t width = descriptor.bind.width ? descriptor.bind.width : ext::vulkan::settings::width;
-	uint32_t height = descriptor.bind.height ? descriptor.bind.height : ext::vulkan::settings::height;
-	uint32_t depth = descriptor.bind.depth ? descriptor.bind.depth : 1;
-
-	if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
-		uf::renderer::vkCmdTraceRaysKHR(
-			commandBuffer,
-			&pipeline.sbtEntries[0],
-			&pipeline.sbtEntries[1],
-			&pipeline.sbtEntries[2],
-			&pipeline.sbtEntries[3],
-			width,
-			height,
-			1
-		);
-	} else if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) {
-		for ( auto* shader : shaders ) {
-			if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
-			auto& localSize = shader->metadata.definitions.localSize;
-			auto dispatch = pod::Vector3ui{
-				std::ceil( (float) width / localSize.x ),
-				std::ceil( (float) height / localSize.y ),
-				std::ceil( (float) depth / localSize.z ),
-			};
-
-			vkCmdDispatch(commandBuffer,
-				dispatch.x,
-				dispatch.y,
-				dispatch.z
-			);
-		}
-	}
 }
 void ext::vulkan::DescriptorSet::update( const Graphic& graphic ) {
 	return this->update( graphic, descriptor );
@@ -1637,24 +1625,32 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	size_t tlasBufferIndex{};
 	size_t tlasBackBufferIndex{};
 
+	// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
+	// manually copy because I can't be assed to expose an un-staged API now
 	if ( !update ) {
-		// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
-		this->requestedAlignment = 16;
-		instanceIndex = this->initializeBuffer(
+		instanceIndex = this->buffers.size();
+		auto& buffer = this->buffers.emplace_back();
+		buffer.alignment = 16;
+		device.createBuffer(
 			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			buffer
 		);
-		this->requestedAlignment = 0;
 		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
 		if ( this->metadata.buffers.count("tlasInstance") > 0 ) {
 			instanceIndex = this->metadata.buffers["tlasInstance"];
 		} else UF_EXCEPTION("Buffers not found: {}", "tlasInstance");
-		/*rebuild = rebuild ||*/ this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
+
+		auto& buffer = this->buffers.at(instanceIndex);
+		void* map = buffer.map();
+		memcpy(map, instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR));
+		buffer.unmap();
 	}
 
 	size_t instanceBufferAddress = this->buffers[instanceIndex].getAddress();
-	auto& tlas 		= this->accelerationStructures.tops[0];
+	auto& tlas = this->accelerationStructures.tops[0];
 
 	{
 		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
@@ -1930,6 +1926,42 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 	descriptorSet.record( *this, descriptor, commandBuffer, pass, draw, offset );
 
 	auto shaders = material.getShaders( descriptor.pipeline );
+
+	uint32_t width = descriptor.bind.width ? descriptor.bind.width : ext::vulkan::settings::width;
+	uint32_t height = descriptor.bind.height ? descriptor.bind.height : ext::vulkan::settings::height;
+	uint32_t depth = descriptor.bind.depth ? descriptor.bind.depth : 1;
+
+	if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
+		uf::renderer::vkCmdTraceRaysKHR(
+			commandBuffer,
+			&pipeline.sbtEntries[0],
+			&pipeline.sbtEntries[1],
+			&pipeline.sbtEntries[2],
+			&pipeline.sbtEntries[3],
+			width,
+			height,
+			1
+		);
+		return;
+	}
+	if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) {
+		for ( auto* shader : shaders ) {
+			if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+			auto& localSize = shader->metadata.definitions.localSize;
+			auto dispatch = pod::Vector3ui{
+				std::ceil( (float) width / localSize.x ),
+				std::ceil( (float) height / localSize.y ),
+				std::ceil( (float) depth / localSize.z ),
+			};
+
+			vkCmdDispatch(commandBuffer,
+				dispatch.x,
+				dispatch.y,
+				dispatch.z
+			);
+		}
+		return;
+	}
 	for ( auto* shader : shaders ) {
 		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;
 		if (

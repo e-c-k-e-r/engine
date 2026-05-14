@@ -110,7 +110,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
+					"default command buffer immediate": true,
 					"multithreaded recording": true
 				},
 				"pipelines": {
@@ -118,9 +118,9 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true,
+					"vxgi": false, // to-do: fix issues
 					"culling": false,
-					"bloom": false,
+					"bloom": true,
 					"dof": false,
 					"rt": false,
 					"fsr": false,
@@ -175,6 +175,7 @@
 						"features": [
 							// 1.1
 							"multiview"
+							,"multiviewGeometryShader"
 							//
 							,"nullDescriptor"
 							,"fragmentStoresAndAtomics"
@@ -192,6 +193,12 @@
 							,"shaderSampledImageArrayNonUniformIndexing"
 							,"shaderStorageImageArrayNonUniformIndexing"
 
+							,"descriptorBindingAccelerationStructureUpdateAfterBind"
+							,"descriptorBindingSampledImageUpdateAfterBind"
+							,"descriptorBindingStorageImageUpdateAfterBind"
+							,"descriptorBindingStorageBufferUpdateAfterBind"
+							,"descriptorBindingUniformBufferUpdateAfterBind"
+							,"descriptorBindingPartiallyBound"
 							,"descriptorIndexing"
 							,"bufferDeviceAddress"
 						],

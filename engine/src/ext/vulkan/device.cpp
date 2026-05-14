@@ -609,7 +609,7 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 	UF_EXCEPTION("Vulkan error: could not find a matching memory type");
 }
 
-VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin ){
+VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin, bool singleton ){
 	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
 
 	VkCommandBuffer commandBuffer;
@@ -617,6 +617,8 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	// If requested, also start recording for the new command buffer
 	if ( begin ) {
 		VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
+		if ( singleton ) cmdBufInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
 		VK_CHECK_RESULT( vkBeginCommandBuffer( commandBuffer, &cmdBufInfo ) );
 		UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
 	}
@@ -674,7 +676,7 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 	return {
 		.immediate = immediate,
 		.queueType = queueType,
-		.handle = this->createCommandBuffer( level, queueType, true ),
+		.handle = this->createCommandBuffer( level, queueType, true, true ),
 		.threadId = std::this_thread::get_id(),
 	};
 }
@@ -1346,6 +1348,7 @@ void ext::vulkan::Device::initialize() {
 			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
+			accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = VK_TRUE;
 			chain.push( &accelerationStructureFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "accelerationStructureFeatures" );
 		}
@@ -1698,7 +1701,7 @@ void ext::vulkan::DescriptorAllocator::destroy() {
 VkDescriptorPool ext::vulkan::DescriptorAllocator::createPool() {
 	VkDescriptorPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 	poolInfo.maxSets = 1000;
 	poolInfo.poolSizeCount = (uint32_t) poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();

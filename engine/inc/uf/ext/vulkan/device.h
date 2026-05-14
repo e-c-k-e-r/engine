@@ -139,12 +139,12 @@ namespace ext {
 			uint32_t getQueueFamilyIndex( VkQueueFlagBits queueFlags );
 			uint32_t getMemoryType( uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32 *memTypeFound = nullptr );
 
-			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true );
+			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true, bool singleton = true );
 			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool wait = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
 			pod::Checkpoint* markCommandBuffer( VkCommandBuffer commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
 
-			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
-			CommandBuffer fetchCommandBuffer( QueueEnum queue, VkCommandBufferLevel, bool waits = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool immediate = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, VkCommandBufferLevel, bool immediate = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
 			void flushCommandBuffer( CommandBuffer& commandBuffer );
 			pod::Checkpoint* markCommandBuffer( CommandBuffer& commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
 

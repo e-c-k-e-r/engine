@@ -312,9 +312,8 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
-	VkCommandBufferBeginInfo cmdBufInfo = {};
-	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBufInfo.pNext = nullptr;
+	VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
+	cmdBufInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();

@@ -118,10 +118,10 @@ void ext::vulkan::BaseRenderMode::render() {
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
-
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphores[0]));
-
+	uint32_t imageIndex;
+	
 	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
 	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
 
 	VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -129,7 +129,7 @@ void ext::vulkan::BaseRenderMode::render() {
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pWaitDstStageMask = waitStageMask;
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[0];
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
 	submitInfo.signalSemaphoreCount = 1;
@@ -142,8 +142,7 @@ void ext::vulkan::BaseRenderMode::render() {
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
 	
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphores[states::currentBuffer]));
-
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), imageIndex, renderCompleteSemaphores[states::currentBuffer]));
 #if 0
 	{
 		VkQueue queue = device->getQueue( QueueEnum::PRESENT );
@@ -152,6 +151,7 @@ void ext::vulkan::BaseRenderMode::render() {
 	}
 #endif
 
+	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
 	this->executed = true;
 
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -183,9 +183,8 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	float width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
 	float height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
-	VkCommandBufferBeginInfo cmdBufInfo = {};
-	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBufInfo.pNext = nullptr;
+	VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
+	cmdBufInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED

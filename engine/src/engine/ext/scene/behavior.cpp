@@ -578,8 +578,13 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				.global = metadata.global,
 			});
 		}
+		uf::stl::vector<size_t> indices(entities.size());
+		std::iota(indices.begin(), indices.end(), 0);
+
 		// prioritize closer lights; it would be nice to also prioritize lights in view, but because of VXGI it's not really something to do
-		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
+		std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+			auto& l = entities[a];
+			auto& r = entities[b];
 			if ( l.global && !r.global ) return true;
 			if ( !l.global && r.global ) return false;
 			return l.distance < r.distance;
@@ -589,63 +594,89 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		int32_t shadowCount = metadata.shadow.max; // how many shadow maps we should pass, based on range
 		if ( shadowCount <= 0 ) shadowCount = std::numeric_limits<int32_t>::max();
 
-		// disable shadows if that light is outside our threshold
-		for ( auto& info : entities ) if ( info.shadows && shadowCount-- <= 0 ) info.shadows = false;
+		// iterate over sorted indices
+		for ( auto idx : indices ) {
+			auto& info = entities[idx];
+			if ( !info.shadows ) continue;
+			// outside of top-k, disable
+			if ( shadowCount-- <= 0 ) info.shadows = false;
+			else {
+				// enable if also in-range
+				auto* entity = info.entity;
+				if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+					auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
 
-		// bind lighting and requested shadow maps
-		for ( uint32_t i = 0; i < entities.size() && storage.lights.size() < metadata.light.max; ++i ) {
+					if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) {
+						auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+						renderMode.execute = true;
+						renderMode.metadata.limiter.execute = true;
+					}
+				}
+			}
+		}
+
+		constexpr uint32_t MODE_SPLIT = 0;
+		constexpr uint32_t MODE_CUBEMAP = 1;
+		constexpr uint32_t MODE_SEPARATE_2DS = 2;
+
+		for ( uint32_t i = 0; i < entities.size(); ++i ) {
 			auto& info = entities[i];
 			uf::Entity* entity = info.entity;
 
-			if ( !info.shadows ) {
-				storage.lights.emplace_back(pod::Light{
-					.view = uf::matrix::identity(),
-					.projection = uf::matrix::identity(),
-					.position = info.position,
-					.range = info.range,
-					.color = info.color,
-					.intensity = info.intensity,
-					.type = info.type,
-					.typeMap = 0,
-					.indexMap = -1,
-					.depthBias = info.bias,
-				});
-			} else {
+			int32_t boundIndexMap = -1;
+			int32_t boundTypeMap = 0;
+			uint32_t views = 1;
+
+			bool hasRT = entity->hasComponent<uf::renderer::RenderTargetRenderMode>();
+			if ( hasRT ) {
 				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				auto& lightCamera = entity->getComponent<uf::Camera>();
 				auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
+
+				views = renderMode.renderTarget.views;
 				lightMetadata.renderer.rendered = true;
-				// activate our shadow mapper if it's range-basedd
-				if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) {
-					renderMode.execute = true;
-					renderMode.metadata.limiter.execute = true;
-				}
-				constexpr uint32_t MODE_SPLIT = 0;
-				constexpr uint32_t MODE_CUBEMAP = 1;
-				constexpr uint32_t MODE_SEPARATE_2DS = 2;
-				// if point light, and combining is requested
-				if ( metadata.shadow.typeMap > MODE_SPLIT && renderMode.renderTarget.views == 6 ) {
-					int32_t index = -1;
-					// separated texture2Ds
+
+				if ( metadata.shadow.typeMap > MODE_SPLIT && views == 6 ) {
+					// split cubemap (shouldn't actually get used)
 					if ( metadata.shadow.typeMap == MODE_SEPARATE_2DS ) {
 						UF_MSG_WARNING("deprecated feature used: separate Texture2Ds for shadow maps");
-						index = storage.shadow2Ds.size();
+						boundIndexMap = storage.shadow2Ds.size();
+						boundTypeMap = MODE_SEPARATE_2DS;
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
-							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-							for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {			
+							if (!(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
+							for ( size_t view = 0; view < views; ++view ) {
 								storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
 							}
 							break;
 						}
-					// cubemapped
+					// cubemap
 					} else if ( metadata.shadow.typeMap == MODE_CUBEMAP ) {
-						index = storage.shadowCubes.size();
+						boundIndexMap = storage.shadowCubes.size();
+						boundTypeMap = MODE_CUBEMAP;
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
-							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+							if (!(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
 							storage.shadowCubes.emplace_back().aliasAttachment(attachment);
 							break;
 						}
 					}
+				} else {
+					// separate 2D maps
+					boundIndexMap = storage.shadow2Ds.size();
+					for ( auto& attachment : renderMode.renderTarget.attachments ) {
+						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
+						if (attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) continue;
+						for (size_t view = 0; view < views; ++view) {
+							storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
+						}
+					}
+				}
+			}
+
+			if ( storage.lights.size() < metadata.light.max ) {
+				auto& lightCamera = entity->getComponent<uf::Camera>();
+
+				if ( !info.shadows ) boundIndexMap = -1;
+
+				if ( boundTypeMap > MODE_SPLIT && views == 6 ) {
 					storage.lights.emplace_back(pod::Light{
 						.view = lightCamera.getView(0),
 						.projection = lightCamera.getProjection(0),
@@ -654,30 +685,26 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						.color = info.color,
 						.intensity = info.intensity,
 						.type = info.type,
-						.typeMap = metadata.shadow.typeMap,
-						.indexMap = index,
+						.typeMap = boundTypeMap,
+						.indexMap = boundIndexMap,
 						.depthBias = info.bias,
 					});
-				// any other shadowing light, even point lights, are split by shadow maps
 				} else {
-					for ( auto& attachment : renderMode.renderTarget.attachments ) {
-						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
-						for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
-							storage.lights.emplace_back(pod::Light{
-								.view = lightCamera.getView(view),
-								.projection = lightCamera.getProjection(view),
-								.position = info.position,
-								.range = info.range,
-								.color = info.color,
-								.intensity = info.intensity,
-								.type = info.type,
-								.typeMap = 0,
-								.indexMap = storage.shadow2Ds.size(),
-								.depthBias = info.bias,
-							});
-							storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
-						}
+					for ( size_t view = 0; view < views; ++view ) {
+						if ( storage.lights.size() >= metadata.light.max ) break;
+
+						storage.lights.emplace_back(pod::Light{
+							.view = hasRT ? lightCamera.getView(view) : uf::matrix::identity(),
+							.projection = hasRT ? lightCamera.getProjection(view) : uf::matrix::identity(),
+							.position = info.position,
+							.range = info.range,
+							.color = info.color,
+							.intensity = info.intensity,
+							.type = info.type,
+							.typeMap = 0,
+							.indexMap = info.shadows ? (boundIndexMap == -1 ? -1 : boundIndexMap + view) : -1,
+							.depthBias = info.bias,
+						});
 					}
 				}
 			}
@@ -1248,9 +1275,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	}
 	if ( shouldUpdate ) {
 	//	graphic.updatePipelines();
-		graphic.update();
+	//	graphic.update();
 		renderMode.rebuild = true;
-		metadata.shader.invalidated = false;
+	//	metadata.shader.invalidated = false;
 	}
 	
 	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) {

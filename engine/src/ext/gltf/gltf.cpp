@@ -553,10 +553,12 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 			auto& mesh = storage.meshes[keyName];
 			auto& primitives = storage.primitives[keyName];
-
-			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
-			if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
-				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
+			
+			if ( level ) {
+				UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
+				if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
+					UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
+				}
 			}
 			if ( lods ) {
 				auto factors = ext::meshopt::computeLODs( mesh.index.count );

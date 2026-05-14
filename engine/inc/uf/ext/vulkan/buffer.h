@@ -21,6 +21,7 @@ namespace ext {
 			mutable size_t address = {};
 			void* mapped = nullptr;
 			int32_t count = 1;
+			mutable bool written = false;
 
 			VkBufferUsageFlags usage = 0;
 			VkMemoryPropertyFlags memoryProperties = 0;
@@ -41,8 +42,8 @@ namespace ext {
 
 			~Buffer();
 			void initialize( ext::vulkan::Device& device, size_t = {} );
-			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
-			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const; // returns true if a reallocation occurred (to signal rebuilding command buffers)
+			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+			bool update( const void*, VkDeviceSize ) const; // returns true if a reallocation occurred (to signal rebuilding command buffers)
 			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 
 			void swap( Buffer& );
@@ -60,9 +61,9 @@ namespace ext {
 			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 			//
 
-			size_t initializeBuffer( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
-			bool updateBuffer( const void*, VkDeviceSize, const Buffer&, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
-			inline bool updateBuffer( const void* data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( data, length, buffers.at(index), stage ); }
+			size_t initializeBuffer( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+			bool updateBuffer( const void*, VkDeviceSize, const Buffer& ) const;
+			inline bool updateBuffer( const void* data, VkDeviceSize length, size_t index = 0 ) const { return updateBuffer( data, length, buffers.at(index) ); }
 		};
 
 		struct AccelerationStructure {
