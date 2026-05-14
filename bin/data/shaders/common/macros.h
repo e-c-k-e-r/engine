@@ -21,7 +21,11 @@
 	#define MAX_SHADOWS ubo.settings.lighting.maxShadows
 #endif
 #ifndef VIEW_MATRIX
+#if VXGI
 	#define VIEW_MATRIX ubo.eyes[surface.pass].view
+#else
+	#define VIEW_MATRIX camera.viewport[surface.pass].view
+#endif
 #endif
 
 // implicit shader settings
@@ -76,7 +80,7 @@
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 0
+		#define BARYCENTRIC_CALCULATE 1
 	#endif
 	#ifndef BUFFER_REFERENCE
 		#define BUFFER_REFERENCE 1

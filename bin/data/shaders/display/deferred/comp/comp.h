@@ -61,43 +61,46 @@ layout( push_constant ) uniform PushBlock {
 
 #include "../../../common/structs.h"
 
-layout (binding = 10) uniform UBO {
+layout (binding = 10) uniform Camera {
+	Viewport viewport[2];
+} camera;
+
+layout (binding = 11) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
-/*
-*/
-layout (std140, binding = 11) readonly buffer DrawCommands {
+
+layout (std140, binding = 12) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 12) readonly buffer Instances {
+layout (std140, binding = 13) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 13) readonly buffer InstanceAddresseses {
+layout (std140, binding = 14) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 14) readonly buffer Objects {
+layout (std140, binding = 15) readonly buffer Objects {
 	Object objects[];
 };
-layout (std140, binding = 15) readonly buffer Materials {
+layout (std140, binding = 16) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 16) readonly buffer Textures {
+layout (std140, binding = 17) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 17) readonly buffer Lights {
+layout (std140, binding = 18) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 18) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 19) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 20) uniform sampler3D samplerNoise;
+layout (binding = 19) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 20) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 21) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 21) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 22) uniform sampler3D voxelOutput[CASCADES];
 #endif
 #if RT
-	layout (binding = 22) uniform accelerationStructureEXT tlas;
+	layout (binding = 23) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -195,24 +198,26 @@ void populateSurface() {
 	float depth = 0.0;
 	{
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
-		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
+
+		const mat4 iProjection = inverse( camera.viewport[surface.pass].projection );
+		const mat4 iView = inverse( camera.viewport[surface.pass].view );
+		const mat4 iProjectionView = inverse( camera.viewport[surface.pass].projection * mat4(mat3(camera.viewport[surface.pass].view)) );
+
 		const vec4 near4 = iProjectionView * (vec4(inUv, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(inUv, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
-//	surface.ray.origin = near3.xyz;
-		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
-//	surface.ray.origin = vec3( -ubo.eyes[surface.pass].view[0][3], -ubo.eyes[surface.pass].view[1][3], -ubo.eyes[surface.pass].view[2][3] );
+		surface.ray.origin = near3.xyz; // eyePos.xyz
 
 		depth = IMAGE_LOAD(samplerDepth).r;
-		
-		vec4 eye = ubo.eyes[surface.pass].iProjection * vec4(inUv, depth, 1.0);
+
+		vec4 eye = iProjection * vec4(inUv, depth, 1.0);
 		eye /= eye.w;
 
 		surface.position.eye = eye.xyz;
-		surface.position.world = vec3( ubo.eyes[surface.pass].iView * eye );
+		surface.position.world = vec3( iView * eye );
 	}
 
 

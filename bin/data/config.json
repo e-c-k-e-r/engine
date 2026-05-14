@@ -120,7 +120,7 @@
 					"hdr": true,
 					"vxgi": false, // to-do: fix issues
 					"culling": false,
-					"bloom": true,
+					"bloom": false,
 					"dof": false,
 					"rt": false,
 					"fsr": false,

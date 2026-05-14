@@ -21,7 +21,7 @@
 #if BARYCENTRIC
 	// 0 keeps a buffer for barycentric coordinates, 1 will reconstruct in the deferred pass
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 0
+		#define BARYCENTRIC_CALCULATE 1
 	#endif
 #endif
 
@@ -507,7 +507,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 		auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
 		shader.metadata.aliases.buffers.clear();
-	//	shader.aliasBuffer( storage.buffers.camera );
+		shader.aliasBuffer( storage.buffers.camera );
 	//	shader.aliasBuffer( storage.buffers.joint );
 		shader.aliasBuffer( storage.buffers.drawCommands );
 		shader.aliasBuffer( storage.buffers.instance );

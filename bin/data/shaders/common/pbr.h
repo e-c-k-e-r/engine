@@ -71,7 +71,7 @@ void pbr() {
 		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 		if ( surface.material.lightmapped && light.type >= 0 ) continue;
 
-		const vec3 Liu = vec3(ubo.eyes[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;
+		const vec3 Liu = vec3(camera.viewport[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;
 		const float Ld = length(Liu);
 		const float La = 1.0 / (1 + (PI * pow(Ld, 2.0)));
 		if ( La <= LIGHT_POWER_CUTOFF ) continue;

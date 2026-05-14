@@ -15,7 +15,7 @@
 #define USE_SHARED_PIPELINES 0
 
 #define VK_DEBUG_VALIDATION_MESSAGE(...)\
-//	VK_VALIDATION_MESSAGE(x);
+	VK_VALIDATION_MESSAGE(__VA_ARGS__);
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
@@ -871,7 +871,7 @@ void ext::vulkan::DescriptorSet::update( const Graphic& graphic, const GraphicDe
 		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
 			if ( descriptor.pBufferInfo ) {
 				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-				//	VK_DEBUG_VALIDATION_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
+					VK_DEBUG_VALIDATION_MESSAGE("Invalid descriptor for buffer: {} (Offset: {}, Range: {}), invalidating...", (void*) descriptor.pBufferInfo[i].buffer, descriptor.pBufferInfo[i].offset,  descriptor.pBufferInfo[i].range);
 					goto PIPELINE_UPDATE_INVALID;
 				}
 			}

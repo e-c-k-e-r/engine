@@ -316,7 +316,7 @@ void populateSurfaceMaterial() {
 	}
 #endif
 	{
-		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
+		surface.normal.eye = normalize(vec3( VIEW_MATRIX * vec4(surface.normal.world, 0.0) ));
 	}
 	
 	surface.light *= surface.material.albedo;
@@ -425,13 +425,13 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 #if 0 && BARYCENTRIC_CALCULATE
 	{
 		surface.position.world = vec3( surface.object.model * vec4(triangle.point.position, 1.0 ) );
-		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
+		surface.position.eye = vec3( VIEW_MATRIX * vec4(surface.position.world, 1.0) );
 	}
 #endif
 	// bind normals
 	{
 		surface.normal.world = normalize(vec3( surface.object.model * vec4(triangle.point.normal, 0.0 ) ));
-	//	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
+	//	surface.normal.eye = vec3( VIEW_MATRIX * vec4(surface.normal.world, 0.0) );
 	}
 	// bind UVs
 	{
