@@ -129,13 +129,11 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 
 	// assume all UBOs are dynamic
 	auto totalLength = length;
-#if VK_UBO_USE_N_BUFFERS
-	if ( usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+	if ( VK_UBO_USE_N_BUFFERS && usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
 		this->count = ext::vulkan::swapchain.buffers;
 		this->alignment = device->properties.limits.minUniformBufferOffsetAlignment;
 		totalLength = ALIGNED_SIZE( length, this->alignment ) * this->count;
 	}
-#endif
 	VK_CHECK_RESULT(device->createBuffer( nullptr, totalLength, usage, memoryProperties, *this ));
 
 	if ( length != totalLength ) this->updateDescriptor( length, 0 );
@@ -181,11 +179,9 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 		region.size = length;
 		region.srcOffset = 0;
 		region.dstOffset = 0;
-	#if VK_UBO_USE_N_BUFFERS
-		if ( this->count == ext::vulkan::swapchain.buffers ) {
+		if ( VK_UBO_USE_N_BUFFERS && this->count == ext::vulkan::swapchain.buffers ) {
 			region.dstOffset = this->getOffset( states::currentBuffer );
 		}
-	#endif
 	}
 
 	if ( !VK_DEFAULT_STAGE_BUFFERS ) {

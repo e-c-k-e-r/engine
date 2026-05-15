@@ -20,7 +20,7 @@ namespace ext {
 
 			VkPipeline pipeline = VK_NULL_HANDLE;
 			VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-			VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+			uf::stl::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 			GraphicDescriptor descriptor = {};
 
 			uf::stl::vector<VkStridedDeviceAddressRegionKHR> sbtEntries;
@@ -31,12 +31,12 @@ namespace ext {
 			void destroy();
 		};
 
-		struct UF_API DescriptorSet : public Buffers {
+		struct UF_API DescriptorSets : public Buffers {
 			bool aliased = false;
 
 			Device* device = NULL;
 
-			VkDescriptorSet descriptorSet = {};
+			uf::stl::vector<VkDescriptorSet> descriptorSets;
 			GraphicDescriptor descriptor = {};
 
 			struct {
@@ -47,7 +47,7 @@ namespace ext {
 			void initialize( const Graphic& graphic );
 			void initialize( const Graphic& graphic, const GraphicDescriptor& descriptor );
 			void update( const Graphic& graphic );
-			void update( const Graphic& graphic, const GraphicDescriptor& descriptor );
+			void update( const Graphic& graphic, const GraphicDescriptor& descriptor, const uf::stl::vector<Shader::Metadata::Definition>& = {} );
 			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0, size_t = 0 ) const;
 			void destroy();
@@ -94,7 +94,7 @@ namespace ext {
 			Material material = {};
 			
 			uf::stl::unordered_map<GraphicDescriptor, Pipeline> pipelines;
-			uf::stl::unordered_map<GraphicDescriptor, DescriptorSet> descriptorSets;
+			uf::stl::unordered_map<GraphicDescriptor, DescriptorSets> descriptorSets;
 
 			struct {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
@@ -129,12 +129,12 @@ namespace ext {
 			const Pipeline& getPipeline( const GraphicDescriptor& descriptor ) const;
 
 			void initializeDescriptorSet();
-			DescriptorSet& initializeDescriptorSet( const GraphicDescriptor& descriptor );
+			DescriptorSets& initializeDescriptorSet( const GraphicDescriptor& descriptor );
 			bool hasDescriptorSet( const GraphicDescriptor& descriptor ) const;
-			DescriptorSet& getDescriptorSet();
-			const DescriptorSet& getDescriptorSet() const;
-			DescriptorSet& getDescriptorSet( const GraphicDescriptor& descriptor );
-			const DescriptorSet& getDescriptorSet( const GraphicDescriptor& descriptor ) const;
+			DescriptorSets& getDescriptorSet();
+			const DescriptorSets& getDescriptorSet() const;
+			DescriptorSets& getDescriptorSet( const GraphicDescriptor& descriptor );
+			const DescriptorSets& getDescriptorSet( const GraphicDescriptor& descriptor ) const;
 			
 			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;
 			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;

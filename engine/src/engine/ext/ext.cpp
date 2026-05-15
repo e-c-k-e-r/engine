@@ -238,12 +238,13 @@ void UF_API uf::load( ext::json::Value& json ) {
 #if UF_USE_VULKAN
 	uf::renderer::settings::defaultStageBuffers = configRenderInvariantJson["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
 	uf::renderer::settings::defaultDeferBufferDestroy = configRenderInvariantJson["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
-#if 1
+#if 0
 	uf::renderer::settings::defaultCommandBufferImmediate = true;
 	/*global*/::requestDeferredCommandBufferSubmit = !configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
 #else
 	uf::renderer::settings::defaultCommandBufferImmediate = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
 #endif
+	uf::renderer::settings::nBufferedUbos = configRenderInvariantJson["n-buffered uniform"].as( uf::renderer::settings::nBufferedUbos );
 #endif
 #if 1
 	uf::renderer::settings::experimental::dedicatedThread = false;

@@ -22,7 +22,7 @@
 #define VK_DEFAULT_STAGE_BUFFERS ext::vulkan::settings::defaultStageBuffers
 #define VK_DEFAULT_DEFER_BUFFER_DESTROY ext::vulkan::settings::defaultDeferBufferDestroy
 #define VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE ext::vulkan::settings::defaultCommandBufferImmediate
-#define VK_UBO_USE_N_BUFFERS 1
+#define VK_UBO_USE_N_BUFFERS ext::vulkan::settings::nBufferedUbos
 #define VK_USE_MULTIVIEW 1
 
 namespace ext {
@@ -31,6 +31,7 @@ namespace ext {
 			extern UF_API bool defaultStageBuffers;
 			extern UF_API bool defaultDeferBufferDestroy;
 			extern UF_API bool defaultCommandBufferImmediate;
+			extern UF_API bool nBufferedUbos;
 		}
 	}
 }

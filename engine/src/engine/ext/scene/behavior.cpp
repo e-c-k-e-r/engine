@@ -1273,19 +1273,26 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
 		if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 	}
+/*
 	if ( shouldUpdate ) {
 	//	graphic.updatePipelines();
 		graphic.update();
 		renderMode.rebuild = true;
 		metadata.shader.invalidated = false;
 	}
+*/
 	
-	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) {
-		return;
-	}
-
 	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) return;
 	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
+
+	if ( shouldUpdate ) {
+		auto samplerTexturesDefinition = shader.getDefinition("samplerTextures");
+		auto samplerCubemapsDefinition = shader.getDefinition("samplerCubemaps");
+		auto descriptor = graphic.descriptor;
+		auto& descriptorSets = graphic.getDescriptorSet( descriptor );
+		descriptorSets.update( graphic, descriptor, { samplerTexturesDefinition, samplerCubemapsDefinition } );
+	}
+
 	if ( !shader.hasUniform("UBO") ) return;
 	//UF_MSG_DEBUG( "{}: {} {} // {}", uf::string::toString( self ), shaderType, shaderPipeline, uf::string::toString( uf::scene::getCurrentScene() ) );
 

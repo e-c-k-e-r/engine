@@ -29,7 +29,7 @@ namespace ext {
 
 			VkShaderModule module = VK_NULL_HANDLE;
 			VkPipelineShaderStageCreateInfo descriptor = {};
-			uf::stl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+			uf::stl::map<size_t, uf::stl::vector<VkDescriptorSetLayoutBinding>> descriptorSetLayoutBindings;
 			uf::stl::vector<VkSpecializationMapEntry> specializationMapEntries;
 			VkSpecializationInfo specializationInfo = {};
 
@@ -42,48 +42,23 @@ namespace ext {
 				bool autoInitializeUniformUserdatas = false;
 
 				struct Definition {
-					struct InOut {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-					//	 int32_t buffer = -1;
-						ext::vulkan::enums::Image::viewType_t type{};
-					};
-					struct Texture {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-						ext::vulkan::enums::Image::viewType_t type{};
-					};
-					struct Uniform {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-					//	 int32_t buffer = -1;
-					};
-					struct Storage {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-					//	 int32_t buffer = -1;
-					};
-					struct AccelerationStructure {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-					//	 int32_t buffer = -1;
-					};
-					struct PushConstant {
-						uf::stl::string name = "";
-						uint32_t index = 0;
-						uint32_t binding = 0;
-						uint32_t size = 0;
-					};
+					uf::stl::string name = "";
+					uint32_t index = 0;
+					uint32_t set = 0;
+					uint32_t binding = 0;
+					uint32_t size = 0;
+				//	 int32_t buffer = -1;
+					ext::vulkan::enums::Image::viewType_t type{};
+				};
+				struct Definitions {
+					// unused?
+					typedef Metadata::Definition InOut;
+					typedef Metadata::Definition Texture;
+					typedef Metadata::Definition Uniform;
+					typedef Metadata::Definition Storage;
+					typedef Metadata::Definition AccelerationStructure;
+					typedef Metadata::Definition PushConstant;
+
 					struct SpecializationConstants {
 						uf::stl::string name = "";
 						uint32_t index = 0;
@@ -95,9 +70,10 @@ namespace ext {
 							float f;
 						} value;
 					};
-					uf::stl::unordered_map<size_t, Texture> textures;
+
 					uf::stl::unordered_map<uf::stl::string, InOut> inputs;
 					uf::stl::unordered_map<uf::stl::string, InOut> outputs;
+					uf::stl::unordered_map<uf::stl::string, Texture> textures;
 					uf::stl::unordered_map<uf::stl::string, Uniform> uniforms;
 					uf::stl::unordered_map<uf::stl::string, Storage> storage;
 					uf::stl::unordered_map<uf::stl::string, AccelerationStructure> accelerationStructure;
@@ -178,6 +154,8 @@ namespace ext {
 
 			void setSpecializationConstants( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
 			void setDescriptorCounts( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
+
+			Metadata::Definition getDefinition( const uf::stl::string& );
 
 		/*
 			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );

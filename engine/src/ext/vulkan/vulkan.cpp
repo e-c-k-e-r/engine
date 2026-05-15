@@ -40,6 +40,7 @@ uint8_t ext::vulkan::settings::msaa = 1;
 bool ext::vulkan::settings::defaultStageBuffers = true;
 bool ext::vulkan::settings::defaultDeferBufferDestroy = true;
 bool ext::vulkan::settings::defaultCommandBufferImmediate = true;
+bool ext::vulkan::settings::nBufferedUbos = true;
 size_t ext::vulkan::settings::defaultTimeout = UINT64_MAX; // 100000000000;
 
 size_t ext::vulkan::settings::viewCount = 2;

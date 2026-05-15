@@ -15,7 +15,7 @@
 #define VK_DEBUG_VALIDATION_MESSAGE(...)\
 	//VK_VALIDATION_MESSAGE(__VA_ARGS__);
 
-#define IS_DYNAMIC(name) name == "UBO_d"
+#define IS_DYNAMIC(name) true // name == "UBO"
 
 #define UF_SHADER_PARSE_AS_JSON 0
 #if UF_SHADER_PARSE_AS_JSON
@@ -447,7 +447,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType, size_t index ) {			
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
-			const size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+			const auto set = comp.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			const auto binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+
 			const uf::stl::string name = resource.name;
 			size_t arraySize = 1;
 			if ( !type.array.empty() ) {
@@ -473,17 +475,19 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				#if UF_SHADER_PARSE_AS_JSON
 					metadata.json["definitions"]["textures"][key]["name"] = name;
 					metadata.json["definitions"]["textures"][key]["index"] = index;
+					metadata.json["definitions"]["textures"][key]["set"] = set;
 					metadata.json["definitions"]["textures"][key]["binding"] = binding;
 					metadata.json["definitions"]["textures"][key]["size"] = arraySize;
 					metadata.json["definitions"]["textures"][key]["type"] = tname;
 				#endif
 
-					metadata.definitions.textures[binding] = Shader::Metadata::Definition::Texture{
-						name,
-						index,
-						binding,
-						arraySize,
-						etype,
+					metadata.definitions.textures[name] = Shader::Metadata::Definition/*::Texture*/{
+						.name = name,
+						.index = index,
+						.set = set,
+						.binding = binding,
+						.size = arraySize,
+						.type = etype,
 					};
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
@@ -507,17 +511,19 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					{
 						metadata.json["definitions"]["uniforms"][name]["name"] = name;
 						metadata.json["definitions"]["uniforms"][name]["index"] = index;
+						metadata.json["definitions"]["uniforms"][name]["set"] = set;
 						metadata.json["definitions"]["uniforms"][name]["binding"] = binding;
 						metadata.json["definitions"]["uniforms"][name]["size"] = bufferSize;
 						metadata.json["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
 					}
 				#endif
 					// generate definition to unordered_map
-					metadata.definitions.uniforms[name] = Shader::Metadata::Definition::Uniform{
-						name,
-						index,
-						binding,
-						bufferSize,
+					metadata.definitions.uniforms[name] = Shader::Metadata::Definition/*::Uniform*/{
+						.name = name,
+						.index = index,
+						.set = set,
+						.binding = binding,
+						.size = bufferSize,
 					};
 
 					if ( descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ) {
@@ -534,15 +540,17 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					{
 						metadata.json["definitions"]["storage"][name]["name"] = name;
 						metadata.json["definitions"]["storage"][name]["index"] = index;
+						metadata.json["definitions"]["storage"][name]["set"] = set;
 						metadata.json["definitions"]["storage"][name]["binding"] = binding;
 					//	metadata.json["definitions"]["storage"][name]["size"] = bufferSize;
 						metadata.json["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
 					}
 				#endif
-					metadata.definitions.storage[name] = Shader::Metadata::Definition::Storage{
-						name,
-						index,
-						binding
+					metadata.definitions.storage[name] = Shader::Metadata::Definition/*::Storage*/{
+						.name = name,
+						.index = index,
+						.set = set,
+						.binding = binding
 					};
 				} break;
 				case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
@@ -551,18 +559,20 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					{
 						metadata.json["definitions"]["accelerationStructure"][name]["name"] = name;
 						metadata.json["definitions"]["accelerationStructure"][name]["index"] = index;
+						metadata.json["definitions"]["accelerationStructure"][name]["set"] = set;
 						metadata.json["definitions"]["accelerationStructure"][name]["binding"] = binding;
 						metadata.json["definitions"]["accelerationStructure"][name]["members"] = parseMembers(resource.type_id);
 					}
 				#endif
-					metadata.definitions.accelerationStructure[name] = Shader::Metadata::Definition::AccelerationStructure{
-						name,
-						index,
-						binding
+					metadata.definitions.accelerationStructure[name] = Shader::Metadata::Definition/*::AccelerationStructure*/{
+						.name = name,
+						.index = index,
+						.set = set,
+						.binding = binding
 					};
 				} break;
 			}
-			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
+			descriptorSetLayoutBindings[set].push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
 		};	
 
 		//for ( const auto& resource : res.key ) {
@@ -577,11 +587,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		LOOP_RESOURCES( storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		LOOP_RESOURCES( separate_samplers, VK_DESCRIPTOR_TYPE_SAMPLER );
 		LOOP_RESOURCES( subpass_inputs, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
-	#if VK_UBO_USE_N_BUFFERS
-		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC );
-	#else
-		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-	#endif
+		LOOP_RESOURCES( uniform_buffers, VK_UBO_USE_N_BUFFERS ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 		LOOP_RESOURCES( acceleration_structures, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR );
 		#undef LOOP_RESOURCES
@@ -628,7 +634,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		#endif
 			// generate definition to unordered_map
 			{
-				metadata.definitions.inputs[name] = Shader::Metadata::Definition::InOut{
+				metadata.definitions.inputs[name] = Shader::Metadata::Definition/*::InOut*/{
 					name,
 					i,
 					binding,
@@ -655,7 +661,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		#endif
 			// generate definition to unordered_map
 			{
-				metadata.definitions.outputs[name] = Shader::Metadata::Definition::InOut{
+				metadata.definitions.outputs[name] = Shader::Metadata::Definition/*::InOut*/{
 					name,
 					i,
 					binding,
@@ -699,7 +705,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		#endif
 			// generate definition to unordered_map
 			{
-				metadata.definitions.pushConstants[name] = Shader::Metadata::Definition::PushConstant{
+				metadata.definitions.pushConstants[name] = Shader::Metadata::Definition/*::PushConstant*/{
 					name,
 					pushConstants.size() - 1,
 					binding,
@@ -834,9 +840,11 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	}
 
 	// organize layouts
-	std::sort( descriptorSetLayoutBindings.begin(), descriptorSetLayoutBindings.end(), [&]( const VkDescriptorSetLayoutBinding& l, const VkDescriptorSetLayoutBinding& r ){
-		return l.binding < r.binding;
-	} );
+	for ( auto& [setIndex, bindings] : descriptorSetLayoutBindings ) {
+		std::sort( bindings.begin(), bindings.end(), [&]( const VkDescriptorSetLayoutBinding& l, const VkDescriptorSetLayoutBinding& r ){
+			return l.binding < r.binding;
+		} );
+	}
 }
 
 void ext::vulkan::Shader::destroy() {
@@ -982,14 +990,30 @@ void ext::vulkan::Shader::setSpecializationConstants( const uf::stl::unordered_m
 	}
 }
 void ext::vulkan::Shader::setDescriptorCounts( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values ) {
-	for ( auto pair : this->metadata.definitions.textures ) {
-		auto& tx = pair.second;
+	// to-do: expand for all descriptors, but technically only textures are used for this
+	for ( auto& [ _, tx ] : this->metadata.definitions.textures ) {
 		if ( values.count(tx.name) == 0 ) continue;
-		for ( auto& layout : this->descriptorSetLayoutBindings ) {
-			if ( layout.binding != tx.binding ) continue;
-			layout.descriptorCount = values.at(tx.name);
+		for ( auto& [setIndex, bindings] : this->descriptorSetLayoutBindings ) {
+			for ( auto& layout : bindings ) {
+				if ( layout.binding != tx.binding ) continue;
+				layout.descriptorCount = values.at(tx.name);
+			}
 		}
 	}
+}
+
+ext::vulkan::Shader::Metadata::Definition ext::vulkan::Shader::getDefinition( const uf::stl::string& name ) {
+	#define SEARCH_DEFINITION(definition) for ( auto& [ _, def ] : definition ) if ( def.name == name ) return def;
+
+	SEARCH_DEFINITION(metadata.definitions.inputs);
+	SEARCH_DEFINITION(metadata.definitions.outputs);
+	SEARCH_DEFINITION(metadata.definitions.textures);
+	SEARCH_DEFINITION(metadata.definitions.uniforms);
+	SEARCH_DEFINITION(metadata.definitions.storage);
+	SEARCH_DEFINITION(metadata.definitions.accelerationStructure);
+	SEARCH_DEFINITION(metadata.definitions.pushConstants);
+
+	return {};
 }
 
 // JSON shit

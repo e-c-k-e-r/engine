@@ -1961,7 +1961,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	// necessary for OpenGL because recorded descriptors have invalidated pointers
 	// Vulkan doesn't care about the CPU-side mesh data
-#if 1 || UF_USE_OPENGL
+#if UF_USE_OPENGL
 	uf::renderer::states::rebuild = true;
 #endif
 

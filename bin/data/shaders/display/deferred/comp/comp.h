@@ -26,33 +26,33 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 #endif
 
 #if !MULTISAMPLING
-	layout(binding = 0) uniform utexture2DArray samplerId;
+	layout(binding = 0, set = 0) uniform utexture2DArray samplerId;
 	#if BARYCENTRIC
 		#if !BARYCENTRIC_CALCULATE
-			layout(binding = 1) uniform texture2DArray samplerBary;
+			layout(binding = 1, set = 0) uniform texture2DArray samplerBary;
 		#endif
 	#else
-		layout(binding = 1) uniform texture2DArray samplerUv;
-		layout(binding = 2) uniform texture2DArray samplerNormal;
+		layout(binding = 1, set = 0) uniform texture2DArray samplerUv;
+		layout(binding = 2, set = 0) uniform texture2DArray samplerNormal;
 	#endif
-	layout(binding = 3) uniform texture2DArray samplerDepth;
+	layout(binding = 3, set = 0) uniform texture2DArray samplerDepth;
 #else
-	layout(binding = 0) uniform utexture2DMSArray samplerId;
+	layout(binding = 0, set = 0) uniform utexture2DMSArray samplerId;
 	#if BARYCENTRIC
 		#if !BARYCENTRIC_CALCULATE
-			layout(binding = 1) uniform texture2DMSArray samplerBary;
+			layout(binding = 1, set = 0) uniform texture2DMSArray samplerBary;
 		#endif
 	#else
-		layout(binding = 1) uniform texture2DMSArray samplerUv;
-		layout(binding = 2) uniform texture2DMSArray samplerNormal;
+		layout(binding = 1, set = 0) uniform texture2DMSArray samplerUv;
+		layout(binding = 2, set = 0) uniform texture2DMSArray samplerNormal;
 	#endif
-	layout(binding = 3) uniform texture2DMSArray samplerDepth;
+	layout(binding = 3, set = 0) uniform texture2DMSArray samplerDepth;
 #endif
 
 
-layout(binding = 7, rgba16f) uniform writeonly image2DArray imageColor;
-layout(binding = 8, rgba16f) uniform writeonly image2DArray imageBright;
-layout(binding = 9, rg16f) uniform writeonly image2DArray imageMotion;
+layout(binding = 7, set = 0, rgba16f) uniform writeonly image2DArray imageColor;
+layout(binding = 8, set = 0, rgba16f) uniform writeonly image2DArray imageBright;
+layout(binding = 9, set = 0, rg16f) uniform writeonly image2DArray imageMotion;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -61,46 +61,46 @@ layout( push_constant ) uniform PushBlock {
 
 #include "../../../common/structs.h"
 
-layout (binding = 10) uniform Camera {
+layout (binding = 10, set = 0) uniform Camera {
 	Viewport viewport[2];
 } camera;
 
-layout (binding = 11) uniform UBO {
+layout (binding = 11, set = 0) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
 
-layout (std140, binding = 12) readonly buffer DrawCommands {
+layout (std140, binding = 12, set = 0) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 13) readonly buffer Instances {
+layout (std140, binding = 13, set = 0) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 14) readonly buffer InstanceAddresseses {
+layout (std140, binding = 14, set = 0) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 15) readonly buffer Objects {
+layout (std140, binding = 15, set = 0) readonly buffer Objects {
 	Object objects[];
 };
-layout (std140, binding = 16) readonly buffer Materials {
+layout (std140, binding = 16, set = 0) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 17) readonly buffer Textures {
+layout (std140, binding = 17, set = 0) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 18) readonly buffer Lights {
+layout (std140, binding = 18, set = 0) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 19) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 20) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 21) uniform sampler3D samplerNoise;
+layout (binding = 19, set = 1) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 20, set = 1) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 21, set = 0) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 22) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 22, set = 0) uniform sampler3D voxelOutput[CASCADES];
 #endif
 #if RT
-	layout (binding = 23) uniform accelerationStructureEXT tlas;
+	layout (binding = 23, set = 0) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -284,7 +284,7 @@ void directLighting() {
 	if ( ubo.settings.mode.type == 0x000A ) {
 		Ray ray;
 		ray.direction = surface.ray.direction;
-		ray.origin = surface.ray.origin;
+		ray.origin = surface.position.world;
 		ray.origin -= ray.direction;
 
 		vec4 radiance = voxelConeTrace( ray, 0 );
