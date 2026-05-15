@@ -428,7 +428,7 @@ void ext::vulkan::RenderMode::build( bool resized ) {
 }
 void ext::vulkan::RenderMode::tick() {
 	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
-		if ( device ) vkDeviceWaitIdle(*device);
+		//if ( device ) vkDeviceWaitIdle(*device);
 		cleanupAllCommands();
 	}
 	

@@ -984,6 +984,7 @@ void ext::vulkan::DescriptorSets::update( const Graphic& graphic, const GraphicD
 		}
 	}
 	// really needs some love
+/*
 	if ( this->metadata.built ) {
 		renderMode.synchronize();
 		bool locked = renderMode.tryMutex();
@@ -991,7 +992,7 @@ void ext::vulkan::DescriptorSets::update( const Graphic& graphic, const GraphicD
 	//	uf::renderer::flushCommandBuffers();
 		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
 		if ( locked ) renderMode.unlockMutex();
-	} else {
+	} else */ {
 		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
 	}
 	this->metadata.built = true;
