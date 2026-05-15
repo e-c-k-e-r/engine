@@ -209,7 +209,7 @@ void populateSurface() {
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
-		surface.ray.origin = near3.xyz; // eyePos.xyz
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz; // near3.xyz; // eyePos.xyz
 
 		depth = IMAGE_LOAD(samplerDepth).r;
 

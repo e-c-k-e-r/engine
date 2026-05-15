@@ -1275,9 +1275,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	}
 	if ( shouldUpdate ) {
 	//	graphic.updatePipelines();
-	//	graphic.update();
+		graphic.update();
 		renderMode.rebuild = true;
-	//	metadata.shader.invalidated = false;
+		metadata.shader.invalidated = false;
 	}
 	
 	if ( !graphic.material.hasShader(shaderType, shaderPipeline) ) {

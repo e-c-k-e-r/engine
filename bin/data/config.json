@@ -118,7 +118,7 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false, // to-do: fix issues
+					"vxgi": true, // to-do: fix issues
 					"culling": false,
 					"bloom": false,
 					"dof": false,
