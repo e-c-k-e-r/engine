@@ -3,7 +3,6 @@
 	// enable if shaderNonUniform is not supported
 	// Nvidia hardware does not require nonuniformEXT, but AMD does
 #endif
-
 // implicit variables
 #ifndef MULTISAMPLING
 	#define MULTISAMPLING 1
@@ -20,8 +19,11 @@
 #ifndef MAX_SHADOWS
 	#define MAX_SHADOWS ubo.settings.lighting.maxShadows
 #endif
+#ifndef USE_CAMERA_VIEWPORT
+	#define USE_CAMERA_VIEWPORT 0
+#endif
 #ifndef VIEW_MATRIX
-#if VXGI
+#if VXGI || !USE_CAMERA_VIEWPORT
 	#define VIEW_MATRIX ubo.eyes[surface.pass].view
 #else
 	#define VIEW_MATRIX camera.viewport[surface.pass].view
@@ -80,7 +82,7 @@
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 1
+		#define BARYCENTRIC_CALCULATE 0
 	#endif
 	#ifndef BUFFER_REFERENCE
 		#define BUFFER_REFERENCE 1

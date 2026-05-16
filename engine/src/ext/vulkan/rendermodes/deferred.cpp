@@ -21,7 +21,7 @@
 #if BARYCENTRIC
 	// 0 keeps a buffer for barycentric coordinates, 1 will reconstruct in the deferred pass
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 1
+		#define BARYCENTRIC_CALCULATE 0
 	#endif
 #endif
 

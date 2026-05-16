@@ -1,5 +1,14 @@
 #include <uf/utils/math/physics/common.h>
 
+namespace impl {
+	void updateStaticBody( pod::PhysicsBody& body ) {
+	    if ( !body.isStatic ) return;
+
+	    body.bounds = impl::computeAABB( body );
+	    if ( body.world ) body.world->staticBvh.dirty = true;
+	}
+}
+
 // create ID from pointers
 uint64_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
 	uint64_t lhs = reinterpret_cast<uint64_t>(&a);
@@ -19,6 +28,7 @@ void impl::wakeBody( pod::PhysicsBody& body ) {
 	}
 
 	body.activity.awake = true;
+	if ( body.isStatic ) impl::updateStaticBody( body );
 }
 void impl::sleepBody( pod::PhysicsBody& body ) {
 	bool wasAsleep = !body.activity.awake;
@@ -718,11 +728,13 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
-		//	return impl::transformAabbToWorld( body.collider.aabb, *body.transform );
+			return impl::transformAabbToWorld( body.collider.aabb, *body.transform );
+		/*
 			return {
 				transform.position + body.collider.aabb.min,
 				transform.position + body.collider.aabb.max,
 			};
+		*/
 		} break;
 		case pod::ShapeType::SPHERE: {
 			return {
@@ -737,10 +749,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 		case pod::ShapeType::MESH:
 		case pod::ShapeType::CONVEX_HULL: {
 			if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->bounds.empty() )
-				return {
-					transform.position + body.collider.mesh.bvh->bounds[0].min,
-					transform.position + body.collider.mesh.bvh->bounds[0].max,
-				};
+				return impl::transformAabbToWorld( body.collider.mesh.bvh->bounds[0], *body.transform );
 			const auto& meshData = *body.collider.mesh.mesh;
 			pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
 			for ( const auto& view : meshData.buffer_views ) impl::computeConvexHullAABB( view, view["position"], bounds );

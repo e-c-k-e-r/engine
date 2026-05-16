@@ -117,9 +117,9 @@
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
-					"vsync": true, // vsync on vulkan side rather than engine-side
+					"vsync": false, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true, // to-do: fix issues
+					"vxgi": false, // to-do: fix issues
 					"culling": false,
 					"bloom": true,
 					"dof": false,

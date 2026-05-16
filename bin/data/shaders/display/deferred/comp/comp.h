@@ -199,10 +199,15 @@ void populateSurface() {
 	{
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 
+	#if USE_CAMERA_VIEWPORT
 		const mat4 iProjection = inverse( camera.viewport[surface.pass].projection );
 		const mat4 iView = inverse( camera.viewport[surface.pass].view );
-		const mat4 iProjectionView = inverse( camera.viewport[surface.pass].projection * mat4(mat3(camera.viewport[surface.pass].view)) );
-
+		const mat4 iProjectionView = /*iProjection * iView;*/ inverse( camera.viewport[surface.pass].projection * mat4(mat3(camera.viewport[surface.pass].view)) );
+	#else
+		const mat4 iView = ubo.eyes[surface.pass].iView;
+		const mat4 iProjection = ubo.eyes[surface.pass].iProjection;
+		const mat4 iProjectionView = /*iProjection * iView;*/ inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
+	#endif
 		const vec4 near4 = iProjectionView * (vec4(inUv, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(inUv, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
