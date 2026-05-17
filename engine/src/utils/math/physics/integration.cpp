@@ -84,13 +84,23 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	if ( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B ) return fun( a, b, manifold );
 
 	CHECK_CONTACT( AABB, AABB, impl::aabbAabb );
+	CHECK_CONTACT( AABB, OBB, impl::aabbObb );
 	CHECK_CONTACT( AABB, SPHERE, impl::aabbSphere );
 	CHECK_CONTACT( AABB, PLANE, impl::aabbPlane );
 	CHECK_CONTACT( AABB, CAPSULE, impl::aabbCapsule );
 	CHECK_CONTACT( AABB, MESH, impl::aabbMesh );
 	CHECK_CONTACT( AABB, CONVEX_HULL, impl::aabbHull );
 
+	CHECK_CONTACT( OBB, AABB, impl::obbAabb );
+	CHECK_CONTACT( OBB, OBB, impl::obbObb );
+	CHECK_CONTACT( OBB, SPHERE, impl::obbSphere );
+	CHECK_CONTACT( OBB, PLANE, impl::obbPlane );
+	CHECK_CONTACT( OBB, CAPSULE, impl::obbCapsule );
+	CHECK_CONTACT( OBB, MESH, impl::obbMesh );
+	CHECK_CONTACT( OBB, CONVEX_HULL, impl::obbHull );
+
 	CHECK_CONTACT( SPHERE, AABB, impl::sphereAabb );
+	CHECK_CONTACT( SPHERE, OBB, impl::sphereObb );
 	CHECK_CONTACT( SPHERE, SPHERE, impl::sphereSphere );
 	CHECK_CONTACT( SPHERE, PLANE, impl::spherePlane );
 	CHECK_CONTACT( SPHERE, CAPSULE, impl::sphereCapsule );
@@ -98,6 +108,7 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	CHECK_CONTACT( SPHERE, CONVEX_HULL, impl::sphereHull );
 
 	CHECK_CONTACT( PLANE, AABB, impl::planeAabb );
+	CHECK_CONTACT( PLANE, OBB, impl::planeObb );
 	CHECK_CONTACT( PLANE, SPHERE, impl::planeSphere );
 	CHECK_CONTACT( PLANE, PLANE, impl::planePlane );
 	CHECK_CONTACT( PLANE, CAPSULE, impl::planeCapsule );
@@ -105,6 +116,7 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	CHECK_CONTACT( PLANE, CONVEX_HULL, impl::planeHull );
 
 	CHECK_CONTACT( CAPSULE, AABB, impl::capsuleAabb );
+	CHECK_CONTACT( CAPSULE, OBB, impl::capsuleObb );
 	CHECK_CONTACT( CAPSULE, SPHERE, impl::capsuleSphere );
 	CHECK_CONTACT( CAPSULE, PLANE, impl::capsulePlane );
 	CHECK_CONTACT( CAPSULE, CAPSULE, impl::capsuleCapsule );
@@ -112,6 +124,7 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	CHECK_CONTACT( CAPSULE, CONVEX_HULL, impl::capsuleHull );
 
 	CHECK_CONTACT( MESH, AABB, impl::meshAabb );
+	CHECK_CONTACT( MESH, OBB, impl::meshObb );
 	CHECK_CONTACT( MESH, SPHERE, impl::meshSphere );
 	CHECK_CONTACT( MESH, PLANE, impl::meshPlane );
 	CHECK_CONTACT( MESH, CAPSULE, impl::meshCapsule );
@@ -119,6 +132,7 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	CHECK_CONTACT( MESH, CONVEX_HULL, impl::meshHull );
 
 	CHECK_CONTACT( CONVEX_HULL, AABB, impl::hullAabb );
+	CHECK_CONTACT( CONVEX_HULL, OBB, impl::hullObb );
 	CHECK_CONTACT( CONVEX_HULL, SPHERE, impl::hullSphere );
 	CHECK_CONTACT( CONVEX_HULL, PLANE, impl::hullPlane );
 	CHECK_CONTACT( CONVEX_HULL, CAPSULE, impl::hullCapsule );
@@ -365,10 +379,17 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	// angular integration
 	//body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
 	{
+	#if 1
 		pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
 		pod::Vector3f localTorque = uf::matrix::multiply( uf::matrix::transpose(R), body.torqueAccumulator );
 		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
 		body.angularVelocity += uf::matrix::multiply( R, localAngAccel ) * dt;
+	#else
+		pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
+		pod::Vector3f localTorque = uf::matrix::multiply( R, body.torqueAccumulator );
+		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
+		body.angularVelocity += uf::matrix::multiply( uf::matrix::transpose(R), localAngAccel ) * dt;
+	#endif
 	}
 
 	// update position
@@ -378,7 +399,7 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
 	if ( angularSpeed2 > EPS2 ) {
 		float angularSpeed = std::sqrt( angularSpeed2 );
-		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, angularSpeed * dt);
+		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, -angularSpeed * dt);
 		uf::transform::rotate( *body.transform/*.reference*/, dq );
 	}
 

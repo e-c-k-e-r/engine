@@ -35,6 +35,7 @@
 namespace pod {
 	enum class ShapeType {
 		AABB,
+		OBB,
 		SPHERE,
 		PLANE,
 		CAPSULE,
@@ -125,16 +126,9 @@ namespace pod {
 		pod::BVH* bvh;
 		const uf::Mesh* mesh;
 	};
-
-	// MIGHT contain additional data, so far mirrors the above
-	struct ConvexHullBVH {
-		pod::BVH* bvh;
-		const uf::Mesh* mesh;
-	};
+	typedef MeshBVH ConvexHullBVH;
 
 	typedef uint32_t CollisionMask;
-
-
 	struct Collider {
 		// what it is
 		enum CategoryMask : uint32_t {
@@ -166,8 +160,9 @@ namespace pod {
 		pod::CollisionMask mask = Collider::MASK_ALL;
 
 		union {
-			pod::Sphere sphere;
 			pod::AABB aabb;
+			pod::OBB obb;
+			pod::Sphere sphere;
 			pod::Plane plane;
 			pod::Capsule capsule;
 			pod::TriangleWithNormal triangle;
@@ -259,8 +254,8 @@ namespace pod {
 	};
 
 	struct PhysicsSettings {
-		bool warmupSolver = true; // cache manifold data to warm up the solver
-		bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
+		bool warmupSolver = false; // cache manifold data to warm up the solver
+		bool blockContactSolver = false; // use BlockNxN solvers (where N = number of contacts for a manifold)
 		bool psgContactSolver = true; // use PSG contact solver
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
@@ -362,6 +357,13 @@ namespace uf {
 		void UF_API applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torque );
 
 		void UF_API setVelocity( pod::PhysicsBody& body, const pod::Vector3f& velocity );
+		void UF_API applyVelocity( pod::PhysicsBody& body, const pod::Vector3f& velocity );
+		
+		void UF_API setAngularVelocity( pod::PhysicsBody& body, const pod::Vector3f& velocity );
+		void UF_API setAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt = 0 );
+		void UF_API applyAngularVelocity( pod::PhysicsBody& body, const pod::Vector3f& velocity );
+		void UF_API applyAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt = 0 );
+
 		void UF_API applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q );
 		void UF_API applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle );
 		

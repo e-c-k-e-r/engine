@@ -50,7 +50,8 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				outPoly[i] = hasTransform ? uf::transform::apply( transform, body.collider.triangle.points[i] ) : body.collider.triangle.points[i];
 			});
 		} break;
-		case pod::ShapeType::AABB: {
+		case pod::ShapeType::AABB:
+		case pod::ShapeType::OBB: {
 			outCount = 4;
 			pod::Vector3f n = localDir;
 			pod::Vector3f absN = { std::fabs(n.x), std::fabs(n.y), std::fabs(n.z) };

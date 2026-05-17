@@ -2,10 +2,10 @@
 
 namespace impl {
 	void updateStaticBody( pod::PhysicsBody& body ) {
-	    if ( !body.isStatic ) return;
+		if ( !body.isStatic ) return;
 
-	    body.bounds = impl::computeAABB( body );
-	    if ( body.world ) body.world->staticBvh.dirty = true;
+		body.bounds = impl::computeAABB( body );
+		if ( body.world ) body.world->staticBvh.dirty = true;
 	}
 }
 
@@ -74,6 +74,8 @@ pod::Transform<> impl::getTransform( const pod::PhysicsBody& body ) {
 }
 
 pod::Vector3f impl::getPosition( const pod::PhysicsBody& body, bool useTransform ) {
+	useTransform = true; // guh
+
 	if ( !useTransform ) return impl::aabbCenter( body.bounds );
 	return impl::getTransform( body ).position;
 }
@@ -112,7 +114,11 @@ pod::Matrix3f impl::computeWorldInverseInertia( const pod::PhysicsBody& b ) {
 	pod::Matrix3f invI_local = uf::matrix::diagonal( b.inverseInertiaTensor );
 	pod::Matrix3f R = uf::quaternion::matrix3(b.transform->orientation);
 
+#if 1
 	return R * invI_local * uf::matrix::transpose(R);
+#else
+	return uf::matrix::transpose(R) * invI_local * R;
+#endif
 }
 
 // normalizes the delta between two bodies / contacts by the distance (as it was already computed) if non-zero
@@ -423,14 +429,14 @@ bool impl::triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangl
 	if ( !impl::aabbOverlap( boxA, boxB ) ) return false;
 
 	// check vertices of a inside b or vice versa
-	FOR_EACH(3, {
+	for ( auto i = 0; i < 3; ++i ) {
 		auto q = impl::closestPointOnTriangle( a.points[i], b );
 		if ( uf::vector::magnitude( q - a.points[i] ) < EPS2 ) return true;
-	});
-	FOR_EACH(3, {
+	};
+	for ( auto i = 0; i < 3; ++i ) {
 		auto q = impl::closestPointOnTriangle( b.points[i], a );
 		if ( uf::vector::magnitude( q - b.points[i] ) < EPS2 ) return true;
-	});
+	};
 	return false;
 }
 
@@ -547,7 +553,7 @@ pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID,
 
 bool impl::computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1 ) {
 	int intersections = 0;
-	pod::Vector3f intersectionBuffers[6];
+	pod::Vector3f intersectionBuffers[6] = {};
 
 	auto checkAndPush = [&]( const pod::Vector3f& pt ) {
 		// avoid duplicates
@@ -727,7 +733,8 @@ std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::Phys
 pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	switch ( body.collider.type ) {
-		case pod::ShapeType::AABB: {
+		case pod::ShapeType::AABB:
+		case pod::ShapeType::OBB: {
 			return impl::transformAabbToWorld( body.collider.aabb, *body.transform );
 		/*
 			return {
@@ -817,11 +824,11 @@ bool impl::triAabbOverlap( const pod::Triangle& tri, const pod::AABB& box ) {
 	if ( !axisTest( {-f2.y, f2.x, 0} ) ) return false;
 
 	// test AABB face axes
-	FOR_EACH(3, {
+	for ( auto i = 0; i < 3; ++i ) {
 		float minVal = std::min({v0[i], v1[i], v2[i]});
 		float maxVal = std::max({v0[i], v1[i], v2[i]});
 		if ( minVal > e[i] || maxVal < -e[i] ) return false;
-	});
+	};
 
 	// test triangle normal axis
 	auto n = uf::vector::cross( f0, f1 );

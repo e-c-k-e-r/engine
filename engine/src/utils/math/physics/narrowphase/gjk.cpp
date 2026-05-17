@@ -4,15 +4,24 @@
 pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& dir ) {
 	const auto transform = impl::getTransform( body );
 	switch ( body.collider.type ) {
-		case pod::ShapeType::SPHERE: {
-			return transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
-		} break;
 		case pod::ShapeType::AABB: {
 			return {
 				( dir.x >= 0.0f ) ? body.bounds.max.x : body.bounds.min.x,
 				( dir.y >= 0.0f ) ? body.bounds.max.y : body.bounds.min.y,
 				( dir.z >= 0.0f ) ? body.bounds.max.z : body.bounds.min.z
 			};
+		} break;
+		case pod::ShapeType::OBB: {
+			pod::Vector3f localDir = uf::quaternion::rotate( uf::quaternion::inverse(transform.orientation), dir );
+			pod::Vector3f localPt = {
+				( localDir.x >= 0.0f ) ? body.collider.obb.max.x : body.collider.obb.min.x,
+				( localDir.y >= 0.0f ) ? body.collider.obb.max.y : body.collider.obb.min.y,
+				( localDir.z >= 0.0f ) ? body.collider.obb.max.z : body.collider.obb.min.z
+			};
+			return uf::transform::apply( transform, localPt );
+		} break;
+		case pod::ShapeType::SPHERE: {
+			return transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
 		} break;
 		case pod::ShapeType::PLANE: {
 			const auto& plane = body.collider.plane;

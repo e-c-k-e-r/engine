@@ -193,7 +193,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		// pass manifolds to solver
 		impl::solveContacts( manifolds, dt );
 		// do position correction
-		// impl::solvePositions( manifolds, dt );
+		impl::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( uf::physics::settings.warmupSolver ) {
 			impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
@@ -260,7 +260,8 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	}
 
 	switch ( body.collider.type ) {
-		case pod::ShapeType::AABB: {
+		case pod::ShapeType::AABB: 
+		case pod::ShapeType::OBB: {
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
 			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
@@ -344,11 +345,13 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	}
 }
 void uf::physics::applyForce( pod::PhysicsBody& body, const pod::Vector3f& force ) {
-	if ( body.isStatic ) return; impl::wakeBody( body );
+	if ( body.isStatic ) return;
+	impl::wakeBody( body );
 	body.forceAccumulator += force;
 }
 void uf::physics::applyForceAtPoint( pod::PhysicsBody& body, const pod::Vector3f& force, const pod::Vector3f& point ) {
-	if ( body.isStatic ) return; impl::wakeBody( body );
+	if ( body.isStatic ) return;
+	impl::wakeBody( body );
 	// linear force
 	body.forceAccumulator += force;
 	// angular force
@@ -366,6 +369,50 @@ void uf::physics::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torq
 void uf::physics::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	impl::wakeBody( body );
 	body.velocity = v;
+}
+void uf::physics::applyVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
+	impl::wakeBody( body );
+	body.velocity += v;
+}
+void uf::physics::setAngularVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
+	impl::wakeBody( body );
+	body.angularVelocity = v;
+}
+void uf::physics::setAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt ) {
+	if ( !dt ) dt = uf::physics::time::delta;
+	float angle = 2.0f * std::acos( q.w );
+	float sinHalfAngle = std::sqrt( 1.0f - q.w * q.w );
+
+	pod::Vector3f axis{ 0, 0, 0 };
+	if ( sinHalfAngle > EPS ) {
+		axis.x = q.x / sinHalfAngle;
+		axis.y = q.y / sinHalfAngle;
+		axis.z = q.z / sinHalfAngle;
+	}
+
+	impl::wakeBody( body );
+	body.angularVelocity = axis * ( angle / dt );
+	UF_MSG_DEBUG("axis={}, angle={}, dt={}", uf::vector::toString( axis ), angle, dt );
+}
+void uf::physics::applyAngularVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
+	impl::wakeBody( body );
+	body.angularVelocity += v;
+}
+void uf::physics::applyAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt ) {
+	if ( !dt ) dt = uf::physics::time::delta;
+	float angle = 2.0f * std::acos( q.w );
+	float sinHalfAngle = std::sqrt( 1.0f - q.w * q.w );
+
+	pod::Vector3f axis{ 0, 0, 0 };
+	if ( sinHalfAngle > EPS ) {
+		axis.x = q.x / sinHalfAngle;
+		axis.y = q.y / sinHalfAngle;
+		axis.z = q.z / sinHalfAngle;
+	}
+
+	impl::wakeBody( body );
+	body.angularVelocity += axis * ( angle / dt );
+	UF_MSG_DEBUG("axis={}, angle={}, dt={}", uf::vector::toString( axis ), angle, dt );
 }
 void uf::physics::applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q ) {
 	impl::wakeBody( body );
@@ -404,7 +451,8 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 }
 pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::create( world, object, mass, offset );
-	body.collider.type = pod::ShapeType::AABB;
+	//body.collider.type = pod::ShapeType::AABB;
+	body.collider.type = pod::ShapeType::OBB;
 	body.collider.aabb = aabb;
 	body.bounds = impl::computeAABB( body );
 	uf::physics::updateInertia( body );
@@ -548,6 +596,7 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 
 		switch ( b->collider.type ) {
 			case pod::ShapeType::AABB: impl::rayAabb( ray, *b, rayHit ); break;
+			case pod::ShapeType::OBB: impl::rayObb( ray, *b, rayHit ); break;
 			case pod::ShapeType::SPHERE: impl::raySphere( ray, *b, rayHit ); break;
 			case pod::ShapeType::PLANE: impl::rayPlane( ray, *b, rayHit ); break;
 			case pod::ShapeType::CAPSULE: impl::rayCapsule( ray, *b, rayHit ); break;

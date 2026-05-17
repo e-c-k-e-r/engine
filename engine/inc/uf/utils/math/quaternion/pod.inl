@@ -1,10 +1,3 @@
-namespace pod {
-	// Simple quaterions (designed [to store in arrays] with minimal headaches)
-	template<typename T = NUM> using Quaternion = Vector4t<T>;
-}
-
-// snip header
-
 template<typename T> pod::Quaternion<T> uf::quaternion::identity() {
 	return pod::Quaternion<T>{ 0, 0, 0, 1 };
 }
@@ -144,7 +137,7 @@ template<typename T> pod::Matrix3t<T> uf::quaternion::matrix3( const pod::Quater
 	return pod::Matrix3t<T>({
 		1 - yy - zz,   xy + zw,       xz - yw,
 		xy - zw,       1 - xx - zz,   yz + xw,
-		xz + yw,       yz - xw,       1 - xx - yy,
+		xz + yw,       yz - xw,       1 - xx - yy
 	});
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Vector3t<T>& axis, T angle ) { 
@@ -218,9 +211,9 @@ template<typename T> T& uf::quaternion::inverse_( T& q ) {
 template<typename T> pod::Quaternion<T> uf::quaternion::fromMatrix( const pod::Matrix4t<T>& m ) {
 	pod::Quaternion<T> q;
 
-	T m00 = m[0],  m01 = m[1],  m02 = m[2];
-	T m10 = m[4],  m11 = m[5],  m12 = m[6];
-	T m20 = m[8],  m21 = m[9],  m22 = m[10];
+	T m00 = m(0,0),  m01 = m(0,1),  m02 = m(0,2);
+	T m10 = m(1,0),  m11 = m(1,1),  m12 = m(1,2);
+	T m20 = m(2,0),  m21 = m(2,1),  m22 = m(2,2);
 
 	T trace = m00 + m11 + m22;
 	if ( trace > 0 ) {

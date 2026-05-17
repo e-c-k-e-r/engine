@@ -1,5 +1,4 @@
 {
-	"assets": [],
 	"behaviors": [
 		"SoundEmitterBehavior"
 	],
@@ -7,10 +6,10 @@
 		"holdable": true,
 		"physics": {
 			"mass": 100,
-			"inertia": false,
-		//	"type": "bounding box"
+		//	"inertia": false,
+			"type": "bounding box"
 		//	"type": "mesh"
-			"type": "hull"
+		//	"type": "hull"
 		}
 	}
 }

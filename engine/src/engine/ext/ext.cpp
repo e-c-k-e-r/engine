@@ -110,152 +110,190 @@ void UF_API uf::load() {
 	uf::config.readFromFile(uf::io::root+"config.json");
 }
 void UF_API uf::load( ext::json::Value& json ) {
-	/*global*/::config.engine.gc.enabled = json["engine"]["debug"]["garbage collection"]["enabled"].as(/*global*/::config.engine.gc.enabled);
-	/*global*/::config.engine.gc.every = json["engine"]["debug"]["garbage collection"]["every"].as(/*global*/::config.engine.gc.every);
-	/*global*/::config.engine.gc.mode = json["engine"]["debug"]["garbage collection"]["mode"].as(/*global*/::config.engine.gc.mode);
-	/*global*/::config.engine.gc.announce = json["engine"]["debug"]["garbage collection"]["announce"].as(/*global*/::config.engine.gc.announce);
-
-	/*global*/::config.engine.ext.ultralight.enabled = json["engine"]["ext"]["ultralight"]["enabled"].as(/*global*/::config.engine.ext.ultralight.enabled);
-	/*global*/::config.engine.ext.discord.enabled = json["engine"]["ext"]["discord"]["enabled"].as(/*global*/::config.engine.ext.discord.enabled);
-	/*global*/::config.engine.ext.imgui.enabled = json["engine"]["ext"]["imgui"]["enabled"].as(/*global*/::config.engine.ext.imgui.enabled);
-	
-	/*global*/::config.engine.ext.vall_e.enabled = json["engine"]["ext"]["vall_e"]["enabled"].as(/*global*/::config.engine.ext.vall_e.enabled);
-	/*global*/::config.engine.ext.vall_e.model_path = json["engine"]["ext"]["vall_e"]["model_path"].as(/*global*/::config.engine.ext.vall_e.model_path);
-	/*global*/::config.engine.ext.vall_e.encodec_path = json["engine"]["ext"]["vall_e"]["encodec_path"].as(/*global*/::config.engine.ext.vall_e.encodec_path);
-
-	/*global*/::config.engine.limiter.print = json["engine"]["debug"]["framerate"]["print"].as(/*global*/::config.engine.limiter.print);
-
-	/*global*/::config.engine.fps.print = json["engine"]["debug"]["framerate"]["print"].as(/*global*/::config.engine.fps.print);
-	/*global*/::config.engine.fps.every = json["engine"]["debug"]["framerate"]["every"].as(/*global*/::config.engine.fps.every);
-
-	uf::Mesh::defaultInterleaved = json["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
-
-	uf::matrix::reverseInfiniteProjection = json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
-
-	uf::graph::initialBufferElements = json["engine"]["graph"]["initial buffer elements"].as(uf::graph::initialBufferElements);
-	uf::graph::globalStorage = json["engine"]["graph"]["global storage"].as(uf::graph::globalStorage);
-
-	uf::Entity::deleteChildrenOnDestroy = json["engine"]["debug"]["entity"]["delete children on destroy"].as( uf::Entity::deleteChildrenOnDestroy );
-	uf::Entity::deleteComponentsOnDestroy = json["engine"]["debug"]["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
-
-	uf::Object::assertionLoad = json["engine"]["debug"]["loader"]["assert"].as( uf::Object::assertionLoad );
-	uf::asset::assertionLoad = json["engine"]["debug"]["loader"]["assert"].as( uf::asset::assertionLoad );
-	uf::asset::asyncQueue = json["engine"]["debug"]["loader"]["async"].as( uf::asset::asyncQueue );
-	
-	uf::userdata::autoDestruct = json["engine"]["debug"]["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
-	uf::userdata::autoValidate = json["engine"]["debug"]["userdata"]["auto validate"].as( uf::userdata::autoValidate );
-	
-	uf::Object::deferLazyCalls = json["engine"]["debug"]["hooks"]["defer lazy calls"].as( uf::Object::deferLazyCalls );
-	uf::scene::printTaskCalls = json["engine"]["debug"]["scene"]["print task calls"].as( uf::scene::printTaskCalls );
-
-	auto& configEngineLimitersJson = json["engine"]["limiters"];
-
-	if ( configEngineLimitersJson["framerate"].as<uf::stl::string>() == "auto" && json["window"]["refresh rate"].is<size_t>() ) {
-		float scale = 1.0;
-		size_t refreshRate = json["window"]["refresh rate"].as<size_t>();
-		configEngineLimitersJson["framerate"] = refreshRate * scale;
-		UF_MSG_DEBUG("Setting framerate cap to {}", (int) refreshRate * scale);
+	// Scene settings
+	{
+		auto& configEngineSceneJson = json["engine"]["scenes"];
+		uf::Mesh::defaultInterleaved = configEngineSceneJson["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
+		uf::matrix::reverseInfiniteProjection = configEngineSceneJson["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
 	}
 
-	/* Frame limiter */ {
-		size_t limit = configEngineLimitersJson["framerate"].as<size_t>();
-		/*global*/::times.limiter = limit != 0 ? 1.0 / limit : 0;
-		UF_MSG_DEBUG("Limiter set to {} ms", /*global*/::times.limiter);
-	}
-	/* Max delta time */{
-		size_t limit = configEngineLimitersJson["deltaTime"].as<size_t>();
-		uf::physics::time::clamp = limit != 0 ? 1.0 / limit : 0;
+	// Graph settings
+	{
+		auto& configEngineGraphJson = json["engine"]["graph"];
+		uf::graph::initialBufferElements = configEngineGraphJson["initial buffer elements"].as(uf::graph::initialBufferElements);
+		uf::graph::globalStorage = configEngineGraphJson["global storage"].as(uf::graph::globalStorage);
 	}
 
-	auto& configEngineThreadJson = json["engine"]["threads"];
+	// Various debug settings
+	{
+		auto& configEngineDebugJson = json["engine"]["debug"];
+		/*global*/::config.engine.gc.enabled = configEngineDebugJson["garbage collection"]["enabled"].as(/*global*/::config.engine.gc.enabled);
+		/*global*/::config.engine.gc.every = configEngineDebugJson["garbage collection"]["every"].as(/*global*/::config.engine.gc.every);
+		/*global*/::config.engine.gc.mode = configEngineDebugJson["garbage collection"]["mode"].as(/*global*/::config.engine.gc.mode);
+		/*global*/::config.engine.gc.announce = configEngineDebugJson["garbage collection"]["announce"].as(/*global*/::config.engine.gc.announce);
 
-	if ( configEngineThreadJson["frame limiter"].as<uf::stl::string>() == "auto" && json["window"]["refresh rate"].is<size_t>() ) {
-		float scale = 2.0;
-		size_t refreshRate = json["window"]["refresh rate"].as<size_t>();
-		configEngineThreadJson["frame limiter"] = refreshRate * scale;
-		UF_MSG_DEBUG("Setting thread frame limiter to {}", (int) refreshRate * scale);
+		/*global*/::config.engine.limiter.print = configEngineDebugJson["framerate"]["print"].as(/*global*/::config.engine.limiter.print);
+		/*global*/::config.engine.fps.print = configEngineDebugJson["framerate"]["print"].as(/*global*/::config.engine.fps.print);
+		/*global*/::config.engine.fps.every = configEngineDebugJson["framerate"]["every"].as(/*global*/::config.engine.fps.every);
+		
+		uf::Entity::deleteChildrenOnDestroy = configEngineDebugJson["entity"]["delete children on destroy"].as( uf::Entity::deleteChildrenOnDestroy );
+		uf::Entity::deleteComponentsOnDestroy = configEngineDebugJson["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
+
+		uf::Object::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::Object::assertionLoad );
+		uf::asset::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::asset::assertionLoad );
+		uf::asset::asyncQueue = configEngineDebugJson["loader"]["async"].as( uf::asset::asyncQueue );
+		
+		uf::userdata::autoDestruct = configEngineDebugJson["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
+		uf::userdata::autoValidate = configEngineDebugJson["userdata"]["auto validate"].as( uf::userdata::autoValidate );
+		
+		uf::Object::deferLazyCalls = configEngineDebugJson["hooks"]["defer lazy calls"].as( uf::Object::deferLazyCalls );
+		uf::scene::printTaskCalls = configEngineDebugJson["scene"]["print task calls"].as( uf::scene::printTaskCalls );
+	}
+	// Limiter settings
+	{
+		auto& configEngineLimitersJson = json["engine"]["limiters"];
+		if ( configEngineLimitersJson["framerate"].as<uf::stl::string>() == "auto" && json["window"]["refresh rate"].is<size_t>() ) {
+			float scale = 1.0;
+			size_t refreshRate = json["window"]["refresh rate"].as<size_t>();
+			configEngineLimitersJson["framerate"] = refreshRate * scale;
+			UF_MSG_DEBUG("Setting framerate cap to {}", (int) refreshRate * scale);
+		}
+
+		/* Frame limiter */ {
+			size_t limit = configEngineLimitersJson["framerate"].as<size_t>();
+			/*global*/::times.limiter = limit != 0 ? 1.0 / limit : 0;
+			UF_MSG_DEBUG("Limiter set to {} ms", /*global*/::times.limiter);
+		}
+		/* Max delta time */{
+			size_t limit = configEngineLimitersJson["deltaTime"].as<size_t>();
+			uf::physics::time::clamp = limit != 0 ? 1.0 / limit : 0;
+		}
 	}
 
-	/* Thread frame limiter */ {
-		size_t limit = configEngineThreadJson["frame limiter"].as<size_t>();
-		uf::thread::limiter = limit != 0 ? 1.0 / limit : 0;
+	// Thread settings
+	{
+		auto& configEngineThreadJson = json["engine"]["threads"];
+		if ( configEngineThreadJson["frame limiter"].as<uf::stl::string>() == "auto" && json["window"]["refresh rate"].is<size_t>() ) {
+			float scale = 2.0;
+			size_t refreshRate = json["window"]["refresh rate"].as<size_t>();
+			configEngineThreadJson["frame limiter"] = refreshRate * scale;
+			UF_MSG_DEBUG("Setting thread frame limiter to {}", (int) refreshRate * scale);
+		}
+
+		/* Thread frame limiter */ {
+			size_t limit = configEngineThreadJson["frame limiter"].as<size_t>();
+			uf::thread::limiter = limit != 0 ? 1.0 / limit : 0;
+		}
+
+		// Set worker threads
+		if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
+			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
+			configEngineThreadJson["workers"] = threads;
+			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
+			UF_MSG_DEBUG("Using {} worker threads", threads);
+		} else if ( configEngineThreadJson["workers"].is<size_t>() ) {
+			auto threads = configEngineThreadJson["workers"].as<size_t>();
+			uf::thread::workers = threads;
+			UF_MSG_DEBUG("Using {} worker threads", threads);
+		}
 	}
 
-	// Set worker threads
-	if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
-		auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
-		configEngineThreadJson["workers"] = threads;
-		uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
-		UF_MSG_DEBUG("Using {} worker threads", threads);
-	} else if ( configEngineThreadJson["workers"].is<size_t>() ) {
-		auto threads = configEngineThreadJson["workers"].as<size_t>();
-		uf::thread::workers = threads;
-		UF_MSG_DEBUG("Using {} worker threads", threads);
+	// Physics settings
+	{
+		auto& confingEnginePhysicsJson = json["engine"]["physics"];
+		uf::physics::settings.warmupSolver = confingEnginePhysicsJson["warmup solver"].as(uf::physics::settings.warmupSolver);
+		uf::physics::settings.blockContactSolver = confingEnginePhysicsJson["block solver"].as(uf::physics::settings.blockContactSolver);
+		uf::physics::settings.psgContactSolver = confingEnginePhysicsJson["psg solver"].as(uf::physics::settings.psgContactSolver);
+		uf::physics::settings.useGjk = confingEnginePhysicsJson["gjk"].as(uf::physics::settings.useGjk);
+		uf::physics::settings.fixedStep = confingEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
+		uf::physics::settings.substeps = confingEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
+		uf::physics::settings.solverIterations = confingEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
 	}
 
 	// Audio settings
-	auto& configEngineAudioJson = json["engine"]["audio"];
+	{
+		auto& configEngineAudioJson = json["engine"]["audio"];
+		uf::audio::muted = configEngineAudioJson["mute"].as( uf::audio::muted );
+		uf::audio::asyncUpdate = configEngineAudioJson["async update"].as( uf::audio::asyncUpdate );
+		uf::audio::streamsByDefault = configEngineAudioJson["streams by default"].as( uf::audio::streamsByDefault );
+		uf::audio::bufferSize = configEngineAudioJson["buffers"]["size"].as( uf::audio::bufferSize );
+		uf::audio::buffers = configEngineAudioJson["buffers"]["count"].as( uf::audio::buffers );
+	#if UF_AUDIO_MAPPED_VOLUMES
+		ext::json::forEach( configEngineAudioJson["volumes"], []( const uf::stl::string& key, ext::json::Value& value ){
+			float volume; volume = value.as(volume);
+			uf::audio::volumes[key] = volume;
+		});
+	#else
+		if ( ext::json::isObject( configEngineAudioJson["volumes"] ) ) {
+			uf::audio::volumes::bgm = configEngineAudioJson["volumes"]["bgm"].as(uf::audio::volumes::bgm);
+			uf::audio::volumes::sfx = configEngineAudioJson["volumes"]["sfx"].as(uf::audio::volumes::sfx);
+			uf::audio::volumes::voice = configEngineAudioJson["volumes"]["voice"].as(uf::audio::volumes::voice);
+		}
+	#endif
+	}
 
-	uf::audio::muted = configEngineAudioJson["mute"].as( uf::audio::muted );
-	uf::audio::asyncUpdate = configEngineAudioJson["async update"].as( uf::audio::asyncUpdate );
-	uf::audio::streamsByDefault = configEngineAudioJson["streams by default"].as( uf::audio::streamsByDefault );
-	uf::audio::bufferSize = configEngineAudioJson["buffers"]["size"].as( uf::audio::bufferSize );
-	uf::audio::buffers = configEngineAudioJson["buffers"]["count"].as( uf::audio::buffers );
-#if UF_AUDIO_MAPPED_VOLUMES
-	ext::json::forEach( configEngineAudioJson["volumes"], []( const uf::stl::string& key, ext::json::Value& value ){
-		float volume; volume = value.as(volume);
-		uf::audio::volumes[key] = volume;
-	});
-#else
-	if ( ext::json::isObject( configEngineAudioJson["volumes"] ) ) {
-		uf::audio::volumes::bgm = configEngineAudioJson["volumes"]["bgm"].as(uf::audio::volumes::bgm);
-		uf::audio::volumes::sfx = configEngineAudioJson["volumes"]["sfx"].as(uf::audio::volumes::sfx);
-		uf::audio::volumes::voice = configEngineAudioJson["volumes"]["voice"].as(uf::audio::volumes::voice);
+	// Various external settings
+	{
+		/*global*/::config.engine.ext.discord.enabled = json["engine"]["ext"]["discord"]["enabled"].as(/*global*/::config.engine.ext.discord.enabled);
+		/*global*/::config.engine.ext.imgui.enabled = json["engine"]["ext"]["imgui"]["enabled"].as(/*global*/::config.engine.ext.imgui.enabled);
+	}
+	// VALL-E settings
+	{
+		auto& configEngineExtValleJson = json["engine"]["ext"]["vall_e"];
+		/*global*/::config.engine.ext.vall_e.enabled = configEngineExtValleJson["enabled"].as(/*global*/::config.engine.ext.vall_e.enabled);
+		/*global*/::config.engine.ext.vall_e.model_path = configEngineExtValleJson["model_path"].as(/*global*/::config.engine.ext.vall_e.model_path);
+		/*global*/::config.engine.ext.vall_e.encodec_path = configEngineExtValleJson["encodec_path"].as(/*global*/::config.engine.ext.vall_e.encodec_path);
+	}
+
+#if UF_USE_ULTRALIGHT
+	// Ultralight settings (painfully unused)
+	{
+		auto& configEngineExtUltralightJson = json["engine"]["ext"]["ultralight"];
+		/*global*/::config.engine.ext.ultralight.enabled = configEngineExtUltralightJson["enabled"].as(/*global*/::config.engine.ext.ultralight.enabled);
+		ext::ultralight::scale = configEngineExtUltralightJson["scale"].as( ext::ultralight::scale );
+		ext::ultralight::log = configEngineExtUltralightJson["log"].as( ext::ultralight::log );
 	}
 #endif
 
-#if UF_USE_ULTRALIGHT
-	ext::ultralight::scale = json["engine"]["ext"]["ultralight"]["scale"].as( ext::ultralight::scale );
-	ext::ultralight::log = json["engine"]["ext"]["ultralight"]["log"].as( ext::ultralight::log );
-#endif
+	// Renderer settings
+	{
+	#if UF_USE_VULKAN
+		auto& configRenderJson = json["engine"]["ext"]["vulkan"];
+	#elif UF_USE_OPENGL
+		auto& configRenderJson = json["engine"]["ext"]["opengl"];
+	#else
+		auto& configRenderJson = json["engine"]["ext"]["software"];
+	#endif
+		auto& configRenderInvariantJson = configRenderJson["invariant"];
+		auto& configRenderExperimentalJson = configRenderJson["experimental"];
+		auto& configRenderPipelinesJson = configRenderJson["pipelines"];
 
-#if UF_USE_VULKAN
-	auto& configRenderJson = json["engine"]["ext"]["vulkan"];
-#elif UF_USE_OPENGL
-	auto& configRenderJson = json["engine"]["ext"]["opengl"];
-#else
-	auto& configRenderJson = json["engine"]["ext"]["software"];
-#endif
-	auto& configRenderInvariantJson = configRenderJson["invariant"];
-	auto& configRenderExperimentalJson = configRenderJson["experimental"];
-	auto& configRenderPipelinesJson = configRenderJson["pipelines"];
+		uf::renderer::settings::validation::messages = configRenderJson["validation"]["messages"].as( uf::renderer::settings::validation::messages );
+		uf::renderer::settings::validation::checkpoints = configRenderJson["validation"]["checkpoints"].as( uf::renderer::settings::validation::checkpoints );
+		
+		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
 
-	uf::renderer::settings::validation::messages = configRenderJson["validation"]["messages"].as( uf::renderer::settings::validation::messages );
-	uf::renderer::settings::validation::checkpoints = configRenderJson["validation"]["checkpoints"].as( uf::renderer::settings::validation::checkpoints );
-	
-	uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
-
-#if UF_USE_VULKAN
-	uf::renderer::settings::defaultStageBuffers = configRenderInvariantJson["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
-	uf::renderer::settings::defaultDeferBufferDestroy = configRenderInvariantJson["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
-#if 0
-	uf::renderer::settings::defaultCommandBufferImmediate = true;
-	/*global*/::requestDeferredCommandBufferSubmit = !configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
-#else
-	uf::renderer::settings::defaultCommandBufferImmediate = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
-#endif
-	uf::renderer::settings::nBufferedUbos = configRenderInvariantJson["n-buffered uniform"].as( uf::renderer::settings::nBufferedUbos );
-#endif
-#if 1
-	uf::renderer::settings::experimental::dedicatedThread = false;
-	/*global*/::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
-#else
-	uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
-#endif
-	uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
-	uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
-	uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
-
+	#if UF_USE_VULKAN
+		uf::renderer::settings::defaultStageBuffers = configRenderInvariantJson["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
+		uf::renderer::settings::defaultDeferBufferDestroy = configRenderInvariantJson["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
+	#if 0
+		uf::renderer::settings::defaultCommandBufferImmediate = true;
+		/*global*/::requestDeferredCommandBufferSubmit = !configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
+	#else
+		uf::renderer::settings::defaultCommandBufferImmediate = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
+	#endif
+		uf::renderer::settings::nBufferedUbos = configRenderInvariantJson["n-buffered uniform"].as( uf::renderer::settings::nBufferedUbos );
+	#endif
+	#if 1
+		uf::renderer::settings::experimental::dedicatedThread = false;
+		/*global*/::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
+	#else
+		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
+	#endif
+		uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
+		uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
+		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
+	}
 #if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	ext::fsr::preset = json["engine"]["ext"]["fsr"]["preset"].as(ext::fsr::preset);
 	ext::fsr::jitterScale = json["engine"]["ext"]["fsr"]["jitter scale"].as(ext::fsr::jitterScale);

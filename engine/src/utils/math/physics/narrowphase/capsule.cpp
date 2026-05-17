@@ -45,6 +45,10 @@ bool impl::capsuleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 	return true;
 }
+bool impl::capsuleObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( CAPSULE, OBB );
+	REVERSE_COLLIDER( a, b, impl::obbCapsule );
+}
 bool impl::capsulePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( CAPSULE, PLANE );
 	const auto& capsule = a;

@@ -153,6 +153,77 @@ bool impl::triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsB
 	manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
 	return true;
 }
+bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
+	auto tB = impl::getTransform( body );
+
+	pod::Vector3f cB = uf::transform::apply( tB, (body.collider.obb.max + body.collider.obb.min) * 0.5f );
+	pod::Vector3f eB = (body.collider.obb.max - body.collider.obb.min) * 0.5f;
+	pod::Vector3f axesB[3] = {
+		uf::quaternion::rotate(tB.orientation, pod::Vector3f{1,0,0}),
+		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,1,0}),
+		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,0,1})
+	};
+
+	pod::Vector3f v0 = tri.points[0];
+	pod::Vector3f v1 = tri.points[1];
+	pod::Vector3f v2 = tri.points[2];
+
+	pod::Vector3f e0 = v1 - v0;
+	pod::Vector3f e1 = v2 - v1;
+	pod::Vector3f e2 = v0 - v2;
+	pod::Vector3f edges[3] = { e0, e1, e2 };
+
+	pod::Vector3f triNormal = tri.normal;
+
+	float minOverlap = FLT_MAX;
+	pod::Vector3f bestAxis;
+
+	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
+		float mag = uf::vector::magnitude(axis);
+		if (mag < EPS) return true; // degenerate
+		pod::Vector3f n = axis / mag;
+
+		float p0 = uf::vector::dot(v0, n);
+		float p1 = uf::vector::dot(v1, n);
+		float p2 = uf::vector::dot(v2, n);
+		float minT = std::min({p0, p1, p2});
+		float maxT = std::max({p0, p1, p2});
+
+		float pB = uf::vector::dot(cB, n);
+		float rB = eB.x * std::fabs(uf::vector::dot(axesB[0], n)) +
+				   eB.y * std::fabs(uf::vector::dot(axesB[1], n)) +
+				   eB.z * std::fabs(uf::vector::dot(axesB[2], n));
+		float minB = pB - rB;
+		float maxB = pB + rB;
+
+		if ( minT > maxB || maxT < minB ) return false;
+
+		float overlap = std::min(maxT, maxB) - std::max(minT, minB);
+		if ( overlap < minOverlap ) {
+			minOverlap = overlap;
+			bestAxis = n;
+		}
+		return true;
+	};
+
+	if ( !testAxis(triNormal) ) return false;
+	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesB[i]) ) return false;;
+	for ( auto i = 0; i < 3; ++i ) {
+		for ( auto j = 0; j < 3; j++ ) if ( !testAxis(uf::vector::cross(edges[i], axesB[j])) ) return false;
+	};
+
+	pod::Vector3f triCenter = (v0 + v1 + v2) / 3.0f;
+	if ( uf::vector::dot(bestAxis, cB - triCenter) < 0.0f ) bestAxis = -bestAxis;
+
+	float rB = eB.x * std::fabs(uf::vector::dot(axesB[0], bestAxis)) +
+			   eB.y * std::fabs(uf::vector::dot(axesB[1], bestAxis)) +
+			   eB.z * std::fabs(uf::vector::dot(axesB[2], bestAxis));
+
+	pod::Vector3f contact = cB - bestAxis * rB;
+
+	manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
+	return true;
+}
 bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
 	const auto& sphere = body;
 
@@ -273,6 +344,10 @@ bool impl::triangleTriangle( const pod::PhysicsBody& a, const pod::PhysicsBody& 
 bool impl::triangleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, AABB );
 	return impl::triangleAabb( a.collider.triangle, b, manifold );
+}
+bool impl::triangleObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( TRIANGLE, OBB );
+	return impl::triangleObb( a.collider.triangle, b, manifold );
 }
 bool impl::triangleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, SPHERE );

@@ -37,17 +37,28 @@ void impl::blockPGSSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifo
 		cc.bias = restitutionBias + penetrationBias;
 
 		// effective mass (normal)
+		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
+		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
+
 		pod::Vector3f rnA = uf::vector::cross( cc.rA, cc.normal );
 		pod::Vector3f rnB = uf::vector::cross( cc.rB, cc.normal );
+
+		pod::Vector3f I_rnA = uf::matrix::multiply( invIa, rnA );
+		pod::Vector3f I_rnB = uf::matrix::multiply( invIb, rnB );
+
 		float Kn = (a.isStatic ? 0.0f : a.inverseMass) + (b.isStatic ? 0.0f : b.inverseMass) +
-				   uf::vector::dot( uf::vector::cross( rnA * a.inverseInertiaTensor, cc.rA ) + uf::vector::cross( rnB * b.inverseInertiaTensor, cc.rB ), cc.normal );
+				   uf::vector::dot( uf::vector::cross( I_rnA, cc.rA ) + uf::vector::cross( I_rnB, cc.rB ), cc.normal );
 		cc.effectiveMassN = (Kn > 0.0f) ? 1.0f / Kn : 0.0f;
 
 		// effective mass (tangent)
 		pod::Vector3f rtA = uf::vector::cross( cc.rA, cc.tangent );
 		pod::Vector3f rtB = uf::vector::cross( cc.rB, cc.tangent );
+
+		pod::Vector3f I_rtA = uf::matrix::multiply( invIa, rtA );
+		pod::Vector3f I_rtB = uf::matrix::multiply( invIb, rtB );
+
 		float Kt = (a.isStatic ? 0.0f : a.inverseMass) + (b.isStatic ? 0.0f : b.inverseMass) +
-				   uf::vector::dot( uf::vector::cross( rtA * a.inverseInertiaTensor, cc.rA ) + uf::vector::cross( rtB * b.inverseInertiaTensor, cc.rB ), cc.tangent );
+				   uf::vector::dot( uf::vector::cross( I_rtA, cc.rA ) + uf::vector::cross( I_rtB, cc.rB ), cc.tangent );
 		cc.effectiveMassT = ( Kt > 0.0f ) ? ( 1.0f / Kt ) : 0.0f;
 
 		// warm start

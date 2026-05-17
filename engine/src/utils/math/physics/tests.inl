@@ -5,7 +5,7 @@
 
 #define PHYSICS_STEP(time) for ( int i = 0; i < time * FRAMERATE; i++ ) uf::physics::step(world, INV_FRAMERATE);
 
-namespace {
+namespace impl {
 	uf::Mesh generateMesh( float size = 1 ) {
 		uf::Mesh mesh;
 		mesh.bind<pod::Vertex_3F2F, uint16_t>();
@@ -43,7 +43,7 @@ TEST(SphereSphere_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereSphere(bodyA, bodyB, m);
+	bool collided = impl::sphereSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS);
@@ -64,7 +64,7 @@ TEST(AabbAabb_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbAabb(bodyA, bodyB, m);
+	bool collided = impl::aabbAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -98,7 +98,7 @@ TEST(SphereSphere_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereSphere(bodyA, bodyB, m);
+	bool collided = impl::sphereSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -116,7 +116,7 @@ TEST(SphereAabb_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereAabb(bodyA, bodyB, m);
+	bool collided = impl::sphereAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -136,7 +136,7 @@ TEST(SpherePlane_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeSphere(bodyB, bodyA, m);
+	bool collided = impl::planeSphere(bodyB, bodyA, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_NEAR(m.points[0].penetration, 0.5f, EPS);
@@ -154,7 +154,7 @@ TEST(SpherePlane_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeSphere(bodyB, bodyA, m);
+	bool collided = impl::planeSphere(bodyB, bodyA, m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -171,7 +171,7 @@ TEST(CapsuleCapsule_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleCapsule(bodyA, bodyB, m);
+	bool collided = impl::capsuleCapsule(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -306,7 +306,7 @@ TEST(SphereSphere_TouchingButNotOverlapping, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereSphere(bodyA, bodyB, m);
+	bool collided = impl::sphereSphere(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);	   // should count as a collision
 	EXPECT_NEAR(m.points[0].penetration, 0.0f, EPS);
@@ -516,7 +516,7 @@ TEST(CapsulePlane_ContactNormal, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsulePlane(bodyA, bodyB, m);
+	bool collided = impl::capsulePlane(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
@@ -556,7 +556,7 @@ TEST(CapsuleSphere_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleSphere(bodyA, bodyB, m);
+	bool collided = impl::capsuleSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -574,7 +574,7 @@ TEST(CapsuleSphere_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = capsuleSphere(bodyA, bodyB, m);
+	bool collided = impl::capsuleSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -592,7 +592,7 @@ TEST(AabbSphere_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbSphere( bodyA, bodyB, m );
+	bool collided = impl::aabbSphere( bodyA, bodyB, m );
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -610,7 +610,7 @@ TEST(AabbSphere_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbSphere(bodyA,bodyB,m);
+	bool collided = impl::aabbSphere(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -627,7 +627,7 @@ TEST(AabbPlane_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbPlane(bodyA,bodyB,m);
+	bool collided = impl::aabbPlane(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -644,7 +644,7 @@ TEST(AabbPlane_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbPlane(bodyA,bodyB,m);
+	bool collided = impl::aabbPlane(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -662,7 +662,7 @@ TEST(AabbCapsule_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbCapsule(bodyA,bodyB,m);
+	bool collided = impl::aabbCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -680,7 +680,7 @@ TEST(AabbCapsule_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = aabbCapsule(bodyA,bodyB,m);
+	bool collided = impl::aabbCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -698,7 +698,7 @@ TEST(SphereCapsule_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereCapsule(bodyA,bodyB,m);
+	bool collided = impl::sphereCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -716,7 +716,7 @@ TEST(SphereCapsule_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = sphereCapsule(bodyA,bodyB,m);
+	bool collided = impl::sphereCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 
@@ -730,7 +730,7 @@ TEST(PlanePlane_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planePlane(bodyA,bodyB,m);
+	bool collided = impl::planePlane(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided); // always false in your engine
 })
 
@@ -747,7 +747,7 @@ TEST(PlaneCapsule_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeCapsule(bodyA,bodyB,m);
+	bool collided = impl::planeCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -764,7 +764,7 @@ TEST(PlaneCapsule_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = planeCapsule(bodyA,bodyB,m);
+	bool collided = impl::planeCapsule(bodyA,bodyB,m);
 	EXPECT_TRUE(!collided);
 })
 TEST(MeshSphere_Collision, {
@@ -784,7 +784,7 @@ TEST(MeshSphere_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshSphere(bodyA, bodyB, m);
+	bool collided = impl::meshSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 	if ( !m.points.empty() ) EXPECT_TRUE(m.points[0].penetration > 0.0f);
@@ -805,7 +805,7 @@ TEST(MeshSphere_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshSphere(bodyA, bodyB, m);
+	bool collided = impl::meshSphere(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -825,7 +825,7 @@ TEST(MeshAabb_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshAabb(bodyA, bodyB, m);
+	bool collided = impl::meshAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
 })
@@ -846,7 +846,7 @@ TEST(MeshAabb_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshAabb(bodyA, bodyB, m);
+	bool collided = impl::meshAabb(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -899,7 +899,7 @@ TEST(MeshMesh_Collision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshMesh(bodyA, bodyB, m);
+	bool collided = impl::meshMesh(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 })
 
@@ -919,7 +919,7 @@ TEST(MeshMesh_NoCollision, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = meshMesh(bodyA, bodyB, m);
+	bool collided = impl::meshMesh(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -945,7 +945,7 @@ TEST(TriangleTriangle_Collision_SimpleOverlap, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleTriangle(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleTriangle(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -977,7 +977,7 @@ TEST(TriangleTriangle_Collision_CoplanarOverlap, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleTriangle(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleTriangle(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1005,7 +1005,7 @@ TEST(TriangleTriangle_Collision_TouchingEdge, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleTriangle(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleTriangle(bodyA, bodyB, m);
 
 	// Should still report as collision (tangent contact)
 	EXPECT_TRUE(collided);
@@ -1034,7 +1034,7 @@ TEST(TriangleAabb_Collision_OverlapCenter, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleAabb(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleAabb(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1062,7 +1062,7 @@ TEST(TriangleAabb_Collision_NoOverlap, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleAabb(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleAabb(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -1086,7 +1086,7 @@ TEST(TrianglePlane_Collision_BelowPlane, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::trianglePlane(bodyA, bodyB, m, EPS);
+	bool collided = impl::trianglePlane(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1114,7 +1114,7 @@ TEST(TrianglePlane_NoCollision_AbovePlane, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::trianglePlane(bodyA, bodyB, m, EPS);
+	bool collided = impl::trianglePlane(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -1138,7 +1138,7 @@ TEST(TriangleSphere_Collision_Tangent, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleSphere(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleSphere(bodyA, bodyB, m);
 
 	// At tangency: considered collision
 	EXPECT_TRUE(collided);
@@ -1171,7 +1171,7 @@ TEST(TriangleCapsule_Collision_Overlap, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleCapsule(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleCapsule(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 	EXPECT_FALSE(m.points.empty());
@@ -1202,7 +1202,7 @@ TEST(TriangleCapsule_Collision_NoOverlap, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleCapsule(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleCapsule(bodyA, bodyB, m);
 	EXPECT_FALSE(collided);
 })
 
@@ -1228,7 +1228,7 @@ TEST(TriangleCapsule_Collision_Tangent, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleCapsule(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleCapsule(bodyA, bodyB, m);
 
 	// At tangency, should still count as collision (penetration ≈ 0)
 	EXPECT_TRUE(collided);
@@ -1261,7 +1261,7 @@ TEST(TriangleCapsule_Collision_EdgeAlignment, {
 	bodyB.bounds = impl::computeAABB( bodyB );
 
 	pod::Manifold m;
-	bool collided = impl::triangleCapsule(bodyA, bodyB, m, EPS);
+	bool collided = impl::triangleCapsule(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
 })

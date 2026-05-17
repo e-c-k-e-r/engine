@@ -46,6 +46,10 @@ bool impl::sphereAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 	return true;
 }
+bool impl::sphereObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( SPHERE, OBB );
+	REVERSE_COLLIDER( a, b, impl::obbSphere );
+}
 bool impl::spherePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( SPHERE, PLANE );
 	REVERSE_COLLIDER( a, b, impl::planeSphere );

@@ -23,8 +23,6 @@ if metadata["normal"] ~= nil then
 	if metadata["angle"] < 0 then sign = 1 end
 	normal = Vector3f( metadata["normal"][1] * sign, metadata["normal"][2] * sign, metadata["normal"][3] * sign ):normalize()
 end
-local starting = Quaternion(transform.orientation)
-local ending = transform.orientation:multiply(Quaternion.axisAngle( Vector3f(0,1,0), metadata["angle"] ))
 
 -- local soundEmitter = ent:loadChild("/sound.json",true)
 local soundEmitter = ent

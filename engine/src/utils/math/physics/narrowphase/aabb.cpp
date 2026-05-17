@@ -52,7 +52,10 @@ bool impl::aabbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 	return true;
 }
-
+bool impl::aabbObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( AABB, OBB );
+	REVERSE_COLLIDER( a, b, impl::obbAabb );
+}
 bool impl::aabbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( AABB, SPHERE );
 	REVERSE_COLLIDER( a, b, impl::sphereAabb );

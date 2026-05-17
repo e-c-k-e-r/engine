@@ -3,6 +3,7 @@
 #include "impl.h"
 
 #include "narrowphase/aabb.h"
+#include "narrowphase/obb.h"
 #include "narrowphase/sphere.h"
 #include "narrowphase/plane.h"
 #include "narrowphase/capsule.h"

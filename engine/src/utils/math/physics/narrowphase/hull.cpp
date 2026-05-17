@@ -34,6 +34,10 @@ bool impl::hullAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	ASSERT_COLLIDER_TYPES( CONVEX_HULL, AABB );
 	return hullGeneric(a, b, manifold );
 }
+bool impl::hullObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( CONVEX_HULL, OBB );
+	return hullGeneric(a, b, manifold );
+}
 bool impl::hullSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( CONVEX_HULL, SPHERE );
 	return hullGeneric(a, b, manifold );

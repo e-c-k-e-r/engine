@@ -335,6 +335,15 @@
 			"ultralight": { "enabled": true, "scale": 1.5 },
 			"discord": { "enabled": false }
 		},
+		"physics": {
+			"warmup solver": true,
+			"block solver": true,
+			"psg solver": true,
+			"gjk": true,
+			"fixed step": true,
+			"substeps": 4,
+			"solver iterations": 10
+		},
 		"audio": {
 			"mute": false,
 			"async update": false,

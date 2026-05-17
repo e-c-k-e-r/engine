@@ -25,6 +25,29 @@ bool impl::meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	}
 	return hit;
 }
+bool impl::meshObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( MESH, OBB );
+
+	const auto& mesh = a;
+	const auto& obb = b;
+
+	const auto& bvh  = *mesh.collider.mesh.bvh;
+	const auto& meshData = *mesh.collider.mesh.mesh;
+
+	// transform to local space for BVH query
+	auto bounds = impl::transformAabbToLocal( obb.bounds, impl::getTransform( mesh ) );
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
+	impl::queryBVH( bvh, bounds, candidates );
+
+	bool hit = false;
+	// do collision per triangle
+	for ( auto triID : candidates ) {
+		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
+		if ( !impl::triangleObb( tri, obb, manifold ) ) continue;
+		hit = true;
+	}
+	return hit;
+}
 bool impl::meshSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( MESH, SPHERE );
 

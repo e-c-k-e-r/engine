@@ -23,13 +23,14 @@ pod::Transform<T> /*UF_API*/ uf::transform::initialize() {
 template<typename T>
 pod::Transform<T>& /*UF_API*/ uf::transform::lookAt( pod::Transform<T>& transform, const pod::Vector3t<T>& at ) {
 	pod::Vector3t<T> forward = uf::vector::normalize( at - transform.position );
-	pod::Vector3t<T> right = uf::vector::normalize(uf::vector::cross( forward, transform.up ));
-	pod::Vector3t<T> up = uf::vector::normalize(uf::vector::cross(at, right));
+	pod::Vector3t<T> right = uf::vector::normalize(uf::vector::cross( transform.up, forward ));
+	pod::Vector3t<T> up = uf::vector::normalize(uf::vector::cross( forward, right ));
 
 	transform.up = up;
 	transform.right = right;
 	transform.forward = forward;
-	transform.orientation = uf::quaternion::lookAt( at, up );
+
+	transform.orientation = uf::quaternion::lookAt( forward, up );
 
 	return transform;
 }
@@ -49,7 +50,7 @@ pod::Transform<T>& /*UF_API*/ uf::transform::move( pod::Transform<T>& transform,
 template<typename T>
 pod::Transform<T>& /*UF_API*/ uf::transform::reorient( pod::Transform<T>& transform ) {
 	pod::Quaternion<T> q = transform.orientation;
-	transform.forward = { 2 * (q.x * q.z + q.w * q.y),  2 * (q.y * q.x - q.w * q.x), 1 - 2 * (q.x * q.x + q.y * q.y) };
+	transform.forward = { 2 * (q.x * q.z + q.w * q.y),  2 * (q.y * q.x - q.w * q.z), 1 - 2 * (q.x * q.x + q.y * q.y) };
 	transform.up = { 2 * (q.x * q.y - q.w * q.z), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z + q.w * q.x)};
 	transform.right = { 1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y + q.w * q.z), 2 * (q.x * q.z - q.w * q.y)};
 	return transform;
@@ -94,11 +95,7 @@ pod::Transform<T> /*UF_API*/ uf::transform::flatten( const pod::Transform<T>& tr
 	const pod::Transform<T>* pointer = transform.reference;
 
 	while ( pointer && depth-- > 0 ) {
-		combined.position = {
-			combined.position.x + pointer->position.x,
-			combined.position.y + pointer->position.y,
-			combined.position.z + pointer->position.z,
-		};
+		combined.position = pointer->position + uf::quaternion::rotate(pointer->orientation, combined.position);
 		combined.orientation = uf::quaternion::multiply( pointer->orientation, combined.orientation );
 		combined.scale = {
 			combined.scale.x * pointer->scale.x,

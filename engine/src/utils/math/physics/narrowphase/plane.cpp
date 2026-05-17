@@ -23,6 +23,10 @@ bool impl::planeAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 	return true;
 }
+bool impl::planeObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+	ASSERT_COLLIDER_TYPES( PLANE, OBB );
+	REVERSE_COLLIDER( a, b, impl::obbPlane );
+}
 bool impl::planeSphere(const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold) {
 	ASSERT_COLLIDER_TYPES(PLANE, SPHERE);
 

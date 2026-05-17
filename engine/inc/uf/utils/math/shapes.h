@@ -14,6 +14,8 @@ namespace pod {
 		alignas(16) pod::Vector3f max;
 	};
 
+	typedef AABB OBB;
+
 	struct Sphere {
 		float radius;
 	};
