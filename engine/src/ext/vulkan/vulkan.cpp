@@ -520,9 +520,17 @@ void ext::vulkan::tick() {
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
-		if ( entity->hasComponent<uf::Graphic>() ) {
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
+		if ( entity->hasComponent<ext::vulkan::Graphics>() ) {
+			auto& graphics = entity->getComponent<ext::vulkan::Graphics>();
+			for ( auto& [ _, graphic ] : graphics ) {
+				if ( graphic.initialized || !graphic.process ) continue;
+				graphic.update();
+				ext::vulkan::states::rebuild = true;
+			}
+		}
+		if ( entity->hasComponent<ext::vulkan::Graphic>() ) {
+			auto& graphic = entity->getComponent<ext::vulkan::Graphic>();
+			if ( graphic.initialized || !graphic.process ) continue;
 			graphic.update();
 			ext::vulkan::states::rebuild = true;
 		}

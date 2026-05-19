@@ -1,6 +1,7 @@
 #pragma once
 
 #include "impl.h"
+#include "draw.h"
 
 // to-do: organize this mess
 namespace impl {

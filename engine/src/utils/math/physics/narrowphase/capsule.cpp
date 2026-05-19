@@ -104,3 +104,26 @@ bool impl::capsuleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 	ASSERT_COLLIDER_TYPES( CAPSULE, CONVEX_HULL );
 	REVERSE_COLLIDER( a, b, impl::hullCapsule );
 }
+
+void impl::drawCapsule( const pod::PhysicsBody& body ) {
+	float radius = body.collider.capsule.radius;
+	auto transform = impl::getTransform(body);
+	auto [p1, p2] = impl::getCapsuleSegment(body);
+
+	pod::Vector3f up = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 1, 0});
+	pod::Vector3f right = uf::vector::normalize(impl::computeTangent(up));
+	pod::Vector3f forward = uf::vector::cross(up, right);
+
+	pod::Vector3f rightOffset = right * radius;
+	pod::Vector3f forwardOffset = forward * radius;
+
+	impl::addLine( p1 + rightOffset, p2 + rightOffset );
+	impl::addLine( p1 - rightOffset, p2 - rightOffset );
+	impl::addLine( p1 + forwardOffset, p2 + forwardOffset );
+	impl::addLine( p1 - forwardOffset, p2 - forwardOffset );
+
+	impl::addLine( p1 + rightOffset, p1 - rightOffset );
+	impl::addLine( p1 + forwardOffset, p1 - forwardOffset );
+	impl::addLine( p2 + rightOffset, p2 - rightOffset );
+	impl::addLine( p2 + forwardOffset, p2 - forwardOffset );
+}

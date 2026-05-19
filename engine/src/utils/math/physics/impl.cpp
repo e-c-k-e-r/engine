@@ -68,6 +68,8 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		else uf::physics::step( world, uf::physics::timescale ); 
 		accumulator -= uf::physics::timescale; 
 	}
+
+	if ( uf::physics::settings.debugDraw ) impl::draw( world, dt );
 }
 void uf::physics::terminate() {
 	uf::physics::terminate( uf::scene::getCurrentScene() );
@@ -125,7 +127,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 	}
 
 	// build islands from overlaps
-	uf::stl::vector<pod::Island> islands;
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Island>, islands);
 	impl::buildIslands( pairs, bodies, islands );
 
 	if ( uf::physics::settings.warmupSolver ) impl::prepareManifoldCache( uf::physics::settings.manifoldsCache, islands, bodies );
@@ -134,8 +136,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 	//#pragma omp parallel for schedule(dynamic)
 	auto tasks = uf::thread::schedule(true);
 	for ( auto& island : islands ) tasks.queue([&]{
-		STATIC_THREAD_LOCAL(uf::stl::vector<pod::Manifold>, manifolds);
-		manifolds.reserve(uf::physics::settings.reserveCount);
+		auto& manifolds = island.manifolds;
+		manifolds.clear();
 
 		// sleeping island, skip (asleep islands shouldn't ever be in here)
 		if ( !island.awake ) return;
@@ -202,6 +204,14 @@ void uf::physics::step( pod::World& world, float dt ) {
 	uf::thread::execute( tasks );
 
 	if ( uf::physics::settings.warmupSolver ) impl::pruneManifoldCache( uf::physics::settings.manifoldsCache );
+
+	if ( uf::physics::settings.debugDraw ) {
+		for ( auto& island : islands ) {
+			for ( auto& manifold : island.manifolds ) {
+				impl::drawManifold( manifold );
+			}
+		}
+	}
 
 	for ( auto* b : bodies ) {
 		if ( b->isStatic ) continue;
@@ -290,6 +300,13 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 		case pod::ShapeType::CONVEX_HULL: {
 			const auto& bvh = *body.collider.mesh.bvh;
 
+		#if 1
+			pod::Vector3f dims = (body.bounds.max - body.bounds.min);
+			pod::Vector3f dimsSq = dims * dims;
+			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
+			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+		#else
 			pod::Matrix3f inertia = {};
 			float totalVolume = 0.0f;
 
@@ -338,6 +355,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 				body.inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
 				body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
 			}
+		#endif
 		} break;
 		// to-do: add others
 		default: {
@@ -455,6 +473,7 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, co
 	body.collider.type = pod::ShapeType::OBB;
 	body.collider.aabb = aabb;
 	body.bounds = impl::computeAABB( body );
+
 	uf::physics::updateInertia( body );
 	return body;
 }
@@ -579,6 +598,7 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 }
 pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance ) {
 	pod::RayQuery rayHit;
+	rayHit.invoker = body;
 	rayHit.contact.penetration = maxDistance;
 
 	auto& dynamicBvh = world.dynamicBvh;
@@ -604,6 +624,8 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 			case pod::ShapeType::CONVEX_HULL: impl::rayHull( ray, *b, rayHit ); break;
 		}
 	}
+	
+	if ( uf::physics::settings.debugDraw ) impl::drawRay( ray, rayHit );
 
 	return rayHit;
 }

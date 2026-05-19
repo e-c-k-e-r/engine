@@ -200,14 +200,16 @@ void UF_API uf::load( ext::json::Value& json ) {
 
 	// Physics settings
 	{
-		auto& confingEnginePhysicsJson = json["engine"]["physics"];
-		uf::physics::settings.warmupSolver = confingEnginePhysicsJson["warmup solver"].as(uf::physics::settings.warmupSolver);
-		uf::physics::settings.blockContactSolver = confingEnginePhysicsJson["block solver"].as(uf::physics::settings.blockContactSolver);
-		uf::physics::settings.psgContactSolver = confingEnginePhysicsJson["psg solver"].as(uf::physics::settings.psgContactSolver);
-		uf::physics::settings.useGjk = confingEnginePhysicsJson["gjk"].as(uf::physics::settings.useGjk);
-		uf::physics::settings.fixedStep = confingEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
-		uf::physics::settings.substeps = confingEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
-		uf::physics::settings.solverIterations = confingEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
+		auto& configEnginePhysicsJson = json["engine"]["physics"];
+		uf::physics::settings.warmupSolver = configEnginePhysicsJson["warmup solver"].as(uf::physics::settings.warmupSolver);
+		uf::physics::settings.blockContactSolver = configEnginePhysicsJson["block solver"].as(uf::physics::settings.blockContactSolver);
+		uf::physics::settings.psgContactSolver = configEnginePhysicsJson["psg solver"].as(uf::physics::settings.psgContactSolver);
+		uf::physics::settings.useGjk = configEnginePhysicsJson["gjk"].as(uf::physics::settings.useGjk);
+		uf::physics::settings.debugDraw = configEnginePhysicsJson["debug draw"].as(uf::physics::settings.debugDraw);
+		uf::physics::settings.fixedStep = configEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
+		uf::physics::settings.substeps = configEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
+		uf::physics::settings.solverIterations = configEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
+		uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsJson["correction percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
 	}
 
 	// Audio settings

@@ -4,7 +4,9 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API DeferredRenderMode : public ext::vulkan::RenderMode {			
+		struct UF_API DeferredRenderMode : public ext::vulkan::RenderMode {
+			RenderTarget forwardRenderTarget;
+			
 			virtual const uf::stl::string getType() const;
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );

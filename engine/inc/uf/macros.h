@@ -101,8 +101,8 @@
 	#define TYPE_NAME(T) TYPE(T).name()
 #endif
 
-#define MIN(X, Y) (X) < (Y) ? (X) : (Y)
-#define MAX(X, Y) (X) > (Y) ? (X) : (Y)
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 #define CLAMP(X, LO, HI) MAX(LO, MIN(HI, X))
 #define LENGTH_OF(X) *(&X + 1) - X
 #define FOR_ARRAY(X) for ( auto i = 0; i < LENGTH_OF(X); ++i )

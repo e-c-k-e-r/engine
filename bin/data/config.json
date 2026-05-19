@@ -8,7 +8,7 @@
 				"useLightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": true,
+					"enabled": false,
 					"update": 4,
 					"max": 16,
 					"samples": 2
@@ -110,7 +110,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
+					"default command buffer immediate": true,
 					"n-buffered uniform": false,
 					"multithreaded recording": true
 				},
@@ -121,7 +121,7 @@
 					"hdr": true,
 					"vxgi": false, // to-do: fix issues
 					"culling": false,
-					"bloom": true,
+					"bloom": false,
 					"dof": false,
 					"rt": false,
 					"fsr": false,
@@ -336,10 +336,12 @@
 			"discord": { "enabled": false }
 		},
 		"physics": {
-			"warmup solver": true,
+			"warmup solver": false,
 			"block solver": true,
 			"psg solver": true,
-			"gjk": true,
+			"correction percent": 0.0,
+			"gjk": false,
+			"debug draw": false,
 			"fixed step": true,
 			"substeps": 4,
 			"solver iterations": 10

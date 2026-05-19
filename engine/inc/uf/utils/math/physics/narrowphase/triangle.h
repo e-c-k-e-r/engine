@@ -18,4 +18,6 @@ namespace impl {
 	bool trianglePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
 	bool triangleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
 	bool triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
+
+	void drawTriangle( const pod::PhysicsBody& body );
 }

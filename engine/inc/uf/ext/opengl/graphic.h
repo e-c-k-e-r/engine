@@ -6,7 +6,7 @@
 #include <uf/ext/opengl/texture.h>
 #include <uf/ext/opengl/shader.h>
 #include <uf/utils/mesh/mesh.h>
-
+#include <uf/utils/memory/unordered_map.h>
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 
 namespace ext {
@@ -103,6 +103,8 @@ namespace ext {
 			void record( CommandBuffer& commandBuffer, size_t pass = 0, size_t draw = 0 ) const;
 			void record( CommandBuffer& commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 ) const;
 		};
+
+		typedef uf::stl::unordered_map<uf::stl::string, Graphic> Graphics;
 	}
 }
 

@@ -1,7 +1,41 @@
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/narrowphase.h>
 
+namespace impl {
+	bool triangleGeneric( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+		const auto& tri = a;
+		const auto& body = b;
+
+		pod::Simplex simplex;
+		if ( !impl::gjk( tri, body, simplex ) ) return false;
+		auto result = impl::epa( tri, body, simplex );
+		if ( !impl::generateClippingManifold( tri, body, result, manifold ) ) return false;
+		return true;
+	}
+	
+	bool triangleGeneric( const pod::TriangleWithNormal& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
+		pod::PhysicsBody tri = {};
+		tri.collider.type = pod::ShapeType::TRIANGLE;
+		tri.collider.triangle = a;
+		const auto& body = b;
+
+		return triangleGeneric( tri, body, manifold );
+	}
+}
+
 bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold ) {
+	if ( uf::physics::settings.useGjk ) {
+		pod::PhysicsBody A = {};
+		A.collider.type = pod::ShapeType::TRIANGLE;
+		A.collider.triangle = a;
+
+		pod::PhysicsBody B = {};
+		B.collider.type = pod::ShapeType::TRIANGLE;
+		B.collider.triangle = b;
+
+		return impl::triangleGeneric( A, B, manifold );
+	}
+
 	size_t axes = 0;
 	pod::Vector3f axesBuffer[12];
 	axesBuffer[axes++] = impl::triangleNormal(a);
@@ -88,6 +122,8 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 }
 
 bool impl::triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
+
 	const auto& aabb = body.bounds;
 
 	// box center and half extents
@@ -154,7 +190,9 @@ bool impl::triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsB
 	return true;
 }
 bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
-	auto tB = impl::getTransform( body );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
+
+		auto tB = impl::getTransform( body );
 
 	pod::Vector3f cB = uf::transform::apply( tB, (body.collider.obb.max + body.collider.obb.min) * 0.5f );
 	pod::Vector3f eB = (body.collider.obb.max - body.collider.obb.min) * 0.5f;
@@ -225,6 +263,8 @@ bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBo
 	return true;
 }
 bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
+
 	const auto& sphere = body;
 
 	float r = sphere.collider.sphere.radius;
@@ -254,6 +294,8 @@ bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::Physic
 }
 // to-do: implement
 bool impl::trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
+
 	const auto& plane = body;
 	auto normal = plane.collider.plane.normal;
 	float d = plane.collider.plane.offset;
@@ -300,6 +342,8 @@ bool impl::trianglePlane( const pod::TriangleWithNormal& tri, const pod::Physics
 	return hit;
 }
 bool impl::triangleCapsule( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
+
 	const auto& capsule = body;
 
 	float r = capsule.collider.capsule.radius;
@@ -339,26 +383,32 @@ bool impl::triangleHull( const pod::TriangleWithNormal& tri, const pod::PhysicsB
 
 bool impl::triangleTriangle( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, TRIANGLE );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::triangleTriangle( a.collider.triangle, b.collider.triangle, manifold );
 }
 bool impl::triangleAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, AABB );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::triangleAabb( a.collider.triangle, b, manifold );
 }
 bool impl::triangleObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, OBB );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::triangleObb( a.collider.triangle, b, manifold );
 }
 bool impl::triangleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, SPHERE );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::triangleSphere( a.collider.triangle, b, manifold );
 }
 bool impl::trianglePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, PLANE );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::trianglePlane( a.collider.triangle, b, manifold );
 }
 bool impl::triangleCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( TRIANGLE, CAPSULE );
+	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( a, b, manifold );
 	return impl::triangleCapsule( a.collider.triangle, b, manifold );
 }
 bool impl::triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
@@ -371,4 +421,17 @@ bool impl::triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, p
 	auto result = impl::epa( tri, hull, simplex );
 	if ( !impl::generateClippingManifold( tri, hull, result, manifold ) ) return false;
 	return true;
+}
+
+void impl::drawTriangle( const pod::PhysicsBody& body ) {
+	const auto& tri = body.collider.triangle;
+	auto transform = impl::getTransform(body);
+
+	pod::Vector3f v0 = uf::transform::apply(transform, tri.points[0]);
+	pod::Vector3f v1 = uf::transform::apply(transform, tri.points[1]);
+	pod::Vector3f v2 = uf::transform::apply(transform, tri.points[2]);
+
+	impl::addLine( v0, v1 );
+	impl::addLine( v1, v2 );
+	impl::addLine( v2, v0 );
 }

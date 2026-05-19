@@ -159,7 +159,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend = */false,
 		/*.samples = */msaa,
-		//*.mips = */1,
+		/*.mips = */1,
 	});
 	// output buffers
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
@@ -244,6 +244,39 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	// metadata.outputs.emplace_back(metadata.attachments["output"]);
 	renderTarget.initialize( device );
+
+	// initialize forward+ renderTarget
+	{
+		forwardRenderTarget.device = &device;
+		forwardRenderTarget.views = metadata.eyes;
+		forwardRenderTarget.width = renderTarget.width;
+		forwardRenderTarget.height = renderTarget.height;
+		forwardRenderTarget.scale = renderTarget.scale;
+
+		size_t msaa = ext::vulkan::settings::msaa;
+
+		struct {
+			size_t color, depth;
+		} attachmentsPlus = {};
+
+		attachmentsPlus.color = forwardRenderTarget.aliasAttachment(this->getAttachment("color"));
+		attachmentsPlus.depth = forwardRenderTarget.aliasAttachment(this->getAttachment("depth"));
+
+		metadata.attachments["color+"] = attachmentsPlus.color;
+		metadata.attachments["depth+"] = attachmentsPlus.depth;
+
+		forwardRenderTarget.addPass(
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT  | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			{ attachmentsPlus.color },
+			{},
+			{},
+			attachmentsPlus.depth,
+			0,
+			true
+		);
+
+		forwardRenderTarget.initialize( device );
+	}
 
 	{
 		uf::Mesh mesh;
@@ -599,7 +632,17 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	if ( resized ) {
 		this->resized = false;
 		rebuild = true;
+
 		renderTarget.initialize( *renderTarget.device );
+		
+
+		forwardRenderTarget.width = renderTarget.width;
+		forwardRenderTarget.height = renderTarget.height;
+		forwardRenderTarget.scale = renderTarget.scale;
+		forwardRenderTarget.attachments.clear();
+		forwardRenderTarget.aliasAttachment(this->getAttachment("color"));
+		forwardRenderTarget.aliasAttachment(this->getAttachment("depth"));
+		forwardRenderTarget.initialize( *forwardRenderTarget.device );
 	}
 
 	// update blitter descriptor set
@@ -660,6 +703,8 @@ void ext::vulkan::DeferredRenderMode::render() {
 	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
+	forwardRenderTarget.destroy();
+
 	// cleanup
 	::postprocesses::depthPyramid.atomicCounter.destroy(false);
 	::postprocesses::bloom.atomicCounter.destroy(false);
@@ -819,6 +864,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
+						if ( graphic->descriptor.renderTarget != 0 /*this->getName()*/ ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
 						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
@@ -873,6 +919,65 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
 				::transitionAttachmentsFrom( this, shader, commandBuffer );
+			}
+
+			// forward+
+			{
+				{
+				    device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "forward:setImageLayout" );
+
+				    // Transition Color
+				    VkImageSubresourceRange colorRange = {};
+				    colorRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				    colorRange.baseMipLevel = 0;
+				    colorRange.levelCount = 1;
+				    colorRange.baseArrayLayer = 0;
+				    colorRange.layerCount = metadata.eyes; // Or this->views
+
+				    uf::renderer::Texture::setImageLayout(
+				        commandBuffer,
+				        forwardRenderTarget.attachments[0].image,
+				        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				        colorRange
+				    );
+
+				    // Transition Depth
+				    VkImageSubresourceRange depthRange = colorRange;
+				    depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // Depth aspect!
+
+				    uf::renderer::Texture::setImageLayout(
+				        commandBuffer,
+				        forwardRenderTarget.attachments[1].image,
+				        VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+				        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				        depthRange
+				    );
+				}
+
+				renderPassBeginInfo.clearValueCount = 0;
+				renderPassBeginInfo.pClearValues = NULL;
+				renderPassBeginInfo.renderPass = forwardRenderTarget.renderPass;
+				renderPassBeginInfo.framebuffer = forwardRenderTarget.framebuffers[frame];
+
+				vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+					vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+					vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+					// render to geometry buffers
+					{		
+						size_t currentPass = 0;
+						size_t currentDraw = 0;
+						for ( auto graphic : graphics ) {
+							// only draw graphics that are assigned to this type of render mode
+							if ( graphic->descriptor.renderTarget != 1 /*"forward"*/ ) continue;
+							//if ( graphic->descriptor.renderMode != this->getName() ) continue;
+							//if ( graphic->descriptor.pipeline != "forward" ) continue;
+							ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor; // bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
+							graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
+						}
+					}
+				vkCmdEndRenderPass(commandBuffer);
 			}
 
 			if ( settings::pipelines::bloom && blitter.material.hasShader("compute", "bloom-down") ) {

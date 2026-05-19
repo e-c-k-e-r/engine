@@ -13,7 +13,7 @@ namespace ext {
 					bool blend = false;
 					uint8_t samples = 1;
 					uint8_t mips = 0;
-					bool screenshottable = true;
+					bool screenshottable = false;
 					bool aliased = false;
 
 					uint32_t width = 0;
@@ -57,6 +57,7 @@ namespace ext {
 			void destroy();
 			void addPass( VkPipelineStageFlags, VkAccessFlags, const uf::stl::vector<size_t>&, const uf::stl::vector<size_t>&, const uf::stl::vector<size_t>&, size_t, size_t = 0, bool = true  );
 			size_t attach( const Attachment::Descriptor& descriptor, Attachment* attachment = NULL );
+			size_t aliasAttachment( const Attachment& attachment );
 		};
 	}
 }

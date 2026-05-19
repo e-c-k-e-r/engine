@@ -95,13 +95,9 @@ pod::Transform<T> /*UF_API*/ uf::transform::flatten( const pod::Transform<T>& tr
 	const pod::Transform<T>* pointer = transform.reference;
 
 	while ( pointer && depth-- > 0 ) {
-		combined.position = pointer->position + uf::quaternion::rotate(pointer->orientation, combined.position);
+		combined.position = pointer->position + uf::quaternion::rotate(pointer->orientation, combined.position * pointer->scale);
 		combined.orientation = uf::quaternion::multiply( pointer->orientation, combined.orientation );
-		combined.scale = {
-			combined.scale.x * pointer->scale.x,
-			combined.scale.y * pointer->scale.y,
-			combined.scale.z * pointer->scale.z,
-		};
+		combined.scale = combined.scale * pointer->scale;
 		combined.model = pointer->model * combined.model;
 
 		if ( pointer == pointer->reference ) break;

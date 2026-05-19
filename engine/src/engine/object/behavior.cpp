@@ -134,11 +134,24 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		auto type = metadataJsonPhysics["type"].as<uf::stl::string>();
 		float mass = metadataJsonPhysics["mass"].as<float>();
 
+		bool recenter = metadataJsonPhysics["recenter"].as<bool>();
 		pod::Vector3f offset = uf::vector::decode( metadataJsonPhysics["offset"], pod::Vector3f{} );
+
+		if ( offset == pod::Vector3f{} ) recenter = true;
 
 		if ( type == "bounding box" || type == "aabb" ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
+
+			// recenter
+			if ( recenter ) {
+				pod::Vector3f center = (max + min) * 0.5f;
+				pod::Vector3f extents = (max - min) * 0.5f;
+
+				min = -extents;
+				max =  extents;
+				offset = center;
+			}
 
 			uf::physics::create( self, pod::AABB{ .min = min, .max = max }, mass, offset );
 		} else if ( type == "plane" ) {

@@ -743,7 +743,7 @@ template<typename T>
 size_t uf::vector::hash( const T& v ) {
 	size_t hash = 0;
 	FOR_EACH(T::size, {
-		hash ^= v[i];
+		uf::hash( hash, v[i] );
 	});
 	return hash;
 }

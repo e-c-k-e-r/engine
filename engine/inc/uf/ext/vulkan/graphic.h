@@ -6,6 +6,7 @@
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/shader.h>
 #include <uf/utils/mesh/mesh.h>
+#include <uf/utils/memory/unordered_map.h>
 
 namespace ext {
 	namespace vulkan {
@@ -140,5 +141,7 @@ namespace ext {
 			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0, size_t offset = 0 ) const;
 
 		};
+
+		typedef uf::stl::unordered_map<uf::stl::string, Graphic> Graphics;
 	}
 }

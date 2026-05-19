@@ -10,4 +10,6 @@ namespace impl {
 	bool obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
 	bool obbMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
 	bool obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );
+
+	void drawObb( const pod::PhysicsBody& body );
 }

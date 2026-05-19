@@ -64,3 +64,24 @@ bool impl::planeHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 	ASSERT_COLLIDER_TYPES( PLANE, CONVEX_HULL );
 	REVERSE_COLLIDER( a, b, impl::hullPlane );
 }
+
+void impl::drawPlane( const pod::PhysicsBody& body ) {
+	auto transform = impl::getTransform(body);
+
+	pod::Vector3f right = uf::quaternion::rotate(transform.orientation, pod::Vector3f{1, 0, 0});
+	pod::Vector3f forward = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 0, 1});
+
+	float size = 10.0f;
+	pod::Vector3f p0 = transform.position + (right * size) + (forward * size);
+	pod::Vector3f p1 = transform.position - (right * size) + (forward * size);
+	pod::Vector3f p2 = transform.position - (right * size) - (forward * size);
+	pod::Vector3f p3 = transform.position + (right * size) - (forward * size);
+
+	impl::addLine( p0, p1 );
+	impl::addLine( p1, p2 );
+	impl::addLine( p2, p3 );
+	impl::addLine( p3, p0 );
+
+	impl::addLine( p0, p2 );
+	impl::addLine( p1, p3 );
+}

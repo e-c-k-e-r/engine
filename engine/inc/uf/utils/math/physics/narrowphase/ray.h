@@ -13,4 +13,6 @@ namespace impl {
 	bool rayCapsule( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit );
 	bool rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit );
 	bool rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQuery& rayHit );
+
+	void drawRay( const pod::Ray& r, const pod::RayQuery& query );
 }

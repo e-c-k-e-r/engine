@@ -16,6 +16,7 @@
 #include <uf/ext/json/json.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/angle.h>
+#include <uf/utils/math/hash.h>
 
 #if UF_USE_BFLOAT16
 	#include <stdfloat>

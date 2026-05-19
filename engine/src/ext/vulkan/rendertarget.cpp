@@ -218,6 +218,34 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 
 	return index;
 }
+size_t ext::vulkan::RenderTarget::aliasAttachment( const Attachment& source ) {
+	if ( this->views == 0 ) this->views = source.views.size(); // Keep view count consistent
+
+	size_t index = attachments.size();
+	auto& attachment = attachments.emplace_back();
+
+	// 1. Copy the descriptor and mark it as aliased!
+	// This prevents RenderTarget::destroy from double-freeing the memory,
+	// and prevents RenderTarget::initialize from trying to re-allocate it.
+	attachment.descriptor = source.descriptor;
+	attachment.descriptor.aliased = true;
+
+	// 2. Copy the Vulkan resource handles
+	attachment.image = source.image;
+	attachment.view = source.view;
+	attachment.framebufferView = source.framebufferView;
+	attachment.views = source.views; // Copy the vector of image views
+
+	// 3. Copy the pipeline states
+	attachment.blendState = source.blendState;
+
+	// 4. Copy memory references (safe because aliased == true)
+	attachment.mem = source.mem;
+	attachment.allocation = source.allocation;
+	attachment.allocationInfo = source.allocationInfo;
+
+    return index;
+}
 void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	// Bind
 	this->device = &device;
@@ -253,6 +281,11 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // isSwapchain ? VK_IMAGE_LAYOUT_UNDEFINED : attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
 			description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 			description.flags = 0;
+
+			if ( attachment.descriptor.aliased && !isSwapchain ) {
+				description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+				description.initialLayout = attachment.descriptor.layout;
+			}
 
 			attachments.emplace_back(description);
 		}
@@ -438,6 +471,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			frameBufferCreateInfo.width = width;
 			frameBufferCreateInfo.height = height;
 			frameBufferCreateInfo.layers = 1;
+
 			// Create the framebuffer
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[frame]));
 			VK_REGISTER_HANDLE( framebuffers[frame] );

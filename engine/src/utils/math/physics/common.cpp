@@ -735,7 +735,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB:
 		case pod::ShapeType::OBB: {
-			return impl::transformAabbToWorld( body.collider.aabb, *body.transform );
+			return impl::transformAabbToWorld( body.collider.aabb, transform );
 		/*
 			return {
 				transform.position + body.collider.aabb.min,
@@ -756,7 +756,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 		case pod::ShapeType::MESH:
 		case pod::ShapeType::CONVEX_HULL: {
 			if ( body.collider.mesh.bvh && !body.collider.mesh.bvh->bounds.empty() )
-				return impl::transformAabbToWorld( body.collider.mesh.bvh->bounds[0], *body.transform );
+				return impl::transformAabbToWorld( body.collider.mesh.bvh->bounds[0], transform );
 			const auto& meshData = *body.collider.mesh.mesh;
 			pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
 			for ( const auto& view : meshData.buffer_views ) impl::computeConvexHullAABB( view, view["position"], bounds );

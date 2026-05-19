@@ -275,3 +275,28 @@ bool impl::obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 	ASSERT_COLLIDER_TYPES( OBB, CONVEX_HULL );
 	REVERSE_COLLIDER( a, b, impl::hullObb );
 }
+
+void impl::drawObb( const pod::PhysicsBody& body ) {
+	auto& aabb = body.collider.aabb;
+	pod::Vector3f corners[8] = {
+		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
+		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
+		{aabb.min.x, aabb.min.y, aabb.max.z}, {aabb.max.x, aabb.min.y, aabb.max.z},
+		{aabb.max.x, aabb.max.y, aabb.max.z}, {aabb.min.x, aabb.max.y, aabb.max.z}
+	};
+
+	auto transform = impl::getTransform(body);
+	FOR_EACH( 8, {
+		corners[i] = uf::transform::apply(transform, corners[i]);
+	});
+
+	// bottom face
+	impl::addLine( corners[0], corners[1] ); impl::addLine( corners[1], corners[2] );
+	impl::addLine( corners[2], corners[3] ); impl::addLine( corners[3], corners[0] );
+	// top face
+	impl::addLine( corners[4], corners[5] ); impl::addLine( corners[5], corners[6] );
+	impl::addLine( corners[6], corners[7] ); impl::addLine( corners[7], corners[4] );
+	// vertical edges
+	impl::addLine( corners[0], corners[4] ); impl::addLine( corners[1], corners[5] );
+	impl::addLine( corners[2], corners[6] ); impl::addLine( corners[3], corners[7] );
+}

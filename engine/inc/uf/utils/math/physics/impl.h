@@ -243,7 +243,8 @@ namespace pod {
 
 	struct RayQuery {
 		bool hit = false;
-		const pod::PhysicsBody* body;
+		const pod::PhysicsBody* body = NULL;
+		const pod::PhysicsBody* invoker = NULL;
 		pod::Contact contact = { pod::Vector3f{}, pod::Vector3f{}, FLT_MAX };
 	};
 
@@ -251,6 +252,8 @@ namespace pod {
 		bool awake = true;
 		uf::stl::vector<uint32_t> indices;
 		pod::BVH::pairs_t pairs;
+
+		uf::stl::vector<pod::Manifold> manifolds;
 	};
 
 	struct PhysicsSettings {
@@ -259,6 +262,7 @@ namespace pod {
 		bool psgContactSolver = true; // use PSG contact solver
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
+		bool debugDraw = false; // draws wireframe of collision bodies
 		uint32_t substeps = 4; // number of substeps per frame tick
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 

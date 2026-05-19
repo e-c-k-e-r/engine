@@ -60,10 +60,18 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) continue;
-		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized || !graphic.process ) continue;
-		graphics.push_back(&graphic);
+		if ( entity->hasComponent<ext::opengl::Graphics>() ) {
+			auto& g = entity->getComponent<ext::opengl::Graphics>();
+			for ( auto& [ _, graphic ] : g ) {
+				if ( !graphic.initialized || !graphic.process ) continue;
+				graphics.emplace_back(&graphic);
+			}
+		}
+		if ( entity->hasComponent<ext::opengl::Graphic>() ) {
+			auto& graphic = entity->getComponent<ext::opengl::Graphic>();
+			if ( !graphic.initialized || !graphic.process ) continue;
+			graphics.emplace_back(&graphic);
+		}
 	}
 
 	this->synchronize();

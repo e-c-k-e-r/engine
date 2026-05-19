@@ -300,3 +300,10 @@ bool impl::rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 
 	return rayHit.hit;
 }
+
+void impl::drawRay( const pod::Ray& ray, const pod::RayQuery& query ) {
+	auto& start = ray.origin;
+	auto  end = ray.origin + ray.direction * query.contact.penetration;
+
+	impl::addTransientLine( start, end, query.hit ? pod::Vector4f{ 0, 1, 0, 1 } : pod::Vector4f{ 1, 0, 0, 1 }, query.invoker, query.body );
+}

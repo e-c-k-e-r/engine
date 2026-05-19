@@ -66,3 +66,35 @@ bool impl::sphereHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	ASSERT_COLLIDER_TYPES( SPHERE, CONVEX_HULL );
 	REVERSE_COLLIDER( a, b, impl::hullSphere );
 }
+
+void impl::drawSphere( const pod::PhysicsBody& body ) {
+	float radius = body.collider.sphere.radius;
+	auto transform = impl::getTransform(body);
+
+	const int segments = 16;
+	const float PI = 3.14159265359f;
+	const float angleIncrement = (2.0f * PI) / segments;
+
+	for ( auto i = 0; i < segments; ++i ) {
+		float theta1 = i * angleIncrement;
+		float theta2 = (i + 1) * angleIncrement;
+
+		float c1 = std::cos(theta1) * radius;
+		float s1 = std::sin(theta1) * radius;
+		float c2 = std::cos(theta2) * radius;
+		float s2 = std::sin(theta2) * radius;
+
+		pod::Vector3f xy1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, s1, 0.0f});
+		pod::Vector3f xy2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, s2, 0.0f});
+
+		pod::Vector3f xz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, 0.0f, s1});
+		pod::Vector3f xz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, 0.0f, s2});
+
+		pod::Vector3f yz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c1, s1});
+		pod::Vector3f yz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c2, s2});
+
+		impl::addLine( transform.position + xy1, transform.position + xy2 );
+		impl::addLine( transform.position + xz1, transform.position + xz2 );
+		impl::addLine( transform.position + yz1, transform.position + yz2 );
+	}
+}
