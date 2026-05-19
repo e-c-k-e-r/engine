@@ -83,7 +83,7 @@ void impl::draw( const pod::World& world, float dt ) {
 
 	::lines.clear();
 
-	for ( auto* body : world.bodies ) impl::drawBody( *body );
+//	for ( auto* body : world.bodies ) impl::drawBody( *body );
 	for ( auto it = ::transientLines.begin(); it != ::transientLines.end(); ) {
 		auto& line = it->second;
 		

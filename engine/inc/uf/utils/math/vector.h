@@ -131,6 +131,8 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ abs( const T& vector ); // gets the absolute value of a vector
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ min( const T& left, const T& right ); // returns the minimum of each component between two vectors
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ max( const T& left, const T& right ); // returns the maximum of each component between two vectors
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ min( const T& v ); // returns the minimum component of a vector
+		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ max( const T& v ); // returns the maximum component of a vector
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ clamp( const T& vector, const T& min, const T& max ); // clamps a vector between two bounds
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ ceil( const T& vector ); // rounds each component of the the vector up
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ floor( const T& vector ); // rounds each component of the vector down

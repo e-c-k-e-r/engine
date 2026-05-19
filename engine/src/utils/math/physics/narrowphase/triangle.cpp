@@ -14,9 +14,7 @@ namespace impl {
 	}
 	
 	bool triangleGeneric( const pod::TriangleWithNormal& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
-		pod::PhysicsBody tri = {};
-		tri.collider.type = pod::ShapeType::TRIANGLE;
-		tri.collider.triangle = a;
+		auto tri = impl::physicsBodyTriView( a );
 		const auto& body = b;
 
 		return triangleGeneric( tri, body, manifold );
@@ -25,28 +23,23 @@ namespace impl {
 
 bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::TriangleWithNormal& b, pod::Manifold& manifold ) {
 	if ( uf::physics::settings.useGjk ) {
-		pod::PhysicsBody A = {};
-		A.collider.type = pod::ShapeType::TRIANGLE;
-		A.collider.triangle = a;
-
-		pod::PhysicsBody B = {};
-		B.collider.type = pod::ShapeType::TRIANGLE;
-		B.collider.triangle = b;
+		auto A = impl::physicsBodyTriView( a );
+		auto B = impl::physicsBodyTriView( b );
 
 		return impl::triangleGeneric( A, B, manifold );
 	}
 
-	size_t axes = 0;
-	pod::Vector3f axesBuffer[12];
-	axesBuffer[axes++] = impl::triangleNormal(a);
-	axesBuffer[axes++] = impl::triangleNormal(b);
+	size_t axesCount = 0;
+	pod::Vector3f axes[14]; // 2 normals + 9 edge cross product
+	axes[axesCount++] = impl::triangleNormal(a);
+	axes[axesCount++] = impl::triangleNormal(b);
 
-	for (int i = 0; i < 3; i++) {
+	for ( auto i = 0; i < 3; i++ ) {
 		auto ea = a.points[(i+1)%3] - a.points[i];
-		for (int j = 0; j < 3; j++) {
+		for ( auto j = 0; j < 3; j++ ) {
 			auto eb = b.points[(j+1)%3] - b.points[j];
 			auto axis = uf::vector::cross(ea, eb);
-			if ( uf::vector::magnitude( axis ) > EPS2 ) axesBuffer[axes++] = uf::vector::normalize(axis);
+			if ( uf::vector::magnitude( axis ) > EPS2 ) axes[axesCount++] = uf::vector::normalize(axis);
 		}
 	}
 
@@ -54,67 +47,54 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 	float minOverlap = FLT_MAX;
 	pod::Vector3f bestAxis;
 
-	for ( auto& axis : axesBuffer ) {
-		auto projA = impl::projectTriangleOntoAxis(a, axis);
-		auto projB = impl::projectTriangleOntoAxis(b, axis);
+	for ( auto i = 0; i < axesCount; i++ ) {
+		const auto& axis = axes[i];
+		auto nA = uf::vector::normalize( axis );
+		auto pA = pod::Vector3f{
+			uf::vector::dot( a.points[0], nA ),
+			uf::vector::dot( a.points[1], nA ),
+			uf::vector::dot( a.points[2], nA )
+		};
+
+		auto pB = pod::Vector3f{
+			uf::vector::dot( b.points[0], nA ),
+			uf::vector::dot( b.points[1], nA ),
+			uf::vector::dot( b.points[2], nA )
+		};
+
+		auto projA = pod::Vector2f{ uf::vector::min( pA ), uf::vector::max( pA ) };
+		auto projB = pod::Vector2f{ uf::vector::min( pB ), uf::vector::max( pB ) };
 
 		float overlap = std::min(projA.y, projB.y) - std::max(projA.x, projB.x);
-		if (overlap < 0) return false; // separating axis
+		if ( overlap < 0 ) return false;
 
-		if (overlap < minOverlap) {
+		if ( overlap < minOverlap ) {
 			minOverlap = overlap;
 			bestAxis = axis;
 		}
 	}
 
-
-	// clip polygons
-	int polyCount = 0;
-	pod::Vector3f poly[8];
-	poly[polyCount++] = b.points[0];
-	poly[polyCount++] = b.points[1];
-	poly[polyCount++] = b.points[2];
-
-	auto clipAgainstPlane = [&](const pod::Vector3f& n, const pod::Vector3f& p) {
-		int outCount = 0;
-		pod::Vector3f out[8];
-
-		for ( auto i = 0; i < polyCount; i++ ) {
-			auto curr = poly[i];
-			auto prev = poly[(i+polyCount-1)%polyCount];
-			float dCurr = uf::vector::dot(n, curr - p);
-			float dPrev = uf::vector::dot(n, prev - p);
-
-			if ( dCurr >= 0 ) {
-				if ( dPrev < 0 ) {
-					float t = dPrev / (dPrev - dCurr);
-					out[outCount++] = prev + (curr - prev) * t;
-				}
-				out[outCount++] = curr;
-			} else if ( dPrev >= 0 ) {
-				float t = dPrev / (dPrev - dCurr);
-				out[outCount++] = prev + (curr - prev) * t;
-			}
-		}
-		// copy back
-		polyCount = outCount;
-		for ( auto i = 0; i < outCount; i++ ) poly[i] = out[i];
-	};
-	
 	if ( uf::vector::dot(bestAxis, impl::triangleCenter(b) - impl::triangleCenter(a)) < 0.0f ) bestAxis = -bestAxis;
+
+	int polyCount = 3;
+	pod::Vector3f poly[8];
+	poly[0] = b.points[0];
+	poly[1] = b.points[1];
+	poly[2] = b.points[2];
 
 	for ( auto i = 0; i < 3; i++ ) {
 		auto p0 = a.points[i];
 		auto p1 = a.points[(i+1)%3];
 		auto edge = p1 - p0;
 		auto edgeNormal = uf::vector::normalize(uf::vector::cross(bestAxis, edge));
-		clipAgainstPlane(edgeNormal, p0);
+
+		impl::clipPolygon( poly, polyCount, pod::Plane{ edgeNormal, uf::vector::dot(edgeNormal, p0) } );
 		if ( polyCount == 0 ) return false;
 	}
 
 	// build manifold
 	float penetration = std::max( minOverlap, 0.05f ); // slop
-	for (int i = 0; i < polyCount; i++) {
+	for ( auto i = 0; i < polyCount; i++ ) {
 		manifold.points.emplace_back(pod::Contact{ poly[i], bestAxis, penetration });
 	}
 
@@ -124,142 +104,110 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 bool impl::triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
 	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
 
-	const auto& aabb = body.bounds;
-
-	// box center and half extents
-	pod::Vector3f boxCenter = impl::aabbCenter( aabb );
-	pod::Vector3f boxHalf   = impl::aabbExtent( aabb );
-
-	// move triangle into box-local space
-	pod::Vector3f v0 = tri.points[0] - boxCenter;
-	pod::Vector3f v1 = tri.points[1] - boxCenter;
-	pod::Vector3f v2 = tri.points[2] - boxCenter;
-
-	// triangle edges
-	pod::Vector3f e0 = v1 - v0;
-	pod::Vector3f e1 = v2 - v1;
-	pod::Vector3f e2 = v0 - v2;
+	const auto& box = body.bounds;
+	pod::Vector3f axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
 
 	float minOverlap = FLT_MAX;
 	pod::Vector3f bestAxis;
+	if ( !impl::testSeparatingAxis( tri, box, tri.normal, axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[0], axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[1], axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[2], axes, minOverlap, bestAxis ) ) return false;
 
-	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-		if ( uf::vector::magnitude( axis ) < EPS2 ) return true; // skip degenerate
-
-		pod::Vector3f n = uf::vector::normalize(axis);
-
-		// project triangle
-		float t0 = uf::vector::dot(v0, n);
-		float t1 = uf::vector::dot(v1, n);
-		float t2 = uf::vector::dot(v2, n);
-		float triMin = std::min({t0, t1, t2});
-		float triMax = std::max({t0, t1, t2});
-
-		// project box (radius along axis)
-		float r = boxHalf.x * fabs(n.x) + boxHalf.y * fabs(n.y) + boxHalf.z * fabs(n.z); // to-do: use boxHalf + uf::vector::abs( n ) or something
-
-		// overlap test
-		if ( triMin > r || triMax < -r ) return false; // separating axis
-
-		// compute overlap depth
-		float overlap = std::min(triMax + r, r - triMin);
-		if ( overlap < minOverlap ) {
-			minOverlap = overlap;
-			bestAxis = n;
-		}
-		return true;
+	// test edges (3 triangle edges crossed with 3 AABB axes)
+	pod::Vector3f edges[3] = {
+		tri.points[1] - tri.points[0],
+		tri.points[2] - tri.points[1],
+		tri.points[0] - tri.points[2]
 	};
-
-	if ( !testAxis({1,0,0}) ) return false;
-	if ( !testAxis({0,1,0}) ) return false;
-	if ( !testAxis({0,0,1}) ) return false;
-	if ( !testAxis(uf::vector::cross(e0, e1)) ) return false;
-
-	pod::Vector3f boxAxes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
-	pod::Vector3f edges[3]   = { e0, e1, e2 };
-	for ( auto& edge : edges ) {
-		for ( auto& axis : boxAxes ) if ( !testAxis(uf::vector::cross(edge, axis)) ) return false;
+	for ( int i = 0; i < 3; i++ ) {
+		for ( int j = 0; j < 3; j++ ) {
+			auto axis = uf::vector::cross(edges[i], axes[j]);
+			if ( !impl::testSeparatingAxis( tri, box, axis, axes, minOverlap, bestAxis ) ) return false;
+		}
 	}
 
-	pod::Vector3f triNormal = uf::vector::normalize(uf::vector::cross(e0, e1));
-	float planeDist = uf::vector::dot(triNormal, v0);
-	if ( uf::vector::dot(bestAxis, triNormal) < 0.0f ) bestAxis = -bestAxis;
-	pod::Vector3f contact = boxCenter - bestAxis * (boxHalf.x * fabs(bestAxis.x) + boxHalf.y * fabs(bestAxis.y) + boxHalf.z * fabs(bestAxis.z));
+	auto cB = impl::aabbCenter(box);
+	auto eB = impl::aabbExtent(box);
+	auto cT = impl::triangleCenter(tri);
+	if ( uf::vector::dot( bestAxis, cB - cT ) < 0.0f ) bestAxis = -bestAxis;
 
-	manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
+	int polyCount = 3;
+	pod::Vector3f poly[8];
+	poly[0] = tri.points[0];
+	poly[1] = tri.points[1];
+	poly[2] = tri.points[2];
+
+	impl::clipPolygon( poly, polyCount, pod::Plane{ { 1,  0,  0}, eB.x + cB.x} );
+	impl::clipPolygon( poly, polyCount, pod::Plane{ {-1,  0,  0}, eB.x - cB.x} );
+	impl::clipPolygon( poly, polyCount, pod::Plane{ { 0,  1,  0}, eB.y + cB.y} );
+	impl::clipPolygon( poly, polyCount, pod::Plane{ { 0, -1,  0}, eB.y - cB.y} );
+	impl::clipPolygon( poly, polyCount, pod::Plane{ { 0,  0,  1}, eB.z + cB.z} );
+	impl::clipPolygon( poly, polyCount, pod::Plane{ { 0,  0, -1}, eB.z - cB.z} );
+
+	if ( polyCount == 0 ) return false;
+
+	for ( auto i = 0; i < polyCount; i++ ) {
+		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, minOverlap } );
+	}
+
 	return true;
 }
 bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
 	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
 
-		auto tB = impl::getTransform( body );
-
-	pod::Vector3f cB = uf::transform::apply( tB, (body.collider.obb.max + body.collider.obb.min) * 0.5f );
-	pod::Vector3f eB = (body.collider.obb.max - body.collider.obb.min) * 0.5f;
-	pod::Vector3f axesB[3] = {
+	const auto& box = body.bounds;
+	auto tB = impl::getTransform( body );
+	pod::Vector3f axes[3] = {
 		uf::quaternion::rotate(tB.orientation, pod::Vector3f{1,0,0}),
 		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,1,0}),
 		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,0,1})
 	};
 
-	pod::Vector3f v0 = tri.points[0];
-	pod::Vector3f v1 = tri.points[1];
-	pod::Vector3f v2 = tri.points[2];
-
-	pod::Vector3f e0 = v1 - v0;
-	pod::Vector3f e1 = v2 - v1;
-	pod::Vector3f e2 = v0 - v2;
-	pod::Vector3f edges[3] = { e0, e1, e2 };
-
-	pod::Vector3f triNormal = tri.normal;
-
 	float minOverlap = FLT_MAX;
 	pod::Vector3f bestAxis;
 
-	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-		float mag = uf::vector::magnitude(axis);
-		if (mag < EPS) return true; // degenerate
-		pod::Vector3f n = axis / mag;
+	if ( !impl::testSeparatingAxis( tri, box, tri.normal, axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[0], axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[1], axes, minOverlap, bestAxis ) ) return false;
+	if ( !impl::testSeparatingAxis( tri, box, axes[2], axes, minOverlap, bestAxis ) ) return false;
 
-		float p0 = uf::vector::dot(v0, n);
-		float p1 = uf::vector::dot(v1, n);
-		float p2 = uf::vector::dot(v2, n);
-		float minT = std::min({p0, p1, p2});
-		float maxT = std::max({p0, p1, p2});
-
-		float pB = uf::vector::dot(cB, n);
-		float rB = eB.x * std::fabs(uf::vector::dot(axesB[0], n)) +
-				   eB.y * std::fabs(uf::vector::dot(axesB[1], n)) +
-				   eB.z * std::fabs(uf::vector::dot(axesB[2], n));
-		float minB = pB - rB;
-		float maxB = pB + rB;
-
-		if ( minT > maxB || maxT < minB ) return false;
-
-		float overlap = std::min(maxT, maxB) - std::max(minT, minB);
-		if ( overlap < minOverlap ) {
-			minOverlap = overlap;
-			bestAxis = n;
+	pod::Vector3f edges[3] = {
+		tri.points[1] - tri.points[0],
+		tri.points[2] - tri.points[1],
+		tri.points[0] - tri.points[2]
+	};
+	for ( auto i = 0; i < 3; i++ ) {
+		for ( auto j = 0; j < 3; j++ ) {
+			pod::Vector3f axis = uf::vector::cross( edges[i], axes[j] );
+			if ( !impl::testSeparatingAxis( tri, box, axis, axes, minOverlap, bestAxis ) ) return false;
 		}
-		return true;
-	};
+	}
 
-	if ( !testAxis(triNormal) ) return false;
-	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesB[i]) ) return false;;
-	for ( auto i = 0; i < 3; ++i ) {
-		for ( auto j = 0; j < 3; j++ ) if ( !testAxis(uf::vector::cross(edges[i], axesB[j])) ) return false;
-	};
+	auto cB = impl::aabbCenter(box);
+	auto eB = impl::aabbExtent(box);
+	auto cT = impl::triangleCenter(tri);
+	if ( uf::vector::dot( bestAxis, cB - cT ) < 0.0f ) bestAxis = -bestAxis;
 
-	pod::Vector3f triCenter = (v0 + v1 + v2) / 3.0f;
-	if ( uf::vector::dot(bestAxis, cB - triCenter) < 0.0f ) bestAxis = -bestAxis;
+	int polyCount = 3;
+	pod::Vector3f poly[8];
+	poly[0] = tri.points[0];
+	poly[1] = tri.points[1];
+	poly[2] = tri.points[2];
 
-	float rB = eB.x * std::fabs(uf::vector::dot(axesB[0], bestAxis)) +
-			   eB.y * std::fabs(uf::vector::dot(axesB[1], bestAxis)) +
-			   eB.z * std::fabs(uf::vector::dot(axesB[2], bestAxis));
+	impl::clipPolygon( poly, polyCount, pod::Plane{  axes[0], eB.x + uf::vector::dot(axes[0], cB) });
+	impl::clipPolygon( poly, polyCount, pod::Plane{ -axes[0], eB.x - uf::vector::dot(axes[0], cB) });
+	impl::clipPolygon( poly, polyCount, pod::Plane{  axes[1], eB.y + uf::vector::dot(axes[1], cB) });
+	impl::clipPolygon( poly, polyCount, pod::Plane{ -axes[1], eB.y - uf::vector::dot(axes[1], cB) });
+	impl::clipPolygon( poly, polyCount, pod::Plane{  axes[2], eB.z + uf::vector::dot(axes[2], cB) });
+	impl::clipPolygon( poly, polyCount, pod::Plane{ -axes[2], eB.z - uf::vector::dot(axes[2], cB) });
 
-	pod::Vector3f contact = cB - bestAxis * rB;
+	if ( polyCount == 0 ) return false;
 
-	manifold.points.emplace_back( pod::Contact{ contact, bestAxis, minOverlap } );
+	for ( auto i = 0; i < polyCount; i++ ) {
+		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, minOverlap } );
+	}
+
 	return true;
 }
 bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
@@ -292,7 +240,6 @@ bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::Physic
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 	return true;
 }
-// to-do: implement
 bool impl::trianglePlane( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
 	if ( uf::physics::settings.useGjk ) return impl::triangleGeneric( tri, body, manifold );
 
@@ -374,9 +321,7 @@ bool impl::triangleCapsule( const pod::TriangleWithNormal& tri, const pod::Physi
 	return true;
 }
 bool impl::triangleHull( const pod::TriangleWithNormal& tri, const pod::PhysicsBody& body, pod::Manifold& manifold ) {
-	pod::PhysicsBody triView = {};
-	triView.collider.type = pod::ShapeType::TRIANGLE;
-	triView.collider.triangle = tri;
+	auto triView = impl::physicsBodyTriView( tri );
 
 	return impl::triangleHull( triView, body, manifold );
 }

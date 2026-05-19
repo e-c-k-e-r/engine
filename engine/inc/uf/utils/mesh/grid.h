@@ -85,6 +85,7 @@ namespace uf {
 			uf::meshgrid::calculate( grid, eps );
 
 			// it's better to naively clip the mesh multiple times rather than calculate the triangles needed to clip
+			#if 0
 			if ( clip ) {
 				for ( auto& pair : grid.nodes ) {
 					++atlasID;
@@ -94,7 +95,7 @@ namespace uf {
 						uf::stl::vector<T> vertices = meshlet.vertices;
 						uf::stl::vector<U> indices = meshlet.indices;
 						
-						uf::shapes::clip<T,U>( vertices, indices, node.extents.min, node.extents.max );
+						uf::shapes::clip<T,U>( vertices, indices, pod::AABB{ node.extents.min, node.extents.max } );
 
 						if ( vertices.empty() || indices.empty() ) continue;
 
@@ -130,6 +131,7 @@ namespace uf {
 
 				return partitioned;
 			}
+			#endif
 
 			for ( auto& meshlet : meshlets ) uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
 			if ( cleanup ) uf::meshgrid::cleanup( grid );
@@ -154,13 +156,13 @@ namespace uf {
 						vertex.id.y = meshlet.primitive.instance.meshID;
 					}
 
-					/*
+					#if 1
 					if ( clip ) {
 						node.effectiveExtents.min = node.extents.min;
 						node.effectiveExtents.max = node.extents.max;
-						uf::shapes::clip<T,U>( slice.vertices, slice.indices, node.extents.min, node.extents.max );
+						uf::shapes::clip<T,U>( slice.vertices, slice.indices, pod::AABB{ node.extents.min, node.extents.max } );
 					}
-					*/
+					#endif
 
 					slice.primitive.instance = meshlet.primitive.instance;
 					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;

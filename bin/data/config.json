@@ -337,11 +337,11 @@
 		},
 		"physics": {
 			"warmup solver": false,
-			"block solver": true,
-			"psg solver": true,
-			"correction percent": 0.0,
+			"block solver": false,
+			"psg solver": false,
+			"correction percent": 0.01,
 			"gjk": false,
-			"debug draw": false,
+			"debug draw": true,
 			"fixed step": true,
 			"substeps": 4,
 			"solver iterations": 10

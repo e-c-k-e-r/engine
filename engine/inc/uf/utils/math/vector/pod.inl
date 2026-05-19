@@ -486,6 +486,14 @@ T& uf::vector::normalize_( T& vector ) {
 	return ( norm < 1.0e-6 ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
 }
 template<typename T>
+typename T::type_t uf::vector::min( const T& v ) {
+	typename T::type_t res = v[0];
+	FOR_EACH(T::size - 1, {
+		res = std::min( res, v[i + 1] );
+	});
+	return res;
+}
+template<typename T>
 T uf::vector::min( const T& left, const T& right ) {
 #if UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
@@ -495,6 +503,14 @@ T uf::vector::min( const T& left, const T& right ) {
 	T res = left;
 	FOR_EACH(T::size, {
 		res[i] = std::min( left[i], right[i] );
+	});
+	return res;
+}
+template<typename T>
+typename T::type_t uf::vector::max( const T& v ) {
+	typename T::type_t res = v[0];
+	FOR_EACH(T::size - 1, {
+		res = std::max( res, v[i+1] );
 	});
 	return res;
 }

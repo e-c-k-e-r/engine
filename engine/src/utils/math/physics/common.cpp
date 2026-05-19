@@ -1,14 +1,5 @@
 #include <uf/utils/math/physics/common.h>
 
-namespace impl {
-	void updateStaticBody( pod::PhysicsBody& body ) {
-		if ( !body.isStatic ) return;
-
-		body.bounds = impl::computeAABB( body );
-		if ( body.world ) body.world->staticBvh.dirty = true;
-	}
-}
-
 // create ID from pointers
 uint64_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
 	uint64_t lhs = reinterpret_cast<uint64_t>(&a);
@@ -28,8 +19,13 @@ void impl::wakeBody( pod::PhysicsBody& body ) {
 	}
 
 	body.activity.awake = true;
-	if ( body.isStatic ) impl::updateStaticBody( body );
+
+	if ( body.isStatic ) {
+		body.bounds = impl::computeAABB( body );
+		if ( body.world ) body.world->staticBvh.dirty = true;
+	}
 }
+// marks body as awake
 void impl::sleepBody( pod::PhysicsBody& body ) {
 	bool wasAsleep = !body.activity.awake;
 
@@ -37,6 +33,7 @@ void impl::sleepBody( pod::PhysicsBody& body ) {
 	body.velocity = pod::Vector3f{};
 	body.angularVelocity = pod::Vector3f{};
 }
+// update body's grounded / sleep states
 void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 	// reset grounded state
 	bool wasGrounded = body.activity.grounded;
@@ -72,21 +69,19 @@ pod::Transform<> impl::getTransform( const pod::PhysicsBody& body ) {
 	t.reference = body.transform;
 	return uf::transform::flatten( t );
 }
-
+// get position of a body, uses bounds center or transform's position
 pod::Vector3f impl::getPosition( const pod::PhysicsBody& body, bool useTransform ) {
-	useTransform = true; // guh
-
 	if ( !useTransform ) return impl::aabbCenter( body.bounds );
 	return impl::getTransform( body ).position;
 }
-
+// creates a view of a hull body
 pod::PhysicsBody impl::physicsBodyHullView( const pod::PhysicsBody& body, int32_t index ) {
 	pod::PhysicsBody view = body;
 	view.viewIndex = index;
 	return view;
 }
-
-pod::PhysicsBody impl::physicsBodyTriView( const pod::PhysicsBody& body, const pod::TriangleWithNormal triangle ) {
+// creates a view of a triangle
+pod::PhysicsBody impl::physicsBodyTriView( const pod::TriangleWithNormal triangle, const pod::PhysicsBody& body ) {
 	pod::PhysicsBody view = body;
 	view.collider.type = pod::ShapeType::TRIANGLE;
 	view.collider.triangle = triangle;
@@ -95,11 +90,12 @@ pod::PhysicsBody impl::physicsBodyTriView( const pod::PhysicsBody& body, const p
 	view.transform = NULL;
 	return view;
 }
+// creates a view of a mesh's triangle by triID
 pod::PhysicsBody impl::physicsBodyTriView( const pod::PhysicsBody& body, size_t triID ) {
 	auto tri = impl::fetchTriangle( *body.collider.mesh.mesh, triID, body );
-	return impl::physicsBodyTriView( body, tri );
+	return impl::physicsBodyTriView( tri, body );
 }
-
+// checks whether or not two bodies would collide by mask
 bool impl::shouldCollide( const pod::Collider& a, const pod::Collider& b ) {
 	return ( a.category & b.mask ) && ( b.category & a.mask );
 }
@@ -108,6 +104,7 @@ bool impl::shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b )
 	return impl::shouldCollide( a.collider, b.collider );
 }
 
+// returns an inverse inertia matrix from an inertia tensor
 pod::Matrix3f impl::computeWorldInverseInertia( const pod::PhysicsBody& b ) {
 	if ( b.isStatic || b.inverseMass == 0.0f ) return pod::Matrix3f{};
 
@@ -127,18 +124,20 @@ pod::Vector3f impl::normalizeDelta( const pod::Vector3f& delta, float dist, cons
 	return ( dist > EPS ) ? delta / dist : fallback;
 }
 
+// computes the tangent of a normal
 pod::Vector3f impl::computeTangent( const pod::Vector3f& normal ) {
 	pod::Vector3f up = ( std::fabs(normal.y) < 0.999f ) ? pod::Vector3f{0,1,0} : pod::Vector3f{1,0,0}; // pick a vector not parallel to normal
 	pod::Vector3f tangent = uf::vector::normalize( uf::vector::cross( up, normal ) );
 	return tangent;
 }
+// returns the closest point on an A->B segment
 pod::Vector3f impl::closestPointOnSegment( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b ) {
 	pod::Vector3f ab = b - a;
 	float t = uf::vector::dot(p - a, ab) / uf::vector::dot(ab, ab);
 	t = std::clamp( t, 0.0f, 1.0f );
 	return a + ab * t;
 }
-
+// 
 std::pair<pod::Vector3f, pod::Vector3f> impl::closestSegmentSegment( const pod::Vector3f& A, const pod::Vector3f& B, const pod::Vector3f& C, const pod::Vector3f& D ) {
 	auto u = B - A;
 	auto v = D - C;
@@ -184,11 +183,11 @@ std::pair<pod::Vector3f, pod::Vector3f> impl::closestSegmentSegment( const pod::
 
 	return { A + u * sc, C + v * tc };
 }
-
+// 
 pod::Vector3f impl::closestPointSegmentAabb( const pod::Vector3f& p1, const pod::Vector3f& p2, const pod::AABB& box ) {
 	// AABB center and half extents
-	auto c = ( box.min + box.max ) * 0.5f;
-	auto e = ( box.max - box.min ) * 0.5f;
+	auto c = impl::aabbCenter( box );
+	auto e = impl::aabbExtent( box );
 
 	// direction of line segment
 	auto d = p2 - p1;
@@ -207,7 +206,7 @@ pod::Vector3f impl::closestPointSegmentAabb( const pod::Vector3f& p1, const pod:
 	// clamp this point into AABB
 	return uf::vector::clamp( segClosest, box.min, box.max );
 }
-
+// returns the barycentric coordinates of a point on a triangle
 pod::Vector3f impl::computeBarycentric( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c, bool clamps ) {
 	// edges
 	auto ab = b - a;
@@ -270,7 +269,7 @@ pod::Vector3f impl::interpolateWithBarycentric( const pod::Vector3f& bary, const
 pod::Vector3f impl::interpolateWithBarycentric( const pod::Vector3f& bary, const pod::Vector3f points[3] ) {
 	return impl::interpolateWithBarycentric( bary, points[0], points[1], points[2] );
 }
-
+// returns if a point is inside a triangle
 bool impl::pointInTriangle( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c ) {
 	auto bary = impl::computeBarycentric( p, a, b, c, false );
 	return ( bary.x >= -EPS && bary.y >= -EPS && bary.z >= -EPS );
@@ -279,7 +278,7 @@ bool impl::pointInTriangle( const pod::Vector3f& p, const pod::Triangle& tri ) {
 	auto bary = impl::computeBarycentric( p, tri, false );
 	return ( bary.x >= -EPS && bary.y >= -EPS && bary.z >= -EPS );
 }
-
+// returns the closest point on a triangle (possible duplicate of computeBarycentric)
 pod::Vector3f impl::closestPointOnTriangle( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c ) {
 	// check if P in vertex region outside A
 	pod::Vector3f ab = b - a;
@@ -331,11 +330,11 @@ pod::Vector3f impl::closestPointOnTriangle( const pod::Vector3f& p, const pod::V
 pod::Vector3f impl::closestPointOnTriangle( const pod::Vector3f& p, const pod::Triangle& tri ) {
 	return impl::closestPointOnTriangle( p, tri.points[0], tri.points[1], tri.points[2] );
 }
-
+// reorients a normal from body A to body B
 pod::Vector3f impl::orientNormalToAB( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Vector3f n ) {
 	return uf::vector::normalize( uf::vector::dot( n, impl::getPosition( b ) - impl::getPosition( a ) ) < 0.0f ? -n : n );
 }
-
+//
 float impl::segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vector3f& p1, const pod::Triangle& tri, pod::Vector3f& outSeg, pod::Vector3f& outTri ) {
 	float best = std::numeric_limits<float>::max();
 
@@ -382,64 +381,103 @@ float impl::segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vecto
 	return best;
 }
 
-int impl::clipPolygonAgainstPlane( const pod::Vector3f* inPoly, int inCount, const pod::Vector3f& planeNormal, float planeOffset, pod::Vector3f* outPoly ) {
-	if (inCount == 0) return 0;
+// Separating Axis Theorem test
+bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::AABB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis ) {
+	float mag = uf::vector::magnitude(axis);
+	if ( mag < EPS2 ) return true;
+	pod::Vector3f n = axis / mag;
 
-	int outCount = 0;
-	pod::Vector3f prevPoint = inPoly[inCount - 1];
-	float prevDistance = uf::vector::dot(prevPoint, planeNormal) - planeOffset;
+	// project triangle
+	float p0 = uf::vector::dot( triangle.points[0], n );
+	float p1 = uf::vector::dot( triangle.points[1], n );
+	float p2 = uf::vector::dot( triangle.points[2], n );
+	float minT = std::min( { p0, p1, p2 } );
+	float maxT = std::max( { p0, p1, p2 } );
 
-	for (int i = 0; i < inCount; ++i) {
-		pod::Vector3f currPoint = inPoly[i];
-		float currDistance = uf::vector::dot(currPoint, planeNormal) - planeOffset;
+	// project box
+	pod::Vector3f cB = impl::aabbCenter( box );
+	pod::Vector3f eB = impl::aabbExtent( box );
+	float pB = uf::vector::dot(cB, n);
+	float rB = eB.x * std::fabs(uf::vector::dot(axes[0], n)) +
+			   eB.y * std::fabs(uf::vector::dot(axes[1], n)) +
+			   eB.z * std::fabs(uf::vector::dot(axes[2], n));
 
-		// If they cross the plane, compute the intersection point
-		if ((prevDistance * currDistance) < 0.0f) {
-			float t = prevDistance / (prevDistance - currDistance);
-			outPoly[outCount++] = prevPoint + (currPoint - prevPoint) * t;
-		}
+	float minB = pB - rB;
+	float maxB = pB + rB;
 
-		// If the current point is 'inside' or on the plane (distance <= 0), keep it
-		if (currDistance <= 0.0f) {
-			outPoly[outCount++] = currPoint;
-		}
+	// check for separation
+	if ( minT > maxB || maxT < minB ) return false;
 
-		prevPoint = currPoint;
-		prevDistance = currDistance;
+	// calculate overlap depth
+	float overlap = std::min(maxT, maxB) - std::max(minT, minB);
+	if ( overlap < outMinOverlap ) {
+		outMinOverlap = overlap;
+		outBestAxis = n;
 	}
-
-	return outCount;
+	return true;
 }
 
+// Sutherland-Hodgman polygon clipping
+void impl::clipPolygon( pod::Vector3f* poly, int& polyCount, const pod::Plane& plane ) {
+	if ( polyCount == 0 ) return;
+
+	int outCount = 0;
+	pod::Vector3f out[8];
+
+	for ( auto i = 0; i < polyCount; i++ ) {
+		auto curr = poly[i];
+		auto prev = poly[(i + polyCount - 1) % polyCount];
+
+		float dCurr = uf::vector::dot(plane.normal, curr) - plane.offset;
+		float dPrev = uf::vector::dot(plane.normal, prev) - plane.offset;
+
+		if ( dCurr <= 0.0f ) {
+			if ( dPrev > 0.0f ) {
+				float t = dPrev / (dPrev - dCurr);
+				out[outCount++] = prev + (curr - prev) * t;
+			}
+			out[outCount++] = curr;
+		}
+		else if ( dPrev <= 0.0f ) {
+			float t = dPrev / (dPrev - dCurr);
+			out[outCount++] = prev + (curr - prev) * t;
+		}
+	}
+
+	polyCount = outCount;
+	for ( auto i = 0; i < outCount; i++ ) poly[i] = out[i];
+}
+void impl::clipPolygon( pod::Vector3f* poly, int& polyCount, const pod::AABB& aabb ) {
+	pod::Plane planes[6] = {
+		{ pod::Vector3f{-1, 0, 0}, -aabb.max.x },
+		{ pod::Vector3f{ 1, 0, 0},  aabb.min.x },
+		{ pod::Vector3f{ 0,-1, 0}, -aabb.max.y },
+		{ pod::Vector3f{ 0, 1, 0},  aabb.min.y },
+		{ pod::Vector3f{ 0, 0,-1}, -aabb.max.z },
+		{ pod::Vector3f{ 0, 0, 1},  aabb.min.z }
+	};
+
+	for ( auto i = 0; i < 6; i++ ) {
+		impl::clipPolygon( poly, polyCount, planes[i] );
+		// degenerated
+		if ( polyCount < 3 ) {
+			polyCount = 0;
+			break;
+		}
+	}
+}
+// returns the center of a triangle
 pod::Vector3f impl::triangleCenter( const pod::Triangle& tri ) {
 	return ( tri.points[0] + tri.points[1] + tri.points[2] ) / 3.0f;
 }
+// returns the normal of a triangle
 pod::Vector3f impl::triangleNormal( const pod::Triangle& tri ) {
 	return uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 }
 pod::Vector3f impl::triangleNormal( const pod::TriangleWithNormal& tri ) {
 	return tri.normal;
-	//return uf::vector::normalize( tri.normals[0] + tri.normals[1] + tri.normals[2] );
 }
-
-bool impl::triangleTriangleIntersect( const pod::Triangle& a, const pod::Triangle& b ) {
-	auto boxA = impl::computeTriangleAABB( a );
-	auto boxB = impl::computeTriangleAABB( b );
-
-	if ( !impl::aabbOverlap( boxA, boxB ) ) return false;
-
-	// check vertices of a inside b or vice versa
-	for ( auto i = 0; i < 3; ++i ) {
-		auto q = impl::closestPointOnTriangle( a.points[i], b );
-		if ( uf::vector::magnitude( q - a.points[i] ) < EPS2 ) return true;
-	};
-	for ( auto i = 0; i < 3; ++i ) {
-		auto q = impl::closestPointOnTriangle( b.points[i], a );
-		if ( uf::vector::magnitude( q - b.points[i] ) < EPS2 ) return true;
-	};
-	return false;
-}
-
+// mesh accessing
 size_t impl::getIndex( const void* pointer, size_t stride, size_t index ) { 
 	#define CAST_INDEX(T) case sizeof(T): return ((T*) pointer)[index];
 	switch ( stride ) {
@@ -551,91 +589,7 @@ pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID,
 	return tri;
 }
 
-bool impl::computeTriangleTriangleSegment( const pod::TriangleWithNormal& A, const pod::TriangleWithNormal& B, pod::Vector3f& p0, pod::Vector3f& p1 ) {
-	int intersections = 0;
-	pod::Vector3f intersectionBuffers[6] = {};
-
-	auto checkAndPush = [&]( const pod::Vector3f& pt ) {
-		// avoid duplicates
-		for ( auto& v : intersectionBuffers ) {
-			if ( uf::vector::distanceSquared( v, pt ) < EPS*EPS ) return;
-		}
-		intersectionBuffers[intersections++] = pt;
-	};
-
-	// segment-plane intersection
-	auto intersectSegmentPlane = [&](const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& n, float d, pod::Vector3f& out)->bool {
-		pod::Vector3f ab = b - a;
-		float denom = uf::vector::dot( n, ab );
-		if (fabs(denom) < EPS) return false; // parallel
-
-		float t = (d - uf::vector::dot( n, a )) / denom;
-		if ( t < -EPS || t > 1.0f + EPS ) return false;
-		out = a + ab * t;
-		return true;
-	};
-
-	// planes
-	auto nA = impl::triangleNormal( A );
-	auto nB = impl::triangleNormal( B );
-	float dA = uf::vector::dot( nA, A.points[0] );
-	float dB = uf::vector::dot( nB, B.points[0] );
-
-	// clip edges of A against plane of B
-	const pod::Vector3f At[3] = { A.points[0], A.points[1], A.points[2] };
-	FOR_EACH(3, {
-		auto j = ( i + 1 ) % 3;
-		pod::Vector3f p;
-		if ( intersectSegmentPlane( At[i], At[j], nB, dB, p ) ) {
-			// check if intersection lies inside triangle B
-			if ( impl::pointInTriangle( p, B ) ) checkAndPush(p);
-		}
-	});
-
-	// clip edges of B against plane of A
-	const pod::Vector3f Bt[3] = { B.points[0], B.points[1], B.points[2] };
-	FOR_EACH(3, {
-		auto j = ( i + 1 ) % 3;
-		pod::Vector3f p;
-		if ( intersectSegmentPlane( Bt[i], Bt[j], nA, dA, p ) ) {
-			if ( impl::pointInTriangle( p, A ) ) checkAndPush(p);
-		}
-	});
-
-	if ( intersections == 0 ) return false;
-
-	// degenerate intersection
-	if ( intersections == 1 ) {
-		p0 = p1 = intersectionBuffers[0];
-		return true;
-	}
-
-	// find two furthest apart points for intersection segment
-	float maxDist2 = -1.0f;
-	for ( auto i = 0 ; i < intersections; i++ ) {
-		for ( auto j = i + 1; j < intersections; j++ ) {
-			float d2 = uf::vector::distanceSquared( intersectionBuffers[i], intersectionBuffers[j] );
-			if ( d2 > maxDist2 ) {
-				maxDist2 = d2;
-				p0 = intersectionBuffers[i];
-				p1 = intersectionBuffers[j];
-			}
-		}
-	}
-
-	return maxDist2 >= 0.0f;
-}
-
-pod::Vector2f impl::projectTriangleOntoAxis( const pod::TriangleWithNormal& tri, const pod::Vector3f& axis ) {
-	pod::Vector3f normal = uf::vector::normalize( axis );
-
-	float p0 = uf::vector::dot( tri.points[0], normal );
-	float p1 = uf::vector::dot( tri.points[1], normal );
-	float p2 = uf::vector::dot( tri.points[2], normal );
-
-	return { std::min({ p0, p1, p2 }), std::max({ p0, p1, p2 }) };
-}
-
+// returns whether or not two AABBs are overlapping (with SIMD speedup)
 bool impl::aabbOverlap( const pod::AABB& a, const pod::AABB& b ) {
 #if UF_USE_SIMD
 	return uf::simd::all( uf::simd::lessEquals( a.min, b.max ) ) && uf::simd::all( uf::simd::greaterEquals( a.max, b.min ) );
@@ -643,30 +597,30 @@ bool impl::aabbOverlap( const pod::AABB& a, const pod::AABB& b ) {
 	return ( a.min - EPS ) <= ( b.max + EPS ) && ( a.max + EPS ) >= ( b.min - EPS );
 #endif
 }
-
+// returns the surface area an AABB covers
 float impl::aabbSurfaceArea(const pod::AABB& aabb) {
 	auto d = uf::vector::max( ( aabb.max - aabb.min ), pod::Vector3f{} );
 	return 2.0f * (d.x * d.y + d.y * d.z + d.z * d.x);
 }
-
+// returns the bounds a line segment covers with a radius (for capsules)
 pod::AABB impl::computeSegmentAABB( const pod::Vector3f& p1, const pod::Vector3f p2, float r ) {
 	return { 
 		uf::vector::min( p1, p2 ) - r,
 		uf::vector::max( p1, p2 ) + r,
 	};
 }
-
+// returns the closest point on an AABB
 pod::Vector3f impl::closestPointOnAABB(const pod::Vector3f& p, const pod::AABB& box) {
 	return uf::vector::clamp( p, box.min, box.max );
 }
-
+// returns the AABB of a triangle
 pod::AABB impl::computeTriangleAABB( const pod::Triangle& tri ) {
 	return {
 		uf::vector::min( uf::vector::min( tri.points[0], tri.points[1] ), tri.points[2] ),
 		uf::vector::max( uf::vector::max( tri.points[0], tri.points[1] ), tri.points[2] ),
 	};
 }
-
+// returns the AABB of a hull
 pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, pod::AABB bounds ) {
 	for ( size_t i = 0; i < view.vertex.count; ++i ) {
 		pod::Vector3f v = impl::getVertex( view, positions, i );
@@ -679,46 +633,46 @@ pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, const uf::Mes
 pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, pod::AABB bounds ) {
 	return impl::computeConvexHullAABB( view, view["position"], bounds );
 }
-
+// combines two AABBs
 pod::AABB impl::mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
 	return {
 		uf::vector::min( a.min, b.min ),
 		uf::vector::max( a.max, b.max ),
 	};
 }
-
+// returns the center of an AABB
 pod::Vector3f impl::aabbCenter( const pod::AABB& aabb ) {
 	return ( aabb.max + aabb.min ) * 0.5f;
 }
+// returns the half extents of an AABB
 pod::Vector3f impl::aabbExtent( const pod::AABB& aabb ) {
 	return ( aabb.max - aabb.min ) * 0.5f;
 }
-
-pod::AABB impl::transformAabbToWorld( const pod::AABB& localBox, const pod::Transform<>& transform ) {
+// transforms an AABB into world-space
+pod::AABB impl::transformAabbToWorld( const pod::AABB& aabb, const pod::Transform<>& transform ) {
+	// to-do: flatten, since transform might not be flattened (even though getTransform does that)
 	const auto& q = transform.orientation;
 	const auto& p = transform.position;
 
-	pod::Vector3f center  = (localBox.min + localBox.max) * 0.5f;
-	pod::Vector3f extents = (localBox.max - localBox.min) * 0.5f;
-
-	pod::Vector3f axisX = uf::quaternion::rotate(q, pod::Vector3f{1,0,0});
-	pod::Vector3f axisY = uf::quaternion::rotate(q, pod::Vector3f{0,1,0});
-	pod::Vector3f axisZ = uf::quaternion::rotate(q, pod::Vector3f{0,0,1});
-
-	pod::Vector3f worldCenter = uf::quaternion::rotate(q, center) + p;
-
-	pod::Vector3f worldExtents = {
-		fabs(axisX.x) * extents.x + fabs(axisY.x) * extents.y + fabs(axisZ.x) * extents.z,
-		fabs(axisX.y) * extents.x + fabs(axisY.y) * extents.y + fabs(axisZ.y) * extents.z,
-		fabs(axisX.z) * extents.x + fabs(axisY.z) * extents.y + fabs(axisZ.z) * extents.z
+	pod::Vector3f cB  = impl::aabbCenter( aabb );
+	pod::Vector3f eB = impl::aabbExtent( aabb );
+	pod::Vector3f axes[] = {
+		uf::quaternion::rotate(q, pod::Vector3f{1,0,0}),
+		uf::quaternion::rotate(q, pod::Vector3f{0,1,0}),
+		uf::quaternion::rotate(q, pod::Vector3f{0,0,1}),
 	};
 
-	return {
-		worldCenter - worldExtents,
-		worldCenter + worldExtents
+	pod::Vector3f cW = uf::quaternion::rotate(q, cB) + p;
+	// to-do: a cleaner way of doing this with uf::vector::abs
+	pod::Vector3f cE = {
+		fabs(axes[0].x) * eB.x + fabs(axes[1].x) * eB.y + fabs(axes[2].x) * eB.z,
+		fabs(axes[0].y) * eB.x + fabs(axes[1].y) * eB.y + fabs(axes[2].y) * eB.z,
+		fabs(axes[0].z) * eB.x + fabs(axes[1].z) * eB.y + fabs(axes[2].z) * eB.z
 	};
+
+	return { cW - cE, cW + cE };
 }
-
+// returns the line segment of a capsule
 std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	const auto& capsule = body.collider.capsule;
@@ -729,7 +683,7 @@ std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::Phys
 	auto p2 = transform.position - up * capsule.halfHeight;
 	return { p1, p2 };
 }
-
+// computes the AABB for a given body
 pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	switch ( body.collider.type ) {
@@ -768,77 +722,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 
 	return {};
 }
-
-float impl::triAabbDistanceSq( const pod::Triangle& tri, const pod::AABB& box ) {
-	float minDistSq = FLT_MAX;
-	FOR_EACH(3, {
-		auto cp = impl::closestPointOnAABB( tri.points[i], box );
-		auto d  = tri.points[i] - cp;
-		minDistSq = std::min( minDistSq, uf::vector::dot( d, d ) );
-	});
-	return minDistSq;
-}
-
-bool impl::triAabbOverlap( const pod::Triangle& tri, const pod::AABB& box ) {
-	// compute box center and half extents
-	auto c = ( box.min + box.max ) * 0.5f;
-	auto e = ( box.max - box.min ) * 0.5f;
-
-	// move triangle into box's local space
-	auto v0 = tri.points[0] - c;
-	auto v1 = tri.points[1] - c;
-	auto v2 = tri.points[2] - c;
-
-	// triangle edges
-	auto f0 = v1 - v0;
-	auto f1 = v2 - v1;
-	auto f2 = v0 - v2;
-
-	// SAT: test the 9 edge cross axes
-	auto axisTest = [&]( const pod::Vector3f& axis ) {
-		float norm = uf::vector::norm( axis );
-		if ( norm < EPS ) return true;
-		
-		auto a = axis / norm;
-		
-		float p0 = uf::vector::dot( v0, a );
-		float p1 = uf::vector::dot( v1, a );
-		float p2 = uf::vector::dot( v2, a );
-
-		float r = e.x * fabs(a.x) + e.y * fabs(a.y) + e.z * fabs(a.z);
-		
-		float minP = std::min({p0, p1, p2});
-		float maxP = std::max({p0, p1, p2});
-		
-		return !(minP > r || maxP < -r);
-	};
-
-	if ( !axisTest( {0, -f0.z, f0.y} ) ) return false;
-	if ( !axisTest( {0, -f1.z, f1.y} ) ) return false;
-	if ( !axisTest( {0, -f2.z, f2.y} ) ) return false;
-	if ( !axisTest( {f0.z, 0, -f0.x} ) ) return false;
-	if ( !axisTest( {f1.z, 0, -f1.x} ) ) return false;
-	if ( !axisTest( {f2.z, 0, -f2.x} ) ) return false;
-	if ( !axisTest( {-f0.y, f0.x, 0} ) ) return false;
-	if ( !axisTest( {-f1.y, f1.x, 0} ) ) return false;
-	if ( !axisTest( {-f2.y, f2.x, 0} ) ) return false;
-
-	// test AABB face axes
-	for ( auto i = 0; i < 3; ++i ) {
-		float minVal = std::min({v0[i], v1[i], v2[i]});
-		float maxVal = std::max({v0[i], v1[i], v2[i]});
-		if ( minVal > e[i] || maxVal < -e[i] ) return false;
-	};
-
-	// test triangle normal axis
-	auto n = uf::vector::cross( f0, f1 );
-	float d0 = uf::vector::dot( v0, n );
-	float r  = e.x * fabs(n.x) + e.y * fabs(n.y) + e.z * fabs(n.z);
-	if ( fabs(d0) > r ) return false;
-
-	return true;
-}
-
+// transforms an AABB into local space
 pod::AABB impl::transformAabbToLocal( const pod::AABB& box, const pod::Transform<>& transform ) {
 	auto inv = uf::transform::inverse( transform );
 

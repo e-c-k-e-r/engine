@@ -124,7 +124,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 
 bool impl::generateClippingManifold( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Contact& contact, pod::Manifold& manifold ) {
 	if ( !uf::vector::isValid(contact.point) ) return false;
-	
+
 	auto& normal = contact.normal;
 
 	pod::Vector3f polyA[4];
@@ -145,36 +145,33 @@ bool impl::generateClippingManifold( const pod::PhysicsBody& a, const pod::Physi
 	int refCount = countA;
 	int incCount = countB;
 
-	pod::Vector3f clipBuffer1[8];
-	pod::Vector3f clipBuffer2[8];
+	pod::Vector3f clipBuffer[8];
 	int clipCount = incCount;
-	for ( auto i = 0; i < incCount; ++i ) clipBuffer1[i] = incPoly[i];
+	for ( auto i = 0; i < incCount; ++i ) clipBuffer[i] = incPoly[i];
 
 	pod::Vector3f refNormal = uf::vector::normalize(uf::vector::cross(refPoly[1] - refPoly[0], refPoly[2] - refPoly[0]));
+
 	for ( auto i = 0; i < refCount; ++i ) {
 		pod::Vector3f edgeStart = refPoly[i];
 		pod::Vector3f edgeEnd = refPoly[(i + 1) % refCount];
 		pod::Vector3f edgeVector = edgeEnd - edgeStart;
 
-		pod::Vector3f edgePlaneNormal = uf::vector::normalize(uf::vector::cross(edgeVector, refNormal));
-		float edgePlaneOffset = uf::vector::dot(edgePlaneNormal, edgeStart);
+		pod::Plane edgePlane;
+		edgePlane.normal = uf::vector::normalize(uf::vector::cross(edgeVector, refNormal));
+		edgePlane.offset = uf::vector::dot(edgePlane.normal, edgeStart);
 
-		if (i % 2 == 0) {
-			clipCount = impl::clipPolygonAgainstPlane(clipBuffer1, clipCount, edgePlaneNormal, edgePlaneOffset, clipBuffer2);
-		} else {
-			clipCount = impl::clipPolygonAgainstPlane(clipBuffer2, clipCount, edgePlaneNormal, edgePlaneOffset, clipBuffer1);
-		}
+		impl::clipPolygon( clipBuffer, clipCount, edgePlane );
+		if ( clipCount == 0 ) break;
 	}
 
-	pod::Vector3f* finalPoly = (refCount % 2 == 0) ? clipBuffer1 : clipBuffer2;
 	float refOffset = uf::vector::dot(refNormal, refPoly[0]);
 
 	for (int i = 0; i < clipCount; ++i) {
-		float distance = uf::vector::dot(finalPoly[i], refNormal) - refOffset;
+		float distance = uf::vector::dot(clipBuffer[i], refNormal) - refOffset;
 		// point is penetrating or touching
 		if ( distance <= EPS ) {
 			pod::Contact c;
-			c.point = finalPoly[i] - refNormal * (distance * 0.5f);
+			c.point = clipBuffer[i] - refNormal * (distance * 0.5f);
 			c.normal = normal;
 			c.penetration = -distance;
 			manifold.points.emplace_back(c);
