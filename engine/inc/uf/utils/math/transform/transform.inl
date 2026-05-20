@@ -50,7 +50,7 @@ pod::Transform<T>& /*UF_API*/ uf::transform::move( pod::Transform<T>& transform,
 template<typename T>
 pod::Transform<T>& /*UF_API*/ uf::transform::reorient( pod::Transform<T>& transform ) {
 	pod::Quaternion<T> q = transform.orientation;
-	transform.forward = { 2 * (q.x * q.z + q.w * q.y),  2 * (q.y * q.x - q.w * q.z), 1 - 2 * (q.x * q.x + q.y * q.y) };
+	transform.forward = { 2 * (q.x * q.z + q.w * q.y),  2 * (q.y * q.z - q.w * q.x), 1 - 2 * (q.x * q.x + q.y * q.y) };
 	transform.up = { 2 * (q.x * q.y - q.w * q.z), 1 - 2 * (q.x * q.x + q.z * q.z), 2 * (q.y * q.z + q.w * q.x)};
 	transform.right = { 1 - 2 * (q.y * q.y + q.z * q.z), 2 * (q.x * q.y + q.w * q.z), 2 * (q.x * q.z - q.w * q.y)};
 	return transform;

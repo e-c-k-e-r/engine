@@ -203,9 +203,11 @@ namespace pod {
 		/*alignas(16)*/ pod::Vector3f offset = {};
 
 		/*alignas(16)*/ pod::Vector3f velocity = {};
+		/*alignas(16)*/ pod::Vector3f pseudoVelocity = {};
 		/*alignas(16)*/ pod::Vector3f forceAccumulator = {};
 
 		/*alignas(16)*/ pod::Vector3f angularVelocity = {};
+		/*alignas(16)*/ pod::Vector3f pseudoAngularVelocity = {};
 		/*alignas(16)*/ pod::Vector3f torqueAccumulator = {};
 
 		/*alignas(16)*/ pod::Vector3f inertiaTensor = { 1, 1, 1 };
@@ -232,6 +234,7 @@ namespace pod {
 		pod::Vector3f tangent = {};
 		float accumulatedNormalImpulse = 0.0f;
 		float accumulatedTangentImpulse = 0.0f;
+		float accumulatedPseudoImpulse = 0.0f;
 	};
 
 	struct Manifold {
@@ -259,14 +262,16 @@ namespace pod {
 	struct PhysicsSettings {
 		bool warmupSolver = false; // cache manifold data to warm up the solver
 		bool blockContactSolver = false; // use BlockNxN solvers (where N = number of contacts for a manifold)
-		bool psgContactSolver = true; // use PSG contact solver
+		bool pgsContactSolver = true; // use PGS contact solver
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
+		
+		pod::CollisionMask debugDraw = pod::Collider::CATEGORY_NONE; // draws wireframe of collision bodies
+		bool async = false; // dedicated thread for physics sim
+		float timestep = 1.0f / 60.0f; // timestep for fixed step ticks
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
-		bool debugDraw = false; // draws wireframe of collision bodies
 		uint32_t substeps = 4; // number of substeps per frame tick
 		uint32_t reserveCount = 32; // amount of elements to reserve for vectors used in this system, to-do: have it tie to a memory pool allocator
 
-		// increasing these make things lag for reasons I can imagine why
 		uint32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
 		uint32_t meshBvhCapacity = 1; // number of triangles per leaf node
 
@@ -316,13 +321,6 @@ namespace uf {
 	namespace physics {
 		typedef pod::Math::num_t num_t;
 		namespace time = uf::time; // to-do: have separate values from the physics system
-
-		extern UF_API float timescale;
-		extern UF_API bool async;
-
-		extern UF_API bool interpolate;
-		extern UF_API bool shared;
-		extern UF_API bool globalStorage;
 		
 		extern UF_API pod::World world;
 		extern UF_API pod::PhysicsSettings settings;

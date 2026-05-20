@@ -24,22 +24,33 @@ float impl::computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, cons
 	}
 
 	float result = inverseMass + angularTermA + angularTermB;
-	if (result < EPS) result = 1.0f; // prevent divide by zero
+	if ( result < EPS ) result = 1.0f; // prevent divide by zero
 	return result;
 }
 
 void impl::applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
 	if ( !a.isStatic ) {
 		a.velocity -= impulse * a.inverseMass;
-		//a.angularVelocity -= (uf::vector::cross(rA, impulse)) * a.inverseInertiaTensor;
 		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
 		a.angularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
 	}
 	if ( !b.isStatic ) {
 		b.velocity += impulse * b.inverseMass;
-		//b.angularVelocity += (uf::vector::cross(rB, impulse)) * b.inverseInertiaTensor;
 		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
 		b.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
+	}
+}
+
+void impl::applyPseudoImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
+	if ( !a.isStatic ) {
+		a.pseudoVelocity -= impulse * a.inverseMass;
+		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
+		a.pseudoAngularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
+	}
+	if ( !b.isStatic ) {
+		b.pseudoVelocity += impulse * b.inverseMass;
+		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
+		b.pseudoAngularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 	}
 }
 
@@ -50,7 +61,6 @@ void impl::applyRollingResistance( pod::PhysicsBody& body, float dt ) {
 	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
 	if ( angularSpeed2 < EPS2 ) return;
 
-	//body.angularVelocity += body.angularVelocity * body.mass * -rollingFriction * dt;
 	body.angularVelocity *= std::max(0.0f, 1.0f - rollingFriction * dt);
 }
 
@@ -183,7 +193,6 @@ void impl::reduceContacts( pod::Manifold& manifold ) {
 			if ( result.size() < 4 ) {
 				result.emplace_back(c);
 			} else {
-				// Replace weakest if this one is stronger
 				auto weakest = 0;
 				for ( auto i = 1; i < 4; i++ ) {
 					if ( result[i].penetration < result[weakest].penetration ) weakest = i;
@@ -249,12 +258,14 @@ void impl::retrieveContacts( pod::Manifold& current, const pod::Manifold& previo
 
 		validContact.accumulatedNormalImpulse *= decay;
 		validContact.accumulatedTangentImpulse *= decay;
+		validContact.accumulatedPseudoImpulse = 0.0f;
 
 		bool isDuplicate = false;
 		for ( auto& c : current.points ) {
 			if ( impl::similarContact( validContact, c ) ) {
 				c.accumulatedNormalImpulse = validContact.accumulatedNormalImpulse;
 				c.accumulatedTangentImpulse = validContact.accumulatedTangentImpulse;
+				c.accumulatedPseudoImpulse = validContact.accumulatedPseudoImpulse;
 				c.lifetime = validContact.lifetime;
 				isDuplicate = true;
 				break;
@@ -316,8 +327,6 @@ void impl::warmupContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::
 	// tangent basis
 	pod::Vector3f Pt = c.tangent * c.accumulatedTangentImpulse;
 	impl::applyImpulseTo( a, b, rA, rB, Pt );
-
-//	UF_MSG_DEBUG("Warming, Pn={}, Pt={}, lifetime={}", uf::vector::toString(Pn), uf::vector::toString(Pt), c.lifetime );
 }
 void impl::warmupManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Manifold& manifold, float dt ) {
 	for ( auto& contact : manifold.points ) {
@@ -377,19 +386,11 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	body.velocity += acceleration * dt;
 
 	// angular integration
-	//body.angularVelocity += body.torqueAccumulator * body.inverseInertiaTensor * dt;
 	{
-	#if 1
 		pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
 		pod::Vector3f localTorque = uf::matrix::multiply( uf::matrix::transpose(R), body.torqueAccumulator );
 		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
 		body.angularVelocity += uf::matrix::multiply( R, localAngAccel ) * dt;
-	#else
-		pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
-		pod::Vector3f localTorque = uf::matrix::multiply( R, body.torqueAccumulator );
-		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
-		body.angularVelocity += uf::matrix::multiply( uf::matrix::transpose(R), localAngAccel ) * dt;
-	#endif
 	}
 
 	// update position
@@ -399,8 +400,24 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
 	if ( angularSpeed2 > EPS2 ) {
 		float angularSpeed = std::sqrt( angularSpeed2 );
-		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, -angularSpeed * dt);
+		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, angularSpeed * dt);
 		uf::transform::rotate( *body.transform/*.reference*/, dq );
+	}
+
+	// split impulse updates
+	{
+		body.transform->position += body.pseudoVelocity * dt;
+
+		float pseudoAngularSpeed2 = uf::vector::magnitude( body.pseudoAngularVelocity );
+		if ( pseudoAngularSpeed2 > EPS ) {
+			float pseudoAngularSpeed = std::sqrt( pseudoAngularSpeed2 );
+		    pod::Quaternion<> dq = uf::quaternion::axisAngle( body.pseudoAngularVelocity / pseudoAngularSpeed, pseudoAngularSpeed * dt );
+		    uf::transform::rotate( *body.transform/*.reference*/, dq );
+		}
+		
+		// reset
+		body.pseudoAngularVelocity = {};
+		body.pseudoVelocity = {};
 	}
 
 	// reset accumulators

@@ -203,13 +203,29 @@ void UF_API uf::load( ext::json::Value& json ) {
 		auto& configEnginePhysicsJson = json["engine"]["physics"];
 		uf::physics::settings.warmupSolver = configEnginePhysicsJson["warmup solver"].as(uf::physics::settings.warmupSolver);
 		uf::physics::settings.blockContactSolver = configEnginePhysicsJson["block solver"].as(uf::physics::settings.blockContactSolver);
-		uf::physics::settings.psgContactSolver = configEnginePhysicsJson["psg solver"].as(uf::physics::settings.psgContactSolver);
+		uf::physics::settings.pgsContactSolver = configEnginePhysicsJson["pgs solver"].as(uf::physics::settings.pgsContactSolver);
 		uf::physics::settings.useGjk = configEnginePhysicsJson["gjk"].as(uf::physics::settings.useGjk);
-		uf::physics::settings.debugDraw = configEnginePhysicsJson["debug draw"].as(uf::physics::settings.debugDraw);
+		uf::physics::settings.async = configEnginePhysicsJson["async"].as(uf::physics::settings.async);
+		uf::physics::settings.timestep = configEnginePhysicsJson["timestep"].as(uf::physics::settings.timestep);
 		uf::physics::settings.fixedStep = configEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
 		uf::physics::settings.substeps = configEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
 		uf::physics::settings.solverIterations = configEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
 		uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsJson["correction percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
+		
+		auto& configEnginePhysicsDebugDrawJson = configEnginePhysicsJson["debug draw"];
+		if ( ext::json::isObject( configEnginePhysicsDebugDrawJson ) ) {
+			if ( configEnginePhysicsDebugDrawJson["static"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_STATIC;
+			if ( configEnginePhysicsDebugDrawJson["dynamic"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_DYNAMIC;
+			if ( configEnginePhysicsDebugDrawJson["player"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_PLAYER;
+			if ( configEnginePhysicsDebugDrawJson["npc"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_NPC;
+			if ( configEnginePhysicsDebugDrawJson["trigger"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_TRIGGER;
+			if ( configEnginePhysicsDebugDrawJson["projectile"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_PROJECTILE;
+			if ( configEnginePhysicsDebugDrawJson["character"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_CHARACTER;
+			if ( configEnginePhysicsDebugDrawJson["all"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_ALL;
+
+		} else if ( configEnginePhysicsDebugDrawJson.is<bool>() && configEnginePhysicsDebugDrawJson.as<bool>() ) {
+			uf::physics::settings.debugDraw = pod::Collider::CATEGORY_ALL;
+		}
 	}
 
 	// Audio settings

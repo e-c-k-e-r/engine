@@ -99,10 +99,10 @@ ent:bind( "tick", function(self)
 	local flattenedTransform = nil
 
 	if fixedCamera then
-        flattenedTransform = transform:flatten()
-    else
-        flattenedTransform = cameraTransform:flatten()
-    end
+		flattenedTransform = transform:flatten()
+	else
+		flattenedTransform = cameraTransform:flatten()
+	end
 
 	-- toggle flashlight
 	if light.enabled then

@@ -336,12 +336,14 @@
 			"discord": { "enabled": false }
 		},
 		"physics": {
-			"warmup solver": false,
-			"block solver": false,
-			"psg solver": false,
-			"correction percent": 0.01,
-			"gjk": false,
-			"debug draw": true,
+			"warmup solver": true,
+			"block solver": true,
+			"pgs solver": true,
+			"correction percent": 0.1,
+			"gjk": true,
+			"debug draw": {
+				"dynamic": true
+			},
 			"fixed step": true,
 			"substeps": 4,
 			"solver iterations": 10

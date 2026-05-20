@@ -11,14 +11,6 @@
 
 pod::PhysicsSettings uf::physics::settings;
 
-float uf::physics::timescale = 1.0f / 60.0f;
-bool uf::physics::async = false;
-
-// unused, as these are from reactphysics
-bool uf::physics::interpolate = false;
-bool uf::physics::shared = false;
-bool uf::physics::globalStorage = false;
-
 // Bindings
 void uf::physics::initialize() {
 	uf::physics::initialize( uf::scene::getCurrentScene() );
@@ -41,7 +33,7 @@ void uf::physics::tick( uf::Object& scene ) {
 		uf::physics::time::delta = uf::physics::time::clamp;
 	}
 
-	if ( uf::physics::async ) {
+	if ( uf::physics::settings.async ) {
 		uf::thread::queue( "Physics", [&](){ uf::physics::tick( scene, uf::physics::time::delta ); });	
 	} else {
 		uf::physics::tick( scene, uf::physics::time::delta );
@@ -63,13 +55,16 @@ void uf::physics::tick( pod::World& world, float dt ) {
 
 	static float accumulator = 0;
 	accumulator += dt; 
-	while ( accumulator >= uf::physics::timescale ) { 
-		if ( uf::physics::settings.substeps > 0 ) uf::physics::substep( world, uf::physics::timescale, uf::physics::settings.substeps ); 
-		else uf::physics::step( world, uf::physics::timescale ); 
-		accumulator -= uf::physics::timescale; 
+
+	float timestep = uf::physics::settings.timestep;
+
+	while ( accumulator >= timestep ) { 
+		if ( uf::physics::settings.substeps > 0 ) uf::physics::substep( world, timestep, uf::physics::settings.substeps ); 
+		else uf::physics::step( world, timestep ); 
+		accumulator -= timestep; 
 	}
 
-	if ( uf::physics::settings.debugDraw ) impl::draw( world, dt );
+	if ( uf::physics::settings.debugDraw != pod::Collider::CATEGORY_NONE ) impl::draw( world, dt );
 }
 void uf::physics::terminate() {
 	uf::physics::terminate( uf::scene::getCurrentScene() );
@@ -195,7 +190,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		// pass manifolds to solver
 		impl::solveContacts( manifolds, dt );
 		// do position correction
-		impl::solvePositions( manifolds, dt );
+		//impl::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( uf::physics::settings.warmupSolver ) {
 			impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
@@ -252,7 +247,7 @@ void uf::physics::setColliderMask( pod::PhysicsBody& body, const uf::stl::string
 	if ( m == "NPC" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_NPC );
 	if ( m == "TRIGGER" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_TRIGGER );
 	if ( m == "PROJECTILE" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_PROJECTILE );
-	if ( m == "CHARACTER" ) return uf::physics::setColliderCategory( body, pod::Collider::MASK_CHARACTER );
+	if ( m == "CHARACTER" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_CHARACTER );
 	if ( m == "ALL" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_ALL );
 }
 void uf::physics::setGravity( pod::PhysicsBody& body, const pod::Vector3f& gravity ) {

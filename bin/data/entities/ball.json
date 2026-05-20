@@ -1,0 +1,24 @@
+{
+	"assets": [],
+	"behaviors": [
+		"SoundEmitterBehavior"
+	],
+	"transform": {
+		"position": [ 0, 3, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"holdable": true,
+		"physics": {
+			"mass": 10,
+			"type": "sphere",
+			"radius": 1,
+			"min": [ -0.5, -0.5, -0.5 ],
+			"max": [  0.5,  0.5,  0.5 ]
+		}
+	}
+}

@@ -44,12 +44,13 @@ void impl::addTransientLine( const pod::Vector3f& start, const pod::Vector3f& en
 void impl::drawManifold( const pod::Manifold& manifold ) {
 	for ( auto& contact : manifold.points ) {
 		auto& start = contact.point;
-		auto end = contact.point + (contact.normal * MIN(contact.penetration, 0.1f));
+		auto end = contact.point + (contact.normal * MIN(contact.penetration, 0.1f) * 2);
 
 		impl::addTransientLine( start, end, pod::Vector4f{ 1, 0, 0, 1 }, manifold.a, manifold.b );
 	}
 }
 void impl::drawBody( const pod::PhysicsBody& body ) {
+	if ( !(body.collider.category & uf::physics::settings.debugDraw) ) return;
 	switch( body.collider.type ) {
 		case pod::ShapeType::AABB:
 			impl::drawAabb( body );
@@ -83,14 +84,14 @@ void impl::draw( const pod::World& world, float dt ) {
 
 	::lines.clear();
 
-//	for ( auto* body : world.bodies ) impl::drawBody( *body );
+	for ( auto* body : world.bodies ) impl::drawBody( *body );
 	for ( auto it = ::transientLines.begin(); it != ::transientLines.end(); ) {
 		auto& line = it->second;
 		
 		if ( line.ttl <= 0 ) it = ::transientLines.erase( it );
 		else {
 			impl::addLine( line.start, line.end, line.color * pod::Vector4f{ 1, 1, 1, line.ttl } );
-			line.ttl -= dt;
+			line.ttl -= dt * 0.25f;
 			++it;
 		}
 	}
@@ -108,12 +109,12 @@ void impl::draw( const pod::World& world, float dt ) {
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
 
-		graphic.descriptor.depth.test = false;		
-		graphic.descriptor.depth.write = false;		
+		//graphic.descriptor.depth.test = false;
+		graphic.descriptor.depth.write = false;
 		graphic.descriptor.renderTarget = 1; // "forward";
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
 		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
-		graphic.descriptor.lineWidth = 4;
+		graphic.descriptor.lineWidth = 2;
 
 		uf::stl::string vertexShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/base/line/vert.spv");
 		uf::stl::string fragmentShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/base/line/frag.spv");

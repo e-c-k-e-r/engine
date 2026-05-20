@@ -174,11 +174,13 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			auto& physicsBody = this->getComponent<pod::PhysicsBody>();
 			
 			auto gravity = uf::vector::decode( metadataJsonPhysics["gravity"], physicsBody.gravity );
-			auto category = metadataJsonPhysics["category"].as<uf::stl::string>("ALL");
-			auto mask = metadataJsonPhysics["mask"].as<uf::stl::string>("ALL");
 
-			uf::physics::setColliderCategory( physicsBody, category );
-			uf::physics::setColliderMask( physicsBody, mask );
+			if ( metadataJsonPhysics["category"].is<uf::stl::string>() ){
+				uf::physics::setColliderCategory( physicsBody, metadataJsonPhysics["category"].as<uf::stl::string>() );
+			}
+			if ( metadataJsonPhysics["mask"].is<uf::stl::string>() ){
+				uf::physics::setColliderMask( physicsBody, metadataJsonPhysics["mask"].as<uf::stl::string>() );
+			}
 			uf::physics::setGravity( physicsBody, gravity );
 
 			physicsBody.velocity = uf::vector::decode( metadataJsonPhysics["velocity"], physicsBody.velocity );
