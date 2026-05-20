@@ -76,25 +76,44 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 
 	if ( uf::vector::dot(bestAxis, impl::triangleCenter(b) - impl::triangleCenter(a)) < 0.0f ) bestAxis = -bestAxis;
 
+	auto nA = impl::triangleNormal( a );
+	auto nB = impl::triangleNormal( b );
+
+	bool isAReference = std::abs( uf::vector::dot( bestAxis, nA ) ) >= std::abs( uf::vector::dot( bestAxis, nB ) );
+
+	const auto& refTri = isAReference ? a : b;
+	const auto& incTri = isAReference ? b : a;
+	auto refNormal = impl::triangleNormal( refTri );
+
 	int polyCount = 3;
 	pod::Vector3f poly[8];
-	poly[0] = b.points[0];
-	poly[1] = b.points[1];
-	poly[2] = b.points[2];
+	poly[0] = incTri.points[0];
+	poly[1] = incTri.points[1];
+	poly[2] = incTri.points[2];
 
 	for ( auto i = 0; i < 3; i++ ) {
-		auto p0 = a.points[i];
-		auto p1 = a.points[(i+1)%3];
+		auto p0 = refTri.points[i];
+		auto p1 = refTri.points[(i+1)%3];
 		auto edge = p1 - p0;
-		auto edgeNormal = uf::vector::normalize(uf::vector::cross(bestAxis, edge));
 
+		//auto edgeNormal = uf::vector::normalize( uf::vector::cross( refNormal, edge ) );
+		auto edgeNormal = uf::vector::normalize( uf::vector::cross( edge, refNormal ) );
 		impl::clipPolygon( poly, polyCount, pod::Plane{ edgeNormal, uf::vector::dot(edgeNormal, p0) } );
 		if ( polyCount == 0 ) return false;
 	}
 
+	float refOffset = uf::vector::dot(bestAxis, refTri.points[0]);
+
 	// build manifold
-	float penetration = std::max( minOverlap, 0.05f ); // slop
 	for ( auto i = 0; i < polyCount; i++ ) {
+	#if 1
+		float pointProj = uf::vector::dot(bestAxis, poly[i]);
+		float penetration = isAReference ? (pointProj - refOffset) : (refOffset - pointProj);
+	#else
+		float dist = uf::vector::dot(poly[i], refNormal) - uf::vector::dot(refNormal, refTri.points[0]);
+		float penetration = -dist;
+	#endif
+
 		manifold.points.emplace_back(pod::Contact{ poly[i], bestAxis, penetration });
 	}
 
@@ -147,8 +166,18 @@ bool impl::triangleAabb( const pod::TriangleWithNormal& tri, const pod::PhysicsB
 
 	if ( polyCount == 0 ) return false;
 
+	pod::Vector3f boxSupport = cB;
+	boxSupport.x -= std::copysign(eB.x, bestAxis.x);
+	boxSupport.y -= std::copysign(eB.y, bestAxis.y);
+	boxSupport.z -= std::copysign(eB.z, bestAxis.z);
+
+	float referenceOffset = uf::vector::dot(bestAxis, boxSupport);
+
 	for ( auto i = 0; i < polyCount; i++ ) {
-		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, minOverlap } );
+		float pointProjection = uf::vector::dot(bestAxis, poly[i]);
+		float penetration = pointProjection - referenceOffset;
+
+		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, penetration } );
 	}
 
 	return true;
@@ -204,8 +233,18 @@ bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBo
 
 	if ( polyCount == 0 ) return false;
 
+	pod::Vector3f boxSupport = cB;
+	boxSupport.x -= std::copysign(eB.x, bestAxis.x);
+	boxSupport.y -= std::copysign(eB.y, bestAxis.y);
+	boxSupport.z -= std::copysign(eB.z, bestAxis.z);
+
+	float referenceOffset = uf::vector::dot(bestAxis, boxSupport);
+
 	for ( auto i = 0; i < polyCount; i++ ) {
-		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, minOverlap } );
+		float pointProjection = uf::vector::dot(bestAxis, poly[i]);
+		float penetration = pointProjection - referenceOffset;
+
+		manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, penetration } );
 	}
 
 	return true;

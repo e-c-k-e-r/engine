@@ -85,6 +85,26 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				outPoly[i] = uf::transform::apply(transform, outPoly[i]);
 			});
 		} break;
+		case pod::ShapeType::SPHERE: {
+			outCount = 1;
+			outPoly[0] = transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
+		} break;
+		case pod::ShapeType::CAPSULE: {
+			auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
+			auto p1 = transform.position + up * body.collider.capsule.halfHeight;
+			auto p2 = transform.position - up * body.collider.capsule.halfHeight;
+
+			if ( std::fabs( uf::vector::dot( dir, up ) ) < 0.01f ) {
+				outCount = 2;
+				pod::Vector3f offset = uf::vector::normalize( dir ) * body.collider.capsule.radius;
+				outPoly[0] = p1 + offset;
+				outPoly[1] = p2 + offset;
+			} else {
+				outCount = 1;
+				auto end = ( uf::vector::dot( dir, p1 ) > uf::vector::dot( dir, p2 ) ) ? p1 : p2;
+				outPoly[0] = end + uf::vector::normalize( dir ) * body.collider.capsule.radius;
+			}
+		} break;
 		case pod::ShapeType::MESH:
 		case pod::ShapeType::CONVEX_HULL: {
 			if ( !body.collider.convexHull.mesh ) return;

@@ -260,9 +260,9 @@ namespace pod {
 	};
 
 	struct PhysicsSettings {
-		bool warmupSolver = false; // cache manifold data to warm up the solver
-		bool blockContactSolver = false; // use BlockNxN solvers (where N = number of contacts for a manifold)
-		bool pgsContactSolver = true; // use PGS contact solver
+		bool warmupSolver = true; // cache manifold data to warm up the solver
+		bool blockContactSolver = true; // use BlockNxN solvers (where N = number of contacts for a manifold)
+		bool resolveBlockContact = true; // attempts to resolve an invalid BlockNxN solve with an BlockN-1xN-1 solve
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		
 		pod::CollisionMask debugDraw = pod::Collider::CATEGORY_NONE; // draws wireframe of collision bodies
@@ -287,11 +287,11 @@ namespace pod {
 
 		// to-do: find possibly better values for this
 		uint32_t solverIterations = 10;
-		float baumgarteCorrectionPercent = 0.01f;
-		float baumgarteCorrectionSlop = 0.01f;
+		float baumgarteCorrectionPercent = 0.2f;
+		float baumgarteCorrectionSlop = 0.005f;
 		
 		uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
-		uint32_t manifoldCacheLifetime = 6; // to-do: find a good value for this
+		uint32_t manifoldCacheLifetime = 0; // 0 = derive from current settings
 
 		uint32_t frameCounter = 0;
 

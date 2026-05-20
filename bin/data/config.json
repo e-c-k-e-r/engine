@@ -338,9 +338,10 @@
 		"physics": {
 			"warmup solver": true,
 			"block solver": true,
-			"pgs solver": true,
-			"correction percent": 0.1,
-			"gjk": true,
+			"resolve block solver": true,
+			"correction percent": 0.2,
+			"correction slop": 0.005,
+			"gjk": false,
 			"debug draw": {
 				"dynamic": true
 			},

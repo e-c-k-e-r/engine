@@ -4,7 +4,6 @@
 
 #include "solvers/block.h"
 #include "solvers/iterativeImpulse.h"
-#include "solvers/pgs.h"
 
 namespace impl {
 	void resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt );

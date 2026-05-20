@@ -930,12 +930,10 @@ TEST(TriangleTriangle_Collision_SimpleOverlap, {
 	pod::TriangleWithNormal triA{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 	pod::TriangleWithNormal triB{
 		{ { {0.2f,0.2f,0}, {0.8f,0.2f,0}, {0.2f,0.8f,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	auto& bodyA = uf::physics::create( world, objA, triA, 0.0f );
@@ -962,12 +960,10 @@ TEST(TriangleTriangle_Collision_CoplanarOverlap, {
 	pod::TriangleWithNormal triA{
 		{ { {0,0,0}, {2,0,0}, {0,2,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 	pod::TriangleWithNormal triB{
 		{ { {1,1,0}, {2,1,0}, {1,2,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	auto& bodyA = uf::physics::create(world, objA, triA, 0.0f);
@@ -990,12 +986,10 @@ TEST(TriangleTriangle_Collision_TouchingEdge, {
 	pod::TriangleWithNormal triA{
 		{ { {0,0,0}, {1,0,0}, {0.5f,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 	pod::TriangleWithNormal triB{
 		{ { {0.5f,1,0}, {1.5f,0,0}, {1,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	auto& bodyA = uf::physics::create(world, objA, triA, 0.0f);
@@ -1022,7 +1016,6 @@ TEST(TriangleAabb_Collision_OverlapCenter, {
 	pod::TriangleWithNormal tri {
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::AABB box = {{0.25f, 0.25f, -0.25f}, {0.75f, 0.75f, +0.25f}};
@@ -1050,7 +1043,6 @@ TEST(TriangleAabb_Collision_NoOverlap, {
 	pod::TriangleWithNormal tri {
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::AABB box = {{2,2,2}, {3,3,3}};
@@ -1076,7 +1068,6 @@ TEST(TrianglePlane_Collision_BelowPlane, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,-0.1f}, {1,0,-0.1f}, {0,1,-0.1f} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	auto& bodyA = uf::physics::create(world, objA, tri, 0.0f);
@@ -1125,7 +1116,6 @@ TEST(TriangleSphere_Collision_Tangent, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::Sphere sphere = { 0.5f }; // radius
@@ -1155,7 +1145,6 @@ TEST(TriangleCapsule_Collision_Overlap, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	// Capsule aligned along Z axis, radius 0.2
@@ -1187,7 +1176,6 @@ TEST(TriangleCapsule_Collision_NoOverlap, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::Capsule capsule;
@@ -1213,7 +1201,6 @@ TEST(TriangleCapsule_Collision_Tangent, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,0}, {1,0,0}, {0,1,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::Capsule capsule;
@@ -1246,7 +1233,6 @@ TEST(TriangleCapsule_Collision_EdgeAlignment, {
 	pod::TriangleWithNormal tri{
 		{ { {0,0,0}, {2,0,0}, {0,2,0} } },
 		{0,0,1},
-		//{ {0,0,1}, {0,0,1}, {0,0,1} },
 	};
 
 	pod::Capsule capsule;

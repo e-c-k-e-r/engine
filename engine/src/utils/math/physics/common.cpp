@@ -475,6 +475,7 @@ pod::Vector3f impl::triangleNormal( const pod::Triangle& tri ) {
 	return uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 }
 pod::Vector3f impl::triangleNormal( const pod::TriangleWithNormal& tri ) {
+	if ( uf::vector::magnitude( tri.normal ) < 0.001f )  return impl::triangleNormal( (const pod::Triangle&) tri );
 	return tri.normal;
 }
 // mesh accessing
@@ -572,19 +573,19 @@ pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID,
 
 	auto transform = impl::getTransform( body );
 
-	if ( body.collider.type == pod::ShapeType::MESH ) {
+	if ( body.collider.type == pod::ShapeType::MESH || body.collider.type == pod::ShapeType::CONVEX_HULL ) {
 		FOR_EACH(3, {
 			tri.points[i] = uf::transform::apply( transform, tri.points[i] );
 		});
 		tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
 	}
-	else {
 	#if REORIENT_NORMALS_ON_FETCH
+	else {
 		auto triCenter = impl::triangleCenter( tri );
 		auto delta = impl::getPosition( body ) - triCenter;
 		if ( uf::vector::dot(tri.normal, delta) < 0.0f ) tri.normal = -tri.normal;
-	#endif
 	}
+	#endif
 
 	return tri;
 }

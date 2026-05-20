@@ -24,7 +24,8 @@ float impl::computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, cons
 	}
 
 	float result = inverseMass + angularTermA + angularTermB;
-	if ( result < EPS ) result = 1.0f; // prevent divide by zero
+	// to-do: assert / handle result == 0 to avoid division by zero (this probably only would happen with two static bodies colliding, which never should happen)
+	if ( result < EPS ) result = 1.0f;
 	return result;
 }
 
@@ -176,6 +177,70 @@ bool impl::similarContact( const pod::Contact& a, const pod::Contact& b, float d
 void impl::reduceContacts( pod::Manifold& manifold ) {
 	if ( manifold.points.size() <= 4 ) return;
 
+#if 1
+	int idx0 = 0, idx1 = 0, idx2 = 0, idx3 = 0;
+
+	// deepest
+	float maxPenetration = -FLT_MAX;
+	for ( int i = 0; i < manifold.points.size(); ++i ) {
+		if ( manifold.points[i].penetration > maxPenetration ) {
+			maxPenetration = manifold.points[i].penetration;
+			idx0 = i;
+		}
+	}
+
+	// furthest
+	float maxDistSq = -1.0f;
+	auto p0 = manifold.points[idx0].point;
+	for ( int i = 0; i < manifold.points.size(); ++i ) {
+		if ( i == idx0 ) continue;
+		float distSq = uf::vector::distanceSquared( p0, manifold.points[i].point );
+		if ( distSq > maxDistSq ) {
+			maxDistSq = distSq;
+			idx1 = i;
+		}
+	}
+
+	// max area
+	float maxAreaSq = -1.0f;
+	auto p1 = manifold.points[idx1].point;
+	auto edge0 = p1 - p0;
+	for ( int i = 0; i < manifold.points.size(); ++i ) {
+		if ( i == idx0 || i == idx1 ) continue;
+		auto edge1 = manifold.points[i].point - p0;
+		auto crossVec = uf::vector::cross( edge0, edge1 );
+		float areaSq = uf::vector::dot( crossVec, crossVec );
+		if ( areaSq > maxAreaSq ) {
+			maxAreaSq = areaSq;
+			idx2 = i;
+		}
+	}
+
+	// largest convex quad
+	float maxDistToCenterSq = -1.0f;
+	auto p2 = manifold.points[idx2].point;
+	auto center = (p0 + p1 + p2) / 3.0f;
+	for ( int i = 0; i < manifold.points.size(); ++i ) {
+		if ( i == idx0 || i == idx1 || i == idx2 ) continue;
+		float distSq = uf::vector::distanceSquared( center, manifold.points[i].point );
+		if ( distSq > maxDistToCenterSq ) {
+			maxDistToCenterSq = distSq;
+			idx3 = i;
+		}
+	}
+
+	// rebuild
+	pod::Manifold reducedManifold = manifold;
+	reducedManifold.points.clear();
+	reducedManifold.points.reserve( 4 );
+
+	reducedManifold.points.emplace_back( manifold.points[idx0] );
+	reducedManifold.points.emplace_back( manifold.points[idx1] );
+	reducedManifold.points.emplace_back( manifold.points[idx2] );
+	reducedManifold.points.emplace_back( manifold.points[idx3] );
+
+	manifold.points = std::move( reducedManifold.points );
+#else
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Contact>, result);
 	result.reserve(4);
 
@@ -203,6 +268,7 @@ void impl::reduceContacts( pod::Manifold& manifold ) {
 	}
 
 	manifold.points = result;
+#endif
 }
 
 void impl::mergeContacts( pod::Manifold& manifold ) {
@@ -298,12 +364,16 @@ void impl::updateManifoldCache( const uf::stl::vector<pod::Manifold>& manifolds,
 }
 
 void impl::pruneManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& cache ) {
+	auto cacheLifetime = uf::physics::settings.manifoldCacheLifetime;
+	if ( !cacheLifetime ) {
+		cacheLifetime = MAX(1, uf::physics::settings.substeps) * 2;
+	}
 	for ( auto itCache = cache.begin(); itCache != cache.end(); ) {
 		auto& manifold = itCache->second;
 
 		// prune points that are too old
 		for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
-			if ( it->lifetime > uf::physics::settings.manifoldCacheLifetime ) it = manifold.points.erase(it);
+			if ( it->lifetime > cacheLifetime ) it = manifold.points.erase(it);
 			else ++it;
 		}
 
@@ -411,8 +481,8 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 		float pseudoAngularSpeed2 = uf::vector::magnitude( body.pseudoAngularVelocity );
 		if ( pseudoAngularSpeed2 > EPS ) {
 			float pseudoAngularSpeed = std::sqrt( pseudoAngularSpeed2 );
-		    pod::Quaternion<> dq = uf::quaternion::axisAngle( body.pseudoAngularVelocity / pseudoAngularSpeed, pseudoAngularSpeed * dt );
-		    uf::transform::rotate( *body.transform/*.reference*/, dq );
+			pod::Quaternion<> dq = uf::quaternion::axisAngle( body.pseudoAngularVelocity / pseudoAngularSpeed, pseudoAngularSpeed * dt );
+			uf::transform::rotate( *body.transform/*.reference*/, dq );
 		}
 		
 		// reset

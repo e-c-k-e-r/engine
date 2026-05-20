@@ -10,8 +10,8 @@ namespace impl {
 		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
 		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
 		
-		pod::Matrix3f invIa = computeWorldInverseInertia( a );
-		pod::Matrix3f invIb = computeWorldInverseInertia( b );
+		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
+		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
 
 		auto pA = impl::getPosition( a, true );
 		auto pB = impl::getPosition( b, true );
@@ -95,7 +95,7 @@ namespace impl {
 		if ( invalidContactIndex != -1 ) {
 			bool success = false;
 			// reduce the manifold
-			if ( N > 1 ) {
+			if ( uf::physics::settings.resolveBlockContact && N > 1 ) {
 				pod::Manifold reducedManifold = manifold;
 				reducedManifold.points.erase( reducedManifold.points.begin() + invalidContactIndex );
 				manifold.points[invalidContactIndex].accumulatedNormalImpulse = 0.0f;
@@ -133,31 +133,44 @@ namespace impl {
 				contact.accumulatedPseudoImpulse = newLambdaPos;
 				impl::applyPseudoImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambdaPos[i] );
 			}
-			// friction
+			// tangent friction
 			{
 				pod::Vector3f vA = a.velocity + uf::vector::cross( a.angularVelocity, rA );
 				pod::Vector3f vB = b.velocity + uf::vector::cross( b.angularVelocity, rB );
 				pod::Vector3f rv = vB - vA;
 
 				pod::Vector3f tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
-				float tangentMag2 = uf::vector::magnitude(tangent);
-
-				if ( tangentMag2 > EPS2 ) {
-					tangent /= std::sqrt( tangentMag2 );
-
-					float invMassT = impl::computeEffectiveMass(a, b, rA, rB, tangent);
-					float vt = uf::vector::dot(rv, tangent);
-					float jt = -vt / invMassT;
-
-					float mu = std::sqrt(a.material.dynamicFriction * b.material.dynamicFriction);
-					float maxFriction = mu * contact.accumulatedNormalImpulse;
-
-					float jtOld = contact.accumulatedTangentImpulse;
-					float jtNew = std::clamp(jtOld + jt, -maxFriction, maxFriction);
-					contact.accumulatedTangentImpulse = jtNew;
-
-					impl::applyImpulseTo(a, b, rA, rB, tangent * (jtNew - jtOld));
+				float tMag2 = uf::vector::magnitude(tangent);
+				if ( tMag2 > EPS2 ) {
+					contact.tangent = tangent / std::sqrt(tMag2);
+				} else if ( uf::vector::magnitude(contact.tangent) < EPS ) {
+					contact.tangent = impl::computeTangent( contact.normal );
 				}
+
+				float invMassT = impl::computeEffectiveMass(a, b, rA, rB, contact.tangent);
+				float vt = uf::vector::dot(rv, contact.tangent);
+				float jt = -vt / invMassT;
+
+				float mu_s = std::sqrt(a.material.staticFriction * b.material.staticFriction);
+				float mu_d = std::sqrt(a.material.dynamicFriction * b.material.dynamicFriction);
+
+				float normalForce = contact.accumulatedNormalImpulse;
+				if ( std::fabs(jt) > normalForce * mu_s ) {
+					jt = -normalForce * mu_d;
+				}
+				float maxFriction = mu_s * normalForce;
+			/*
+				float mu = std::sqrt(a.material.dynamicFriction * b.material.dynamicFriction);
+				float maxFriction = mu * contact.accumulatedNormalImpulse;
+			*/
+
+				float jtOld = contact.accumulatedTangentImpulse;
+				float jtNew = std::clamp(jtOld + jt, -maxFriction, maxFriction);
+				float jtDelta = jtNew - jtOld;
+				contact.accumulatedTangentImpulse = jtNew;
+				jt = jtDelta;
+
+				impl::applyImpulseTo(a, b, rA, rB, contact.tangent * jt);
 			}
 		}
 

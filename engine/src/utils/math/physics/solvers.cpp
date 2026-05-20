@@ -6,7 +6,6 @@ void impl::resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manif
 	if ( uf::physics::settings.blockContactSolver ) {
 		if ( impl::blockSolver( a, b, manifold, dt ) ) return;
 	}
-	if ( uf::physics::settings.pgsContactSolver ) return impl::blockPGSSolver( a, b, manifold, dt );
 	for ( auto& contact : manifold.points ) impl::iterativeImpulseSolver( a, b, contact, dt );
 }
 
