@@ -25,7 +25,7 @@ local heldObject = {
 	uid = 0,
 	distance = 0,
 	smoothSpeed = 4,
-	scrollSpeed = 16,
+	scrollSpeed = 32,
 	momentum = Vector3f(0,0,0),
 	rotate = false,
 }

@@ -30,7 +30,7 @@ namespace binds {
 	}
 
 	std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
-		pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, direction}, self, uf::vector::norm( direction ) );
+		pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
 		uf::Object* object = query.hit ? query.body->object : NULL;
 		float depth = query.hit ? query.contact.penetration : -1;		
 		return std::make_tuple( object, depth );

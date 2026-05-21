@@ -200,25 +200,25 @@ namespace pod {
 		float inverseMass = 1.0f; // for fast division
 		int32_t viewIndex = -1; // -1 means it's not an aliased view
 
-		/*alignas(16)*/ pod::Vector3f offset = {};
+		pod::Vector3f offset = {};
 
-		/*alignas(16)*/ pod::Vector3f velocity = {};
-		/*alignas(16)*/ pod::Vector3f pseudoVelocity = {};
-		/*alignas(16)*/ pod::Vector3f forceAccumulator = {};
+		pod::Vector3f velocity = {};
+		pod::Vector3f forceAccumulator = {};
 
-		/*alignas(16)*/ pod::Vector3f angularVelocity = {};
-		/*alignas(16)*/ pod::Vector3f pseudoAngularVelocity = {};
-		/*alignas(16)*/ pod::Vector3f torqueAccumulator = {};
+		pod::Vector3f angularVelocity = {};
+		pod::Vector3f torqueAccumulator = {};
 
-		/*alignas(16)*/ pod::Vector3f inertiaTensor = { 1, 1, 1 };
-		/*alignas(16)*/ pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
+		pod::Vector3f pseudoVelocity = {};
+		pod::Vector3f pseudoAngularVelocity = {};
 
-		/*alignas(16)*/ pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+		pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
 
-		/*alignas(16)*/ pod::AABB bounds;
-		/*alignas(16)*/ pod::Collider collider;
-		/*alignas(16)*/ pod::PhysicsMaterial material;
-		/*alignas(16)*/ pod::Activity activity;
+		pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
+
+		pod::AABB bounds;
+		pod::Collider collider;
+		pod::PhysicsMaterial material;
+		pod::Activity activity;
 	};
 
 	struct Contact {
@@ -231,7 +231,7 @@ namespace pod {
 
 		// warm-start cached values
 		int lifetime = 0;
-		pod::Vector3f tangent = {};
+		pod::Vector3f tangent;
 		float accumulatedNormalImpulse = 0.0f;
 		float accumulatedTangentImpulse = 0.0f;
 		float accumulatedPseudoImpulse = 0.0f;
@@ -287,6 +287,7 @@ namespace pod {
 
 		// to-do: find possibly better values for this
 		uint32_t solverIterations = 10;
+		bool ngsPositionSolver = false;
 		float baumgarteCorrectionPercent = 0.2f;
 		float baumgarteCorrectionSlop = 0.005f;
 		float maxLinearCorrection = 0.2f;

@@ -85,6 +85,10 @@ pod::PhysicsBody impl::physicsBodyTriView( const pod::TriangleWithNormal triangl
 	pod::PhysicsBody view = body;
 	view.collider.type = pod::ShapeType::TRIANGLE;
 	view.collider.triangle = triangle;
+	// calculate normal if needed
+	if ( uf::vector::magnitude( view.collider.triangle.normal ) < 0.001f ) {
+		view.collider.triangle.normal = impl::triangleNormal( (const pod::Triangle&) triangle );
+	}
 	// assume triangle is already transformed
 	view.offset = {};
 	view.transform = NULL;

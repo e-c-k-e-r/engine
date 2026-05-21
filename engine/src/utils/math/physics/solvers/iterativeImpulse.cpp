@@ -31,7 +31,7 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 		impl::applyImpulseTo(a, b, rA, rB, contact.normal * jn);
 	}
 	// pseudo impulse
-	{
+	if ( !uf::physics::settings.ngsPositionSolver ) {
 		float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
 		penetrationBias = std::min(penetrationBias, uf::physics::settings.maxLinearCorrection / dt);
 

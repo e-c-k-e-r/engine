@@ -4,7 +4,7 @@
 		"SoundEmitterBehavior"
 	],
 	"transform": {
-		"position": [ 0, 3, 0 ],
+		"position": [ -0.574743, 2.3547, -5.05161 ],
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0

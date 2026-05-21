@@ -119,7 +119,7 @@ namespace impl {
 				impl::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
 			}
 			// pseudo impulse
-			{
+			if ( !uf::physics::settings.ngsPositionSolver ) {
 				float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
 				penetrationBias = std::min(penetrationBias, uf::physics::settings.maxLinearCorrection / dt);
 

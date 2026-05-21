@@ -14,10 +14,9 @@ void impl::solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) 
 	for ( auto i = 0; i < uf::physics::settings.solverIterations; ++i ) for ( auto& manifold : manifolds ) impl::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
 }
 void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, uint32_t iterations ) {
-	if ( true || uf::physics::settings.baumgarteCorrectionPercent <= 0 ) return;
+	if ( !uf::physics::settings.ngsPositionSolver ) return;
+	if ( uf::physics::settings.baumgarteCorrectionPercent <= 0 ) return;
 	for ( auto i = 0; i < iterations; ++i ) {
-		float minSeparation = 0.0f;
-
 		for ( auto& manifold : manifolds ) {
 			auto& a = *manifold.a;
 			auto& b = *manifold.b;
@@ -32,8 +31,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 				pod::Vector3f worldA = tA.position + rA;
 				pod::Vector3f worldB = tB.position + rB;
 
-				float penetration = -uf::vector::dot( worldB - worldA, c.normal );
-				minSeparation = std::min( minSeparation, -penetration );
+				float penetration = uf::vector::dot( worldB - worldA, c.normal );
 
 				float C = std::clamp( penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f, uf::physics::settings.maxLinearCorrection );
 				if ( C <= 0.0f ) continue;

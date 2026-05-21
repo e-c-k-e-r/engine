@@ -470,7 +470,7 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	}
 
 	// pseudo-impulse position correction
-	{
+	if ( !uf::physics::settings.ngsPositionSolver ) {
 		body.transform->position += body.pseudoVelocity * dt;
 
 		float pseudoAngularSpeed2 = uf::vector::magnitude( body.pseudoAngularVelocity );

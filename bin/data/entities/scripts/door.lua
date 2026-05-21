@@ -111,9 +111,9 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 			local delta = transform.position - userTransform.position
 			local side = normal:dot(delta)
 			if side > 0 then
-				polarity = 1
-			elseif side < 0 then
 				polarity = -1
+			elseif side < 0 then
+				polarity =  1
 			end
 		end
 	elseif state == 2 --[[or state == 1]] then

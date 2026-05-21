@@ -201,19 +201,26 @@ void UF_API uf::load( ext::json::Value& json ) {
 	// Physics settings
 	{
 		auto& configEnginePhysicsJson = json["engine"]["physics"];
-		uf::physics::settings.warmupSolver = configEnginePhysicsJson["warmup solver"].as(uf::physics::settings.warmupSolver);
-		uf::physics::settings.blockContactSolver = configEnginePhysicsJson["block solver"].as(uf::physics::settings.blockContactSolver);
-		uf::physics::settings.resolveBlockContact = configEnginePhysicsJson["resolve block solver"].as(uf::physics::settings.resolveBlockContact);
-		uf::physics::settings.useGjk = configEnginePhysicsJson["gjk"].as(uf::physics::settings.useGjk);
 		uf::physics::settings.async = configEnginePhysicsJson["async"].as(uf::physics::settings.async);
 		uf::physics::settings.timestep = configEnginePhysicsJson["timestep"].as(uf::physics::settings.timestep);
 		uf::physics::settings.fixedStep = configEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
 		uf::physics::settings.substeps = configEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
-		uf::physics::settings.solverIterations = configEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
-		uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsJson["correction percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
-		uf::physics::settings.baumgarteCorrectionSlop = configEnginePhysicsJson["correction slop"].as(uf::physics::settings.baumgarteCorrectionSlop);
-		uf::physics::settings.maxLinearCorrection = configEnginePhysicsJson["max correction"].as(uf::physics::settings.maxLinearCorrection);
-		
+
+		auto& configEnginePhysicsSolverJson = configEnginePhysicsJson["solvers"];
+		if ( ext::json::isObject( configEnginePhysicsSolverJson ) ) {
+			uf::physics::settings.useGjk = configEnginePhysicsSolverJson["gjk"].as(uf::physics::settings.useGjk);
+			uf::physics::settings.blockContactSolver = configEnginePhysicsSolverJson["block"].as(uf::physics::settings.blockContactSolver);
+			uf::physics::settings.warmupSolver = configEnginePhysicsSolverJson["warmup"].as(uf::physics::settings.warmupSolver);
+			uf::physics::settings.resolveBlockContact = configEnginePhysicsSolverJson["resolve invalid"].as(uf::physics::settings.resolveBlockContact);
+			uf::physics::settings.solverIterations = configEnginePhysicsSolverJson["iterations"].as(uf::physics::settings.solverIterations);
+		}
+		auto& configEnginePhysicsCorrectionJson = configEnginePhysicsJson["correction"];
+		if ( ext::json::isObject( configEnginePhysicsCorrectionJson ) ) {
+			uf::physics::settings.ngsPositionSolver = configEnginePhysicsCorrectionJson["ngs"].as(uf::physics::settings.ngsPositionSolver);
+			uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsCorrectionJson["percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
+			uf::physics::settings.baumgarteCorrectionSlop = configEnginePhysicsCorrectionJson["slop"].as(uf::physics::settings.baumgarteCorrectionSlop);
+			uf::physics::settings.maxLinearCorrection = configEnginePhysicsCorrectionJson["max"].as(uf::physics::settings.maxLinearCorrection);
+		}
 		auto& configEnginePhysicsDebugDrawJson = configEnginePhysicsJson["debug draw"];
 		if ( ext::json::isObject( configEnginePhysicsDebugDrawJson ) ) {
 			if ( configEnginePhysicsDebugDrawJson["static"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_STATIC;

@@ -259,30 +259,30 @@ pod::Vector3f uf::physics::getGravity( pod::PhysicsBody& body ) {
 
 void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	if ( body.isStatic || body.mass <= 0 ) {
-		body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
 		body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 		return;
 	}
 
+	pod::Vector3f inertiaTensor = {};
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
-			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
-			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
-			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
+			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		} break;
 		case pod::ShapeType::OBB: {
 			pod::Vector3f dims = body.collider.obb.extent * 2.0f;
 			pod::Vector3f dimsSq = dims * dims;
-			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
-			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
-			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
+			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
 			float I = 0.4f * body.mass * body.collider.sphere.radius * body.collider.sphere.radius;
 			float invI = 1.0f / I;
-			body.inertiaTensor = { I, I, I };
+			inertiaTensor = { I, I, I };
 			body.inverseInertiaTensor = { invI, invI, invI };
 		} break;
 		case pod::ShapeType::CAPSULE: {
@@ -294,7 +294,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 			float Iyy = 0.5f * m * r * r;
 			float Izz = Ixx;
 
-			body.inertiaTensor = { Ixx, Iyy, Izz };
+			inertiaTensor = { Ixx, Iyy, Izz };
 			body.inverseInertiaTensor = { 1.0f/Ixx, 1.0f/Iyy, 1.0f/Izz };
 		} break;
 		case pod::ShapeType::MESH:
@@ -304,9 +304,9 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 		#if 1
 			pod::Vector3f dims = (body.bounds.max - body.bounds.min);
 			pod::Vector3f dimsSq = dims * dims;
-			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
-			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
-			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
+			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		#else
 			pod::Matrix3f inertia = {};
 			float totalVolume = 0.0f;
@@ -321,7 +321,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 			}
 
 			if ( totalVolume < EPS ) {
-				body.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
+				inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
 				body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 			} else {
 				// accumulate inertia
@@ -353,8 +353,8 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 					inertia += Ibox + pat;
 				}
 				
-				body.inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
-				body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+				inertiaTensor = { inertia(0,0), inertia(1,1), inertia(2,2) };
+				body.inverseInertiaTensor = 1.0f / inertiaTensor;
 			}
 		#endif
 		} break;
@@ -514,6 +514,9 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, co
 	auto& body = uf::physics::create( world, object, mass, offset );
 	body.collider.type = pod::ShapeType::TRIANGLE;
 	body.collider.triangle = tri;
+	if ( uf::vector::magnitude( body.collider.triangle.normal ) < 0.001f ) {
+		body.collider.triangle.normal = impl::triangleNormal( (const pod::Triangle&) tri );
+	}
 	body.bounds = impl::computeAABB( body );
 	uf::physics::updateInertia( body );
 	return body;

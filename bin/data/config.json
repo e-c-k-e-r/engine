@@ -336,19 +336,24 @@
 			"discord": { "enabled": false }
 		},
 		"physics": {
-			"warmup solver": true,
-			"block solver": false,
-			"resolve block true": true,
-			"correction percent": 0.2,
-			"correction slop": 0.01,
-			"max correction": 0.01,
-			"gjk": false,
+			"solvers": {
+				"warmup": true,
+				"block": true,
+				"resolve invalid": true,
+				"iterations": 10,
+				"gjk": false
+			},
+			"correction": {
+				"ngs": true,
+				"percent": 0.2,
+				"slop": 0.01, // 0.005
+				"max": 0.01 // 0.2
+			},
 			"debug draw": {
 				"dynamic": true
 			},
 			"fixed step": true,
-			"substeps": 4,
-			"solver iterations": 10
+			"substeps": 4
 		},
 		"audio": {
 			"mute": false,

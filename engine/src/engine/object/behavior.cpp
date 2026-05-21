@@ -196,7 +196,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			physicsBody.angularVelocity = uf::vector::decode( metadataJsonPhysics["angularVelocity"], physicsBody.angularVelocity );
 			
 			if ( metadataJsonPhysics["inertia"].is<bool>() && !metadataJsonPhysics["inertia"].as<bool>() ) {
-				physicsBody.inertiaTensor = { FLT_MAX, FLT_MAX, FLT_MAX };
 				physicsBody.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 			}
 		}

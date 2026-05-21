@@ -1335,7 +1335,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					
 					physicsBody.material.staticFriction = phyziks["friction"].as(physicsBody.material.staticFriction);
 					physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
-					physicsBody.inertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inertiaTensor );
+					physicsBody.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inverseInertiaTensor );
 					physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
 			
@@ -2007,7 +2007,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				
 				physicsBody.material.staticFriction = phyziks["friction"].as(physicsBody.material.staticFriction);
 				physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
-				physicsBody.inertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inertiaTensor );
+				physicsBody.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inverseInertiaTensor );
 				physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
 				auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
 			
