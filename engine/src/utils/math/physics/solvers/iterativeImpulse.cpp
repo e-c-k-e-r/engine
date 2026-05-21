@@ -8,7 +8,7 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 
 	float invMassN = impl::computeEffectiveMass(a, b, rA, rB, contact.normal);
 
-	// real impulse
+	// normal impulse
 	{
 		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
 		pod::Vector3f vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
@@ -33,7 +33,7 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 	// pseudo impulse
 	{
 		float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
-		penetrationBias = std::min(penetrationBias, 2.0f / dt);
+		penetrationBias = std::min(penetrationBias, uf::physics::settings.maxLinearCorrection / dt);
 
 		pod::Vector3f pseudoVa = a.pseudoVelocity + uf::vector::cross(a.pseudoAngularVelocity, rA);
 		pod::Vector3f pseudoVb = b.pseudoVelocity + uf::vector::cross(b.pseudoAngularVelocity, rB);
@@ -48,7 +48,6 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 
 		impl::applyPseudoImpulseTo(a, b, rA, rB, contact.normal * jPseudo);
 	}
-
 	// tangent friction
 	{
 		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);

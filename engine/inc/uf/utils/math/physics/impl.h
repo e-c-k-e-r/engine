@@ -289,6 +289,7 @@ namespace pod {
 		uint32_t solverIterations = 10;
 		float baumgarteCorrectionPercent = 0.2f;
 		float baumgarteCorrectionSlop = 0.005f;
+		float maxLinearCorrection = 0.2f;
 		
 		uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 		uint32_t manifoldCacheLifetime = 0; // 0 = derive from current settings
@@ -371,6 +372,7 @@ namespace uf {
 		
 		pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::OBB& obb, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );
@@ -378,6 +380,7 @@ namespace uf {
 
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::OBB& obb, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Sphere& sphere, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Capsule& capsule, float mass = 0.0f, const pod::Vector3f& = {} );

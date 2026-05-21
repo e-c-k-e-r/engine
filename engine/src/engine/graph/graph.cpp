@@ -1321,10 +1321,10 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					auto max = bounds.max; // uf::matrix::multiply<float>( model, bounds.max, 1.0f );
 
 					pod::Vector3f center = (max + min) * 0.5f;
-					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
+					pod::Vector3f extent = uf::vector::abs(max - min) * 0.5f;
 
 					if ( ext::json::isNull( metadataJson["physics"]["center"] ) ) metadataJson["physics"]["center"] = uf::vector::encode( center );
-					if ( ext::json::isNull( metadataJson["physics"]["corner"] ) ) metadataJson["physics"]["corner"] = uf::vector::encode( corner );
+					if ( ext::json::isNull( metadataJson["physics"]["extent"] ) ) metadataJson["physics"]["extent"] = uf::vector::encode( extent );
 					if ( ext::json::isNull( metadataJson["physics"]["min"] ) ) metadataJson["physics"]["min"] = uf::vector::encode( min );
 					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( max );
 				}

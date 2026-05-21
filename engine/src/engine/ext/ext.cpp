@@ -212,6 +212,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 		uf::physics::settings.solverIterations = configEnginePhysicsJson["solver iterations"].as(uf::physics::settings.solverIterations);
 		uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsJson["correction percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
 		uf::physics::settings.baumgarteCorrectionSlop = configEnginePhysicsJson["correction slop"].as(uf::physics::settings.baumgarteCorrectionSlop);
+		uf::physics::settings.maxLinearCorrection = configEnginePhysicsJson["max correction"].as(uf::physics::settings.maxLinearCorrection);
 		
 		auto& configEnginePhysicsDebugDrawJson = configEnginePhysicsJson["debug draw"];
 		if ( ext::json::isObject( configEnginePhysicsDebugDrawJson ) ) {

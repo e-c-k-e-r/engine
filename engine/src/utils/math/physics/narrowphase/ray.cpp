@@ -65,7 +65,7 @@ bool impl::rayAabb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQ
 
 		auto local = rayHit.contact.point - (body.bounds.min + body.bounds.max) * 0.5f;
 		auto extents = (body.bounds.max - body.bounds.min) * 0.5f;
-		auto absLocal = pod::Vector3f{fabs(local.x), fabs(local.y), fabs(local.z)};
+		auto absLocal = uf::vector::abs( local );
 
 		if ( absLocal.x > absLocal.y && absLocal.x > absLocal.z ) {
 			rayHit.contact.normal = { (local.x > 0 ? 1.0f : -1.0f), 0, 0 };
@@ -84,10 +84,10 @@ bool impl::rayObb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQu
 	localRay.origin = uf::transform::applyInverse( tA, ray.origin );
 	localRay.direction = uf::quaternion::rotate( uf::quaternion::inverse(tA.orientation), ray.direction );
 
-	pod::AABB localBox = { body.collider.obb.min, body.collider.obb.max };
+	auto box = impl::obbToAabb( body.collider.obb );
 
 	float tMin, tMax;
-	if ( !impl::rayAabbIntersect( localRay, localBox, tMin, tMax ) ) return false;
+	if ( !impl::rayAabbIntersect( localRay, box, tMin, tMax ) ) return false;
 
 	if ( tMin < rayHit.contact.penetration ) {
 		rayHit.hit = true;
@@ -97,10 +97,8 @@ bool impl::rayObb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQu
 		rayHit.contact.point = ray.origin + ray.direction * tMin;
 
 		auto localPoint = localRay.origin + localRay.direction * tMin;
-		auto center = (localBox.max + localBox.min) * 0.5f;
-		auto extents = (localBox.max - localBox.min) * 0.5f;
-		auto localDelta = localPoint - center;
-		auto absDelta = pod::Vector3f{ std::fabs(localDelta.x) / extents.x, std::fabs(localDelta.y) / extents.y, std::fabs(localDelta.z) / extents.z };
+		auto localDelta = localPoint - body.collider.obb.center;
+		auto absDelta = uf::vector::abs( localDelta / body.collider.obb.extent );
 
 		pod::Vector3f localNormal = {0,0,0};
 		if ( absDelta.x > absDelta.y && absDelta.x > absDelta.z ) localNormal.x = localDelta.x > 0 ? 1.0f : -1.0f;

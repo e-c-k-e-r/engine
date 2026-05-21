@@ -382,7 +382,7 @@ float impl::segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vecto
 }
 
 // Separating Axis Theorem test
-bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::AABB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis ) {
+bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::OBB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis ) {
 	float mag = uf::vector::magnitude(axis);
 	if ( mag < EPS2 ) return true;
 	pod::Vector3f n = axis / mag;
@@ -395,12 +395,8 @@ bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::AABB& b
 	float maxT = std::max( { p0, p1, p2 } );
 
 	// project box
-	pod::Vector3f cB = impl::aabbCenter( box );
-	pod::Vector3f eB = impl::aabbExtent( box );
-	float pB = uf::vector::dot(cB, n);
-	float rB = eB.x * std::fabs(uf::vector::dot(axes[0], n)) +
-			   eB.y * std::fabs(uf::vector::dot(axes[1], n)) +
-			   eB.z * std::fabs(uf::vector::dot(axes[2], n));
+	float pB = uf::vector::dot( box.center, n );
+	float rB = impl::projectExtents( box, n, axes );
 
 	float minB = pB - rB;
 	float maxB = pB + rB;
@@ -410,6 +406,28 @@ bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::AABB& b
 
 	// calculate overlap depth
 	float overlap = std::min(maxT, maxB) - std::max(minT, minB);
+	if ( overlap < outMinOverlap ) {
+		outMinOverlap = overlap;
+		outBestAxis = n;
+	}
+	return true;
+}
+bool impl::testSeparatingAxis( const pod::OBB& boxA, const pod::OBB& boxB, const pod::Vector3f axesA[3], const pod::Vector3f axesB[3], const pod::Vector3f& axis, float& outMinOverlap, pod::Vector3f& outBestAxis ) {
+	float mag = uf::vector::magnitude(axis);
+	if ( mag < EPS2 ) return true;
+	pod::Vector3f n = axis / mag;
+
+	float pA = uf::vector::dot( boxA.center, n );
+	float rA = impl::projectExtents( boxA, n, axesA );
+
+	float pB = uf::vector::dot( boxB.center, n );
+	float rB = impl::projectExtents( boxB, n, axesB );
+
+	float dist = std::fabs( pB - pA );
+	float overlap = ( rA + rB ) - dist;
+
+	if ( overlap < 0.0f ) return false;
+
 	if ( overlap < outMinOverlap ) {
 		outMinOverlap = overlap;
 		outBestAxis = n;
@@ -649,29 +667,63 @@ pod::Vector3f impl::aabbCenter( const pod::AABB& aabb ) {
 pod::Vector3f impl::aabbExtent( const pod::AABB& aabb ) {
 	return ( aabb.max - aabb.min ) * 0.5f;
 }
+// returns the min bound of an OBB
+pod::Vector3f impl::obbMin( const pod::OBB& obb ) {
+	return obb.center - obb.extent;
+}
+// returns the max bound of an OBB
+pod::Vector3f impl::obbMax( const pod::OBB& obb ) {
+	return obb.center + obb.extent;
+}
+// converts a min-max AABB to center-extents OBB
+pod::OBB impl::aabbToObb( const pod::AABB& aabb ) {
+	return pod::OBB{
+		.center = impl::aabbCenter( aabb ),
+		.extent = impl::aabbExtent( aabb ),
+	};
+}
+// converts a center-extents OBB to min-max AABB
+pod::AABB impl::obbToAabb( const pod::OBB& obb ) {
+	return pod::AABB{
+		.min = impl::obbMin( obb ),
+		.max = impl::obbMax( obb ),
+	};
+}
+// returns AABB axes
+void impl::boxAxes( pod::Vector3f axes[3] ) {
+	axes[0] = {1,0,0};
+	axes[1] = {0,1,0};
+	axes[2] = {0,0,1};
+}
+// returns OBB axes
+void impl::boxAxes( pod::Vector3f axes[3], const pod::Transform<>& transform ) {
+	axes[0] = uf::quaternion::rotate(transform.orientation, pod::Vector3f{1,0,0});
+	axes[1] = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0,1,0});
+	axes[2] = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0,0,1});
+}
+// computes a box's extents from given axes
+pod::Vector3f impl::extentFromAxes( const pod::OBB& box, const pod::Vector3f axes[3] ) {
+	return ( uf::vector::abs(axes[0]) * box.extent.x ) + ( uf::vector::abs(axes[1]) * box.extent.y ) + ( uf::vector::abs(axes[2]) * box.extent.z );
+}
+//
+float impl::projectExtents( const pod::OBB& box, const pod::Vector3f& normal, const pod::Vector3f axes[3] ) {
+    return uf::vector::dot(box.extent, uf::vector::abs( pod::Vector3f{
+        uf::vector::dot(axes[0], normal),
+        uf::vector::dot(axes[1], normal),
+        uf::vector::dot(axes[2], normal)
+    } ) );
+//	return box.extent.x * std::fabs(uf::vector::dot(axes[0], normal)) + box.extent.y * std::fabs(uf::vector::dot(axes[1], normal)) + box.extent.z * std::fabs(uf::vector::dot(axes[2], normal));
+}
 // transforms an AABB into world-space
 pod::AABB impl::transformAabbToWorld( const pod::AABB& aabb, const pod::Transform<>& transform ) {
-	// to-do: flatten, since transform might not be flattened (even though getTransform does that)
-	const auto& q = transform.orientation;
-	const auto& p = transform.position;
+	auto box = impl::aabbToObb( aabb );
+	pod::Vector3f axes[3];
+	impl::boxAxes( axes, transform );
 
-	pod::Vector3f cB  = impl::aabbCenter( aabb );
-	pod::Vector3f eB = impl::aabbExtent( aabb );
-	pod::Vector3f axes[] = {
-		uf::quaternion::rotate(q, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(q, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(q, pod::Vector3f{0,0,1}),
-	};
+	pod::Vector3f center = uf::quaternion::rotate(transform.orientation, box.center) + transform.position;
+	pod::Vector3f extent = impl::extentFromAxes( box, axes );
 
-	pod::Vector3f cW = uf::quaternion::rotate(q, cB) + p;
-	// to-do: a cleaner way of doing this with uf::vector::abs
-	pod::Vector3f cE = {
-		fabs(axes[0].x) * eB.x + fabs(axes[1].x) * eB.y + fabs(axes[2].x) * eB.z,
-		fabs(axes[0].y) * eB.x + fabs(axes[1].y) * eB.y + fabs(axes[2].y) * eB.z,
-		fabs(axes[0].z) * eB.x + fabs(axes[1].z) * eB.y + fabs(axes[2].z) * eB.z
-	};
-
-	return { cW - cE, cW + cE };
+	return { center - extent, center + extent };
 }
 // returns the line segment of a capsule
 std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::PhysicsBody& body ) {
@@ -688,15 +740,11 @@ std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::Phys
 pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	switch ( body.collider.type ) {
-		case pod::ShapeType::AABB:
-		case pod::ShapeType::OBB: {
+		case pod::ShapeType::AABB: {
 			return impl::transformAabbToWorld( body.collider.aabb, transform );
-		/*
-			return {
-				transform.position + body.collider.aabb.min,
-				transform.position + body.collider.aabb.max,
-			};
-		*/
+		} break;
+		case pod::ShapeType::OBB: {
+			return impl::transformAabbToWorld( impl::obbToAabb( body.collider.obb ), transform );
 		} break;
 		case pod::ShapeType::SPHERE: {
 			return {

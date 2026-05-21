@@ -12,9 +12,14 @@ namespace pod {
 	struct AABB {
 		alignas(16) pod::Vector3f min;
 		alignas(16) pod::Vector3f max;
+	//	operator OBB() const { return OBB{ (min + max) * 0.5f, (min - max) * 0.5f }; }
 	};
 
-	typedef AABB OBB;
+	struct OBB {
+		alignas(16) pod::Vector3f center;
+		alignas(16) pod::Vector3f extent;
+	//	operator AABB() const { return AABB{ center - extent, center + extent }; }
+	};
 
 	struct Sphere {
 		float radius;

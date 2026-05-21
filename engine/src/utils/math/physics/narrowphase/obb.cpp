@@ -1,154 +1,182 @@
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/narrowphase.h>
 
+namespace impl {
+	void getIncidentFace( const pod::OBB& obb, const pod::Vector3f* axes, const pod::Vector3f& normal, pod::Vector3f* outPoly ) {
+		pod::Vector3f n = -normal;
+		pod::Vector3f absN = uf::vector::abs(pod::Vector3f{
+			uf::vector::dot(n, axes[0]),
+			uf::vector::dot(n, axes[1]),
+			uf::vector::dot(n, axes[2])
+		});
+
+		int maxAxis = 0;
+		if ( absN.y > absN.x ) maxAxis = 1;
+		if ( absN.z > absN.x && absN.z > absN.y ) maxAxis = 2;
+
+		pod::Vector3f axis = axes[maxAxis];
+		if ( uf::vector::dot(n, axis) < 0.0f ) axis = -axis;
+
+		pod::Vector3f center = obb.center + axis * ((maxAxis == 0) ? obb.extent.x : (maxAxis == 1) ? obb.extent.y : obb.extent.z);
+
+		int a1 = (maxAxis + 1) % 3;
+		int a2 = (maxAxis + 2) % 3;
+
+		float ext1 = (a1 == 0) ? obb.extent.x : (a1 == 1) ? obb.extent.y : obb.extent.z;
+		float ext2 = (a2 == 0) ? obb.extent.x : (a2 == 1) ? obb.extent.y : obb.extent.z;
+
+		outPoly[0] = center + axis[a1] * ext1 + axis[a2] * ext2;
+		outPoly[1] = center - axis[a1] * ext1 + axis[a2] * ext2;
+		outPoly[2] = center - axis[a1] * ext1 - axis[a2] * ext2;
+		outPoly[3] = center + axis[a1] * ext1 - axis[a2] * ext2;
+	}
+
+	bool boxBox( const pod::OBB& boxA, const pod::OBB& boxB, const pod::Vector3f* axesA, const pod::Vector3f* axesB, pod::Manifold& manifold ) {
+		float minOverlap = FLT_MAX;
+		pod::Vector3f bestAxis;
+
+		for ( int i = 0; i < 3; ++i ) {
+			if ( !impl::testSeparatingAxis(boxA, boxB, axesA, axesB, axesA[i], minOverlap, bestAxis) ) return false;
+			if ( !impl::testSeparatingAxis(boxA, boxB, axesA, axesB, axesB[i], minOverlap, bestAxis) ) return false;
+		}
+
+		for ( int i = 0; i < 3; ++i ) {
+			for ( int j = 0; j < 3; j++ ) {
+				pod::Vector3f axis = uf::vector::cross(axesA[i], axesB[j]);
+				if ( !impl::testSeparatingAxis(boxA, boxB, axesA, axesB, axis, minOverlap, bestAxis) ) return false;
+			}
+		}
+
+		if ( uf::vector::dot(bestAxis, boxB.center - boxA.center) < 0.0f ) bestAxis = -bestAxis;
+		
+	#if 1
+		pod::Vector3f contactPoint = boxA.center + bestAxis * impl::projectExtents( boxA, bestAxis, axesA );
+		manifold.points.emplace_back( pod::Contact{ contactPoint, bestAxis, minOverlap } );
+	#else
+		auto refBox = boxA;
+		auto incBox = boxB;
+		auto* refAxes = axesA;
+		auto* incAxes = axesB;
+		bool isARef = false;
+
+		float maxDot = -1.0f;
+		for ( int i = 0; i < 3; i++ ) {
+			float dotA = std::fabs(uf::vector::dot(axesA[i], bestAxis));
+			float dotB = std::fabs(uf::vector::dot(axesB[i], bestAxis));
+			if ( dotA > maxDot ) { maxDot = dotA; isARef = true; }
+			if ( dotB > maxDot ) { maxDot = dotB; isARef = false; }
+		}
+
+		if ( !isARef ) {
+			refBox = boxB;
+			incBox = boxA;
+			refAxes = axesB;
+			incAxes = axesA;
+		}
+
+		int polyCount = 4;
+		pod::Vector3f poly[8];
+		pod::Vector3f incNormal = isARef ? bestAxis : -bestAxis;
+		impl::getIncidentFace( incBox, incAxes, incNormal, poly );
+
+		int refAxisIdx = 0;
+		float maxRefDot = -1.0f;
+		for ( int i = 0; i < 3; i++ ) {
+			float d = std::fabs(uf::vector::dot(refAxes[i], bestAxis));
+			if ( d > maxRefDot ) { maxRefDot = d; refAxisIdx = i; }
+		}
+
+		pod::Vector3f refFaceNormal = refAxes[refAxisIdx];
+		if ( uf::vector::dot(refFaceNormal, isARef ? bestAxis : -bestAxis ) < 0.0f) {
+			refFaceNormal = -refFaceNormal;
+		}
+
+		int a1 = ( refAxisIdx + 1 ) % 3;
+		int a2 = ( refAxisIdx + 2 ) % 3;
+		float ext1 = ( a1 == 0 ) ? refBox.extent.x : ( a1 == 1 ) ? refBox.extent.y : refBox.extent.z;
+		float ext2 = ( a2 == 0 ) ? refBox.extent.x : ( a2 == 1 ) ? refBox.extent.y : refBox.extent.z;
+
+		impl::clipPolygon( poly, polyCount, pod::Plane{  refAxes[a1], ext1 + uf::vector::dot(refAxes[a1], refBox.center) });
+		impl::clipPolygon( poly, polyCount, pod::Plane{ -refAxes[a1], ext1 - uf::vector::dot(refAxes[a1], refBox.center) });
+		impl::clipPolygon( poly, polyCount, pod::Plane{  refAxes[a2], ext2 + uf::vector::dot(refAxes[a2], refBox.center) });
+		impl::clipPolygon( poly, polyCount, pod::Plane{ -refAxes[a2], ext2 - uf::vector::dot(refAxes[a2], refBox.center) });
+
+		if ( polyCount == 0 ) return false;
+
+		float refExt = (refAxisIdx == 0) ? refBox.extent.x : (refAxisIdx == 1) ? refBox.extent.y : refBox.extent.z;
+		pod::Vector3f refFaceCenter = refBox.center + refFaceNormal * refExt;
+		float referenceOffset = uf::vector::dot(refFaceNormal, refFaceCenter);
+
+		for ( auto i = 0; i < polyCount; i++ ) {
+			float depth = referenceOffset - uf::vector::dot(refFaceNormal, poly[i]);
+			if ( depth >= 0.0f ) {
+				manifold.points.emplace_back( pod::Contact{ poly[i], bestAxis, depth } );
+			}
+		}
+	#endif
+
+		return manifold.points.size() > 0;
+	}
+}
+
 bool impl::obbObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( OBB, OBB );
 
 	auto tA = impl::getTransform( a );
 	auto tB = impl::getTransform( b );
 
-	pod::Vector3f cA = uf::transform::apply( tA, (a.collider.obb.max + a.collider.obb.min) * 0.5f );
-	pod::Vector3f cB = uf::transform::apply( tB, (b.collider.obb.max + b.collider.obb.min) * 0.5f );
-	pod::Vector3f eA = (a.collider.obb.max - a.collider.obb.min) * 0.5f;
-	pod::Vector3f eB = (b.collider.obb.max - b.collider.obb.min) * 0.5f;
+	auto boxA = a.collider.obb;
+	auto boxB = b.collider.obb;
 
-	pod::Vector3f axesA[3] = {
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,0,1})
-	};
-	pod::Vector3f axesB[3] = {
-		uf::quaternion::rotate(tB.orientation, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(tB.orientation, pod::Vector3f{0,0,1})
-	};
+	boxA.center = uf::quaternion::rotate(tA.orientation, boxA.center) + tA.position;
+	boxB.center = uf::quaternion::rotate(tB.orientation, boxB.center) + tB.position;
 
-	float minOverlap = FLT_MAX;
-	pod::Vector3f bestAxis;
+	pod::Vector3f axesA[3];
+	pod::Vector3f axesB[3];
+	impl::boxAxes( axesA, tA );
+	impl::boxAxes( axesB, tB );
 
-	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-		float mag = uf::vector::magnitude(axis);
-		if (mag < EPS) return true;
-		pod::Vector3f n = axis / mag;
-
-		float pA = uf::vector::dot(cA, n);
-		float rA = eA.x * std::fabs(uf::vector::dot(axesA[0], n)) +
-				   eA.y * std::fabs(uf::vector::dot(axesA[1], n)) +
-				   eA.z * std::fabs(uf::vector::dot(axesA[2], n));
-
-		float pB = uf::vector::dot(cB, n);
-		float rB = eB.x * std::fabs(uf::vector::dot(axesB[0], n)) +
-				   eB.y * std::fabs(uf::vector::dot(axesB[1], n)) +
-				   eB.z * std::fabs(uf::vector::dot(axesB[2], n));
-
-		float dist = std::fabs(pB - pA);
-		float overlap = (rA + rB) - dist;
-
-		if ( overlap < 0) return false;
-
-		if ( overlap < minOverlap ) {
-			minOverlap = overlap;
-			bestAxis = n;
-		}
-		return true;
-	};
-
-	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesA[i]) ) return false;
-	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesB[i]) ) return false;
-	for ( auto i = 0; i < 3; ++i ) {
-		for ( auto  j = 0; j < 3; j++ ) if ( !testAxis(uf::vector::cross(axesA[i], axesB[j])) ) return false;
-	};
-
-	if ( uf::vector::dot(bestAxis, cB - cA) < 0.0f ) bestAxis = -bestAxis;
-
-	// to-do: generate contact face
-	pod::Vector3f contactPoint = cA + bestAxis * (eA.x * std::fabs(uf::vector::dot(axesA[0], bestAxis)) +
-												  eA.y * std::fabs(uf::vector::dot(axesA[1], bestAxis)) +
-												  eA.z * std::fabs(uf::vector::dot(axesA[2], bestAxis)));
-
-	manifold.points.emplace_back( pod::Contact{ contactPoint, bestAxis, minOverlap } );
-	return true;
+	return impl::boxBox( boxA, boxB, axesA, axesB, manifold );
 }
 
 
 bool impl::obbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
-	ASSERT_COLLIDER_TYPES( OBB, AABB );
+	ASSERT_COLLIDER_TYPES( OBB, OBB );
 
 	auto tA = impl::getTransform( a );
+	auto tB = impl::getTransform( b );
 
-	pod::Vector3f cA = uf::transform::apply( tA, (a.collider.obb.max + a.collider.obb.min) * 0.5f );
-	pod::Vector3f eA = (a.collider.obb.max - a.collider.obb.min) * 0.5f;
-	pod::Vector3f axesA[3] = {
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,0,1})
-	};
+	auto boxA = a.collider.obb;
+	auto boxB = impl::aabbToObb( b.bounds );
+	boxA.center = uf::quaternion::rotate(tA.orientation, boxA.center) + tA.position;
 
-	pod::Vector3f cB = impl::aabbCenter( b.bounds );
-	pod::Vector3f eB = impl::aabbExtent( b.bounds );
-	pod::Vector3f axesB[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
+	pod::Vector3f axesA[3];
+	pod::Vector3f axesB[3];
+	impl::boxAxes( axesA, tA );
+	impl::boxAxes( axesB );
 
-	float minOverlap = FLT_MAX;
-	pod::Vector3f bestAxis;
-
-	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-		float mag = uf::vector::magnitude(axis);
-		if ( mag < EPS ) return true;
-		pod::Vector3f n = axis / mag;
-
-		float pA = uf::vector::dot(cA, n);
-		float rA = eA.x * std::fabs(uf::vector::dot(axesA[0], n)) +
-				   eA.y * std::fabs(uf::vector::dot(axesA[1], n)) +
-				   eA.z * std::fabs(uf::vector::dot(axesA[2], n));
-
-		float pB = uf::vector::dot(cB, n);
-		float rB = eB.x * std::fabs(n.x) + eB.y * std::fabs(n.y) + eB.z * std::fabs(n.z);
-
-		float dist = std::fabs(pB - pA);
-		float overlap = (rA + rB) - dist;
-		if ( overlap < 0 ) return false;
-		if ( overlap < minOverlap ) {
-			minOverlap = overlap;
-			bestAxis = n;
-		}
-		return true;
-	};
-
-	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesA[i]) ) return false;
-	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesB[i]) ) return false;
-	for ( auto i = 0; i < 3; ++i ) {
-		for ( auto  j = 0; j < 3; j++ ) if ( !testAxis(uf::vector::cross(axesA[i], axesB[j])) ) return false;
-	};
-
-	if ( uf::vector::dot(bestAxis, cB - cA) < 0.0f ) bestAxis = -bestAxis;
-
-	pod::Vector3f contactPoint = cA + bestAxis * (eA.x * std::fabs(uf::vector::dot(axesA[0], bestAxis)) +
-												  eA.y * std::fabs(uf::vector::dot(axesA[1], bestAxis)) +
-												  eA.z * std::fabs(uf::vector::dot(axesA[2], bestAxis)));
-
-	manifold.points.emplace_back( pod::Contact{ contactPoint, bestAxis, minOverlap } );
-	return true;
+	return impl::boxBox( boxA, boxB, axesA, axesB, manifold );
 }
 
 bool impl::obbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( OBB, SPHERE );
 
 	auto tA = impl::getTransform( a );
-	auto localCenter = ( a.collider.obb.max + a.collider.obb.min ) * 0.5f;
-	auto extents = ( a.collider.obb.max - a.collider.obb.min ) * 0.5f;
+	auto box = a.collider.obb;
+	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
 
 	auto sphereCenter = impl::getPosition( b );
 	float radius = b.collider.sphere.radius;
 
-	auto localP = uf::transform::applyInverse( tA, sphereCenter ) - localCenter;
-	auto closestLocal = uf::vector::clamp( localP, -extents, extents );
+	auto localP = uf::transform::applyInverse( tA, sphereCenter ) - box.center;
+	auto closestLocal = uf::vector::clamp( localP, -box.extent, box.extent );
 
 	auto deltaLocal = localP - closestLocal;
 	float distSq = uf::vector::dot( deltaLocal, deltaLocal );
 
 	if ( distSq > radius * radius ) return false;
 
-	auto closestWorld = uf::transform::apply( tA, closestLocal + localCenter );
+	auto closestWorld = uf::transform::apply( tA, closestLocal + box.center );
 	float dist = std::sqrt( distSq );
 
 	pod::Vector3f normal;
@@ -160,8 +188,8 @@ bool impl::obbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 		float sign = 1.0f;
 
 		FOR_EACH(3, {
-			float distToMax = extents[i] - localP[i];
-			float distToMin = localP[i] - (-extents[i]);
+			float distToMax = box.extent[i] - localP[i];
+			float distToMin = localP[i] - (-box.extent[i]);
 			if (distToMax < minDist) { minDist = distToMax; axis = i; sign = 1.0f; }
 			if (distToMin < minDist) { minDist = distToMin; axis = i; sign = -1.0f; }
 		});
@@ -182,28 +210,26 @@ bool impl::obbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	ASSERT_COLLIDER_TYPES( OBB, PLANE );
 
 	auto tA = impl::getTransform( a );
-	pod::Vector3f cA = uf::transform::apply( tA, (a.collider.obb.max + a.collider.obb.min) * 0.5f );
-	pod::Vector3f eA = (a.collider.obb.max - a.collider.obb.min) * 0.5f;
-	pod::Vector3f axesA[3] = {
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,0,1})
-	};
+	auto box = a.collider.obb;
+	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
+
+	pod::Vector3f axesA[3];
+	impl::boxAxes( axesA, tA );
 
 	pod::Vector3f normal = b.collider.plane.normal;
 	float offset = b.collider.plane.offset;
 
-	float rA = eA.x * std::fabs(uf::vector::dot(axesA[0], normal)) +
-			   eA.y * std::fabs(uf::vector::dot(axesA[1], normal)) +
-			   eA.z * std::fabs(uf::vector::dot(axesA[2], normal));
+	float rA = box.extent.x * std::fabs(uf::vector::dot(axesA[0], normal)) +
+			   box.extent.y * std::fabs(uf::vector::dot(axesA[1], normal)) +
+			   box.extent.z * std::fabs(uf::vector::dot(axesA[2], normal));
 
-	float dist = uf::vector::dot(cA, normal) - offset;
+	float dist = uf::vector::dot(box.center, normal) - offset;
 	if ( dist > rA ) return false; // in front of plane
 
-	pod::Vector3f deepestPoint = cA
-		- axesA[0] * eA.x * (uf::vector::dot(axesA[0], normal) > 0 ? 1.0f : -1.0f)
-		- axesA[1] * eA.y * (uf::vector::dot(axesA[1], normal) > 0 ? 1.0f : -1.0f)
-		- axesA[2] * eA.z * (uf::vector::dot(axesA[2], normal) > 0 ? 1.0f : -1.0f);
+	pod::Vector3f deepestPoint = box.center
+		- axesA[0] * box.extent.x * (uf::vector::dot(axesA[0], normal) > 0 ? 1.0f : -1.0f)
+		- axesA[1] * box.extent.y * (uf::vector::dot(axesA[1], normal) > 0 ? 1.0f : -1.0f)
+		- axesA[2] * box.extent.z * (uf::vector::dot(axesA[2], normal) > 0 ? 1.0f : -1.0f);
 
 	float penetration = rA - dist;
 	manifold.points.emplace_back( pod::Contact{ deepestPoint, normal, penetration } );
@@ -214,13 +240,11 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	ASSERT_COLLIDER_TYPES( OBB, CAPSULE );
 
 	auto tA = impl::getTransform( a );
-	pod::Vector3f cA = uf::transform::apply( tA, (a.collider.obb.max + a.collider.obb.min) * 0.5f );
-	pod::Vector3f eA = (a.collider.obb.max - a.collider.obb.min) * 0.5f;
-	pod::Vector3f axesA[3] = {
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{1,0,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,1,0}),
-		uf::quaternion::rotate(tA.orientation, pod::Vector3f{0,0,1})
-	};
+	auto box = a.collider.obb;
+	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
+
+	pod::Vector3f axesA[3];
+	impl::boxAxes( axesA, tA );
 
 	auto [p1, p2] = impl::getCapsuleSegment( b );
 	pod::Vector3f cB = (p1 + p2) * 0.5f;
@@ -236,10 +260,10 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 		if (mag < EPS) return true;
 		pod::Vector3f n = axis / mag;
 
-		float pA = uf::vector::dot(cA, n);
-		float rA = eA.x * std::fabs(uf::vector::dot(axesA[0], n)) +
-				   eA.y * std::fabs(uf::vector::dot(axesA[1], n)) +
-				   eA.z * std::fabs(uf::vector::dot(axesA[2], n));
+		float pA = uf::vector::dot(box.center, n);
+		float rA = box.extent.x * std::fabs(uf::vector::dot(axesA[0], n)) +
+				   box.extent.y * std::fabs(uf::vector::dot(axesA[1], n)) +
+				   box.extent.z * std::fabs(uf::vector::dot(axesA[2], n));
 
 		float pB = uf::vector::dot(cB, n);
 		float rB = halfHeight * std::fabs(uf::vector::dot(capAxis, n)) + radius;
@@ -247,9 +271,9 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 		float dist = std::fabs(pB - pA);
 		float overlap = (rA + rB) - dist;
 
-		if (overlap < 0) return false;
+		if ( overlap < 0 ) return false;
 
-		if (overlap < minOverlap) {
+		if ( overlap < minOverlap ) {
 			minOverlap = overlap;
 			bestAxis = n;
 		}
@@ -260,7 +284,7 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(axesA[i]) ) return false;
 	for ( auto i = 0; i < 3; ++i ) if ( !testAxis(uf::vector::cross(axesA[i], capAxis)) ) return false;
 
-	if ( uf::vector::dot(bestAxis, cB - cA) < 0.0f ) bestAxis = -bestAxis;
+	if ( uf::vector::dot(bestAxis, cB - box.center) < 0.0f ) bestAxis = -bestAxis;
 
 	pod::Vector3f contactPoint = cB - bestAxis * radius;
 
@@ -277,7 +301,7 @@ bool impl::obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 }
 
 void impl::drawObb( const pod::PhysicsBody& body ) {
-	auto& aabb = body.collider.aabb;
+	auto aabb = impl::obbToAabb( body.collider.obb );
 	pod::Vector3f corners[8] = {
 		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
 		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},

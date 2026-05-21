@@ -12,11 +12,12 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 			};
 		} break;
 		case pod::ShapeType::OBB: {
+			auto box = impl::obbToAabb( body.collider.obb );
 			pod::Vector3f localDir = uf::quaternion::rotate( uf::quaternion::inverse(transform.orientation), dir );
 			pod::Vector3f localPt = {
-				( localDir.x >= 0.0f ) ? body.collider.obb.max.x : body.collider.obb.min.x,
-				( localDir.y >= 0.0f ) ? body.collider.obb.max.y : body.collider.obb.min.y,
-				( localDir.z >= 0.0f ) ? body.collider.obb.max.z : body.collider.obb.min.z
+				( localDir.x >= 0.0f ) ? box.max.x : box.min.x,
+				( localDir.y >= 0.0f ) ? box.max.y : box.min.y,
+				( localDir.z >= 0.0f ) ? box.max.z : box.min.z
 			};
 			return uf::transform::apply( transform, localPt );
 		} break;

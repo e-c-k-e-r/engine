@@ -190,7 +190,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		// pass manifolds to solver
 		impl::solveContacts( manifolds, dt );
 		// do position correction
-		//impl::solvePositions( manifolds, dt );
+		impl::solvePositions( manifolds, dt );
 		// cache manifold positions
 		if ( uf::physics::settings.warmupSolver ) {
 			impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
@@ -265,9 +265,15 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	}
 
 	switch ( body.collider.type ) {
-		case pod::ShapeType::AABB: 
-		case pod::ShapeType::OBB: {
+		case pod::ShapeType::AABB: {
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
+			pod::Vector3f dimsSq = dims * dims;
+			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
+			body.inverseInertiaTensor = 1.0f / body.inertiaTensor;
+		} break;
+		case pod::ShapeType::OBB: {
+			pod::Vector3f dims = body.collider.obb.extent * 2.0f;
 			pod::Vector3f dimsSq = dims * dims;
 			body.inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
 			body.inertiaTensor = uf::vector::max( body.inertiaTensor, { EPS, EPS, EPS } );
@@ -464,9 +470,17 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 }
 pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
 	auto& body = uf::physics::create( world, object, mass, offset );
-	//body.collider.type = pod::ShapeType::AABB;
-	body.collider.type = pod::ShapeType::OBB;
+	body.collider.type = pod::ShapeType::AABB;
 	body.collider.aabb = aabb;
+	body.bounds = impl::computeAABB( body );
+
+	uf::physics::updateInertia( body );
+	return body;
+}
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	body.collider.type = pod::ShapeType::OBB;
+	body.collider.obb = obb;
 	body.bounds = impl::computeAABB( body );
 
 	uf::physics::updateInertia( body );
@@ -540,6 +554,11 @@ pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::AABB& aabb
 	auto& scene = uf::scene::getCurrentScene();
 	auto& world = scene.getComponent<pod::World>();
 	return create( world, object, aabb, mass, offset );
+}
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& world = scene.getComponent<pod::World>();
+	return create( world, object, obb, mass, offset );
 }
 pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
 	auto& scene = uf::scene::getCurrentScene();

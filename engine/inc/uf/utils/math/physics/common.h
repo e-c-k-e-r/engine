@@ -38,7 +38,8 @@ namespace impl {
 	pod::Vector3f closestPointOnTriangle( const pod::Vector3f& p, const pod::Triangle& tri );
 	pod::Vector3f orientNormalToAB( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Vector3f n );
 	float segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vector3f& p1, const pod::Triangle& tri, pod::Vector3f& outSeg, pod::Vector3f& outTri );
-	bool testSeparatingAxis( const pod::Triangle& triangle, const pod::AABB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis );
+	bool testSeparatingAxis( const pod::Triangle& triangle, const pod::OBB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis );
+	bool testSeparatingAxis( const pod::OBB& boxA, const pod::OBB& boxB, const pod::Vector3f axesA[3], const pod::Vector3f axesB[3], const pod::Vector3f& axis, float& outMinOverlap, pod::Vector3f& outBestAxis );
 	void clipPolygon( pod::Vector3f* poly, int& polyCount, const pod::Plane& plane );
 	void clipPolygon( pod::Vector3f* poly, int& polyCount, const pod::AABB& plane );
 	pod::Vector3f triangleCenter( const pod::Triangle& tri );
@@ -63,6 +64,14 @@ namespace impl {
 	/*FORCE_INLINE*/ pod::AABB mergeAabb( const pod::AABB& a, const pod::AABB& b );
 	/*FORCE_INLINE*/ pod::Vector3f aabbCenter( const pod::AABB& aabb );
 	/*FORCE_INLINE*/ pod::Vector3f aabbExtent( const pod::AABB& aabb );
+	/*FORCE_INLINE*/ pod::Vector3f obbMin( const pod::OBB& obb );
+	/*FORCE_INLINE*/ pod::Vector3f obbMax( const pod::OBB& obb );
+	/*FORCE_INLINE*/ pod::OBB aabbToObb( const pod::AABB& aabb );
+	/*FORCE_INLINE*/ pod::AABB obbToAabb( const pod::OBB& obb );
+	/*FORCE_INLINE*/ void boxAxes( pod::Vector3f axes[3] );
+	/*FORCE_INLINE*/ void boxAxes( pod::Vector3f axes[3], const pod::Transform<>& transform );
+	/*FORCE_INLINE*/ pod::Vector3f extentFromAxes( const pod::OBB& box, const pod::Vector3f axes[3] );
+	/*FORCE_INLINE*/ float projectExtents( const pod::OBB& box, const pod::Vector3f& normal, const pod::Vector3f axes[3] );
 	pod::AABB transformAabbToWorld( const pod::AABB& localBox, const pod::Transform<>& transform );
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body );
 	pod::AABB computeAABB( const pod::PhysicsBody& body );

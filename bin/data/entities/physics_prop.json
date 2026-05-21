@@ -6,9 +6,9 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"mass": 1,
+			"mass": 100,
 		//	"inertia": false,
-			"type": "bounding box"
+			"type": "obb"
 		//	"type": "mesh"
 		//	"type": "hull"
 		}

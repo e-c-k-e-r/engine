@@ -23,10 +23,8 @@ float impl::computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, cons
 		angularTermB = uf::vector::dot(uf::vector::cross(I_crossB, rB), n);
 	}
 
-	float result = inverseMass + angularTermA + angularTermB;
 	// to-do: assert / handle result == 0 to avoid division by zero (this probably only would happen with two static bodies colliding, which never should happen)
-	if ( result < EPS ) result = 1.0f;
-	return result;
+	return inverseMass + angularTermA + angularTermB;
 }
 
 void impl::applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
@@ -41,7 +39,6 @@ void impl::applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::
 		b.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 	}
 }
-
 void impl::applyPseudoImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
 	if ( !a.isStatic ) {
 		a.pseudoVelocity -= impulse * a.inverseMass;
@@ -324,14 +321,12 @@ void impl::retrieveContacts( pod::Manifold& current, const pod::Manifold& previo
 
 		validContact.accumulatedNormalImpulse *= decay;
 		validContact.accumulatedTangentImpulse *= decay;
-		validContact.accumulatedPseudoImpulse = 0.0f;
 
 		bool isDuplicate = false;
-		for ( auto& c : current.points ) {
+		for ( auto& c : merged ) {
 			if ( impl::similarContact( validContact, c ) ) {
 				c.accumulatedNormalImpulse = validContact.accumulatedNormalImpulse;
 				c.accumulatedTangentImpulse = validContact.accumulatedTangentImpulse;
-				c.accumulatedPseudoImpulse = validContact.accumulatedPseudoImpulse;
 				c.lifetime = validContact.lifetime;
 				isDuplicate = true;
 				break;
@@ -474,15 +469,18 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 		uf::transform::rotate( *body.transform/*.reference*/, dq );
 	}
 
-	// split impulse updates
+	// pseudo-impulse position correction
 	{
 		body.transform->position += body.pseudoVelocity * dt;
 
 		float pseudoAngularSpeed2 = uf::vector::magnitude( body.pseudoAngularVelocity );
 		if ( pseudoAngularSpeed2 > EPS ) {
 			float pseudoAngularSpeed = std::sqrt( pseudoAngularSpeed2 );
-			pod::Quaternion<> dq = uf::quaternion::axisAngle( body.pseudoAngularVelocity / pseudoAngularSpeed, pseudoAngularSpeed * dt );
-			uf::transform::rotate( *body.transform/*.reference*/, dq );
+			pod::Vector3f axis = body.pseudoAngularVelocity / pseudoAngularSpeed;
+
+			float clampedSpeed = std::min(pseudoAngularSpeed, (2.0f * M_PI / 180.0f) / dt);
+			pod::Quaternion<> dq = uf::quaternion::axisAngle( axis, clampedSpeed * dt );
+			uf::transform::rotate( *body.transform, dq );
 		}
 		
 		// reset

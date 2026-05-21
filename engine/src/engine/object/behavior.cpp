@@ -137,13 +137,22 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		bool recenter = metadataJsonPhysics["recenter"].as<bool>();
 		pod::Vector3f offset = uf::vector::decode( metadataJsonPhysics["offset"], pod::Vector3f{} );
 
-		if ( offset == pod::Vector3f{} ) recenter = true;
+	//	if ( offset == pod::Vector3f{} ) recenter = true;
 
-		if ( type == "bounding box" || type == "aabb" ) {
+		if ( type == "bounding box" || type == "box" || type == "obb" ) {
+			pod::Vector3f center = uf::vector::decode( metadataJsonPhysics["center"], pod::Vector3f{0.0f, 0.0f, 0.0f} );
+			pod::Vector3f extent = uf::vector::decode( metadataJsonPhysics["extent"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
+			
+			if ( recenter ) {
+				offset = center;
+				center = {};
+			}
+
+			uf::physics::create( self, pod::OBB{ .center = center, .extent = extent }, mass, offset );
+		} else if ( type == "aabb" ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
 
-			// recenter
 			if ( recenter ) {
 				pod::Vector3f center = (max + min) * 0.5f;
 				pod::Vector3f extents = (max - min) * 0.5f;

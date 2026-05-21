@@ -337,10 +337,11 @@
 		},
 		"physics": {
 			"warmup solver": true,
-			"block solver": true,
-			"resolve block solver": true,
+			"block solver": false,
+			"resolve block true": true,
 			"correction percent": 0.2,
-			"correction slop": 0.005,
+			"correction slop": 0.01,
+			"max correction": 0.01,
 			"gjk": false,
 			"debug draw": {
 				"dynamic": true

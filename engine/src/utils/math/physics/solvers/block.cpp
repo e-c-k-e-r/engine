@@ -45,11 +45,8 @@ namespace impl {
 			K(i,i) += 1e-3f;
 		}
 
-		pod::Vector<T,N> rhsVel = {};
-		pod::Vector<T,N> K_lambdaVel = {};
-
-		pod::Vector<T,N> rhsPos = {};
-		pod::Vector<T,N> K_lambdaPos = {};
+		pod::Vector<T,N> rhs = {};
+		pod::Vector<T,N> K_lambda = {};
 
 		for ( auto i = 0; i < N; i++ ) {
 			auto& contact = manifold.points[i];
@@ -61,32 +58,19 @@ namespace impl {
 			float e = std::min(a.material.restitution, b.material.restitution);
 			float restitutionBias = (vRel < -1.0f) ? -e * vRel : 0.0f;
 
-			rhsVel[i] = -vRel + restitutionBias;
-
-			pod::Vector3f pseudoVa = a.pseudoVelocity + uf::vector::cross( a.pseudoAngularVelocity, contact.point - pA );
-			pod::Vector3f pseudoVb = b.pseudoVelocity + uf::vector::cross( b.pseudoAngularVelocity, contact.point - pB );
-			float pseudoVRel = uf::vector::dot((pseudoVb - pseudoVa), contact.normal);
-
-			float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
-
-			rhsPos[i] = -pseudoVRel + penetrationBias;
-
-			K_lambdaVel[i] = contact.accumulatedNormalImpulse;
-			K_lambdaPos[i] = contact.accumulatedPseudoImpulse;
+			rhs[i] = -vRel + restitutionBias;
+			K_lambda[i] = contact.accumulatedNormalImpulse;
 		}
 
 		pod::Matrix<T,N> Kinv = uf::matrix::inverse( K );
 
-		pod::Vector<T,N> residualVel = rhsVel - uf::matrix::multiply( K, K_lambdaVel );
-		pod::Vector<T,N> dLambdaVel = uf::matrix::multiply( Kinv, residualVel );
-
-		pod::Vector<T,N> residualPos = rhsPos - uf::matrix::multiply( K, K_lambdaPos );
-		pod::Vector<T,N> dLambdaPos = uf::matrix::multiply( Kinv, residualPos );
+		pod::Vector<T,N> residual = rhs - uf::matrix::multiply( K, K_lambda );
+		pod::Vector<T,N> dLambda = uf::matrix::multiply( Kinv, residual );
 
 		// check if contacts are all valid
 		int invalidContactIndex = -1;
 		for ( auto i = 0; i < N; i++ ) {
-			if ( K_lambdaVel[i] + dLambdaVel[i] < 0.0f || K_lambdaPos[i] + dLambdaPos[i] < 0.0f ) {
+			if ( K_lambda[i] + dLambda[i] < 0.0f ) {
 				invalidContactIndex = i;
 				break;
 			}
@@ -96,10 +80,17 @@ namespace impl {
 			bool success = false;
 			// reduce the manifold
 			if ( uf::physics::settings.resolveBlockContact && N > 1 ) {
+			#if 1
+				pod::Manifold reducedManifold = manifold;
+				reducedManifold.points.erase( reducedManifold.points.begin() + invalidContactIndex );
+				// re-solve
+				success = impl::blockSolver( a, b, reducedManifold, dt );
+				// copy back to original manifold
+				if ( success ) manifold = reducedManifold;
+			#else
 				pod::Manifold reducedManifold = manifold;
 				reducedManifold.points.erase( reducedManifold.points.begin() + invalidContactIndex );
 				manifold.points[invalidContactIndex].accumulatedNormalImpulse = 0.0f;
-				manifold.points[invalidContactIndex].accumulatedPseudoImpulse = 0.0f;
 				manifold.points[invalidContactIndex].accumulatedTangentImpulse = 0.0f;
 
 				// re-solve
@@ -110,6 +101,7 @@ namespace impl {
 						manifold.points[i] = reducedManifold.points[r++];
 					}
 				}
+			#endif
 			}
 			return success;
 		}
@@ -119,19 +111,31 @@ namespace impl {
 			pod::Vector3f rA = manifold.points[i].point - pA;
 			pod::Vector3f rB = manifold.points[i].point - pB;
 
-			// real impulse
+			// normal impulse
 			{
-				float newLambdaVel = contact.accumulatedNormalImpulse + dLambdaVel[i];
-				dLambdaVel[i] = newLambdaVel - contact.accumulatedNormalImpulse;
-				contact.accumulatedNormalImpulse = newLambdaVel;
-				impl::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambdaVel[i] );
+				float newLambda = contact.accumulatedNormalImpulse + dLambda[i];
+				dLambda[i] = newLambda - contact.accumulatedNormalImpulse;
+				contact.accumulatedNormalImpulse = newLambda;
+				impl::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
 			}
 			// pseudo impulse
 			{
-				float newLambdaPos = contact.accumulatedPseudoImpulse + dLambdaPos[i];
-				dLambdaPos[i] = newLambdaPos - contact.accumulatedPseudoImpulse;
-				contact.accumulatedPseudoImpulse = newLambdaPos;
-				impl::applyPseudoImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambdaPos[i] );
+				float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
+				penetrationBias = std::min(penetrationBias, uf::physics::settings.maxLinearCorrection / dt);
+
+				pod::Vector3f pseudoVa = a.pseudoVelocity + uf::vector::cross(a.pseudoAngularVelocity, rA);
+				pod::Vector3f pseudoVb = b.pseudoVelocity + uf::vector::cross(b.pseudoAngularVelocity, rB);
+				float pseudoVelAlongNormal = uf::vector::dot(pseudoVb - pseudoVa, contact.normal);
+
+				float invMassN = impl::computeEffectiveMass(a, b, rA, rB, contact.normal);
+				float jPseudo = (penetrationBias - pseudoVelAlongNormal) / invMassN;
+
+				float jPseudoOld = contact.accumulatedPseudoImpulse;
+				float jPseudoNew = std::max(0.0f, jPseudoOld + jPseudo);
+				contact.accumulatedPseudoImpulse = jPseudoNew;
+				jPseudo = jPseudoNew - jPseudoOld;
+
+				impl::applyPseudoImpulseTo(a, b, rA, rB, contact.normal * jPseudo);
 			}
 			// tangent friction
 			{

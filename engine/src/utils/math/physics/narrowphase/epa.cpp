@@ -50,13 +50,46 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				outPoly[i] = hasTransform ? uf::transform::apply( transform, body.collider.triangle.points[i] ) : body.collider.triangle.points[i];
 			});
 		} break;
-		case pod::ShapeType::AABB:
+		case pod::ShapeType::AABB: {
+			outCount = 4;
+			pod::Vector3f n = localDir;
+			pod::Vector3f absN = uf::vector::abs( n );
+			pod::Vector3f min = body.collider.aabb.min;
+			pod::Vector3f max = body.collider.aabb.max;
+
+			// dominant axis
+			if ( absN.x > absN.y && absN.x > absN.z ) {
+				float x = (n.x > 0) ? max.x : min.x;
+				outPoly[0] = {x, min.y, max.z};
+				outPoly[1] = {x, min.y, min.z};
+				outPoly[2] = {x, max.y, min.z};
+				outPoly[3] = {x, max.y, max.z};
+				if ( n.x < 0 ) std::swap(outPoly[1], outPoly[3]);
+			} else if ( absN.y > absN.z ) {
+				float y = (n.y > 0) ? max.y : min.y;
+				outPoly[0] = {max.x, y, max.z};
+				outPoly[1] = {max.x, y, min.z};
+				outPoly[2] = {min.x, y, min.z};
+				outPoly[3] = {min.x, y, max.z};
+				if ( n.y < 0 ) std::swap(outPoly[1], outPoly[3]);
+			} else {
+				float z = (n.z > 0) ? max.z : min.z;
+				outPoly[0] = {min.x, max.y, z};
+				outPoly[1] = {min.x, min.y, z};
+				outPoly[2] = {max.x, min.y, z};
+				outPoly[3] = {max.x, max.y, z};
+				if (n.z < 0) std::swap(outPoly[1], outPoly[3]);
+			}
+			FOR_EACH(4, {
+				outPoly[i] = uf::transform::apply(transform, outPoly[i]);
+			});
+		} break;
 		case pod::ShapeType::OBB: {
 			outCount = 4;
 			pod::Vector3f n = localDir;
-			pod::Vector3f absN = { std::fabs(n.x), std::fabs(n.y), std::fabs(n.z) };
-			pod::Vector3f min = body.collider.aabb.min;
-			pod::Vector3f max = body.collider.aabb.max;
+			pod::Vector3f absN = uf::vector::abs( n );
+			pod::Vector3f min = body.collider.obb.center - body.collider.obb.extent;
+			pod::Vector3f max = body.collider.obb.center + body.collider.obb.extent;
 
 			// dominant axis
 			if ( absN.x > absN.y && absN.x > absN.z ) {
