@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {
 	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Triangle& tri, float& t, float& u, float& v );

@@ -15,30 +15,33 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 			if ( a.isStatic && b.isStatic ) continue;
 
 			for ( auto& c : manifold.points ) {
-				pod::Vector3f rA = uf::quaternion::rotate( tA.orientation, c.localA );
-				pod::Vector3f rB = uf::quaternion::rotate( tB.orientation, c.localB );
-				pod::Vector3f worldA = tA.position + rA;
-				pod::Vector3f worldB = tB.position + rB;
+				auto ctxA = impl::solverBodyContext( a );
+				auto ctxB = impl::solverBodyContext( b );
 
-				float penetration = uf::vector::dot( worldB - worldA, c.normal );
+				auto rA = uf::quaternion::rotate( tA.orientation, c.localA );
+				auto rB = uf::quaternion::rotate( tB.orientation, c.localB );
+
+				auto pA = tA.position + rA;
+				auto pB = tB.position + rB;
+				
+				auto row = pod::JacobianRow{ rA, rB, c.normal };
+
+				float penetration = uf::vector::dot( pB - pA, c.normal );
 
 				float C = std::clamp( penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f, uf::physics::settings.maxLinearCorrection );
 				if ( C <= 0.0f ) continue;
 
-				float invMassN = impl::computeEffectiveMass( a, b, rA, rB, c.normal );
-
+				float invMassN = impl::computeEffectiveMass( ctxA, ctxB, row );
 				float lambda = (C / invMassN) * uf::physics::settings.baumgarteCorrectionPercent;
 				pod::Vector3f P = c.normal * lambda;
 
 				// apply impulses directly
-				if ( !a.isStatic ) {
-					pod::Vector3f translation = P * a.inverseMass;
+				if ( ctxA.invM > 0.0f ) {
+					pod::Vector3f translation = P * ctxA.invM;
 					a.transform->position -= translation;
 					tA.position -= translation;
 
-					pod::Matrix3f invIa = impl::computeWorldInverseInertia(a);
-					pod::Vector3f deltaAngleA = uf::matrix::multiply(invIa, uf::vector::cross(rA, -P));
-
+					pod::Vector3f deltaAngleA = uf::matrix::multiply(ctxA.invI, uf::vector::cross(rA, -P));
 					float angleA2 = uf::vector::magnitude( deltaAngleA );
 					if ( angleA2 > EPS2 ) {
 						float angleA = std::sqrt( angleA2 );
@@ -48,14 +51,12 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 					}	
 				}
 
-				if ( !b.isStatic ) {
-					pod::Vector3f translation = P * b.inverseMass;
+				if ( ctxB.invM > 0.0f ) {
+					pod::Vector3f translation = P * ctxB.invM;
 					b.transform->position += translation;
 					tB.position += translation;
 
-					pod::Matrix3f invIb = impl::computeWorldInverseInertia(b);
-					pod::Vector3f deltaAngleB = uf::matrix::multiply(invIb, uf::vector::cross(rB, P));
-
+					pod::Vector3f deltaAngleB = uf::matrix::multiply(ctxB.invI, uf::vector::cross(rB, P));
 					float angleB2 = uf::vector::magnitude( deltaAngleB );
 					if ( angleB2 > EPS2 ) {
 						float angleB = std::sqrt( angleB2 );

@@ -14,7 +14,7 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"mass": 10,
+			"mass": 1,
 			"type": "sphere",
 			"radius": 1,
 			"min": [ -0.5, -0.5, -0.5 ],

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "impl.h"
+#include "structs.h"
 
 #include "constraints/contact.h"
 

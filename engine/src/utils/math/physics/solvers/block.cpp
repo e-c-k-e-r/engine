@@ -1,3 +1,4 @@
+#include <uf/utils/math/physics/impl.h>
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/integration.h>
 #include <uf/utils/math/physics/solvers/block.h>
@@ -6,43 +7,28 @@ namespace impl {
 	template<size_t N, typename T = float>
 	bool blockNxNSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 		pod::Matrix<T,N> K = {};
-		
-		float invMassA = ( a.isStatic ? 0.0f : a.inverseMass );
-		float invMassB = ( b.isStatic ? 0.0f : b.inverseMass );
-		
-		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
-		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
+
+		auto ctxA = pod::SolverBodyContext{ a.isStatic ? 0.0f : a.inverseMass, impl::computeWorldInverseInertia(a) };
+		auto ctxB = pod::SolverBodyContext{ b.isStatic ? 0.0f : b.inverseMass, impl::computeWorldInverseInertia(b) };
 
 		auto pA = impl::getPosition( a, true );
 		auto pB = impl::getPosition( b, true );
 
+		auto gA = uf::physics::getGravity( a );
+		auto gB = uf::physics::getGravity( b );
+		float vSlop = std::sqrt( std::max( uf::vector::magnitude( gA ), uf::vector::magnitude( gB ) ) ) * dt;
+
 		for ( auto i = 0; i < N; i++ ) {
-			pod::Vector3f rA_i = manifold.points[i].point - pA;
-			pod::Vector3f rB_i = manifold.points[i].point - pB;
-			pod::Vector3f n_i = manifold.points[i].normal;
-			
+			auto& pI = manifold.points[i];
+			auto rowI = pod::JacobianRow{ pI.point - pA, pI.point - pB, pI.normal };
+
 			for ( auto j = 0; j < N; j++ ) {
-				pod::Vector3f rA_j = manifold.points[j].point - pA;
-				pod::Vector3f rB_j = manifold.points[j].point - pB;
-				pod::Vector3f n_j = manifold.points[j].normal;
-
-				float termLinear = (invMassA + invMassB) * uf::vector::dot(n_i, n_j);
-
-				pod::Vector3f raXnj = uf::vector::cross(rA_j, n_j);
-				pod::Vector3f rbXnj = uf::vector::cross(rB_j, n_j);
-
-				pod::Vector3f Ia_raXnj = uf::matrix::multiply( invIa, raXnj );
-				pod::Vector3f Ib_rbXnj = uf::matrix::multiply( invIb, rbXnj );
-
-				pod::Vector3f crossA = uf::vector::cross(Ia_raXnj, rA_i);
-				pod::Vector3f crossB = uf::vector::cross(Ib_rbXnj, rB_i);
-
-				float termAngular = uf::vector::dot(n_i, crossA + crossB);
-
-				K(i,j) = termLinear + termAngular;
+				auto& pJ = manifold.points[j];
+				auto rowJ = pod::JacobianRow{ pJ.point - pA, pJ.point - pB, pJ.normal };
+				K(i,j) = impl::computeMassMatrixLine( ctxA, ctxB, rowI, rowJ );
 			}
 
-			K(i,i) += 1e-3f;
+			K(i,i) += uf::physics::settings.contactCFM * ( 1.0f + ctxA.invM + ctxB.invM );
 		}
 
 		pod::Vector<T,N> rhs = {};
@@ -56,7 +42,7 @@ namespace impl {
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
 			float e = std::min(a.material.restitution, b.material.restitution);
-			float restitutionBias = (vRel < -1.0f) ? -e * vRel : 0.0f;
+			float restitutionBias = (vRel < -vSlop) ? -e * vRel : 0.0f;
 
 			rhs[i] = -vRel + restitutionBias;
 			K_lambda[i] = contact.accumulatedNormalImpulse;

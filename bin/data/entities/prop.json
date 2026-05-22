@@ -7,7 +7,7 @@
 		"holdable": true,
 		"physics": {
 			"mass": 0,
-			"inertia": false,
+		//	"inertia": false,
 		//	"type": "bounding box"
 			"type": "mesh"
 		//	"type": "hull"

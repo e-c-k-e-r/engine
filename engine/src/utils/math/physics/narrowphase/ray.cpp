@@ -1,3 +1,4 @@
+#include <uf/utils/math/physics/impl.h>
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/narrowphase.h>
 #include <uf/utils/math/physics/broadphase/bvh.h>

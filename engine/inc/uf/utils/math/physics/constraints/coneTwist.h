@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {
 	void solveConeTwistConstraint( pod::Constraint& constraint, float dt );

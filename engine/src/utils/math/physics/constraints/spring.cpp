@@ -1,0 +1,44 @@
+#include <uf/utils/math/physics/impl.h>
+#include <uf/utils/math/physics/common.h>
+#include <uf/utils/math/physics/integration.h>
+#include <uf/utils/math/physics/constraints.h>
+
+void impl::solveSpringConstraint( pod::Constraint& constraint, float dt ) {
+	auto& a = *constraint.a;
+	auto& b = *constraint.b;
+	auto& joint = constraint.spring;
+
+	auto tA = impl::getTransform( a );
+	auto tB = impl::getTransform( b );
+
+	auto rA = uf::quaternion::rotate( tA.orientation, joint.localAnchorA );
+	auto rB = uf::quaternion::rotate( tB.orientation, joint.localAnchorB );
+
+	auto worldAnchorA = tA.position + rA;
+	auto worldAnchorB = tB.position + rB;
+	auto delta = worldAnchorB - worldAnchorA;
+
+	float currentDistance2 = uf::vector::magnitude( delta );
+	if ( currentDistance2 < EPS ) return;
+	float currentDistance = std::sqrt( currentDistance2 );
+
+	pod::Vector3f normal = delta / currentDistance;
+	float distanceError = currentDistance - joint.restLength;
+
+	auto vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
+	auto vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
+	float relVelAlongNormal = uf::vector::dot( vB - vA, normal );
+
+	float invMassN = impl::computeEffectiveMass( a, b, rA, rB, normal );
+	if ( invMassN < EPS ) return;
+
+	float gamma = joint.damping + (dt * joint.stiffness);
+    gamma = (gamma > EPS) ? (1.0f / (dt * gamma)) : 0.0f;
+
+	float beta = dt * joint.stiffness * gamma;
+
+	float bias = distanceError * (beta / dt);
+    float j = -(relVelAlongNormal + bias + (gamma * joint.accumulatedImpulse)) / (invMassN + gamma);
+
+	impl::applyImpulseTo( a, b, rA, rB, normal, j, joint.accumulatedImpulse );
+}

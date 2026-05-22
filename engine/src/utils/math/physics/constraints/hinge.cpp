@@ -1,13 +1,13 @@
+#include <uf/utils/math/physics/impl.h>
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/integration.h>
 #include <uf/utils/math/physics/constraints.h>
-
-#include <uf/engine/scene/scene.h>
 
 void impl::solveHingeConstraint( pod::Constraint& constraint, float dt ) {
 	auto& a = *constraint.a;
 	auto& b = *constraint.b;
 	auto& joint = constraint.hinge;
+	auto& motor = constraint.motor;
 
 	auto tA = impl::getTransform( a );
 	auto tB = impl::getTransform( b );
@@ -15,47 +15,44 @@ void impl::solveHingeConstraint( pod::Constraint& constraint, float dt ) {
 	// solve linearly first
 	impl::solveBallSocketConstraint( constraint, dt );
 
-	auto worldAxisA = uf::quaternion::rotate( tA.orientation, joint.localAxisA );
-	auto worldAxisB = uf::quaternion::rotate( tB.orientation, joint.localAxisB );
+	auto ctxA = impl::solverBodyContext( a );
+	auto ctxB = impl::solverBodyContext( b );
 
-	auto angularError = uf::vector::cross( worldAxisA, worldAxisB );
+	auto waA = uf::quaternion::rotate( tA.orientation, joint.localAxisA );
+	auto waB = uf::quaternion::rotate( tB.orientation, joint.localAxisB );
+	auto angularError = uf::vector::cross( waA, waB );
 
 	pod::Vector3f tangents[2];
-	tangents[0] = impl::computeTangent( worldAxisA );
-	tangents[1] = uf::vector::cross( worldAxisA, tangents[0] );
+	tangents[0] = impl::computeTangent( waA );
+	tangents[1] = uf::vector::cross( waA, tangents[0] );
 
-	auto invIa = impl::computeWorldInverseInertia(a);
-	auto invIb = impl::computeWorldInverseInertia(b);
-	
 	auto relAngularVel = b.angularVelocity - a.angularVelocity;
 
-	// effective mass matrix
 	pod::Matrix2f K = {};
 	for ( auto i = 0; i < 2; ++i ) {
 		for ( auto j = 0; j < 2; ++j ) {
-			float kVal = 0.0f;
-			if ( !a.isStatic ) kVal += uf::vector::dot(tangents[i], uf::matrix::multiply(invIa, tangents[j]));
-			if ( !b.isStatic ) kVal += uf::vector::dot(tangents[i], uf::matrix::multiply(invIb, tangents[j]));
-
-			K(i, j) = kVal;
+			K(i, j) = impl::computeAngularMassMatrixLine( ctxA, ctxB, tangents[i], tangents[j]);
 		}
+		K(i,i) += uf::physics::settings.jointCFM * ( 1.0f + ctxA.invM + ctxB.invM );
 	}
 
-	// impulse matrix
 	pod::Matrix2f Kinv = uf::matrix::inverse(K);
-	// bias
 	pod::Vector2f rhs = {};
 	FOR_EACH( 2, {
 		rhs[i] = -(uf::vector::dot(relAngularVel, tangents[i]) + (uf::physics::settings.baumgarteCorrectionPercent / dt) * uf::vector::dot(angularError, tangents[i]));
 	});
-	// solve and apply
+
 	pod::Vector2f impulse = uf::matrix::multiply(Kinv, rhs);
 
 	for ( auto i = 0; i < 2; ++i ) {
 		auto jDelta = impl::accumulateImpulseTo( impulse[i], joint.accumulatedAngularImpulse[i] );
 		auto j = tangents[i] * jDelta;
-		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( invIa, j );
-		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( invIb, j );
+		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, j );
+		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, j );
+	}
+
+	if ( motor.enabled ) {
+		impl::solve1DAngularMotor( a, b, waA, motor.targetVelocity, motor.maxMotorTorque, motor.accumulatedMotorImpulse, dt );
 	}
 }
 

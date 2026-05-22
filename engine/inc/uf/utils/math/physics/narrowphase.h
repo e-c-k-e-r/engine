@@ -1,6 +1,6 @@
 #pragma once
 
-#include "impl.h"
+#include "structs.h"
 
 #include "narrowphase/aabb.h"
 #include "narrowphase/obb.h"

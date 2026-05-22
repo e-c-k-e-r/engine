@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {
 	bool planeAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold );

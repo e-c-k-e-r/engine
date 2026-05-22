@@ -1,9 +1,15 @@
 #pragma once
 
-#include "impl.h"
+#include "structs.h"
 
 namespace impl {
+	/*FORCE_INLINE*/ pod::SolverBodyContext solverBodyContext( const pod::PhysicsBody& body );
+
+	float computeEffectiveMass( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::JacobianRow& row );
 	float computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& n );
+	float computeMassMatrixLine( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::JacobianRow& rowI, const pod::JacobianRow& rowJ );
+	float computeAngularMassMatrixLine( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::Vector3f& n_i, const pod::Vector3f& n_j );
+
 	void applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse );
 	void applyImpulseTo(
 		pod::PhysicsBody& a, pod::PhysicsBody& b,

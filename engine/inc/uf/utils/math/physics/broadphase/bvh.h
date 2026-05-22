@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {	
 	pod::BVH::index_t buildBVHNode( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, pod::BVH::index_t start, pod::BVH::index_t end, pod::BVH::index_t capacity = 2 );

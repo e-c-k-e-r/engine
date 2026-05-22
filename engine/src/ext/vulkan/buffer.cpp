@@ -146,7 +146,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 
 	// to-do: fix this because it's a thorn in my side when a mesh needs to update
 	if ( length > allocationInfo.size ) {
-		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size);
+		//UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size);
 
 		auto savedUsage = usage;
 		auto savedMemProps = memoryProperties;

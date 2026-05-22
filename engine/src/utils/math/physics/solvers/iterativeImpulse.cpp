@@ -1,3 +1,4 @@
+#include <uf/utils/math/physics/impl.h>
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/integration.h>
 #include <uf/utils/math/physics/solvers/iterativeImpulse.h>
@@ -8,16 +9,21 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 
 	float invMassN = impl::computeEffectiveMass(a, b, rA, rB, contact.normal);
 
+
 	// normal impulse
 	{
 		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
 		pod::Vector3f vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
 		pod::Vector3f rv = vB - vA;
 
+		auto gA = uf::physics::getGravity( a );
+		auto gB = uf::physics::getGravity( b );
+		float vSlop = std::sqrt( std::max( uf::vector::magnitude( gA ), uf::vector::magnitude( gB ) ) ) * dt;
+
 		float restitutionBias = 0.0f;
 		float e = std::min(a.material.restitution, b.material.restitution);
 		float velAlongNormal = uf::vector::dot(rv, contact.normal);
-		if ( velAlongNormal < -1.0f ) restitutionBias = -e * velAlongNormal;
+		if ( velAlongNormal < -vSlop ) restitutionBias = -e * velAlongNormal;
 		float targetVelocity = restitutionBias;
 
 		float jN = (targetVelocity - velAlongNormal) / invMassN;

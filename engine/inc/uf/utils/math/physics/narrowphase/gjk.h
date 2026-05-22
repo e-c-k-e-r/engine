@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {
 	pod::Vector3f support( const pod::PhysicsBody& body, const pod::Vector3f& dir );

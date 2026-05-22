@@ -6,7 +6,7 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"mass": 100,
+			"mass": 1900,
 		//	"inertia": false,
 			"type": "obb"
 		//	"type": "mesh"

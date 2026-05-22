@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../impl.h"
+#include "../structs.h"
 
 namespace impl {
 	void addOrRemoveBorder( uf::stl::vector<std::pair<pod::SupportPoint, pod::SupportPoint>>& edges, std::pair<pod::SupportPoint, pod::SupportPoint> e);

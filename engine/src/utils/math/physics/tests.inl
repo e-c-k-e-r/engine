@@ -1446,3 +1446,177 @@ TEST(ConeTwist_Constraint, {
         EXPECT_LE( std::fabs(twistAngle), coneTwist.twistLimit + 0.05f );
     }
 })
+
+TEST(DistanceJoint_Constraint, {
+    pod::World world;
+    uf::Object objA, objB;
+
+    auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+    bodyA.transform->position = {0, 10, 0};
+    bodyB.transform->position = {0, 5, 0};
+
+    pod::Constraint constraint;
+    constraint.type = pod::ConstraintType::DISTANCE;
+    constraint.a = &bodyA;
+    constraint.b = &bodyB;
+
+    constraint.distance.localAnchorA = {0, 0, 0};
+    constraint.distance.localAnchorB = {0, 0, 0};
+    constraint.distance.targetDistance = 5.0f;
+    constraint.distance.isRope = false;
+    constraint.distance.accumulatedImpulse = 0.0f;
+
+    float dt = 1.0f / 60.0f;
+
+    for (int i = 0; i < 60; ++i) {
+        bodyB.velocity.y -= 9.8f * dt;
+
+        for (int solverIters = 0; solverIters < 10; ++solverIters) {
+            impl::solveDistanceConstraint( constraint, dt );
+        }
+
+        bodyB.transform->position += bodyB.velocity * dt;
+    }
+
+    auto tA = impl::getTransform(bodyA);
+    auto tB = impl::getTransform(bodyB);
+    pod::Vector3f worldAnchorA = tA.position + uf::quaternion::rotate(tA.orientation, constraint.distance.localAnchorA);
+    pod::Vector3f worldAnchorB = tB.position + uf::quaternion::rotate(tB.orientation, constraint.distance.localAnchorB);
+
+    float currentDistance = std::sqrt(uf::vector::distanceSquared(worldAnchorA, worldAnchorB));
+    float error = std::abs(currentDistance - constraint.distance.targetDistance);
+
+    EXPECT_LT( error, 0.1f );
+})
+
+TEST(WeldJoint_Constraint, {
+    pod::World world;
+    uf::Object objA, objB;
+
+    auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+    bodyA.transform->position = {0, 0, 0};
+    bodyB.transform->position = {2, 0, 0};
+
+    pod::Constraint constraint;
+    constraint.type = pod::ConstraintType::WELD;
+    constraint.a = &bodyA;
+    constraint.b = &bodyB;
+
+    constraint.weld.localAnchorA = {1, 0, 0};
+    constraint.weld.localAnchorB = {-1, 0, 0};
+    constraint.weld.localAxisA = {1, 0, 0};
+    constraint.weld.localAxisB = {1, 0, 0};
+    constraint.weld.localReferenceAxisA = {0, 1, 0};
+    constraint.weld.localReferenceAxisB = {0, 1, 0};
+
+    float dt = 1.0f / 60.0f;
+
+    for (int i = 0; i < 30; ++i) {
+        bodyB.velocity.y -= 10.0f * dt;
+        bodyB.angularVelocity.z += 5.0f * dt;
+
+        for (int solverIters = 0; solverIters < 10; ++solverIters) {
+            impl::solveWeldConstraint( constraint, dt );
+        }
+
+        bodyB.transform->position += bodyB.velocity * dt;
+    }
+
+    auto tA = impl::getTransform(bodyA);
+    auto tB = impl::getTransform(bodyB);
+    pod::Vector3f worldAnchorA = tA.position + uf::quaternion::rotate(tA.orientation, constraint.weld.localAnchorA);
+    pod::Vector3f worldAnchorB = tB.position + uf::quaternion::rotate(tB.orientation, constraint.weld.localAnchorB);
+
+    float posErrorSq = uf::vector::distanceSquared(worldAnchorA, worldAnchorB);
+    EXPECT_LT( posErrorSq, 0.1f );
+})
+
+TEST(SliderJoint_Constraint, {
+    pod::World world;
+    uf::Object objA, objB;
+
+    auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+    bodyA.transform->position = {0, 0, 0};
+    bodyB.transform->position = {2, 0, 0};
+
+    pod::Constraint constraint;
+    constraint.type = pod::ConstraintType::SLIDER;
+    constraint.a = &bodyA;
+    constraint.b = &bodyB;
+
+    constraint.slider.localAnchorA = {0, 0, 0};
+    constraint.slider.localAnchorB = {0, 0, 0};
+    constraint.slider.localAxisA = {1, 0, 0};
+    constraint.slider.localAxisB = {1, 0, 0};
+    constraint.slider.localReferenceAxisA = {0, 1, 0};
+    constraint.slider.localReferenceAxisB = {0, 1, 0};
+    constraint.slider.lowerLimit = -5.0f;
+    constraint.slider.upperLimit = 5.0f;
+
+    float dt = 1.0f / 60.0f;
+
+    for (int i = 0; i < 60; ++i) {
+        bodyB.velocity.x += 50.0f * dt;
+
+        for (int solverIters = 0; solverIters < 10; ++solverIters) {
+            impl::solveSliderConstraint( constraint, dt );
+        }
+
+        bodyB.transform->position += bodyB.velocity * dt;
+    }
+
+    auto tA = impl::getTransform(bodyA);
+    auto tB = impl::getTransform(bodyB);
+    pod::Vector3f relPos = tB.position - tA.position;
+    float slideDistance = uf::vector::dot(relPos, constraint.slider.localAxisA);
+
+    EXPECT_LT( slideDistance, constraint.slider.upperLimit + 0.2f );
+})
+
+TEST(SpringJoint_Constraint, {
+    pod::World world;
+    uf::Object objA, objB;
+
+    auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+    bodyA.transform->position = {0, 10, 0};
+    bodyB.transform->position = {0, 0, 0};
+
+    pod::Constraint constraint;
+    constraint.type = pod::ConstraintType::SPRING;
+    constraint.a = &bodyA;
+    constraint.b = &bodyB;
+
+    constraint.spring.localAnchorA = {0, 0, 0};
+    constraint.spring.localAnchorB = {0, 0, 0};
+    constraint.spring.restLength = 5.0f;
+    constraint.spring.stiffness = 50.0f;
+    constraint.spring.damping = 5.0f;
+    constraint.spring.accumulatedImpulse = 0.0f;
+
+    float dt = 1.0f / 60.0f;
+
+    for (int i = 0; i < 180; ++i) {
+        bodyB.velocity.y -= 9.8f * dt;
+
+        for (int solverIters = 0; solverIters < 10; ++solverIters) {
+            impl::solveSpringConstraint( constraint, dt );
+        }
+
+        bodyB.transform->position += bodyB.velocity * dt;
+    }
+
+    auto tA = impl::getTransform(bodyA);
+    auto tB = impl::getTransform(bodyB);
+    float distance = std::sqrt(uf::vector::distanceSquared(tA.position, tB.position));
+
+    EXPECT_LT( distance, constraint.spring.restLength + 2.0f );
+    EXPECT_GT( distance, constraint.spring.restLength - 0.1f );
+})

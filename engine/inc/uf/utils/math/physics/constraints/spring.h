@@ -3,9 +3,9 @@
 #include "../structs.h"
 
 namespace impl {
-	void solveHingeConstraint( pod::Constraint& constraint, float dt );
+	void solveSpringConstraint( pod::Constraint& constraint, float dt );
 }
-
+/*
 namespace uf {
 	namespace physics {
 		pod::Constraint& UF_API constrain( uf::Object&, uf::Object&, const pod::Vector3f&, const pod::Vector3f& );
@@ -14,3 +14,4 @@ namespace uf {
 		pod::Constraint& UF_API constrain( pod::World&, pod::PhysicsBody&, pod::PhysicsBody&, const pod::Vector3f&, const pod::Vector3f& );
 	}
 }
+*/

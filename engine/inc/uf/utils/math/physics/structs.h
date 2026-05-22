@@ -1,3 +1,5 @@
+#pragma once
+
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/quaternion.h>
 #include <uf/utils/math/matrix.h>
@@ -11,6 +13,22 @@
 
 #include <uf/engine/object/object.h>
 #include <uf/utils/mesh/mesh.h>
+
+#include <cfloat>
+
+
+#define EPS 1.0e-6f
+#define EPS2 (EPS * EPS)
+#define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
+
+#define REORIENT_NORMALS_ON_FETCH 0
+#define REORIENT_NORMALS_ON_CONTACT 1
+
+#define REVERSE_COLLIDER( a, b, fun )\
+	auto start = manifold.points.size();\
+	if ( !::fun( b, a, manifold ) ) return false;\
+	for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;\
+	return true;
 
 // Forward declates
 namespace pod {
@@ -43,6 +61,10 @@ namespace pod {
 		BALL_AND_SOCKET,
 		HINGE,
 		CONE_TWIST,
+		SLIDER,
+		DISTANCE,
+		WELD,
+		SPRING,
 		//CONTACT
 	};
 
@@ -82,6 +104,68 @@ namespace pod {
 		float twistLimit; // M_PI / 8.0f;
 	};
 
+	struct Slider {
+		pod::Vector3f localAnchorA;
+		pod::Vector3f localAnchorB;
+
+		pod::Vector2f accumulatedLinearImpulse;
+		pod::Vector3f accumulatedAngularImpulse;
+
+		pod::Vector3f localAxisA;
+		pod::Vector3f localAxisB;
+
+		pod::Vector3f localReferenceAxisA;
+		pod::Vector3f localReferenceAxisB;
+
+		float lowerLimit;
+		float upperLimit;
+		float accumulatedLimitImpulse;
+	};
+
+	struct Distance {
+		pod::Vector3f localAnchorA;
+		pod::Vector3f localAnchorB;
+
+		float accumulatedImpulse;
+		float targetDistance;
+		bool isRope; // to-do: rename to something more generic
+	};
+
+	struct Weld {
+		pod::Vector3f localAnchorA;
+		pod::Vector3f localAnchorB;
+
+		pod::Vector3f accumulatedLinearImpulse;
+		pod::Vector3f accumulatedAngularImpulse;
+
+		pod::Vector3f localAxisA;
+		pod::Vector3f localAxisB;
+
+		pod::Vector3f localReferenceAxisA;
+		pod::Vector3f localReferenceAxisB;
+	};
+
+	struct Spring {
+		pod::Vector3f localAnchorA;
+		pod::Vector3f localAnchorB;
+		
+		float accumulatedImpulse;
+
+		float restLength;
+		float stiffness;
+		float damping;
+	};
+
+	struct Motor {
+		bool enabled = false;
+		float targetVelocity = 0.0f;
+		union {
+			float maxMotorForce;
+			float maxMotorTorque;
+		};
+		float accumulatedMotorImpulse = 0.0f;
+	};
+
 	// this /could/ mirror the above joint-based constraints
 	// but a lot of the code initializes contact structs as Contact{ point, normal, depth }, which would not easily align with the above structs
 	struct Contact {
@@ -115,7 +199,23 @@ namespace pod {
 			pod::BallSocket ballSocket;
 			pod::Hinge hinge;
 			pod::ConeTwist coneTwist;
+			pod::Slider slider;
+			pod::Distance distance;
+			pod::Weld weld;
+			pod::Spring spring;
 		};
+		pod::Motor motor;
+	};
+
+	struct SolverBodyContext {
+		float invM = 0;
+		pod::Matrix3f invI = {};
+	};
+
+	struct JacobianRow {
+		pod::Vector3f rA;
+		pod::Vector3f rB;
+		pod::Vector3f n;
 	};
 }
 
@@ -347,6 +447,9 @@ namespace pod {
 		float baumgarteCorrectionSlop = 0.005f;
 		float maxLinearCorrection = 0.2f;
 		
+		float contactCFM = 1e-3f;
+		float jointCFM = 1e-4f;
+
 		uf::stl::unordered_map<size_t, pod::Manifold> manifoldsCache;
 		uint32_t manifoldCacheLifetime = 0; // 0 = derive from current settings
 
@@ -373,4 +476,14 @@ namespace pod {
 		pod::BVH dynamicBvh;
 		pod::BVH staticBvh;
 	};
+}
+
+namespace uf {
+	namespace physics {
+		typedef pod::Math::num_t num_t;
+		namespace time = uf::time; // to-do: have separate values from the physics system
+		
+		extern UF_API pod::World world;
+		extern UF_API pod::PhysicsSettings settings;
+	}
 }

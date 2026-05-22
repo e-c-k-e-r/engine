@@ -1,30 +1,62 @@
+#include <uf/utils/math/physics/impl.h>
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/integration.h>
 #include <uf/utils/math/physics/narrowphase.h>
 
+pod::SolverBodyContext impl::solverBodyContext( const pod::PhysicsBody& body ) {
+	return { body.isStatic ? 0.0f : body.inverseMass, impl::computeWorldInverseInertia( body ) };
+}
+
+float impl::computeEffectiveMass( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::JacobianRow& row ) {
+	float inverseMass = a.invM + b.invM;
+	float angularTerm = 0.0f;
+
+	if ( a.invM > 0.0f ) {
+		auto crossA = uf::vector::cross(row.rA, row.n);
+		auto I_crossA = uf::matrix::multiply(a.invI, crossA);
+		angularTerm += uf::vector::dot(uf::vector::cross(I_crossA, row.rA), row.n);
+	}
+	if ( b.invM > 0.0f ) {
+		auto crossB = uf::vector::cross(row.rB, row.n);
+		auto I_crossB = uf::matrix::multiply(b.invI, crossB);
+		angularTerm += uf::vector::dot(uf::vector::cross(I_crossB, row.rB), row.n);
+	}
+
+	return inverseMass + angularTerm;
+}
+// to-do: convert below to just use the above
 float impl::computeEffectiveMass( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& n ) {
-	float inverseMass = 0.0f;
-	if ( !a.isStatic ) inverseMass += a.inverseMass;
-	if ( !b.isStatic ) inverseMass += b.inverseMass;
+	auto ctxA = impl::solverBodyContext( a );
+	auto ctxB = impl::solverBodyContext( b );
+	auto row = pod::JacobianRow{ rA, rB, n };
+	return impl::computeEffectiveMass( ctxA, ctxB, row );
+}
 
-	float angularTermA = 0.0f;
-	float angularTermB = 0.0f;
+float impl::computeMassMatrixLine( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::JacobianRow& rowI, const pod::JacobianRow& rowJ ) {
+	float termLinear = (a.invM + b.invM) * uf::vector::dot(rowI.n, rowJ.n);
+	float angularTerm = 0.0f;
 
-	if ( !a.isStatic ) {
-		auto invIa = impl::computeWorldInverseInertia(a);
-		auto crossA = uf::vector::cross(rA, n);
-		auto I_crossA = uf::matrix::multiply(invIa, crossA);
-		angularTermA = uf::vector::dot(uf::vector::cross(I_crossA, rA), n);
-	}
-	if ( !b.isStatic ) {
-		auto invIb = impl::computeWorldInverseInertia(b);
-		auto crossB = uf::vector::cross(rB, n);
-		auto I_crossB = uf::matrix::multiply(invIb, crossB);
-		angularTermB = uf::vector::dot(uf::vector::cross(I_crossB, rB), n);
+	if ( a.invM > 0.0f ) {
+		pod::Vector3f raXnj = uf::vector::cross(rowJ.rA, rowJ.n);
+		pod::Vector3f Ia_raXnj = uf::matrix::multiply( a.invI, raXnj );
+		pod::Vector3f crossA = uf::vector::cross(Ia_raXnj, rowI.rA);
+		angularTerm += uf::vector::dot(rowI.n, crossA);
 	}
 
-	// to-do: assert / handle result == 0 to avoid division by zero (this probably only would happen with two static bodies colliding, which never should happen)
-	return inverseMass + angularTermA + angularTermB;
+	if ( b.invM > 0.0f ) {
+		pod::Vector3f rbXnj = uf::vector::cross(rowJ.rB, rowJ.n);
+		pod::Vector3f Ib_rbXnj = uf::matrix::multiply( b.invI, rbXnj );
+		pod::Vector3f crossB = uf::vector::cross(Ib_rbXnj, rowI.rB);
+		angularTerm += uf::vector::dot(rowI.n, crossB);
+	}
+
+	return termLinear + angularTerm;
+}
+float impl::computeAngularMassMatrixLine( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::Vector3f& n_i, const pod::Vector3f& n_j ) {
+	float kVal = 0.0f;
+	if ( a.invM > 0.0f ) kVal += uf::vector::dot(n_i, uf::matrix::multiply(a.invI, n_j));
+	if ( b.invM > 0.0f ) kVal += uf::vector::dot(n_i, uf::matrix::multiply(b.invI, n_j));
+	return kVal;
 }
 
 void impl::applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {

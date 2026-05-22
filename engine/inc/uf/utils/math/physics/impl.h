@@ -3,31 +3,13 @@
 #include <uf/config.h>
 #include <uf/utils/time/time.h>
 #include <uf/utils/math/quant.h>
-#include <cfloat>
 
 #include "structs.h"
-
-#define EPS 1.0e-6f
-#define EPS2 (EPS * EPS)
-#define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
-
-#define REORIENT_NORMALS_ON_FETCH 0
-#define REORIENT_NORMALS_ON_CONTACT 1
-
-#define REVERSE_COLLIDER( a, b, fun )\
-	auto start = manifold.points.size();\
-	if ( !::fun( b, a, manifold ) ) return false;\
-	for ( auto i = start; i < manifold.points.size(); ++i ) manifold.points[i].normal = -manifold.points[i].normal;\
-	return true;
+#include "narrowphase.h"
+#include "constraints.h"
 
 namespace uf {
 	namespace physics {
-		typedef pod::Math::num_t num_t;
-		namespace time = uf::time; // to-do: have separate values from the physics system
-		
-		extern UF_API pod::World world;
-		extern UF_API pod::PhysicsSettings settings;
-
 		void UF_API initialize();
 		void UF_API initialize( uf::Object& );
 		void UF_API initialize( pod::World& );
