@@ -305,3 +305,43 @@ void impl::drawRay( const pod::Ray& ray, const pod::RayQuery& query ) {
 
 	impl::addTransientLine( start, end, query.hit ? pod::Vector4f{ 0, 1, 0, 1 } : pod::Vector4f{ 1, 0, 0, 1 }, query.invoker, query.body );
 }
+
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance ) {
+	return rayCast( ray, body.world ? *body.world : uf::physics::getWorld(), &body, maxDistance );
+}
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, float maxDistance ) {
+	return rayCast( ray, world, NULL, maxDistance );
+}
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance ) {
+	pod::RayQuery rayHit;
+	rayHit.invoker = body;
+	rayHit.contact.penetration = maxDistance;
+
+	auto& dynamicBvh = world.dynamicBvh;
+	auto& staticBvh = world.staticBvh;
+	auto& bodies = world.bodies;
+
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::BVH::index_t>, candidates);
+	impl::queryBVH( dynamicBvh, ray, candidates );
+	if ( uf::physics::settings.useSplitBvhs ) impl::queryBVH( staticBvh, ray, candidates );
+
+	for ( auto i : candidates ) {
+		auto* b = bodies[i];
+		
+		if ( body == b ) continue;
+
+		switch ( b->collider.type ) {
+			case pod::ShapeType::AABB: impl::rayAabb( ray, *b, rayHit ); break;
+			case pod::ShapeType::OBB: impl::rayObb( ray, *b, rayHit ); break;
+			case pod::ShapeType::SPHERE: impl::raySphere( ray, *b, rayHit ); break;
+			case pod::ShapeType::PLANE: impl::rayPlane( ray, *b, rayHit ); break;
+			case pod::ShapeType::CAPSULE: impl::rayCapsule( ray, *b, rayHit ); break;
+			case pod::ShapeType::MESH: impl::rayMesh( ray, *b, rayHit ); break;
+			case pod::ShapeType::CONVEX_HULL: impl::rayHull( ray, *b, rayHit ); break;
+		}
+	}
+	
+	if ( uf::physics::settings.debugDraw ) impl::drawRay( ray, rayHit );
+
+	return rayHit;
+}

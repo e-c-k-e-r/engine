@@ -13,3 +13,10 @@ namespace impl {
 
 	void drawPlane( const pod::PhysicsBody& body );
 }
+
+namespace uf {
+	namespace physics {
+		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::Plane& plane, float mass = 0.0f, const pod::Vector3f& = {} );
+	}
+}

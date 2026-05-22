@@ -507,6 +507,14 @@ T uf::vector::min( const T& left, const T& right ) {
 	return res;
 }
 template<typename T>
+T uf::vector::min( const T& vector, typename T::type_t& min ) {
+	T res = vector;
+	FOR_EACH(T::size, {
+		res[i] = std::min( res[i], min );
+	});
+	return res;
+}
+template<typename T>
 typename T::type_t uf::vector::max( const T& v ) {
 	typename T::type_t res = v[0];
 	FOR_EACH(T::size - 1, {
@@ -528,8 +536,25 @@ T uf::vector::max( const T& left, const T& right ) {
 	return res;
 }
 template<typename T>
+T uf::vector::max( const T& vector, typename T::type_t& max ) {
+	T res = vector;
+	FOR_EACH(T::size, {
+		res[i] = std::max( res[i], max );
+	});
+	return res;
+}
+
+template<typename T>
 T uf::vector::clamp( const T& vector, const T& min, const T& max ) {
 	return uf::vector::max( min, uf::vector::min( vector, max ) );
+}
+template<typename T>
+T uf::vector::clamp( const T& vector, typename T::type_t& min, typename T::type_t& max ) {
+	T res = vector;
+	FOR_EACH(T::size, {
+		res[i] = std::clamp( res[i], min, max );
+	});
+	return res;
 }
 template<typename T>
 T uf::vector::ceil( const T& vector ) {

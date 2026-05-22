@@ -113,10 +113,8 @@ namespace impl {
 
 			// normal impulse
 			{
-				float newLambda = contact.accumulatedNormalImpulse + dLambda[i];
-				dLambda[i] = newLambda - contact.accumulatedNormalImpulse;
-				contact.accumulatedNormalImpulse = newLambda;
-				impl::applyImpulseTo( a, b, rA, rB, manifold.points[i].normal * dLambda[i] );
+				float jN = dLambda[i];
+				impl::applyImpulseTo( a, b, rA, rB, contact.normal, jN, contact.accumulatedNormalImpulse );
 			}
 			// pseudo impulse
 			if ( !uf::physics::settings.ngsPositionSolver ) {
@@ -128,14 +126,8 @@ namespace impl {
 				float pseudoVelAlongNormal = uf::vector::dot(pseudoVb - pseudoVa, contact.normal);
 
 				float invMassN = impl::computeEffectiveMass(a, b, rA, rB, contact.normal);
-				float jPseudo = (penetrationBias - pseudoVelAlongNormal) / invMassN;
-
-				float jPseudoOld = contact.accumulatedPseudoImpulse;
-				float jPseudoNew = std::max(0.0f, jPseudoOld + jPseudo);
-				contact.accumulatedPseudoImpulse = jPseudoNew;
-				jPseudo = jPseudoNew - jPseudoOld;
-
-				impl::applyPseudoImpulseTo(a, b, rA, rB, contact.normal * jPseudo);
+				float jP = (penetrationBias - pseudoVelAlongNormal) / invMassN;
+				impl::applyPseudoImpulseTo(a, b, rA, rB, contact.normal, jP, contact.accumulatedPseudoImpulse, 0 );
 			}
 			// tangent friction
 			{
@@ -146,8 +138,8 @@ namespace impl {
 				pod::Vector3f tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
 				float tMag2 = uf::vector::magnitude(tangent);
 				if ( tMag2 > EPS2 ) {
-					contact.tangent = tangent / std::sqrt(tMag2);
-				} else if ( uf::vector::magnitude(contact.tangent) < EPS ) {
+					contact.tangent = tangent / std::sqrt( tMag2 );
+				} else if ( uf::vector::magnitude(contact.tangent) < EPS2 ) {
 					contact.tangent = impl::computeTangent( contact.normal );
 				}
 
@@ -167,14 +159,7 @@ namespace impl {
 				float mu = std::sqrt(a.material.dynamicFriction * b.material.dynamicFriction);
 				float maxFriction = mu * contact.accumulatedNormalImpulse;
 			*/
-
-				float jtOld = contact.accumulatedTangentImpulse;
-				float jtNew = std::clamp(jtOld + jt, -maxFriction, maxFriction);
-				float jtDelta = jtNew - jtOld;
-				contact.accumulatedTangentImpulse = jtNew;
-				jt = jtDelta;
-
-				impl::applyImpulseTo(a, b, rA, rB, contact.tangent * jt);
+				impl::applyImpulseTo( a, b, rA, rB, contact.tangent, jt, contact.accumulatedTangentImpulse, -maxFriction, maxFriction );
 			}
 		}
 

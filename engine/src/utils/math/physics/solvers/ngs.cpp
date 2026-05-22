@@ -2,17 +2,6 @@
 #include <uf/utils/math/physics/integration.h>
 #include <uf/utils/math/physics/solvers.h>
 
-void impl::resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-	if ( uf::physics::settings.blockContactSolver ) {
-		if ( impl::blockSolver( a, b, manifold, dt ) ) return;
-	}
-	for ( auto& contact : manifold.points ) impl::iterativeImpulseSolver( a, b, contact, dt );
-}
-
-void impl::solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
-	if ( uf::physics::settings.warmupSolver ) for ( auto& manifold : manifolds ) impl::warmupManifold( *manifold.a, *manifold.b, manifold, dt );
-	for ( auto i = 0; i < uf::physics::settings.solverIterations; ++i ) for ( auto& manifold : manifolds ) impl::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
-}
 void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, uint32_t iterations ) {
 	if ( !uf::physics::settings.ngsPositionSolver ) return;
 	if ( uf::physics::settings.baumgarteCorrectionPercent <= 0 ) return;
@@ -52,7 +41,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 
 					float angleA2 = uf::vector::magnitude( deltaAngleA );
 					if ( angleA2 > EPS2 ) {
-						float angleA = std::sqrt( angleA2);
+						float angleA = std::sqrt( angleA2 );
 						pod::Quaternion<> dq = uf::quaternion::axisAngle(deltaAngleA / angleA, angleA);
 						uf::transform::rotate( *a.transform, dq );
 						tA.orientation = uf::quaternion::multiply(dq, tA.orientation);
@@ -69,7 +58,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 
 					float angleB2 = uf::vector::magnitude( deltaAngleB );
 					if ( angleB2 > EPS2 ) {
-						float angleB = std::sqrt( angleB2);
+						float angleB = std::sqrt( angleB2 );
 						pod::Quaternion<> dq = uf::quaternion::axisAngle(deltaAngleB / angleB, angleB);
 						uf::transform::rotate( *b.transform, dq );
 						tB.orientation = uf::quaternion::multiply(dq, tB.orientation);

@@ -127,3 +127,16 @@ void impl::drawCapsule( const pod::PhysicsBody& body ) {
 	impl::addLine( p2 + rightOffset, p2 - rightOffset );
 	impl::addLine( p2 + forwardOffset, p2 - forwardOffset );
 }
+
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	body.collider.type = pod::ShapeType::CAPSULE;
+	body.collider.capsule = capsule;
+	body.bounds = impl::computeAABB( body );
+	uf::physics::updateInertia( body );
+	return body;
+}
+
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::Capsule& capsule, float mass, const pod::Vector3f& offset ) {
+	return create( uf::physics::getWorld(), object, capsule, mass, offset );
+}

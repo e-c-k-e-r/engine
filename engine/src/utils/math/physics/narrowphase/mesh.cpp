@@ -202,3 +202,29 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 		impl::addLine( tri.points[2], tri.points[0] );
 	}
 }
+
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	if ( !convex ) {
+		body.collider.type = pod::ShapeType::MESH;
+		body.collider.mesh.mesh = &mesh;
+		body.collider.mesh.bvh = new pod::BVH;
+		
+		auto& bvh = *body.collider.mesh.bvh;
+		impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
+	} else {
+		body.collider.type = pod::ShapeType::CONVEX_HULL;
+		body.collider.convexHull.mesh = &mesh;
+		body.collider.convexHull.bvh = new pod::BVH;
+		
+		auto& bvh = *body.collider.convexHull.bvh;
+		impl::buildConvexHullBVH( bvh, mesh/*, uf::physics::settings.meshBvhCapacity*/ );
+	}
+
+	body.bounds = impl::computeAABB( body );
+	uf::physics::updateInertia( body );
+	return body;
+}
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
+	return create( uf::physics::getWorld(), object, mesh, mass, offset, convex );
+}

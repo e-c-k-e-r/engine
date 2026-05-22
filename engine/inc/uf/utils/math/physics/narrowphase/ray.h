@@ -16,3 +16,11 @@ namespace impl {
 
 	void drawRay( const pod::Ray& r, const pod::RayQuery& query );
 }
+
+namespace uf {
+	namespace physics {
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::PhysicsBody&, float = FLT_MAX );
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, float = FLT_MAX );
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::PhysicsBody*, float = FLT_MAX );
+	}
+}

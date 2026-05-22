@@ -98,3 +98,16 @@ void impl::drawSphere( const pod::PhysicsBody& body ) {
 		impl::addLine( transform.position + yz1, transform.position + yz2 );
 	}
 }
+
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	body.collider.type = pod::ShapeType::SPHERE;
+	body.collider.sphere = sphere;
+	body.bounds = impl::computeAABB( body );
+	uf::physics::updateInertia( body );
+	return body;
+}
+
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::Sphere& sphere, float mass, const pod::Vector3f& offset ) {
+	return create( uf::physics::getWorld(), object, sphere, mass, offset );
+}

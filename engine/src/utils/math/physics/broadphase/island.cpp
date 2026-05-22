@@ -37,13 +37,30 @@ namespace impl {
 }
 
 // to-do: rewrite this, I'm pretty sure it's faulty
-void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<pod::PhysicsBody*>& bodies, uf::stl::vector<pod::Island>& islands ) {
+void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<pod::PhysicsBody*>& bodies, const uf::stl::vector<pod::Constraint*>& constraints, uf::stl::vector<pod::Island>& islands ) {
 	UnionFind unionizer(bodies.size());
+
+	// map bodies to indices
+	uf::stl::unordered_map<pod::PhysicsBody*, pod::BVH::index_t> bodyToIndex;
+	for ( pod::BVH::index_t i = 0; i < bodies.size(); i++ ) {
+		bodyToIndex[bodies[i]] = i;
+	}
 
 	// union all pairs
 	for ( auto& [a, b] : pairs ) {
 		if ( !bodies[a]->isStatic && !bodies[b]->isStatic ) {
 			unionizer.unite(a, b);
+		}
+	}
+
+	for ( auto* constraint : constraints ) {
+		auto itA = bodyToIndex.find(constraint->a);
+		auto itB = bodyToIndex.find(constraint->b);
+
+		if (itA != bodyToIndex.end() && itB != bodyToIndex.end()) {
+			if ( !constraint->a->isStatic && !constraint->b->isStatic ) {
+				unionizer.unite(itA->second, itB->second);
+			}
 		}
 	}
 
@@ -83,6 +100,23 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 
 			if ( bodies[a]->activity.awake || bodies[b]->activity.awake ) {
 				impl::wakeBody( *bodies[dynamicIndex] );
+			}
+		}
+	}
+
+	for ( auto* constraint : constraints ) {
+		auto itA = bodyToIndex.find(constraint->a);
+		if (itA == bodyToIndex.end()) continue;
+
+		pod::BVH::index_t root = unionizer.find(itA->second);
+		if ( rootToIsland.find(root) != rootToIsland.end() ) {
+			pod::BVH::index_t islandID = rootToIsland[root];
+			islands[islandID].constraints.push_back(constraint);
+
+			// Wake bodies if connected by a constraint and one is awake
+			if ( constraint->a->activity.awake || constraint->b->activity.awake ) {
+				if (!constraint->a->isStatic) impl::wakeBody( *constraint->a );
+				if (!constraint->b->isStatic) impl::wakeBody( *constraint->b );
 			}
 		}
 	}

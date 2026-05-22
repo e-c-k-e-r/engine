@@ -46,11 +46,11 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 	if ( !body.activity.awake ) return;
 
 	// check if body is moving
-	float linSpeedSq = uf::vector::magnitude( body.velocity );
-	float angSpeedSq = uf::vector::magnitude( body.angularVelocity );
+	float linSpeed2 = uf::vector::magnitude( body.velocity );
+	float angSpeed2 = uf::vector::magnitude( body.angularVelocity );
 
 	// body is nearly still
-	if ( linSpeedSq < pod::Activity::linearSleepEpsilon && angSpeedSq < pod::Activity::angularSleepEpsilon ) {
+	if ( linSpeed2 < pod::Activity::linearSleepEpsilon && angSpeed2 < pod::Activity::angularSleepEpsilon ) {
 		body.activity.sleepTimer += dt;
 		float threshold = pod::Activity::sleepThreshold;
 
@@ -200,7 +200,7 @@ pod::Vector3f impl::closestPointSegmentAabb( const pod::Vector3f& p1, const pod:
 
 	if ( len2 > EPS2 ) {
 		// parametric closest t from box center
-		t = uf::vector::dot( c - p1, d ) / len2;
+		t = uf::vector::dot( c - p1, d ) / len2; // sqrt?
 		t = std::clamp( t, 0.0f, 1.0f );
 	}
 
@@ -387,9 +387,9 @@ float impl::segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vecto
 
 // Separating Axis Theorem test
 bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::OBB& box, const pod::Vector3f& axis, const pod::Vector3f axes[3], float& outMinOverlap, pod::Vector3f& outBestAxis ) {
-	float mag = uf::vector::magnitude(axis);
-	if ( mag < EPS2 ) return true;
-	pod::Vector3f n = axis / mag;
+	float mag2 = uf::vector::magnitude( axis );
+	if ( mag2 < EPS2 ) return true;
+	pod::Vector3f n = axis / std::sqrt( mag2 );
 
 	// project triangle
 	float p0 = uf::vector::dot( triangle.points[0], n );
@@ -417,9 +417,9 @@ bool impl::testSeparatingAxis( const pod::Triangle& triangle, const pod::OBB& bo
 	return true;
 }
 bool impl::testSeparatingAxis( const pod::OBB& boxA, const pod::OBB& boxB, const pod::Vector3f axesA[3], const pod::Vector3f axesB[3], const pod::Vector3f& axis, float& outMinOverlap, pod::Vector3f& outBestAxis ) {
-	float mag = uf::vector::magnitude(axis);
-	if ( mag < EPS2 ) return true;
-	pod::Vector3f n = axis / mag;
+	float mag2 = uf::vector::magnitude(axis);
+	if ( mag2 < EPS2 ) return true;
+	pod::Vector3f n = axis / std::sqrt( mag2 );
 
 	float pA = uf::vector::dot( boxA.center, n );
 	float rA = impl::projectExtents( boxA, n, axesA );
@@ -711,11 +711,11 @@ pod::Vector3f impl::extentFromAxes( const pod::OBB& box, const pod::Vector3f axe
 }
 //
 float impl::projectExtents( const pod::OBB& box, const pod::Vector3f& normal, const pod::Vector3f axes[3] ) {
-    return uf::vector::dot(box.extent, uf::vector::abs( pod::Vector3f{
-        uf::vector::dot(axes[0], normal),
-        uf::vector::dot(axes[1], normal),
-        uf::vector::dot(axes[2], normal)
-    } ) );
+	return uf::vector::dot(box.extent, uf::vector::abs( pod::Vector3f{
+		uf::vector::dot(axes[0], normal),
+		uf::vector::dot(axes[1], normal),
+		uf::vector::dot(axes[2], normal)
+	} ) );
 //	return box.extent.x * std::fabs(uf::vector::dot(axes[0], normal)) + box.extent.y * std::fabs(uf::vector::dot(axes[1], normal)) + box.extent.z * std::fabs(uf::vector::dot(axes[2], normal));
 }
 // transforms an AABB into world-space

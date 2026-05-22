@@ -30,6 +30,8 @@ namespace impl {
 
 
 // list of unit tests to "standardly" verify the system works, but honestly this is a mess
+// to-do: clean up all of this
+
 TEST(SphereSphere_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
@@ -119,7 +121,7 @@ TEST(SphereAabb_Collision, {
 	bool collided = impl::sphereAabb(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
-	EXPECT_TRUE(m.points[0].penetration > 0.0f);
+	EXPECT_GT(m.points[0].penetration, 0.0f);
 })
 
 TEST(SpherePlane_Collision, {
@@ -174,7 +176,7 @@ TEST(CapsuleCapsule_Collision, {
 	bool collided = impl::capsuleCapsule(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
-	EXPECT_TRUE(m.points[0].penetration > 0.0f);
+	EXPECT_GT(m.points[0].penetration, 0.0f);
 })
 
 TEST(RayAabb_Miss, {
@@ -206,7 +208,7 @@ TEST(Gjk_SphereSphereOverlap, {
 	bool inside = gjk(a, b, simplex);
 	EXPECT_TRUE(inside);
 	auto contact = epa(a, b, simplex);
-	EXPECT_TRUE(contact.penetration > 0.0f);
+	EXPECT_GT(contact.penetration, 0.0f);
 })
 #endif
 
@@ -238,8 +240,8 @@ TEST(PhysicsStep_SpherePlane_Bounce, {
 	PHYSICS_STEP(1)
 
 	// After bouncing, sphere should be near plane surface, not sinking below
-	EXPECT_TRUE(sphere.transform->position.y >= 0.9f);
-	EXPECT_TRUE(fabs(sphere.velocity.y) < 10.0f); // should have reversed sign at least once
+	EXPECT_GE(sphere.transform->position.y, 0.9f);
+	EXPECT_LT(fabs(sphere.velocity.y), 10.0f); // should have reversed sign at least once
 })
 
 TEST(PhysicsStep_AabbStacking, {
@@ -255,8 +257,8 @@ TEST(PhysicsStep_AabbStacking, {
 	PHYSICS_STEP(5);
 
 	// After time, falling cube should rest on top of static one
-	EXPECT_TRUE(falling.transform->position.y > 1.9f);
-	EXPECT_TRUE(fabs(falling.velocity.y) < 0.1f);
+	EXPECT_GT(falling.transform->position.y, 1.9f);
+	EXPECT_LT(fabs(falling.velocity.y),0.1f);
 })
 
 TEST(PhysicsStep_SphereSphere_HeadOn, {
@@ -274,8 +276,8 @@ TEST(PhysicsStep_SphereSphere_HeadOn, {
 	PHYSICS_STEP(5);
 
 	// Expect velocities swapped (perfect elastic bounce with equal masses)
-	EXPECT_TRUE(A.velocity.x < 0.0f);
-	EXPECT_TRUE(B.velocity.x > 0.0f);
+	EXPECT_LT(A.velocity.x,0.0f);
+	EXPECT_GT(B.velocity.x, 0.0f);
 })
 
 TEST(PhysicsStep_RaycastDynamic, {
@@ -291,7 +293,7 @@ TEST(PhysicsStep_RaycastDynamic, {
 	pod::Ray ray{ {0,0,-5}, {0,0,1} };
 	pod::RayQuery q = uf::physics::rayCast(ray, world, 100.0f);
 	EXPECT_TRUE(q.hit);
-	EXPECT_TRUE(fabs(q.contact.point.z - 10.0f) <= 1.0f); // near where it moved
+	EXPECT_LE(fabs(q.contact.point.z - 10.0f), 1.0f); // near where it moved
 })
 
 TEST(SphereSphere_TouchingButNotOverlapping, {
@@ -365,7 +367,7 @@ TEST(PhysicsStep_StaticFriction_Slips, {
 
 	PHYSICS_STEP(1);
 
-	EXPECT_TRUE(fabs(bodyA.transform->position.x) > 0.1f); // It should slide
+	EXPECT_GT(fabs(bodyA.transform->position.x), 0.1f); // It should slide
 })
 
 // not really a good way to check as these are solver-dependent
@@ -400,7 +402,7 @@ TEST(CapsulePlane_Slope_Slip, {
 
 	PHYSICS_STEP(5);
 
-	EXPECT_TRUE(fabs(bodyA.transform->position.z) > 1.0f); // Should have slid downhill
+	EXPECT_GT(fabs(bodyA.transform->position.z), 1.0f); // Should have slid downhill
 })
 
 TEST(CapsulePlane_RestingContact, {
@@ -787,7 +789,7 @@ TEST(MeshSphere_Collision, {
 	bool collided = impl::meshSphere(bodyA, bodyB, m);
 	EXPECT_TRUE(collided);
 	EXPECT_TRUE(!m.points.empty());
-	if ( !m.points.empty() ) EXPECT_TRUE(m.points[0].penetration > 0.0f);
+	if ( !m.points.empty() ) EXPECT_GT(m.points[0].penetration, 0.0f);
 })
 
 TEST(MeshSphere_NoCollision, {
@@ -864,7 +866,7 @@ TEST(RayMesh_Hit, {
 	pod::RayQuery hit = uf::physics::rayCast(ray, world, 100.0f);
 
 	EXPECT_TRUE(hit.hit);
-	EXPECT_TRUE(hit.contact.penetration > 0.0f);
+	EXPECT_GT(hit.contact.penetration, 0.0f);
 })
 
 TEST(RayMesh_Miss, {
@@ -1250,4 +1252,197 @@ TEST(TriangleCapsule_Collision_EdgeAlignment, {
 	bool collided = impl::triangleCapsule(bodyA, bodyB, m);
 
 	EXPECT_TRUE(collided);
+})
+
+TEST(BallSocketJoint_Constraint, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+	auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+	bodyA.transform->position = {0, 0, 0};
+	bodyB.transform->position = {5, 0, 0};
+
+	pod::Constraint constraint;
+	pod::BallSocket ballSocket = {};
+	ballSocket.localAnchorA = {1, 0, 0};
+	ballSocket.localAnchorB = {-1, 0, 0};
+
+	constraint.type = pod::ConstraintType::HINGE;
+	constraint.a = &bodyA;
+	constraint.b = &bodyB;
+	constraint.ballSocket = ballSocket;
+
+	float dt = 1.0f / 60.0f;
+
+	for (int i = 0; i < 10; ++i) {
+		bodyB.velocity.y -= 9.8f * dt;
+
+		for (int solverIters = 0; solverIters < 10; ++solverIters) {
+			impl::solveBallSocketConstraint( constraint, dt );
+		}
+
+		bodyB.transform->position += bodyB.velocity * dt;
+	}
+
+	auto tA = impl::getTransform(bodyA);
+	auto tB = impl::getTransform(bodyB);
+	pod::Vector3f worldAnchorA = tA.position + uf::quaternion::rotate(tA.orientation, constraint.ballSocket.localAnchorA);
+	pod::Vector3f worldAnchorB = tB.position + uf::quaternion::rotate(tB.orientation, constraint.ballSocket.localAnchorB);
+
+	float errorSq = uf::vector::distanceSquared(worldAnchorA, worldAnchorB);
+	EXPECT_LT( errorSq, 0.2f );
+})
+
+TEST(Hinge_Constraint, {
+	pod::World world;
+	uf::Object objA, objB;
+
+	auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+	auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+	bodyA.transform->position = {0, 0, 0};
+	bodyA.transform->orientation = {0, 0, 0, 1};
+
+	bodyB.transform->position = {3, 1, 0}; // expected to be at {2, 0, 0}
+	bodyB.transform->orientation = uf::quaternion::axisAngle({0, 0, 1}, M_PI / 4.0f);
+
+	bodyB.angularVelocity = {0, 2.0f, 0};
+
+	pod::Hinge hinge = {};
+	hinge.localAnchorA = {1, 0, 0};
+	hinge.localAnchorB = {-1, 0, 0};
+	hinge.localAxisA = {0, 1, 0};
+	hinge.localAxisB = {0, 1, 0};
+
+	pod::Constraint constraint;
+	constraint.type = pod::ConstraintType::HINGE;
+	constraint.a = &bodyA;
+	constraint.b = &bodyB;
+	constraint.hinge = hinge;
+
+	float dt = 1.0f / 60.0f;
+
+	for (int i = 0; i < 10; ++i) {
+		bodyB.velocity.y -= 9.81f * dt;
+
+		for (int solverIters = 0; solverIters < 10; ++solverIters) {
+			impl::solveHingeConstraint( constraint, dt );
+		}
+
+		bodyB.transform->position += bodyB.velocity * dt;
+
+		float angularSpeed2 = uf::vector::magnitude( bodyB.angularVelocity );
+		if ( angularSpeed2 > 0.0001f ) {
+			float angularSpeed = std::sqrt( angularSpeed2 );
+			pod::Quaternion<> dq = uf::quaternion::axisAngle( bodyB.angularVelocity / angularSpeed, angularSpeed * dt );
+			bodyB.transform->orientation = uf::quaternion::multiply(dq, bodyB.transform->orientation);
+			bodyB.transform->orientation = uf::quaternion::normalize(bodyB.transform->orientation);
+		}
+	}
+
+	auto tA = impl::getTransform(bodyA);
+	auto tB = impl::getTransform(bodyB);
+	pod::Vector3f worldAnchorA = tA.position + uf::quaternion::rotate(tA.orientation, constraint.hinge.localAnchorA);
+	pod::Vector3f worldAnchorB = tB.position + uf::quaternion::rotate(tB.orientation, constraint.hinge.localAnchorB);
+
+	float posErrorSq = uf::vector::distanceSquared(worldAnchorA, worldAnchorB);
+	EXPECT_LT( posErrorSq, 0.01f );
+
+	pod::Vector3f worldAxisA = uf::quaternion::rotate(tA.orientation, constraint.hinge.localAxisA);
+	pod::Vector3f worldAxisB = uf::quaternion::rotate(tB.orientation, constraint.hinge.localAxisB);
+
+	float axisDot = uf::vector::dot(worldAxisA, worldAxisB);
+	EXPECT_GT( axisDot, 0.99f );
+})
+
+TEST(ConeTwist_Constraint, {
+    pod::World world;
+    uf::Object objA, objB;
+
+    auto& bodyA = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 0.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
+
+    bodyA.transform->position = {0, 0, 0};
+    bodyA.transform->orientation = {0, 0, 0, 1};
+
+    bodyB.transform->position = {3, 1, 0};
+    bodyB.transform->orientation = {0, 0, 0, 1};
+
+    bodyB.angularVelocity = {10.0f, 0.0f, 10.0f};
+
+    pod::ConeTwist coneTwist = {};
+    coneTwist.localAnchorA = {1, 0, 0};
+    coneTwist.localAnchorB = {-1, 0, 0};
+
+    coneTwist.localTwistAxisA = {1, 0, 0};
+    coneTwist.localTwistAxisB = {1, 0, 0};
+
+    coneTwist.localReferenceAxisA = {0, 1, 0};
+    coneTwist.localReferenceAxisB = {0, 1, 0};
+
+    coneTwist.swingLimit = M_PI / 4.0f; // 45 degrees
+    coneTwist.twistLimit = M_PI / 8.0f; // 22.5 degrees
+
+    pod::Constraint constraint;
+    constraint.type = pod::ConstraintType::CONE_TWIST;
+    constraint.a = &bodyA;
+    constraint.b = &bodyB;
+    constraint.coneTwist = coneTwist;
+
+    float dt = 1.0f / 60.0f;
+
+    for (int i = 0; i < 60; ++i) {
+        bodyB.velocity.y -= 9.81f * dt;
+
+        for (int solverIters = 0; solverIters < 10; ++solverIters) {
+        	impl::solveConeTwistConstraint( constraint, dt );
+        }
+
+        bodyB.transform->position += bodyB.velocity * dt;
+
+        float angularSpeedSq = uf::vector::dot(bodyB.angularVelocity, bodyB.angularVelocity);
+        if ( angularSpeedSq > 0.0001f ) {
+            float angularSpeed = std::sqrt( angularSpeedSq );
+            pod::Quaternion<> dq = uf::quaternion::axisAngle( bodyB.angularVelocity / angularSpeed, angularSpeed * dt );
+            bodyB.transform->orientation = uf::quaternion::multiply(dq, bodyB.transform->orientation);
+            bodyB.transform->orientation = uf::quaternion::normalize(bodyB.transform->orientation);
+        }
+    }
+
+    auto tA = impl::getTransform(bodyA);
+    auto tB = impl::getTransform(bodyB);
+
+    pod::Vector3f worldAnchorA = tA.position + uf::quaternion::rotate(tA.orientation, constraint.coneTwist.localAnchorA);
+    pod::Vector3f worldAnchorB = tB.position + uf::quaternion::rotate(tB.orientation, constraint.coneTwist.localAnchorB);
+
+    float posErrorSq = uf::vector::distanceSquared(worldAnchorA, worldAnchorB);
+    EXPECT_LT( posErrorSq, 0.01f );
+
+    pod::Vector3f worldTwistA = uf::quaternion::rotate(tA.orientation, constraint.coneTwist.localTwistAxisA);
+    pod::Vector3f worldTwistB = uf::quaternion::rotate(tB.orientation, constraint.coneTwist.localTwistAxisB);
+
+    float swingDot = uf::vector::dot(worldTwistA, worldTwistB);
+
+    swingDot = std::clamp(swingDot, -1.0f, 1.0f);
+    float swingAngle = std::acos(swingDot);
+
+    EXPECT_LE( swingAngle, coneTwist.swingLimit + 0.05f );
+
+    pod::Vector3f worldRefA = uf::quaternion::rotate(tA.orientation, constraint.coneTwist.localReferenceAxisA);
+    pod::Vector3f worldRefB = uf::quaternion::rotate(tB.orientation, constraint.coneTwist.localReferenceAxisB);
+
+    pod::Vector3f projectedRefB = worldRefB - (worldTwistA * uf::vector::dot(worldRefB, worldTwistA));
+    float projectedLength2 = uf::vector::dot(projectedRefB, projectedRefB);
+    if ( projectedLength2 > 0.0001f ) {
+        projectedRefB = projectedRefB / std::sqrt(projectedLength2);
+
+        pod::Vector3f crossRef = uf::vector::cross(worldRefA, projectedRefB);
+        float sinTheta = uf::vector::dot(crossRef, worldTwistA);
+        float cosTheta = uf::vector::dot(worldRefA, projectedRefB);
+        float twistAngle = std::atan2(sinTheta, cosTheta);
+
+        EXPECT_LE( std::fabs(twistAngle), coneTwist.twistLimit + 0.05f );
+    }
 })

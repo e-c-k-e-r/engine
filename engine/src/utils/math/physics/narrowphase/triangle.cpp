@@ -94,7 +94,8 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 		for ( auto j = 0; j < 3; j++ ) {
 			auto eb = b.points[(j+1)%3] - b.points[j];
 			auto axis = uf::vector::cross(ea, eb);
-			if ( uf::vector::magnitude( axis ) > EPS2 ) axes[axesCount++] = uf::vector::normalize(axis);
+			auto mag2 = uf::vector::magnitude( axis );
+			if ( mag2 > EPS2 ) axes[axesCount++] = axis / std::sqrt(mag2);
 		}
 	}
 
@@ -151,8 +152,8 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 		auto p1 = refTri.points[(i+1)%3];
 		auto edge = p1 - p0;
 
-		auto edgeNormal = uf::vector::normalize( uf::vector::cross( refNormal, edge ) );
-		//auto edgeNormal = uf::vector::normalize( uf::vector::cross( edge, refNormal ) );
+		//auto edgeNormal = uf::vector::normalize( uf::vector::cross( refNormal, edge ) );
+		auto edgeNormal = uf::vector::normalize( uf::vector::cross( edge, refNormal ) );
 		impl::clipPolygon( poly, polyCount, pod::Plane{ edgeNormal, uf::vector::dot(edgeNormal, p0) } );
 		if ( polyCount == 0 ) return false;
 	}
@@ -364,4 +365,20 @@ void impl::drawTriangle( const pod::PhysicsBody& body ) {
 	impl::addLine( v0, v1 );
 	impl::addLine( v1, v2 );
 	impl::addLine( v2, v0 );
+}
+
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::TriangleWithNormal& tri, float mass, const pod::Vector3f& offset ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	body.collider.type = pod::ShapeType::TRIANGLE;
+	body.collider.triangle = tri;
+	if ( uf::vector::magnitude( body.collider.triangle.normal ) < 0.001f ) {
+		body.collider.triangle.normal = impl::triangleNormal( (const pod::Triangle&) tri );
+	}
+	body.bounds = impl::computeAABB( body );
+	uf::physics::updateInertia( body );
+	return body;
+}
+
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::TriangleWithNormal& triangle, float mass, const pod::Vector3f& offset ) {
+	return create( uf::physics::getWorld(), object, triangle, mass, offset );
 }

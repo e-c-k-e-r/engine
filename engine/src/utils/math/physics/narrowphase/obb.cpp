@@ -256,15 +256,12 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	pod::Vector3f bestAxis;
 
 	auto testAxis = [&](const pod::Vector3f& axis) -> bool {
-		float mag = uf::vector::magnitude(axis);
-		if (mag < EPS) return true;
-		pod::Vector3f n = axis / mag;
+		float mag2 = uf::vector::magnitude(axis);
+		if ( mag2 < EPS2 ) return true;
+		pod::Vector3f n = axis / std::sqrt( mag2 );
 
 		float pA = uf::vector::dot(box.center, n);
-		float rA = box.extent.x * std::fabs(uf::vector::dot(axesA[0], n)) +
-				   box.extent.y * std::fabs(uf::vector::dot(axesA[1], n)) +
-				   box.extent.z * std::fabs(uf::vector::dot(axesA[2], n));
-
+		float rA = impl::projectExtents( box, n, axesA );
 		float pB = uf::vector::dot(cB, n);
 		float rB = halfHeight * std::fabs(uf::vector::dot(capAxis, n)) + radius;
 
@@ -323,4 +320,18 @@ void impl::drawObb( const pod::PhysicsBody& body ) {
 	// vertical edges
 	impl::addLine( corners[0], corners[4] ); impl::addLine( corners[1], corners[5] );
 	impl::addLine( corners[2], corners[6] ); impl::addLine( corners[3], corners[7] );
+}
+
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
+	auto& body = uf::physics::create( world, object, mass, offset );
+	body.collider.type = pod::ShapeType::OBB;
+	body.collider.obb = obb;
+	body.bounds = impl::computeAABB( body );
+
+	uf::physics::updateInertia( body );
+	return body;
+}
+
+pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
+	return create( uf::physics::getWorld(), object, obb, mass, offset );
 }
