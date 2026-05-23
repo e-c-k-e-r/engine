@@ -38,3 +38,19 @@ void impl::solveDistanceConstraint( pod::Constraint& constraint, float dt ) {
 
 	impl::applyImpulseTo( a, b, rA, rB, normal, j, joint.accumulatedImpulse, -FLT_MAX, joint.isRope ? 0 : FLT_MAX );
 }
+
+pod::Constraint& uf::physics::constrainDistance( pod::Constraint& constraint, const pod::Vector3f& pA, const pod::Vector3f& pB, bool isRope ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	auto& joint = constraint.distance;
+	constraint.type = pod::ConstraintType::DISTANCE;
+	joint.localAnchorA = uf::transform::applyInverse( tA, pA );
+	joint.localAnchorB = uf::transform::applyInverse( tB, pB );
+
+	joint.targetDistance = uf::vector::distance( pB, pA );
+	joint.accumulatedImpulse = 0.0f;
+	joint.isRope = isRope;
+
+	return constraint;
+}

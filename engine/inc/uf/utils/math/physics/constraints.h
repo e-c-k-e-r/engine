@@ -15,3 +15,12 @@
 namespace impl {
 	void solveConstraint( pod::Constraint& constraint, float dt );
 }
+	
+namespace uf {
+	namespace physics {
+		pod::Constraint& UF_API constrain( pod::PhysicsBody&, pod::PhysicsBody& );		
+		void UF_API unconstrain( pod::PhysicsBody& );
+
+		void UF_API setConstraintLimits( pod::Constraint& constraint, float lower, float upper );
+	}
+}

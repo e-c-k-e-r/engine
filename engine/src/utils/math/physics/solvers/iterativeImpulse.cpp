@@ -4,17 +4,16 @@
 #include <uf/utils/math/physics/solvers/iterativeImpulse.h>
 
 void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Contact& contact, float dt ) {
-	pod::Vector3f rA = contact.point - impl::getPosition( a, true );
-	pod::Vector3f rB = contact.point - impl::getPosition( b, true );
+	auto rA = contact.point - impl::getPosition( a, true );
+	auto rB = contact.point - impl::getPosition( b, true );
 
 	float invMassN = impl::computeEffectiveMass(a, b, rA, rB, contact.normal);
 
-
 	// normal impulse
 	{
-		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
-		pod::Vector3f vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
-		pod::Vector3f rv = vB - vA;
+		auto vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
+		auto vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
+		auto rv = vB - vA;
 
 		auto gA = uf::physics::getGravity( a );
 		auto gB = uf::physics::getGravity( b );
@@ -34,8 +33,8 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 		float penetrationBias = std::max(contact.penetration - uf::physics::settings.baumgarteCorrectionSlop, 0.0f) * (uf::physics::settings.baumgarteCorrectionPercent / dt);
 		penetrationBias = std::min(penetrationBias, uf::physics::settings.maxLinearCorrection / dt);
 
-		pod::Vector3f pseudoVa = a.pseudoVelocity + uf::vector::cross(a.pseudoAngularVelocity, rA);
-		pod::Vector3f pseudoVb = b.pseudoVelocity + uf::vector::cross(b.pseudoAngularVelocity, rB);
+		auto pseudoVa = a.pseudoVelocity + uf::vector::cross(a.pseudoAngularVelocity, rA);
+		auto pseudoVb = b.pseudoVelocity + uf::vector::cross(b.pseudoAngularVelocity, rB);
 		float pseudoVelAlongNormal = uf::vector::dot(pseudoVb - pseudoVa, contact.normal);
 
 		float jP = (penetrationBias - pseudoVelAlongNormal) / invMassN;
@@ -43,10 +42,10 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 	}
 	// tangent friction
 	{
-		pod::Vector3f vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
-		pod::Vector3f vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
-		pod::Vector3f rv = vB - vA;
-		pod::Vector3f tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
+		auto vA = a.velocity + uf::vector::cross(a.angularVelocity, rA);
+		auto vB = b.velocity + uf::vector::cross(b.angularVelocity, rB);
+		auto rv = vB - vA;
+		auto tangent = rv - contact.normal * uf::vector::dot(rv, contact.normal);
 		float tMag2 = uf::vector::magnitude(tangent);
 		if ( tMag2 > EPS2 ) {
 			contact.tangent = tangent / std::sqrt( tMag2 );

@@ -189,7 +189,7 @@ void impl::buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::Physics
 
 	// populate initial indices and bounds
 	for ( auto i = 0; i < bodies.size(); ++i ) {
-		if ( filters && bodies[i]->isStatic != filterType ) continue;
+		if ( filters && ( bodies[i]->inverseMass == 0.0f ) != filterType ) continue;
 
 		bounds[i] = bodies[i]->bounds;
 		bvh.indices.emplace_back(i);

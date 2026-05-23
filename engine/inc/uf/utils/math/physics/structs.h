@@ -383,11 +383,9 @@ namespace pod {
 		pod::World* world = NULL;
 		uf::Object* object = NULL;
 		pod::Transform<>* transform = NULL;
+		pod::PhysicsBody* next = NULL;
 
-		bool isStatic = false;
-
-		float mass = 1.0f;
-		float inverseMass = 1.0f; // for fast division
+		float inverseMass = 0.0f;
 		int32_t viewIndex = -1; // -1 means it's not an aliased view
 
 		pod::Vector3f offset = {};
@@ -483,7 +481,7 @@ namespace uf {
 		typedef pod::Math::num_t num_t;
 		namespace time = uf::time; // to-do: have separate values from the physics system
 		
-		extern UF_API pod::World world;
+		//extern UF_API pod::World world;
 		extern UF_API pod::PhysicsSettings settings;
 	}
 }

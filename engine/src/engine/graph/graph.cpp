@@ -26,7 +26,7 @@
 
 #define UF_GRAPH_EXTENDED 1
 #define UF_GRAPH_SPARSE_READ_MESH 1
-// to-do: fix LOD1+ breaking, fix physics mesh not updating
+// to-do: fix LOD1+ breaking
 
 namespace {
 	bool newGraphAdded = true;
@@ -1330,16 +1330,16 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				}
 			#if !UF_GRAPH_EXTENDED
 				if ( isMesh ) {
-					auto& physicsBody = entity.getComponent<pod::PhysicsBody>();
-					float mass = phyziks["mass"].as(physicsBody.mass);
-					
-					physicsBody.material.staticFriction = phyziks["friction"].as(physicsBody.material.staticFriction);
-					physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
-					physicsBody.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inverseInertiaTensor );
-					physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
+					float mass = phyziks["mass"].as(0.0f);
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
-			
-					uf::physics::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
+
+					auto& body = rig.initialized() ? rig.get() : uf::physics::create( entity, mass, center );
+					uf::physics::initialize( body, mesh, type != "mesh" );
+
+					body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
+					body.material.restitution = phyziks["restitution"].as(body.material.restitution);
+					body.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], body.inverseInertiaTensor );
+					body.gravity = uf::vector::decode( phyziks["gravity"], body.gravity );
 				}
 			#endif
 			}
@@ -1987,7 +1987,6 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 	}
 	// bind mesh to physics state
-	// to-do: test if this works in the internal physics system (the entire reason why I wrote it was because of this mess)
 	{
 		auto phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
@@ -2002,16 +2001,16 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 					uf::physics::destroy( entity );
 				}
 				
-				auto& physicsBody = entity.getComponent<pod::PhysicsBody>();
-				float mass = phyziks["mass"].as(physicsBody.mass);
-				
-				physicsBody.material.staticFriction = phyziks["friction"].as(physicsBody.material.staticFriction);
-				physicsBody.material.restitution = phyziks["restitution"].as(physicsBody.material.restitution);
-				physicsBody.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], physicsBody.inverseInertiaTensor );
-				physicsBody.gravity = uf::vector::decode( phyziks["gravity"], physicsBody.gravity );
+				float mass = phyziks["mass"].as(0.0f);
 				auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
-			
-				uf::physics::create( entity.as<uf::Object>(), mesh, mass, center, type != "mesh" );
+
+				auto& body = uf::physics::create( entity, mass, center );
+				uf::physics::initialize( body, mesh, type != "mesh" );
+
+				body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
+				body.material.restitution = phyziks["restitution"].as(body.material.restitution);
+				body.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], body.inverseInertiaTensor );
+				body.gravity = uf::vector::decode( phyziks["gravity"], body.gravity );
 			}
 		}
 	}

@@ -368,8 +368,7 @@ void impl::drawTriangle( const pod::PhysicsBody& body ) {
 	impl::addLine( v2, v0 );
 }
 
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::TriangleWithNormal& tri, float mass, const pod::Vector3f& offset ) {
-	auto& body = uf::physics::create( world, object, mass, offset );
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::TriangleWithNormal& tri ) {
 	body.collider.type = pod::ShapeType::TRIANGLE;
 	body.collider.triangle = tri;
 	if ( uf::vector::magnitude( body.collider.triangle.normal ) < 0.001f ) {
@@ -378,8 +377,4 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, co
 	body.bounds = impl::computeAABB( body );
 	uf::physics::updateInertia( body );
 	return body;
-}
-
-pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::TriangleWithNormal& triangle, float mass, const pod::Vector3f& offset ) {
-	return create( uf::physics::getWorld(), object, triangle, mass, offset );
 }

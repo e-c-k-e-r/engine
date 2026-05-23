@@ -40,6 +40,17 @@ void impl::solve1DAngularMotor(
 	auto jDelta = impl::accumulateImpulseTo( j, accumulatedImpulse, -maxImpulse, maxImpulse  );
 
 	pod::Vector3f impulse = axis * jDelta;
-	if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-	if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+	if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
+	if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+}
+
+pod::Constraint& uf::physics::constrainMotor( pod::Constraint& constraint, float targetVelocity, float maxForceOrTorque ) {
+	auto& motor = constraint.motor;
+
+	motor.enabled = true;
+	motor.targetVelocity = targetVelocity;
+	motor.maxMotorTorque = maxForceOrTorque;
+	motor.accumulatedMotorImpulse = 0.0f;
+
+	return constraint;
 }

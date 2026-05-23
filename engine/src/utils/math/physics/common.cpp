@@ -20,7 +20,7 @@ void impl::wakeBody( pod::PhysicsBody& body ) {
 
 	body.activity.awake = true;
 
-	if ( body.isStatic ) {
+	if ( body.inverseMass == 0.0f ) {
 		body.bounds = impl::computeAABB( body );
 		if ( body.world ) body.world->staticBvh.dirty = true;
 	}
@@ -104,13 +104,13 @@ bool impl::shouldCollide( const pod::Collider& a, const pod::Collider& b ) {
 	return ( a.category & b.mask ) && ( b.category & a.mask );
 }
 bool impl::shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
-	if ( a.isStatic && b.isStatic ) return false; // this shouldn't ever happen if we're segregating static bodies from dynamic bodies in the broadphase
+	if ( a.inverseMass == 0.0f && b.inverseMass == 0.0f ) return false; // this shouldn't ever happen if we're segregating static bodies from dynamic bodies in the broadphase
 	return impl::shouldCollide( a.collider, b.collider );
 }
 
 // returns an inverse inertia matrix from an inertia tensor
 pod::Matrix3f impl::computeWorldInverseInertia( const pod::PhysicsBody& b ) {
-	if ( b.isStatic || b.inverseMass == 0.0f ) return pod::Matrix3f{};
+	if ( b.inverseMass == 0.0f ) return pod::Matrix3f{};
 
 	pod::Matrix3f invI_local = uf::matrix::diagonal( b.inverseInertiaTensor );
 	pod::Matrix3f R = uf::quaternion::matrix3(b.transform->orientation);

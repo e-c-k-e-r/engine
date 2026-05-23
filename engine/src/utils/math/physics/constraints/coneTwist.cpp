@@ -104,8 +104,8 @@ void impl::solveConeTwistConstraint( pod::Constraint& constraint, float dt ) {
 			joint.accumulatedAngularImpulse.y = unconstrainedTwist;
 
 			auto impulseVector = (swingAxis * swingDelta) + (twistAxis * twistDelta);
-			if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulseVector );
-			if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulseVector );
+			if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulseVector );
+			if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulseVector );
 
 			return;
 		}
@@ -119,8 +119,8 @@ void impl::solveConeTwistConstraint( pod::Constraint& constraint, float dt ) {
 		float bias = (uf::physics::settings.baumgarteCorrectionPercent / dt) * swingError;
 		float j = -(uf::vector::dot(relAngularVel, swingAxis) + bias) / invMassN;
 		auto impulse = swingAxis * impl::accumulateImpulseTo( j, joint.accumulatedAngularImpulse.x, -FLT_MAX, 0.0f );
-		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
+		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
 	}
 
 	// twist fallback: solve 1D
@@ -133,48 +133,37 @@ void impl::solveConeTwistConstraint( pod::Constraint& constraint, float dt ) {
 		float min = (twistError > 0.0f) ? -FLT_MAX : 0.0f;
 		float max = (twistError > 0.0f) ? 0.0f : FLT_MAX;
 		auto impulse = twistAxis * impl::accumulateImpulseTo( j, joint.accumulatedAngularImpulse.y, min, max );
-		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
+		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
 	}
 }
 
-pod::Constraint& uf::physics::constrain( pod::World& world, pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit, float twistLimit ) {
-	auto& constraint = uf::physics::constrain( world, a, b );
+pod::Constraint& uf::physics::constrainConeTwist( pod::Constraint& constraint, const pod::Vector3f& p, const pod::Vector3f& a, float swingLimit, float twistLimit ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	auto axis = uf::vector::normalize( a );
+	auto tangent = uf::vector::normalize( impl::computeTangent( axis ) );
+
+	auto invqA = uf::quaternion::inverse( tA.orientation );
+	auto invqB = uf::quaternion::inverse( tB.orientation );
+
+	auto& joint = constraint.coneTwist;
 	constraint.type = pod::ConstraintType::CONE_TWIST;
-
-	// transform joint into local space
-	auto tA = impl::getTransform( a );
-	auto tB = impl::getTransform( b );
-
-	auto normAxis = uf::vector::normalize( axis );
-	auto worldRefAxis = uf::vector::normalize( impl::computeTangent( normAxis ) );
-
-	auto invOriA = uf::quaternion::inverse( tA.orientation );
-	auto invOriB = uf::quaternion::inverse( tB.orientation );
-
-	constraint.coneTwist.localAnchorA = uf::transform::applyInverse( tA, joint );
-	constraint.coneTwist.localAnchorB = uf::transform::applyInverse( tB, joint );
+	joint.localAnchorA = uf::transform::applyInverse( tA, p );
+	joint.localAnchorB = uf::transform::applyInverse( tB, p );
 	
-	constraint.coneTwist.accumulatedImpulse = {};
-	constraint.coneTwist.accumulatedAngularImpulse = {};
+	joint.accumulatedImpulse = {};
+	joint.accumulatedAngularImpulse = {};
 
-	constraint.coneTwist.localTwistAxisA = uf::quaternion::rotate( invOriA, normAxis );
-	constraint.coneTwist.localTwistAxisB = uf::quaternion::rotate( invOriB, normAxis );
+	joint.localTwistAxisA = uf::quaternion::rotate( invqA, axis );
+	joint.localTwistAxisB = uf::quaternion::rotate( invqB, axis );
 
-	constraint.coneTwist.localReferenceAxisA = uf::quaternion::rotate( invOriA, worldRefAxis );
-	constraint.coneTwist.localReferenceAxisB = uf::quaternion::rotate( invOriB, worldRefAxis );
+	joint.localReferenceAxisA = uf::quaternion::rotate( invqA, tangent );
+	joint.localReferenceAxisB = uf::quaternion::rotate( invqB, tangent );
 
-	constraint.coneTwist.swingLimit = swingLimit;
-	constraint.coneTwist.twistLimit = twistLimit;
+	joint.swingLimit = swingLimit;
+	joint.twistLimit = twistLimit;
 
 	return constraint;
-}
-pod::Constraint& uf::physics::constrain( pod::World& world, uf::Object& a, uf::Object& b, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit, float twistLimit ) {
-	return constrain( world, a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint, axis, swingLimit, twistLimit );
-}
-pod::Constraint& uf::physics::constrain( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit, float twistLimit ) {
-	return constrain( uf::physics::getWorld(), a, b, joint, axis, swingLimit, twistLimit );
-}
-pod::Constraint& uf::physics::constrain( uf::Object& a, uf::Object& b, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit, float twistLimit ) {
-	return constrain( uf::physics::getWorld(), a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint, axis, swingLimit, twistLimit );
 }

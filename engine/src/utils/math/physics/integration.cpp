@@ -4,7 +4,7 @@
 #include <uf/utils/math/physics/narrowphase.h>
 
 pod::SolverBodyContext impl::solverBodyContext( const pod::PhysicsBody& body ) {
-	return { body.isStatic ? 0.0f : body.inverseMass, impl::computeWorldInverseInertia( body ) };
+	return { body.inverseMass == 0.0f ? 0.0f : body.inverseMass, impl::computeWorldInverseInertia( body ) };
 }
 
 float impl::computeEffectiveMass( const pod::SolverBodyContext& a, const pod::SolverBodyContext& b, const pod::JacobianRow& row ) {
@@ -60,24 +60,24 @@ float impl::computeAngularMassMatrixLine( const pod::SolverBodyContext& a, const
 }
 
 void impl::applyImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
-	if ( !a.isStatic ) {
+	if ( a.inverseMass != 0.0f ) {
 		a.velocity -= impulse * a.inverseMass;
 		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
 		a.angularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
 	}
-	if ( !b.isStatic ) {
+	if ( b.inverseMass != 0.0f ) {
 		b.velocity += impulse * b.inverseMass;
 		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
 		b.angularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
 	}
 }
 void impl::applyPseudoImpulseTo( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& rA, const pod::Vector3f& rB, const pod::Vector3f& impulse ) {
-	if ( !a.isStatic ) {
+	if ( a.inverseMass != 0.0f ) {
 		a.pseudoVelocity -= impulse * a.inverseMass;
 		pod::Matrix3f invIa = impl::computeWorldInverseInertia( a );
 		a.pseudoAngularVelocity -= uf::matrix::multiply( invIa, uf::vector::cross(rA, impulse) );
 	}
-	if ( !b.isStatic ) {
+	if ( b.inverseMass != 0.0f ) {
 		b.pseudoVelocity += impulse * b.inverseMass;
 		pod::Matrix3f invIb = impl::computeWorldInverseInertia( b );
 		b.pseudoAngularVelocity += uf::matrix::multiply( invIb, uf::vector::cross(rB, impulse) );
@@ -155,7 +155,7 @@ pod::Vector3f impl::accumulateImpulseTo(
 }
 
 void impl::applyRollingResistance( pod::PhysicsBody& body, float dt ) {
-	if ( body.isStatic ) return;
+	if ( body.inverseMass == 0.0f ) return;
 
 	float rollingFriction = 0.02f; // to-do: derive from material
 	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
@@ -183,7 +183,7 @@ void impl::snapVelocity( pod::PhysicsBody& body, float dt, float threshold ) {
 
 void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	// only integrate awake and dynamic bodies
-	if ( !body.activity.awake || body.isStatic || body.mass == 0 ) return;
+	if ( !body.activity.awake || body.inverseMass == 0.0f ) return;
 
 	auto& world = *body.world;
 

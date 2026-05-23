@@ -73,7 +73,7 @@ namespace {
 		{
 			auto& phyziks = metadataJson["physics"];
 
-			collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
+			if ( phyziks["mass"].as<float>() != 0.0f ) collider.stats.inverseMass = 1.0f / phyziks["mass"].as<float>();
 			collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
 			collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
 			collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );

@@ -16,7 +16,6 @@ namespace impl {
 
 namespace uf {
 	namespace physics {
-		pod::PhysicsBody& UF_API create( uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
-		pod::PhysicsBody& UF_API create( pod::World&, uf::Object& object, const pod::AABB& aabb, float mass = 0.0f, const pod::Vector3f& = {} );
+		pod::PhysicsBody& UF_API initialize( pod::PhysicsBody& body, const pod::AABB& aabb );
 	}
 }

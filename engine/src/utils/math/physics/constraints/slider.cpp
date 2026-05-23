@@ -53,8 +53,8 @@ void impl::solveSliderConstraint( pod::Constraint& constraint, float dt ) {
 		pod::Vector3f impulse = uf::matrix::multiply( Kinv, rhs );
 		joint.accumulatedAngularImpulse += impulse;
 
-		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
+		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
 	}
 	{
 		pod::Vector3f t1 = wrA;
@@ -101,4 +101,35 @@ void impl::solveSliderConstraint( pod::Constraint& constraint, float dt ) {
 		float max = ( currentDist < joint.lowerLimit ) ? FLT_MAX : 0.0f;
 		impl::applyImpulseTo( a, b, rA, rB, waA, j, joint.accumulatedLimitImpulse, min, max );
 	}
+}
+
+pod::Constraint& uf::physics::constrainSlider( pod::Constraint& constraint, const pod::Vector3f& p, const pod::Vector3f& a, float lowerLimit, float upperLimit ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	auto axis = uf::vector::normalize( a);
+	auto tangent = uf::vector::normalize( impl::computeTangent(axis) );
+
+	auto invqA = uf::quaternion::inverse( tA.orientation );
+	auto invqB = uf::quaternion::inverse( tB.orientation );
+
+	auto& joint = constraint.slider;
+	constraint.type = pod::ConstraintType::SLIDER;
+	joint.localAnchorA = uf::transform::applyInverse( tA, p );
+	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+
+	joint.localAxisA = uf::quaternion::rotate( invqA, axis );
+	joint.localAxisB = uf::quaternion::rotate( invqB, axis );
+
+	joint.localReferenceAxisA = uf::quaternion::rotate( invqA, tangent );
+	joint.localReferenceAxisB = uf::quaternion::rotate( invqB, tangent );
+
+	joint.lowerLimit = lowerLimit;
+	joint.upperLimit = upperLimit;
+
+	joint.accumulatedLinearImpulse = {};
+	joint.accumulatedAngularImpulse = {};
+	joint.accumulatedLimitImpulse = 0.0f;
+
+	return constraint;
 }

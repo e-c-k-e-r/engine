@@ -33,12 +33,29 @@ void impl::solveSpringConstraint( pod::Constraint& constraint, float dt ) {
 	if ( invMassN < EPS ) return;
 
 	float gamma = joint.damping + (dt * joint.stiffness);
-    gamma = (gamma > EPS) ? (1.0f / (dt * gamma)) : 0.0f;
+	gamma = (gamma > EPS) ? (1.0f / (dt * gamma)) : 0.0f;
 
 	float beta = dt * joint.stiffness * gamma;
 
 	float bias = distanceError * (beta / dt);
-    float j = -(relVelAlongNormal + bias + (gamma * joint.accumulatedImpulse)) / (invMassN + gamma);
+	float j = -(relVelAlongNormal + bias + (gamma * joint.accumulatedImpulse)) / (invMassN + gamma);
 
 	impl::applyImpulseTo( a, b, rA, rB, normal, j, joint.accumulatedImpulse );
+}
+
+pod::Constraint& uf::physics::constrainSpring( pod::Constraint& constraint, const pod::Vector3f& pA, const pod::Vector3f& pB, float stiffness, float damping ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	auto& joint = constraint.spring;
+	constraint.type = pod::ConstraintType::SPRING;
+	joint.localAnchorA = uf::transform::applyInverse( tA, pA );
+	joint.localAnchorB = uf::transform::applyInverse( tB, pB );
+
+	joint.restLength = uf::vector::distance( pB, pA );
+	joint.stiffness = stiffness;
+	joint.damping = damping;
+	joint.accumulatedImpulse = 0.0f;
+
+	return constraint;
 }

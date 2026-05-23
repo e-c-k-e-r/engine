@@ -14,4 +14,11 @@ namespace impl {
         float targetVelocity, float maxTorque,
         float& accumulatedImpulse, float dt
     );
+
+}
+
+namespace uf {
+    namespace physics {
+        pod::Constraint& UF_API constrainMotor( pod::Constraint& constraint, float targetVelocity, float maxForceOrTorque );
+    }
 }

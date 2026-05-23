@@ -323,16 +323,11 @@ void impl::drawObb( const pod::PhysicsBody& body ) {
 	impl::addLine( corners[2], corners[6] ); impl::addLine( corners[3], corners[7] );
 }
 
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
-	auto& body = uf::physics::create( world, object, mass, offset );
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::OBB& obb ) {
 	body.collider.type = pod::ShapeType::OBB;
 	body.collider.obb = obb;
 	body.bounds = impl::computeAABB( body );
 
 	uf::physics::updateInertia( body );
 	return body;
-}
-
-pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::OBB& obb, float mass, const pod::Vector3f& offset ) {
-	return create( uf::physics::getWorld(), object, obb, mass, offset );
 }

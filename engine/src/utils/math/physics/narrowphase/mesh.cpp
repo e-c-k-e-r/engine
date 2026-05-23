@@ -204,8 +204,7 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 	}
 }
 
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
-	auto& body = uf::physics::create( world, object, mass, offset );
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, bool convex ) {
 	if ( !convex ) {
 		body.collider.type = pod::ShapeType::MESH;
 		body.collider.mesh.mesh = &mesh;
@@ -225,7 +224,4 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, co
 	body.bounds = impl::computeAABB( body );
 	uf::physics::updateInertia( body );
 	return body;
-}
-pod::PhysicsBody& uf::physics::create( uf::Object& object, const uf::Mesh& mesh, float mass, const pod::Vector3f& offset, bool convex ) {
-	return create( uf::physics::getWorld(), object, mesh, mass, offset, convex );
 }

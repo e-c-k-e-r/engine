@@ -99,15 +99,11 @@ void impl::drawAabb( const pod::PhysicsBody& body ) {
 	impl::addLine( corners[2], corners[6] ); impl::addLine( corners[3], corners[7] );
 }
 
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
-	auto& body = uf::physics::create( world, object, mass, offset );
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::AABB& aabb ) {
 	body.collider.type = pod::ShapeType::AABB;
 	body.collider.aabb = aabb;
 	body.bounds = impl::computeAABB( body );
 
 	uf::physics::updateInertia( body );
 	return body;
-}
-pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::AABB& aabb, float mass, const pod::Vector3f& offset ) {
-	return create( uf::physics::getWorld(), object, aabb, mass, offset );
 }

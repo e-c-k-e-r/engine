@@ -165,12 +165,12 @@ ent:bind( "tick", function(self)
 			local prop, depth = physicsBody:rayCast( center, direction )
 			if depth >= 0 and prop and not string.matched( prop:name(), "/^worldspawn/" ) then
 				local heldObjectTransform = prop:getComponent("Transform")
-				local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
+				local heldObjectPhysicsBody = prop:getComponent("PhysicsBody")
 
 				local strength = 500
 				local distanceSquared = (heldObjectTransform.position - flattenedTransform.position):magnitude()
 
-				heldObjectPhysicsState:applyImpulse( flattenedTransform.forward * -heldObjectPhysicsState:getMass() * strength / distanceSquared )
+				heldObjectPhysicsBody:applyImpulse( flattenedTransform.forward * -heldObjectPhysicsBody:getMass() * strength / distanceSquared )
 				if timers.physcannon:elapsed() > 1.0 then
 					timers.physcannon:reset()
 
@@ -189,14 +189,14 @@ ent:bind( "tick", function(self)
 
 		local prop = entities.get( heldObject.uid )
 		local heldObjectTransform = prop:getComponent("Transform")
-		local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
+		local heldObjectPhysicsBody = prop:getComponent("PhysicsBody")
 
 		if mouse1 and timers.physcannon:elapsed() > 0.5 then
 			timers.physcannon:reset()
 
 			heldObject.uid = 0
-			heldObjectPhysicsState:enableGravity(true)
-			heldObjectPhysicsState:applyImpulse( flattenedTransform.forward * heldObjectPhysicsState:getMass() * 50 )
+			heldObjectPhysicsBody:enableGravity(true)
+			heldObjectPhysicsBody:applyImpulse( flattenedTransform.forward * heldObjectPhysicsBody:getMass() * 50 )
 
 			playSound("phys_launch"..math.random(1,4))
 		else
@@ -214,10 +214,10 @@ ent:bind( "tick", function(self)
 				if distance > 0.001 then
 					if timers.holp:elapsed() > 0.125 then
 						timers.holp:reset()
-						heldObjectPhysicsState:setVelocity( delta * 20 )
+						heldObjectPhysicsBody:setVelocity( delta * 20 )
 					end
 				else
-					heldObjectPhysicsState:setVelocity( Vector3f(0,0,0) )
+					heldObjectPhysicsBody:setVelocity( Vector3f(0,0,0) )
 				end
 			else
 				heldObjectTransform.position = flattenedTransform.position + forward
@@ -240,8 +240,9 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 
 			heldObject.uid = payload.uid
 			heldObject.distance = offset:norm()
-		
-			prop:getComponent("PhysicsBody"):enableGravity(false)
+			
+			local heldObjectPhysicsBody = prop:getComponent("PhysicsBody")
+			heldObjectPhysicsBody:enableGravity(false)
 
 			print( prop:name()  )
 		else
@@ -250,9 +251,9 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 	elseif heldObject.uid ~= 0 then
 		validUse = true
 		local prop = entities.get( heldObject.uid )
-		local heldObjectPhysicsState = prop:getComponent("PhysicsBody")
-		heldObjectPhysicsState:enableGravity(true)
-		heldObjectPhysicsState:applyImpulse( heldObject.momentum )
+		local heldObjectPhysicsBody = prop:getComponent("PhysicsBody")
+		heldObjectPhysicsBody:enableGravity(true)
+		heldObjectPhysicsBody:applyImpulse( heldObject.momentum )
 		
 		heldObject.uid = 0
 		heldObject.distance = 0

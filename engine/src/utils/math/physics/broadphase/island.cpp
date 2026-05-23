@@ -48,7 +48,7 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 
 	// union all pairs
 	for ( auto& [a, b] : pairs ) {
-		if ( !bodies[a]->isStatic && !bodies[b]->isStatic ) {
+		if ( bodies[a]->inverseMass != 0.0f && bodies[b]->inverseMass != 0.0f ) {
 			unionizer.unite(a, b);
 		}
 	}
@@ -58,7 +58,7 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 		auto itB = bodyToIndex.find(constraint->b);
 
 		if (itA != bodyToIndex.end() && itB != bodyToIndex.end()) {
-			if ( !constraint->a->isStatic && !constraint->b->isStatic ) {
+			if ( constraint->a->inverseMass != 0.0f && constraint->b->inverseMass != 0.0f ) {
 				unionizer.unite(itA->second, itB->second);
 			}
 		}
@@ -72,7 +72,7 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 	islands.reserve(bodies.size());
 
 	for ( auto i = 0; i < bodies.size(); i++ ) {
-		if ( bodies[i]->isStatic ) continue;
+		if ( bodies[i]->inverseMass == 0.0f ) continue;
 
 		pod::BVH::index_t root = unionizer.find(i);
 
@@ -89,8 +89,8 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 		if ( !impl::shouldCollide( *bodies[a], *bodies[b] ) ) continue;
 
 		// just in case
-		pod::BVH::index_t dynamicIndex = bodies[a]->isStatic ? b : a;
-		if ( bodies[a]->isStatic && bodies[b]->isStatic ) continue;
+		pod::BVH::index_t dynamicIndex = bodies[a]->inverseMass == 0.0f ? b : a;
+		if ( bodies[a]->inverseMass == 0.0f && bodies[b]->inverseMass == 0.0f ) continue;
 
 		pod::BVH::index_t root = unionizer.find(a);
 		if ( rootToIsland.find(root) != rootToIsland.end() ) {
@@ -115,8 +115,8 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 
 			// Wake bodies if connected by a constraint and one is awake
 			if ( constraint->a->activity.awake || constraint->b->activity.awake ) {
-				if (!constraint->a->isStatic) impl::wakeBody( *constraint->a );
-				if (!constraint->b->isStatic) impl::wakeBody( *constraint->b );
+				if (constraint->a->inverseMass != 0.0f) impl::wakeBody( *constraint->a );
+				if (constraint->b->inverseMass != 0.0f) impl::wakeBody( *constraint->b );
 			}
 		}
 	}

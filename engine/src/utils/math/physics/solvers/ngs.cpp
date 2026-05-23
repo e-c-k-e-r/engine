@@ -12,7 +12,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 			auto tA = impl::getTransform( a );
 			auto tB = impl::getTransform( b );
 
-			if ( a.isStatic && b.isStatic ) continue;
+			if ( a.inverseMass == 0.0f && b.inverseMass == 0.0f ) continue;
 
 			for ( auto& c : manifold.points ) {
 				auto ctxA = impl::solverBodyContext( a );

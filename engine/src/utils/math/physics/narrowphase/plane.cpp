@@ -87,15 +87,10 @@ void impl::drawPlane( const pod::PhysicsBody& body ) {
 	impl::addLine( p1, p3 );
 }
 
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
-	auto& body = uf::physics::create( world, object, mass, offset );
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Plane& plane ) {
 	body.collider.type = pod::ShapeType::PLANE;
 	body.collider.plane = plane;
 	body.bounds = impl::computeAABB( body );
 	uf::physics::updateInertia( body );
 	return body;
-}
-
-pod::PhysicsBody& uf::physics::create( uf::Object& object, const pod::Plane& plane, float mass, const pod::Vector3f& offset ) {
-	return create( uf::physics::getWorld(), object, plane, mass, offset );
 }

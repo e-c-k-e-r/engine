@@ -60,13 +60,5 @@ namespace uf {
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 		void UF_API destroy( uf::Object& );
 		void UF_API destroy( pod::PhysicsBody& );
-
-		pod::Constraint& UF_API constrain( uf::Object&, uf::Object& );
-		pod::Constraint& UF_API constrain( pod::PhysicsBody&, pod::PhysicsBody& );
-		pod::Constraint& UF_API constrain( pod::World&, uf::Object&, uf::Object& );
-		pod::Constraint& UF_API constrain( pod::World&, pod::PhysicsBody&, pod::PhysicsBody& );
-		
-		void UF_API unconstrain( pod::PhysicsBody& );
-		void UF_API unconstrain( uf::Object& );
 	}
 }

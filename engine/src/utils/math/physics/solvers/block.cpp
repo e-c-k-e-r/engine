@@ -6,10 +6,8 @@
 namespace impl {
 	template<size_t N, typename T = float>
 	bool blockNxNSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
-		pod::Matrix<T,N> K = {};
-
-		auto ctxA = pod::SolverBodyContext{ a.isStatic ? 0.0f : a.inverseMass, impl::computeWorldInverseInertia(a) };
-		auto ctxB = pod::SolverBodyContext{ b.isStatic ? 0.0f : b.inverseMass, impl::computeWorldInverseInertia(b) };
+		auto ctxA = impl::solverBodyContext( a );
+		auto ctxB = impl::solverBodyContext( b );
 
 		auto pA = impl::getPosition( a, true );
 		auto pB = impl::getPosition( b, true );
@@ -18,13 +16,14 @@ namespace impl {
 		auto gB = uf::physics::getGravity( b );
 		float vSlop = std::sqrt( std::max( uf::vector::magnitude( gA ), uf::vector::magnitude( gB ) ) ) * dt;
 
+		pod::Matrix<T,N> K = {};
 		for ( auto i = 0; i < N; i++ ) {
-			auto& pI = manifold.points[i];
-			auto rowI = pod::JacobianRow{ pI.point - pA, pI.point - pB, pI.normal };
+			auto& cI = manifold.points[i];
+			auto rowI = pod::JacobianRow{ cI.point - pA, cI.point - pB, cI.normal };
 
 			for ( auto j = 0; j < N; j++ ) {
-				auto& pJ = manifold.points[j];
-				auto rowJ = pod::JacobianRow{ pJ.point - pA, pJ.point - pB, pJ.normal };
+				auto& cJ = manifold.points[j];
+				auto rowJ = pod::JacobianRow{ cJ.point - pA, cJ.point - pB, cJ.normal };
 				K(i,j) = impl::computeMassMatrixLine( ctxA, ctxB, rowI, rowJ );
 			}
 
@@ -94,8 +93,8 @@ namespace impl {
 
 		for ( auto i = 0; i < N; i++ ) {
 			auto& contact = manifold.points[i];
-			pod::Vector3f rA = manifold.points[i].point - pA;
-			pod::Vector3f rB = manifold.points[i].point - pB;
+			pod::Vector3f rA = contact.point - pA;
+			pod::Vector3f rB = contact.point - pB;
 
 			// normal impulse
 			{

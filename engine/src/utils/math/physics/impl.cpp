@@ -9,7 +9,7 @@
 
 #include <uf/engine/scene/scene.h>
 
-#define UF_PHYSICS_TEST 0
+#define UF_PHYSICS_TEST 1
 
 pod::PhysicsSettings uf::physics::settings;
 
@@ -215,13 +215,12 @@ void uf::physics::step( pod::World& world, float dt ) {
 	}
 
 	for ( auto* b : bodies ) {
-		if ( b->isStatic ) continue;
+		if ( b->inverseMass == 0.0f ) continue;
 		impl::snapVelocity( *b, dt );
 	}
 }
 
 void uf::physics::setMass( pod::PhysicsBody& body, float mass ) {
-	body.mass = mass;
 	body.inverseMass = 1.0f / mass;
 	uf::physics::updateInertia( body );
 }
@@ -264,29 +263,30 @@ pod::Vector3f uf::physics::getGravity( pod::PhysicsBody& body ) {
 }
 
 void uf::physics::updateInertia( pod::PhysicsBody& body ) {
-	if ( body.isStatic || body.mass <= 0 ) {
+	if ( body.inverseMass == 0.0f ) {
 		body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 		return;
 	}
 
+	float mass = 1.0f / body.inverseMass;
 	pod::Vector3f inertiaTensor = {};
 	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB: {
 			pod::Vector3f dims = (body.collider.aabb.max - body.collider.aabb.min);
 			pod::Vector3f dimsSq = dims * dims;
-			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (mass / 12.0f);
 			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
 			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		} break;
 		case pod::ShapeType::OBB: {
 			pod::Vector3f dims = body.collider.obb.extent * 2.0f;
 			pod::Vector3f dimsSq = dims * dims;
-			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (mass / 12.0f);
 			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
 			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		} break;
 		case pod::ShapeType::SPHERE: {
-			float I = 0.4f * body.mass * body.collider.sphere.radius * body.collider.sphere.radius;
+			float I = 0.4f * mass * body.collider.sphere.radius * body.collider.sphere.radius;
 			float invI = 1.0f / I;
 			inertiaTensor = { I, I, I };
 			body.inverseInertiaTensor = { invI, invI, invI };
@@ -294,10 +294,9 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 		case pod::ShapeType::CAPSULE: {
 			float r = body.collider.capsule.radius;
 			float h = body.collider.capsule.halfHeight * 2.0f; // full cyl height
-			float m = body.mass;
 
-			float Ixx = 0.25f * m * r * r + (1.0f/12.0f) * m * h * h;
-			float Iyy = 0.5f * m * r * r;
+			float Ixx = 0.25f * mass * r * r + (1.0f/12.0f) * mass * h * h;
+			float Iyy = 0.5f * mass * r * r;
 			float Izz = Ixx;
 
 			inertiaTensor = { Ixx, Iyy, Izz };
@@ -310,7 +309,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 		#if 1
 			pod::Vector3f dims = (body.bounds.max - body.bounds.min);
 			pod::Vector3f dimsSq = dims * dims;
-			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (body.mass / 12.0f);
+			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (mass / 12.0f);
 			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
 			body.inverseInertiaTensor = 1.0f / inertiaTensor;
 		#else
@@ -336,7 +335,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 					const auto& box = bvh.bounds[i];
 
 					auto extents = box.max - box.min;
-					float mass = body.mass * extents.x * extents.y * extents.z / totalVolume;
+					float mass = mass * extents.x * extents.y * extents.z / totalVolume;
 
 					// inertia tensor of a box about its center
 					float x2 = extents.x * extents.x;
@@ -370,12 +369,12 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	}
 }
 void uf::physics::applyForce( pod::PhysicsBody& body, const pod::Vector3f& force ) {
-	if ( body.isStatic ) return;
+	if ( body.inverseMass == 0.0f ) return;
 	impl::wakeBody( body );
 	body.forceAccumulator += force;
 }
 void uf::physics::applyForceAtPoint( pod::PhysicsBody& body, const pod::Vector3f& force, const pod::Vector3f& point ) {
-	if ( body.isStatic ) return;
+	if ( body.inverseMass == 0.0f ) return;
 	impl::wakeBody( body );
 	// linear force
 	body.forceAccumulator += force;
@@ -384,11 +383,11 @@ void uf::physics::applyForceAtPoint( pod::PhysicsBody& body, const pod::Vector3f
 	body.torqueAccumulator += uf::vector::cross( r, force );
 }
 void uf::physics::applyImpulse( pod::PhysicsBody& body, const pod::Vector3f& impulse ) {
-	if ( body.isStatic ) return; impl::wakeBody( body );
+	if ( body.inverseMass == 0.0f ) return; impl::wakeBody( body );
 	body.velocity += impulse * body.inverseMass;
 }
 void uf::physics::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torque ) {
-	if ( body.isStatic ) return; impl::wakeBody( body );
+	if ( body.inverseMass == 0.0f ) return; impl::wakeBody( body );
 	body.torqueAccumulator += torque;
 }
 void uf::physics::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
@@ -451,18 +450,29 @@ pod::World& uf::physics::getWorld() {
 
 // body creation
 pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& offset ) {
-	// bind to component
-	pod::PhysicsBody& body = object.getComponent<pod::PhysicsBody>();
+	auto& root = object.getComponent<pod::PhysicsBody>();
+	auto isRoot = !root.world;
+	auto& body = isRoot ? root : *(new pod::PhysicsBody);
 	// initial initialization
 	body.world = &world;
 	body.object = &object;
 	body.transform/*.reference*/ = &object.getComponent<pod::Transform<>>();
 	body.offset = offset;
-	body.mass = mass;
 	body.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
-	body.isStatic = mass == 0.0f;
+	body.collider.type = {};
 
-	if ( body.isStatic ) {
+	// append next in chain
+	int children = 0;
+	if ( !isRoot ) {
+		auto* current = &root;
+		while ( current->next ) {
+			++children;
+			current = current->next;
+		}
+		current->next = &body;
+	}
+
+	if ( body.inverseMass == 0.0f ) {
 		uf::physics::setColliderCategory(body, "STATIC");
 		uf::physics::setColliderMask(body, "STATIC");
 		world.staticBvh.dirty = true; // mark as dirty
@@ -472,23 +482,29 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 		world.dynamicBvh.dirty = true; // mark as dirty
 	}
 
-	world.bodies.emplace_back(&body); // insert into world
+	// insert into world if not already inserted
+	if ( std::find( world.bodies.begin(), world.bodies.end(), &body ) == world.bodies.end() ) {
+		world.bodies.emplace_back( &body );
+	}
 
 	return body;
 }
 
 pod::PhysicsBody& uf::physics::create( uf::Object& object, float mass, const pod::Vector3f& offset ) {
-	// bind to scene
-	// auto& root = object.getRootParent<>(); // in the event a scene is being initialized that is not the root scene, use the root parent instead
-	// auto& world = root.getComponent<pod::World>();
 	return create( getWorld(), object, mass, offset );
-	
 }
 
 void uf::physics::destroy( uf::Object& object ) {
 	if ( !object.hasComponent<pod::PhysicsBody>() ) return;
 	
-	return destroy( object.getComponent<pod::PhysicsBody>() );
+	auto& root = object.getComponent<pod::PhysicsBody>();
+	auto* current = &root;
+	while ( current != NULL ) {
+		auto* next = current->next;
+	   	uf::physics::destroy( *current );
+		if ( current != &root ) delete current;
+		current = next;
+	}
 }
 void uf::physics::destroy( pod::PhysicsBody& body ) {
 	auto& world = *body.world;
@@ -509,42 +525,6 @@ void uf::physics::destroy( pod::PhysicsBody& body ) {
 	if ( body.collider.type == pod::ShapeType::CONVEX_HULL ) {
 		if ( body.collider.convexHull.bvh ) delete body.collider.convexHull.bvh;
 	}
-}
-
-pod::Constraint& uf::physics::constrain( pod::World& world, pod::PhysicsBody& a, pod::PhysicsBody& b ) {
-	// allocate constraint struct (pointer cringe because the vector WILL resize)
-	auto* pointer = world.constraints.emplace_back(new pod::Constraint);
-	auto& constraint = *pointer;
-	constraint.a = &a;
-	constraint.b = &b;
-	return constraint;
-}
-pod::Constraint& uf::physics::constrain( pod::World& world, uf::Object& a, uf::Object& b ) {
-	return constrain( world, a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>() );
-}
-pod::Constraint& uf::physics::constrain( pod::PhysicsBody& a, pod::PhysicsBody& b ) {
-	return constrain( getWorld(), a, b );
-}
-pod::Constraint& uf::physics::constrain( uf::Object& a, uf::Object& b ) {
-	return constrain( getWorld(), a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>() );
-}
-
-void uf::physics::unconstrain( pod::PhysicsBody& body ) {
-	auto& world = *body.world;
-	auto& constraints = world.constraints;
-	// remove all constraints that reference this body
-	for ( auto it = constraints.begin(); it != constraints.end(); ) {
-		auto* constraint = *it;
-		if ( constraint->a == &body || constraint->b == &body ) {
-			it = constraints.erase(it);
-			delete constraint;
-		} else {
-			++it;
-		}
-	}
-}
-void uf::physics::unconstrain( uf::Object& object ) {
-	return unconstrain( object.getComponent<pod::PhysicsBody>() );
 }
 
 #if UF_PHYSICS_TEST

@@ -46,25 +46,16 @@ void impl::solveBallSocketConstraint( pod::Constraint& constraint, float dt ) {
 	impl::applyImpulseTo( a, b, rA, rB, impulse, joint.accumulatedImpulse );
 }
 
-pod::Constraint& uf::physics::constrain( pod::World& world, pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint ) {
-	auto& constraint = uf::physics::constrain( world, a, b );
-	constraint.type = pod::ConstraintType::BALL_AND_SOCKET;
-	// transform joint into local space 
-	auto tA = impl::getTransform( a );
-	auto tB = impl::getTransform( b );
+pod::Constraint& uf::physics::constrainBallSocket( pod::Constraint& constraint, const pod::Vector3f& p ) {
+	auto& joint = constraint.ballSocket;
 
-	constraint.ballSocket.localAnchorA = uf::transform::applyInverse( tA, joint );
-	constraint.ballSocket.localAnchorB = uf::transform::applyInverse( tB, joint );
-	constraint.ballSocket.accumulatedImpulse = {};
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	constraint.type = pod::ConstraintType::BALL_AND_SOCKET;
+	joint.localAnchorA = uf::transform::applyInverse( tA, p );
+	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.accumulatedImpulse = {};
 
 	return constraint;
-}
-pod::Constraint& uf::physics::constrain( pod::World& world, uf::Object& a, uf::Object& b, const pod::Vector3f& joint ) {
-	return constrain( world, a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint );
-}
-pod::Constraint& uf::physics::constrain( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint ) {
-	return constrain( uf::physics::getWorld(), a, b, joint );
-}
-pod::Constraint& uf::physics::constrain( uf::Object& a, uf::Object& b, const pod::Vector3f& joint ) {
-	return constrain( uf::physics::getWorld(), a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint );
 }

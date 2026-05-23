@@ -26,7 +26,7 @@ ent:bind( "tick", function(self)
 			local angle = Vector3f.signedAngle( transform.forward, target, axis ) 
 			local rot = Quaternion.axisAngle( axis, angle * time.delta() * 4 )
 
-			if physicsBody:hasBody() then
+			if physicsBody:initialized() then
 				physicsBody:applyRotation( rot )
 			else
 				transform:rotate( rot )

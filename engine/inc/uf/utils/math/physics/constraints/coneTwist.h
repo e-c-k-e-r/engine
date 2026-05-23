@@ -8,9 +8,6 @@ namespace impl {
 
 namespace uf {
 	namespace physics {
-		pod::Constraint& UF_API constrain( uf::Object&, uf::Object&, const pod::Vector3f&, const pod::Vector3f&, float, float );
-		pod::Constraint& UF_API constrain( pod::World&, uf::Object&, uf::Object&, const pod::Vector3f&, const pod::Vector3f&, float, float );
-		pod::Constraint& UF_API constrain( pod::PhysicsBody&, pod::PhysicsBody&, const pod::Vector3f&, const pod::Vector3f&, float, float );
-		pod::Constraint& UF_API constrain( pod::World&, pod::PhysicsBody&, pod::PhysicsBody&, const pod::Vector3f&, const pod::Vector3f&, float, float );
+		pod::Constraint& UF_API constrainConeTwist( pod::Constraint& constraint, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit = M_PI / 4.0f, float twistLimit = M_PI / 8.0f );
 	}
 }

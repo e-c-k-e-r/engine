@@ -156,6 +156,11 @@ namespace binds {
 		double previous(){ return uf::physics::time::previous; };
 		double delta(){ return uf::physics::time::delta; };
 	}
+	namespace physics {
+		pod::PhysicsBody& create( uf::Object& object, float mass = 0.0f, const pod::Vector3f& center = {} ) {
+			return uf::physics::create( object, mass, center );
+		}
+	}
 	namespace json {
 		uf::stl::string pretty( const uf::stl::string& json ){
 			uf::Serializer serializer = json;
@@ -253,6 +258,11 @@ void ext::lua::initialize() {
 		time.set("current", UF_LUA_C_FUN(::binds::time::current));
 		time.set("previous", UF_LUA_C_FUN(::binds::time::previous));
 		time.set("delta", UF_LUA_C_FUN(::binds::time::delta));
+	}
+	// `physics` table
+	{
+		auto physics = state["physics"].get_or_create<sol::table>();
+		physics.set("create", UF_LUA_C_FUN(::binds::physics::create));
 	}
 	// `json` table
 	{

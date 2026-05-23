@@ -47,8 +47,8 @@ void impl::solveHingeConstraint( pod::Constraint& constraint, float dt ) {
 	for ( auto i = 0; i < 2; ++i ) {
 		auto jDelta = impl::accumulateImpulseTo( impulse[i], joint.accumulatedAngularImpulse[i] );
 		auto j = tangents[i] * jDelta;
-		if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, j );
-		if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, j );
+		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, j );
+		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, j );
 	}
 
 	if ( motor.enabled ) {
@@ -56,29 +56,19 @@ void impl::solveHingeConstraint( pod::Constraint& constraint, float dt ) {
 	}
 }
 
-pod::Constraint& uf::physics::constrain( pod::World& world, pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
-	auto& constraint = uf::physics::constrain( world, a, b );
-	constraint.type = pod::ConstraintType::HINGE;
-	// transform joint into local space 
-	auto tA = impl::getTransform( a );
-	auto tB = impl::getTransform( b );
-	auto normAxis = uf::vector::normalize( axis );
+pod::Constraint& uf::physics::constrainHinge( pod::Constraint& constraint, const pod::Vector3f& p, const pod::Vector3f& a ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+	auto axis = uf::vector::normalize( a );
 
-	constraint.hinge.localAnchorA = uf::transform::applyInverse( tA, joint );
-	constraint.hinge.localAnchorB = uf::transform::applyInverse( tB, joint );
-	constraint.hinge.accumulatedImpulse = {};
-	constraint.hinge.localAxisA = uf::quaternion::rotate( uf::quaternion::inverse(tA.orientation), normAxis );
-	constraint.hinge.localAxisB = uf::quaternion::rotate( uf::quaternion::inverse(tB.orientation), normAxis );
-	constraint.hinge.accumulatedAngularImpulse = {};
+	auto& joint = constraint.hinge;
+	constraint.type = pod::ConstraintType::HINGE;
+	joint.localAnchorA = uf::transform::applyInverse( tA, p );
+	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.accumulatedImpulse = {};
+	joint.localAxisA = uf::quaternion::rotate( uf::quaternion::inverse( tA.orientation ), axis );
+	joint.localAxisB = uf::quaternion::rotate( uf::quaternion::inverse( tB.orientation ), axis );
+	joint.accumulatedAngularImpulse = {};
 
 	return constraint;
-}
-pod::Constraint& uf::physics::constrain( pod::World& world, uf::Object& a, uf::Object& b, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
-	return constrain( world, a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint, axis );
-}
-pod::Constraint& uf::physics::constrain( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
-	return constrain( uf::physics::getWorld(), a, b, joint, axis );
-}
-pod::Constraint& uf::physics::constrain( uf::Object& a, uf::Object& b, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
-	return constrain( uf::physics::getWorld(), a.getComponent<pod::PhysicsBody>(), b.getComponent<pod::PhysicsBody>(), joint, axis );
 }

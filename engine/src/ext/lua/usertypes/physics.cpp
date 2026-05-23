@@ -3,59 +3,229 @@
 #include <uf/utils/math/physics.h>
 
 namespace binds {
-	bool hasBody( pod::PhysicsBody& self ) { return !!self.object; }
-	pod::Vector3f& velocity( pod::PhysicsBody& self ) { return self.velocity; }
-	pod::Vector3f& angularVelocity( pod::PhysicsBody& self ) { return self.angularVelocity; }
+	namespace body {
+		bool initialized( pod::PhysicsBody& self ) { return !!self.world; }
+		pod::Vector3f& velocity( pod::PhysicsBody& self ) { return self.velocity; }
+		pod::Vector3f& angularVelocity( pod::PhysicsBody& self ) { return self.angularVelocity; }
 
-	void setVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { uf::physics::setVelocity( self, v ); }
-	void setAngularVelocity( pod::PhysicsBody& self, const pod::Quaternion<>& q, float dt = 0 ) { uf::physics::setAngularVelocity( self, q, dt ); }
+		void setVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { uf::physics::setVelocity( self, v ); }
+		void setAngularVelocity( pod::PhysicsBody& self, const pod::Quaternion<>& q, float dt = 0 ) { uf::physics::setAngularVelocity( self, q, dt ); }
 
-	void applyVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { uf::physics::applyVelocity( self, v ); }
-	void applyAngularVelocity( pod::PhysicsBody& self, const pod::Quaternion<>& q, float dt = 0 ) { uf::physics::applyAngularVelocity( self, q, dt ); }
-	
-	float getMass( const pod::PhysicsBody& self ) { return self.mass; }
-	void setMass( pod::PhysicsBody& self, float mass ) { self.mass = mass; }
+		void applyVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { uf::physics::applyVelocity( self, v ); }
+		void applyAngularVelocity( pod::PhysicsBody& self, const pod::Quaternion<>& q, float dt = 0 ) { uf::physics::applyAngularVelocity( self, q, dt ); }
+		
+		float getMass( const pod::PhysicsBody& self ) { return self.inverseMass == 0.0f ? 0.0f : 1.0f / self.inverseMass; }
+		void setMass( pod::PhysicsBody& self, float mass ) { self.inverseMass = ( mass == 0.0f ? 0.0f : 1.0f / mass );  }
 
-	void enableGravity( pod::PhysicsBody& state, bool s ) {
-		if ( !state.object ) return;
-		if ( s ) {
-			uf::physics::setGravity( state, pod::Vector3f{ 0, -9.81f, 0 } );
-		} else {
-			uf::physics::setGravity( state );
+		void setGravity( pod::PhysicsBody& self, const pod::Vector3f& gravity ) {
+			uf::physics::setGravity( self, gravity );
+		}
+		void enableGravity( pod::PhysicsBody& self, bool s ) {
+			if ( s ) uf::physics::setGravity( self, pod::Vector3f{ 0, -9.81f, 0 } );
+			else uf::physics::setGravity( self );
+		}
+		
+		void applyRotation( pod::PhysicsBody& self, const pod::Quaternion<>& q ) {
+			return uf::physics::applyRotation( self, q );
+		}
+
+		std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
+			pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
+			uf::Object* object = query.hit ? query.body->object : NULL;
+			float depth = query.hit ? query.contact.penetration : -1;		
+			return std::make_tuple( object, depth );
+		}
+
+		pod::PhysicsBody& asAabb( pod::PhysicsBody& self, const pod::AABB& shape ) {
+			return uf::physics::initialize( self, shape );
+		}
+		pod::PhysicsBody& asObb( pod::PhysicsBody& self, const pod::OBB& shape ) {
+			return uf::physics::initialize( self, shape );
+		}
+		pod::PhysicsBody& asSphere( pod::PhysicsBody& self, const pod::Sphere& shape ) {
+			return uf::physics::initialize( self, shape );
+		}
+		pod::PhysicsBody& asPlane( pod::PhysicsBody& self, const pod::Plane& shape ) {
+			return uf::physics::initialize( self, shape );
+		}
+		pod::PhysicsBody& asCapsule( pod::PhysicsBody& self, const pod::Capsule& shape ) {
+			return uf::physics::initialize( self, shape );
+		}
+		pod::PhysicsBody& asMesh( pod::PhysicsBody& self, const uf::Mesh& shape, bool convex = false ) {
+			return uf::physics::initialize( self, shape, convex );
+		}
+
+		pod::Constraint& constrain( pod::PhysicsBody& a, pod::PhysicsBody& b ) {
+			return uf::physics::constrain( a, b );
+		}
+		void unconstrain( pod::PhysicsBody& body ) {
+			return uf::physics::unconstrain( body );
 		}
 	}
-	
-	void applyRotation( pod::PhysicsBody& state, const pod::Quaternion<>& q ) {
-		return uf::physics::applyRotation( state, q );
-	}
-
-	std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
-		pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
-		uf::Object* object = query.hit ? query.body->object : NULL;
-		float depth = query.hit ? query.contact.penetration : -1;		
-		return std::make_tuple( object, depth );
+	namespace constraint {
+		void setLimits( pod::Constraint& self, float lower, float upper ) {
+			return uf::physics::setConstraintLimits( self, lower, upper );
+		}
+		pod::Constraint& asBallSocket( pod::Constraint& self, const pod::Vector3f& joint ) {
+			return uf::physics::constrainBallSocket( self, joint );
+		}
+		pod::Constraint& asConeTwist( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit = M_PI / 4.0f, float twistLimit = M_PI / 8.0f ) {
+			return uf::physics::constrainConeTwist( self, joint, axis, swingLimit, twistLimit );
+		}
+		pod::Constraint& asDistance( pod::Constraint& self, const pod::Vector3f& pA, const pod::Vector3f& pB, bool isRope = false ) {
+			return uf::physics::constrainDistance( self, pA, pB, isRope );
+		}
+		pod::Constraint& asHinge( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
+			return uf::physics::constrainHinge( self, joint, axis );
+		}
+		pod::Constraint& asMotor( pod::Constraint& self, float targetVelocity, float maxForceOrTorque ) {
+			return uf::physics::constrainMotor( self, targetVelocity, maxForceOrTorque );
+		}
+		pod::Constraint& asSlider( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis, float lowerLimit, float upperLimit ) {
+			return uf::physics::constrainSlider( self, joint, axis, lowerLimit, upperLimit );
+		}
+		pod::Constraint& asSpring( pod::Constraint& self, const pod::Vector3f& pA, const pod::Vector3f& pB, float stiffness, float damping ) {
+			return uf::physics::constrainSpring( self, pA, pB, stiffness, damping );
+		}
+		pod::Constraint& asWeld( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
+			return uf::physics::constrainWeld( self, joint, axis );
+		}
 	}
 }
 
 #include <uf/ext/lua/component.h>
+
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::AABB,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::AABB& self ) {
+			return self = {};
+		},
+		[]( pod::AABB& self, const pod::AABB& copy ) {
+			return self = copy;
+		},
+		[]( pod::AABB& self, const pod::Vector3f& min, const pod::Vector3f& max ) {
+			return self = pod::AABB{ min, max };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::AABB::min),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::AABB::max)
+)
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::OBB,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::OBB& self ) {
+			return self = {};
+		},
+		[]( pod::OBB& self, const pod::OBB& copy ) {
+			return self = copy;
+		},
+		[]( pod::OBB& self, const pod::Vector3f& center, const pod::Vector3f& extent ) {
+			return self = pod::OBB{ center, extent };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::center),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::extent)
+)
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Sphere,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::Sphere& self ) {
+			return self = {};
+		},
+		[]( pod::Sphere& self, const pod::Sphere& copy ) {
+			return self = copy;
+		},
+		[]( pod::Sphere& self, float radius ) {
+			return self = pod::Sphere{ radius };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Sphere::radius)
+)
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Capsule,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::Capsule& self ) {
+			return self = {};
+		},
+		[]( pod::Capsule& self, const pod::Capsule& copy ) {
+			return self = copy;
+		},
+		[]( pod::Capsule& self, float radius, float height ) {
+			return self = pod::Capsule{ radius, height * 0.5f };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::radius),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::halfHeight)
+)
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Plane,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::Plane& self ) {
+			return self = {};
+		},
+		[]( pod::Plane& self, const pod::Plane& copy ) {
+			return self = copy;
+		},
+		[]( pod::Plane& self, const pod::Vector3f& normal, float offset ) {
+			return self = pod::Plane{ normal, offset };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Plane::normal),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Plane::offset)
+)
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Ray,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::Ray& self ) {
+			return self = {};
+		},
+		[]( pod::Ray& self, const pod::Ray& copy ) {
+			return self = copy;
+		},
+		[]( pod::Ray& self, const pod::Vector3f& origin, const pod::Vector3f& direction ) {
+			return self = pod::Ray{ origin, direction };
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Ray::origin),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Ray::direction)
+)
+
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
-	UF_LUA_REGISTER_USERTYPE_DEFINE( hasBody, UF_LUA_C_FUN(::binds::hasBody) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( velocity, UF_LUA_C_FUN(::binds::velocity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( angularVelocity, UF_LUA_C_FUN(::binds::angularVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( initialized, UF_LUA_C_FUN(::binds::body::initialized) ),
+	UF_LUA_REGISTER_USERTYPE_MEMBER( pod::PhysicsBody::velocity ),
+	UF_LUA_REGISTER_USERTYPE_MEMBER( pod::PhysicsBody::angularVelocity ),
 	
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(::binds::setVelocity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(::binds::applyVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(::binds::body::setVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(::binds::body::applyVelocity) ),
 	
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setAngularVelocity, UF_LUA_C_FUN(::binds::setAngularVelocity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( applyAngularVelocity, UF_LUA_C_FUN(::binds::applyAngularVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setAngularVelocity, UF_LUA_C_FUN(::binds::body::setAngularVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyAngularVelocity, UF_LUA_C_FUN(::binds::body::applyAngularVelocity) ),
 
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::applyImpulse) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::applyRotation) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::rayCast) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::body::applyRotation) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setGravity, UF_LUA_C_FUN(::binds::body::setGravity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::body::enableGravity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::body::rayCast) ),
 	
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(::binds::getMass) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(::binds::setMass) )
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(::binds::body::getMass) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(::binds::body::setMass) ),
+	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asAabb, UF_LUA_C_FUN(::binds::body::asAabb) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asObb, UF_LUA_C_FUN(::binds::body::asObb) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asSphere, UF_LUA_C_FUN(::binds::body::asSphere) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asPlane, UF_LUA_C_FUN(::binds::body::asPlane) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asCapsule, UF_LUA_C_FUN(::binds::body::asCapsule) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asMesh, UF_LUA_C_FUN(::binds::body::asMesh) ),
+
+	UF_LUA_REGISTER_USERTYPE_DEFINE( constrain, UF_LUA_C_FUN(::binds::body::constrain) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( unconstrain, UF_LUA_C_FUN(::binds::body::unconstrain) )
+)
+
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Constraint,
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setLimits, UF_LUA_C_FUN(::binds::constraint::setLimits) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asBallSocket, UF_LUA_C_FUN(::binds::constraint::asBallSocket) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asConeTwist, UF_LUA_C_FUN(::binds::constraint::asConeTwist) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asDistance, UF_LUA_C_FUN(::binds::constraint::asDistance) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asHinge, UF_LUA_C_FUN(::binds::constraint::asHinge) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asMotor, UF_LUA_C_FUN(::binds::constraint::asMotor) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asSlider, UF_LUA_C_FUN(::binds::constraint::asSlider) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asSpring, UF_LUA_C_FUN(::binds::constraint::asSpring) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asWeld, UF_LUA_C_FUN(::binds::constraint::asWeld) )
 )
 
 #endif

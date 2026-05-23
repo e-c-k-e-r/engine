@@ -86,7 +86,7 @@ ent:bind( "tick", function(self)
 	end
 
 	if state > 0 and rot ~= nil then
-		if physicsBody:hasBody() then
+		if physicsBody:initialized() then
 			physicsBody:applyRotation( rot )
 		else
 			transform:rotate( rot )

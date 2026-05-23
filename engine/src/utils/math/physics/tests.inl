@@ -28,18 +28,27 @@ namespace impl {
 	}
 }
 
+// cringe wrapper because i changed the api again
+namespace uf {
+	namespace physics {
+		template<typename T> pod::PhysicsBody& create( pod::World& world, uf::Object& object, const T& shape, float mass, const pod::Vector3f& center = {} ) {
+			auto& body = uf::physics::create( world, object, mass, center );
+			return uf::physics::initialize( body, shape );
+		}
+	}
+}
 
 // list of unit tests to "standardly" verify the system works, but honestly this is a mess
 // to-do: clean up all of this
-
 TEST(SphereSphere_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
+	
 	auto& bodyA = uf::physics::create(world, objA, pod::Sphere{1.0f}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Sphere{1.0f}, 1.0f);
 
-	bodyA.transform->position = {0,0,0};
-	bodyB.transform->position = {1.5f,0,0}; // closer than sum of radii (2.0)
+	bodyA.transform->position = {};
+	bodyB.transform->position.x = 1.5f;
 
 	bodyA.bounds = impl::computeAABB( bodyA );
 	bodyB.bounds = impl::computeAABB( bodyB );
@@ -59,8 +68,8 @@ TEST(AabbAabb_Collision, {
 	auto& bodyA = uf::physics::create(world, objA, box, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, box, 1.0f);
 
-	bodyA.transform->position = {0,0,0};
-	bodyB.transform->position = {1.5f,0,0}; // overlap in x-axis
+	bodyA.transform->position = {};
+	bodyB.transform->position.x = 1.5f;
 
 	bodyA.bounds = impl::computeAABB( bodyA );
 	bodyB.bounds = impl::computeAABB( bodyB );
@@ -939,7 +948,7 @@ TEST(TriangleTriangle_Collision_SimpleOverlap, {
 	};
 
 	auto& bodyA = uf::physics::create( world, objA, triA, 0.0f );
-	auto& bodyB = uf::physics::create( world, objA, triB, 0.0f );
+	auto& bodyB = uf::physics::create( world, objB, triB, 0.0f );
 
 	bodyA.bounds = impl::computeAABB( bodyA );
 	bodyB.bounds = impl::computeAABB( bodyB );

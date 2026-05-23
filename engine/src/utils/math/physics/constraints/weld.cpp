@@ -42,6 +42,33 @@ void impl::solveWeldConstraint( pod::Constraint& constraint, float dt ) {
 	
 	joint.accumulatedAngularImpulse += impulse;
 
-	if ( !a.isStatic ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-	if ( !b.isStatic ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+	if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
+	if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+}
+
+pod::Constraint& uf::physics::constrainWeld( pod::Constraint& constraint, const pod::Vector3f& p, const pod::Vector3f& a ) {
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
+
+	auto axis = uf::vector::normalize( a );
+	auto tangent = uf::vector::normalize( impl::computeTangent(axis) );
+
+	auto invqA = uf::quaternion::inverse( tA.orientation );
+	auto invqB = uf::quaternion::inverse( tB.orientation );
+
+	auto& joint = constraint.weld;
+	constraint.type = pod::ConstraintType::WELD;
+	joint.localAnchorA = uf::transform::applyInverse( tA, p );
+	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+
+	joint.localAxisA = uf::quaternion::rotate( invqA, axis );
+	joint.localAxisB = uf::quaternion::rotate( invqB, axis );
+
+	joint.localReferenceAxisA = uf::quaternion::rotate( invqA, tangent );
+	joint.localReferenceAxisB = uf::quaternion::rotate( invqB, tangent );
+
+	joint.accumulatedLinearImpulse = {};
+	joint.accumulatedAngularImpulse = {};
+
+	return constraint;
 }
