@@ -56,7 +56,7 @@ for k, _ in pairs( bodies ) do
 
 	body = physics.create( child, mass )
 	body:asObb( OBB( Vector3f(), extent ) )
-	body:setGravity( Vector3f( 0, 0, 0 ) )
+	--body:setGravity( Vector3f( 0, 0, 0 ) )
 
 	children[k] = child
 	bodies[k] = body

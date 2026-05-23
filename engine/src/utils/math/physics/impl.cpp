@@ -9,7 +9,7 @@
 
 #include <uf/engine/scene/scene.h>
 
-#define UF_PHYSICS_TEST 1
+#define UF_PHYSICS_TEST 0
 
 pod::PhysicsSettings uf::physics::settings;
 

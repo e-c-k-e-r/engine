@@ -5,8 +5,8 @@
 namespace binds {
 	namespace body {
 		bool initialized( pod::PhysicsBody& self ) { return !!self.world; }
-		pod::Vector3f& velocity( pod::PhysicsBody& self ) { return self.velocity; }
-		pod::Vector3f& angularVelocity( pod::PhysicsBody& self ) { return self.angularVelocity; }
+		pod::Vector3f& getVelocity( pod::PhysicsBody& self ) { return self.velocity; }
+		pod::Vector3f& getAngularVelocity( pod::PhysicsBody& self ) { return self.angularVelocity; }
 
 		void setVelocity( pod::PhysicsBody& self, const pod::Vector3f& v ) { uf::physics::setVelocity( self, v ); }
 		void setAngularVelocity( pod::PhysicsBody& self, const pod::Quaternion<>& q, float dt = 0 ) { uf::physics::setAngularVelocity( self, q, dt ); }
@@ -194,12 +194,12 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Ray,
 
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( initialized, UF_LUA_C_FUN(::binds::body::initialized) ),
-	UF_LUA_REGISTER_USERTYPE_MEMBER( pod::PhysicsBody::velocity ),
-	UF_LUA_REGISTER_USERTYPE_MEMBER( pod::PhysicsBody::angularVelocity ),
 	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getVelocity, UF_LUA_C_FUN(::binds::body::getVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(::binds::body::setVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(::binds::body::applyVelocity) ),
 	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getAngularVelocity, UF_LUA_C_FUN(::binds::body::getAngularVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setAngularVelocity, UF_LUA_C_FUN(::binds::body::setAngularVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyAngularVelocity, UF_LUA_C_FUN(::binds::body::applyAngularVelocity) ),
 

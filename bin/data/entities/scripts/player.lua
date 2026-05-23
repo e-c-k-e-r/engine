@@ -206,19 +206,20 @@ ent:bind( "tick", function(self)
 			
 			local forward = flattenedTransform.forward * heldObject.distance --flattenedTransform.orientation:rotate( Vector3f(0,0,1) )
 			if heldObject.smoothSpeed ~= 0 then
-				local target = flattenedTransform.position + forward
-				local offset = target - heldObjectTransform.position
-				local delta = offset * time.delta() * heldObject.smoothSpeed
+				local heldObjectFlattened = heldObjectTransform:flatten()
 
-				local distance = delta:norm()
-				if distance > 0.001 then
-					if timers.holp:elapsed() > 0.125 then
-						timers.holp:reset()
-						heldObjectPhysicsBody:setVelocity( delta * 20 )
-					end
-				else
-					heldObjectPhysicsBody:setVelocity( Vector3f(0,0,0) )
-				end
+				local target = flattenedTransform.position + forward
+				local offset = target - heldObjectFlattened.position
+
+				local stiffness = 15.0
+				local damping = 2.0
+				local currentVelocity = heldObjectPhysicsBody:getVelocity()
+				local mass = heldObjectPhysicsBody:getMass()
+
+				local springForce = offset * stiffness
+				local dampingForce = currentVelocity * -damping
+
+				heldObjectPhysicsBody:applyImpulse((springForce + dampingForce) * mass * time.delta())
 			else
 				heldObjectTransform.position = flattenedTransform.position + forward
 			end
@@ -236,7 +237,9 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 		local propMetadata = prop:getComponent("Metadata")
 		if propMetadata["holdable"] then
 			validUse = true
-			local offset = transform.position - prop:getComponent("Transform").position
+			local heldObjectTransform = prop:getComponent("Transform")
+			local heldObjectFlattened = heldObjectTransform:flatten()
+			local offset = transform.position - heldObjectFlattened.position
 
 			heldObject.uid = payload.uid
 			heldObject.distance = offset:norm()
