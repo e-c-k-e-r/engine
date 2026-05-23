@@ -93,6 +93,11 @@ namespace binds {
 			static uf::Object null;
 			return null;
 		};
+		uf::Object& create( sol::optional<bool> init ) {
+			auto& entity = uf::instantiator::instantiate("Object");
+			if ( init.value_or(true) ) entity.initialize();
+			return entity;
+		};
 		uf::Object& currentScene() {
 			return uf::scene::getCurrentScene().as<uf::Object>();
 		};
@@ -157,8 +162,8 @@ namespace binds {
 		double delta(){ return uf::physics::time::delta; };
 	}
 	namespace physics {
-		pod::PhysicsBody& create( uf::Object& object, float mass = 0.0f, const pod::Vector3f& center = {} ) {
-			return uf::physics::create( object, mass, center );
+		pod::PhysicsBody& create( uf::Object& object, sol::optional<float> mass, sol::optional<pod::Vector3f> center ) {
+			return uf::physics::create( object, mass.value_or(0.0f), center.value_or(pod::Vector3f{}) );
 		}
 	}
 	namespace json {
@@ -228,6 +233,7 @@ void ext::lua::initialize() {
 	{
 		auto entities = state["entities"].get_or_create<sol::table>();
 		entities.set("get", UF_LUA_C_FUN(::binds::entities::get));
+		entities.set("create", UF_LUA_C_FUN(::binds::entities::create));
 		entities.set("currentScene", UF_LUA_C_FUN(::binds::entities::currentScene));
 		entities.set("controller", UF_LUA_C_FUN(::binds::entities::controller));
 		entities.set("destroy", UF_LUA_C_FUN(::binds::entities::destroy));

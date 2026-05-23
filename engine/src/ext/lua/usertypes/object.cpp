@@ -121,6 +121,11 @@ namespace binds {
 		if ( type == "Metadata" ) {
 			self.callHook( "object:Serialize.%UID%" );
 			auto& metadata = self.getComponent<uf::Serializer>();
+			if ( !ext::json::isObject( metadata ) ) {
+				sol::table table( ext::lua::state, sol::create );
+				return sol::make_object( ext::lua::state, table );
+			}
+
 			auto decoded = ext::lua::decode( metadata );
 			if ( decoded ) {
 				sol::table table = decoded.value();
@@ -194,6 +199,9 @@ namespace binds {
 		static uf::Object null;
 		return null;
 	}
+	uf::Object& createChild( uf::Object& self, sol::optional<bool> init ) {
+		return self.createChild( init.value_or( true ) );
+	}
 	uf::Object& addChild( uf::Object& self, uf::Object& child ) {
 		self.addChild( child );
 		return self;
@@ -202,8 +210,8 @@ namespace binds {
 		self.removeChild( child );
 		return self;
 	}
-	uf::Object& loadChild( uf::Object& self, const uf::stl::string& filename, bool init = true ) {
-		auto* pointer = self.loadChildPointer( filename, init );
+	uf::Object& loadChild( uf::Object& self, sol::optional<uf::stl::string> filename, sol::optional<bool> init ) {
+		auto* pointer = self.loadChildPointer( filename.value_or(""), init.value_or(true) );
 		if ( pointer ) return pointer->as<uf::Object>();
 		static uf::Object null;
 		return null;
@@ -255,12 +263,12 @@ namespace binds {
 		ext::json::Value payload = uf::Serializer(table);
 		self.lazyCallHook( name, payload );
 	}
-	void queueHook( uf::Object& self, const uf::stl::string& name, sol::table table, float delay = 0.0f ) {
+	void queueHook( uf::Object& self, const uf::stl::string& name, sol::table table, sol::optional<float> delay ) {
 		ext::json::Value payload = uf::Serializer(table);
-		self.queueHook( name, payload, delay );
+		self.queueHook( name, payload, delay.value_or(0.0f) );
 	}
 	uf::stl::string toString( uf::Object& self ) {
-		return self.getName() + ": " + std::to_string( self.getUid() );
+		return uf::string::toString( self );
 	}
 
 	size_t getUid( const uf::Object& o ) { return o.getUid(); }
@@ -270,7 +278,7 @@ namespace binds {
 
 UF_LUA_REGISTER_USERTYPE(uf::Object,
 	sol::call_constructor, sol::initializers(
-		[]( uf::Object& self, sol::object arg, bool init = true ){
+		[]( uf::Object& self, sol::object arg, sol::optional<bool> init ){
 			if ( arg.is<uf::stl::string>() ) {
 				self.load( arg.as<uf::stl::string>() );
 			} else if ( arg.is<sol::table>() ) {
@@ -280,7 +288,7 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 					self.load(json);
 				}
 			}
-			if ( init ) self.initialize();
+			if ( init.value_or(true) ) self.initialize();
 		}
 	),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( uid, UF_LUA_C_FUN(::binds::getUid) ),
@@ -295,6 +303,7 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByName, UF_LUA_C_FUN(::binds::findByName) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( globalFindByUid, UF_LUA_C_FUN(::binds::globalFindByUid) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( globalFindByName, UF_LUA_C_FUN(::binds::globalFindByName) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( createChild, UF_LUA_C_FUN(::binds::createChild) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( addChild, UF_LUA_C_FUN(::binds::addChild) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( removeChild, UF_LUA_C_FUN(::binds::removeChild) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( loadChild, UF_LUA_C_FUN(::binds::loadChild) ),

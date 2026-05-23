@@ -11,6 +11,9 @@ local transform = ent:getComponent("Transform")
 local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
 
+
+--transform.scale = Vector3f( 5, 5, 5 )
+local children = {}
 local bodies = {
 	torso = { Vector3f(0, 1.0, 0), Vector3f(0.2, 0.3, 0.15), 20.0 },
 	head  = { Vector3f(0, 1.6, 0), Vector3f(0.15, 0.15, 0.15), 5.0 },
@@ -43,22 +46,30 @@ local constraints = {
 
 for k, _ in pairs( bodies ) do
 	position = bodies[k][1]
-	box = OBB( position, bodies[k][2] )
+	extent = bodies[k][2]
 	mass = bodies[k][3]
+	
+	child = ent:loadChild("./ragdollLimb.json", true)
+	childTransform = child:getComponent("Transform")
+	childTransform.position = position
+	childTransform:setReference( transform )
 
-	body = physics.create( ent, mass, Vector3f() )
-	body:asObb( box )
+	body = physics.create( child, mass )
+	body:asObb( OBB( Vector3f(), extent ) )
 	body:setGravity( Vector3f( 0, 0, 0 ) )
 
+	children[k] = child
 	bodies[k] = body
 end
 
-for k, _ in pairs( constraints ) do
-	bodyA = bodies[constraints[k][1]]
-	bodyB = bodies[constraints[k][2]]
 
-	joint = constraints[k][3]
-	axis = constraints[k][4]
+for k, _ in pairs( constraints ) do
+	bodyA = bodies[ constraints[k][1] ]
+	bodyB = bodies[ constraints[k][2] ]
+
+	joint = transform:apply( constraints[k][3] )
+	axis = transform.orientation:rotate( constraints[k][4] )
+
 	swingLimit = constraints[k][5]
 	twistLimit = constraints[k][6]
 

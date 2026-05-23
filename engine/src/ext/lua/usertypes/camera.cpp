@@ -40,8 +40,8 @@ namespace binds {
 			self.setProjection(matrix);
 		}
 	}
-	void update( uf::Camera& self, bool force = true ) {
-		self.update(force);
+	void update( uf::Camera& self, sol::optional<bool> force ) {
+		self.update(force.value_or(true));
 	}
 }
 

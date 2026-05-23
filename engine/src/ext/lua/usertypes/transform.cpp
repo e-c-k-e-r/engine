@@ -47,6 +47,28 @@ namespace binds {
 	pod::Matrix4f getModel( const pod::Transform<>& t ) {
 		return uf::transform::model( t );
 	}
+
+	pod::Transform<> fromMatrix( const pod::Matrix4f& matrix ) {
+		return uf::transform::fromMatrix( matrix );
+	}
+	pod::Transform<>& reference( pod::Transform<>& transform, const pod::Transform<>& parent, sol::optional<bool> reorient ) {
+		return uf::transform::reference( transform, parent, reorient.value_or(true) );
+	}
+	pod::Transform<> interpolate( const pod::Transform<>& from, const pod::Transform<>& to, float factor, sol::optional<bool> reorient ) {
+		return uf::transform::interpolate( from, to, factor, reorient.value_or(true) );
+	}
+	pod::Transform<> inverse(const pod::Transform<>& t) {
+		return uf::transform::inverse( t );
+	}
+	pod::Vector3f apply( const pod::Transform<>& transform, const pod::Vector3f& point ) {
+		return uf::transform::apply( transform, point );
+	}
+	pod::Vector3f applyInverse(const pod::Transform<>& t, const pod::Vector3f& worldPoint) {
+		return uf::transform::applyInverse( t, worldPoint );
+	}
+	pod::Transform<> relative(const pod::Transform<>& a, const pod::Transform<>& b) {
+		return uf::transform::relative( a, b );
+	}
 }
 
 #include <uf/ext/lua/component.h>
@@ -67,6 +89,13 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Transform<>,
 	UF_LUA_REGISTER_USERTYPE_DEFINE(setReference, UF_LUA_C_FUN(::binds::setReference)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(unreference, UF_LUA_C_FUN(::binds::unreference)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, UF_LUA_C_FUN(::binds::lookAt)),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, UF_LUA_C_FUN(::binds::getModel))
+	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, UF_LUA_C_FUN(::binds::getModel)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(fromMatrix, UF_LUA_C_FUN(::binds::fromMatrix)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(reference, UF_LUA_C_FUN(::binds::reference)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(interpolate, UF_LUA_C_FUN(::binds::interpolate)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(inverse, UF_LUA_C_FUN(::binds::inverse)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(apply, UF_LUA_C_FUN(::binds::apply)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(applyInverse, UF_LUA_C_FUN(::binds::applyInverse)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(relative, UF_LUA_C_FUN(::binds::relative))
 )
 #endif

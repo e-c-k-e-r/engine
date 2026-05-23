@@ -29,6 +29,13 @@ namespace binds {
 			return uf::physics::applyRotation( self, q );
 		}
 
+		pod::Transform<> getTransform( pod::PhysicsBody& body ) {
+			pod::Transform<> t;
+			t.position = body.offset;
+			t.reference = body.transform;
+			return uf::transform::flatten( t );
+		}
+
 		std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
 			pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
 			uf::Object* object = query.hit ? query.body->object : NULL;
@@ -51,8 +58,8 @@ namespace binds {
 		pod::PhysicsBody& asCapsule( pod::PhysicsBody& self, const pod::Capsule& shape ) {
 			return uf::physics::initialize( self, shape );
 		}
-		pod::PhysicsBody& asMesh( pod::PhysicsBody& self, const uf::Mesh& shape, bool convex = false ) {
-			return uf::physics::initialize( self, shape, convex );
+		pod::PhysicsBody& asMesh( pod::PhysicsBody& self, const uf::Mesh& shape, sol::optional<bool> convex ) {
+			return uf::physics::initialize( self, shape, convex.value_or(false) );
 		}
 
 		pod::Constraint& constrain( pod::PhysicsBody& a, pod::PhysicsBody& b ) {
@@ -69,11 +76,11 @@ namespace binds {
 		pod::Constraint& asBallSocket( pod::Constraint& self, const pod::Vector3f& joint ) {
 			return uf::physics::constrainBallSocket( self, joint );
 		}
-		pod::Constraint& asConeTwist( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis, float swingLimit = M_PI / 4.0f, float twistLimit = M_PI / 8.0f ) {
-			return uf::physics::constrainConeTwist( self, joint, axis, swingLimit, twistLimit );
+		pod::Constraint& asConeTwist( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis, sol::optional<float> swingLimit, sol::optional<float> twistLimit ) {
+			return uf::physics::constrainConeTwist( self, joint, axis, swingLimit.value_or(M_PI / 4.0f), twistLimit.value_or(M_PI / 8.0f) );
 		}
-		pod::Constraint& asDistance( pod::Constraint& self, const pod::Vector3f& pA, const pod::Vector3f& pB, bool isRope = false ) {
-			return uf::physics::constrainDistance( self, pA, pB, isRope );
+		pod::Constraint& asDistance( pod::Constraint& self, const pod::Vector3f& pA, const pod::Vector3f& pB, sol::optional<bool> isRope ) {
+			return uf::physics::constrainDistance( self, pA, pB, isRope.value_or(false) );
 		}
 		pod::Constraint& asHinge( pod::Constraint& self, const pod::Vector3f& joint, const pod::Vector3f& axis ) {
 			return uf::physics::constrainHinge( self, joint, axis );
@@ -198,6 +205,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::body::applyRotation) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, UF_LUA_C_FUN(::binds::body::getTransform) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setGravity, UF_LUA_C_FUN(::binds::body::setGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::body::enableGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::body::rayCast) ),

@@ -100,6 +100,8 @@ namespace uf {
 
 		void loadAssets( const uf::Serializer& );
 
+		uf::Entity& createChild( bool = true );
+
 		uf::Entity& loadChild( const uf::Serializer&, bool = true );
 		uf::Entity* loadChildPointer( const uf::Serializer&, bool = true );
 		std::size_t loadChildUid( const uf::Serializer&, bool = true );

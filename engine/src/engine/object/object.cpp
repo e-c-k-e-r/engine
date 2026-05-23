@@ -444,26 +444,29 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 #endif
 	return true;
 }
+uf::Object& uf::Object::createChild( bool initialize ) {
+	auto& entity = uf::instantiator::instantiate("Object");
+	this->addChild( entity );
+	return entity;
+}
+
 uf::Object& uf::Object::loadChild( const uf::stl::string& f, bool initialize ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	
 	uf::Serializer json;
 	uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
-	if ( !json.readFromFile(filename) ) {
+	if ( json.readFromFile(filename) ) {
+		json["source"] = filename;
+		json["root"] = uf::io::directory(filename);
+		json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
+	} else {
 		if ( !uf::Object::assertionLoad ) {
 			UF_MSG_ERROR("assertionLoad is unset, loading empty entity");
-			auto& entity = uf::instantiator::instantiate("Object");
-			entity.getComponent<uf::ObjectBehavior::Metadata>().system.invalid = true;
-			this->addChild(entity);
 		} else {
 			UF_EXCEPTION("Failed to load file: {}", filename);
 		}
 	}
-
-	json["source"] = filename;
-	json["root"] = uf::io::directory(filename);
-	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
 
 	return this->loadChild(json, initialize);
 }
