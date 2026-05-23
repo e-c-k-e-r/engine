@@ -55,6 +55,8 @@ namespace uf {
 		void UF_API applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle );
 
 		pod::World& UF_API getWorld();
+		const pod::CollisionEvent::events_t& UF_API getCollisionEvents( const pod::World& world );
+		pod::CollisionEvent::events_t UF_API getCollisionEvents( const pod::PhysicsBody& body );
 		
 		pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
 		pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );

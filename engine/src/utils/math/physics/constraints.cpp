@@ -1,6 +1,11 @@
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/constraints.h>
 
+void impl::solveConstraints( uf::stl::vector<pod::Constraint*>& constraints, float dt ) {
+	for ( uint32_t i = 0; i < uf::physics::settings.solverIterations; ++i ) {
+		for ( auto* constraint : constraints ) impl::solveConstraint( *constraint, dt );
+	}
+}
 void impl::solveConstraint( pod::Constraint& constraint, float dt ) {
 	switch ( constraint.type ) {
 		case pod::ConstraintType::BALL_AND_SOCKET: {

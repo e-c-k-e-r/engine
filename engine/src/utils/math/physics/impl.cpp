@@ -90,6 +90,14 @@ void uf::physics::step( pod::World& world, float dt ) {
 	auto& constraints = world.constraints;
 	auto& dynamicBvh = world.dynamicBvh;
 	auto& staticBvh = world.staticBvh;
+	auto& activeCollisions = world.activeCollisions;
+	auto& collisionEvents = world.collisionEvents;
+
+	STATIC_THREAD_LOCAL(pod::CollisionEvent::events_t, previousCollisionEvents);
+	STATIC_THREAD_LOCAL(pod::CollisionEvent::map_t, previousCollisions);
+	
+	std::swap( previousCollisions, activeCollisions );
+	std::swap( previousCollisionEvents, collisionEvents );
 
 	if ( bodies.empty() ) return;
 
@@ -148,10 +156,10 @@ void uf::physics::step( pod::World& world, float dt ) {
 
 			pod::Manifold manifold;
 			// did not collide
-			if ( !impl::generateContacts( a, b, manifold, dt ) ) continue;
+			if ( !impl::generateManifold( a, b, manifold, dt ) ) continue;
 
 			// compute local points (for reprojection)
-			impl::computeLocalContacts( manifold );
+			impl::computeLocalManifold( manifold );
 
 			// bodies with meshes already reorient the normal to the triangle's center
 			bool shouldReorient = true;
@@ -165,14 +173,14 @@ void uf::physics::step( pod::World& world, float dt ) {
 			// retrieve accumulated impulses
 			if ( uf::physics::settings.warmupSolver ) {
 				auto it = uf::physics::settings.manifoldsCache.find( impl::makePairKey( a, b ) );
-				if ( it != uf::physics::settings.manifoldsCache.end() ) impl::retrieveContacts( manifold, it->second );
+				if ( it != uf::physics::settings.manifoldsCache.end() ) impl::retrieveManifold( manifold, it->second );
 			}
 			// merge similar contacts from a mesh to ensure continuity
 			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) {
-				impl::mergeContacts( manifold );
+				impl::mergeManifold( manifold );
 			}
 			// keep four most important contacts
-			impl::reduceContacts( manifold );
+			impl::reduceManifold( manifold );
 			// no points remained, skip
 			if ( manifold.points.empty() ) continue;
 			// wake up bodies
@@ -188,36 +196,42 @@ void uf::physics::step( pod::World& world, float dt ) {
 			}
 
 			// store manifold
-			manifolds.emplace_back(manifold);
+			manifolds.emplace_back( manifold );
 		}
-
 		// pass manifolds to solver
-		impl::solveContacts( manifolds, dt );
+		impl::solveManifold( manifolds, dt );
 		// do position correction
 		impl::solvePositions( manifolds, dt );
 		// solve constraints
-		for ( uint32_t i = 0; i < uf::physics::settings.solverIterations; ++i ) {
-			for ( auto& constraint : constraints ) {
-				impl::solveConstraint( *constraint, dt );
-			}
-		}
+		impl::solveConstraints( constraints, dt );
 		// cache manifold positions
-		if ( uf::physics::settings.warmupSolver ) {
-			impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
-		}
+		if ( uf::physics::settings.warmupSolver ) impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
 	});
 	uf::thread::execute( tasks );
 
+	// prune expired manifolds in the cache
 	if ( uf::physics::settings.warmupSolver ) impl::pruneManifoldCache( uf::physics::settings.manifoldsCache );
 
-	if ( uf::physics::settings.debugDraw ) {
-		for ( auto& island : islands ) for ( auto& manifold : island.manifolds ) impl::drawManifold( manifold );
+	for ( auto& island : islands ) for ( auto& manifold : island.manifolds ) {
+		// dispatch collision events
+		impl::dispatchManifold( manifold, collisionEvents, activeCollisions, previousCollisions );
+		// draw collision events
+		if ( uf::physics::settings.debugDraw ) impl::drawManifold( manifold );
+	}
+	// dispatch exiting collisions
+	for ( auto& [ key, pair ] : previousCollisions ) {
+		// sustained collision
+		if ( activeCollisions.count( key ) > 0 ) continue;
+		// mark as exiting
+		collisionEvents.emplace_back(pod::CollisionEvent{
+			.state = pod::CollisionState::EXIT,
+			.a = pair.first,
+			.b = pair.second,
+		});
 	}
 
-	for ( auto* b : bodies ) {
-		if ( b->inverseMass == 0.0f ) continue;
-		impl::snapVelocity( *b, dt );
-	}
+	// snap velocities of bodies
+	for ( auto* b : bodies ) impl::snapVelocity( *b, dt );
 }
 
 void uf::physics::setMass( pod::PhysicsBody& body, float mass ) {
@@ -447,7 +461,18 @@ pod::World& uf::physics::getWorld() {
 	auto& scene = uf::scene::getCurrentScene();
 	return scene.getComponent<pod::World>();
 }
-
+const pod::CollisionEvent::events_t& uf::physics::getCollisionEvents( const pod::World& world ) {
+	return world.collisionEvents;
+}
+pod::CollisionEvent::events_t uf::physics::getCollisionEvents( const pod::PhysicsBody& body ) {
+	const auto& events = uf::physics::getCollisionEvents( *body.world );
+	pod::CollisionEvent::events_t res;
+	for ( auto& event : events ) {
+		if ( event.a != &body && event.b != &body ) continue;
+		res.emplace_back( event );
+	}
+	return res;
+}
 // body creation
 pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& offset ) {
 	auto& root = object.getComponent<pod::PhysicsBody>();

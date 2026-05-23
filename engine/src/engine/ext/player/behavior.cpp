@@ -573,6 +573,16 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 
+#if 0
+	{
+		int count = 0;
+		auto events = uf::physics::getCollisionEvents( physicsBody );
+		for ( const auto& event : events ) {
+			// do something
+		}
+		UF_MSG_DEBUG("count={}", events.size());
+	}
+#endif
 #if UF_USE_OPENAL
 	if ( stats.floored && !stats.noclipped ) {
 		if ( stats.walking ) {

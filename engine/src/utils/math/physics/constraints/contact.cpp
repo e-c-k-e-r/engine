@@ -11,7 +11,7 @@ void impl::bindManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold
 	manifold.points.reserve(4);
 }
 
-bool impl::generateContactsGjk( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+bool impl::generateManifoldGjk( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 	impl::bindManifold( a, b, manifold, dt );
 
 	pod::Simplex simplex;
@@ -23,11 +23,11 @@ bool impl::generateContactsGjk( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::M
 	return true;
 }
 
-bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+bool impl::generateManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
 	bool useGjk = uf::physics::settings.useGjk;
 	if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) useGjk = false;
 	//if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) useGjk = false;
-	if ( useGjk ) return generateContactsGjk( a, b, manifold, dt );
+	if ( useGjk ) return generateManifoldGjk( a, b, manifold, dt );
 	impl::bindManifold( a, b, manifold, dt );
 
 #define CHECK_CONTACT( A, B, fun )\
@@ -94,7 +94,7 @@ bool impl::generateContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Mani
 	return false;
 }
 
-void impl::computeLocalContacts( pod::Manifold& manifold ) {
+void impl::computeLocalManifold( pod::Manifold& manifold ) {
 	if ( manifold.points.empty() ) return;
 
 	auto& a = *manifold.a;
@@ -113,7 +113,7 @@ bool impl::similarContact( const pod::Contact& a, const pod::Contact& b, float d
 	return uf::vector::distanceSquared(a.point, b.point) < distSqThreshold && uf::vector::dot(a.normal, b.normal) > normThreshold;
 }
 
-void impl::reduceContacts( pod::Manifold& manifold ) {
+void impl::reduceManifold( pod::Manifold& manifold ) {
 	if ( manifold.points.size() <= 4 ) return;
 
 #if 1
@@ -210,7 +210,7 @@ void impl::reduceContacts( pod::Manifold& manifold ) {
 #endif
 }
 
-void impl::mergeContacts( pod::Manifold& manifold ) {
+void impl::mergeManifold( pod::Manifold& manifold ) {
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Contact>, result);
 	result.reserve(4);
 
@@ -231,7 +231,7 @@ void impl::mergeContacts( pod::Manifold& manifold ) {
 	manifold.points = result;
 }
 
-void impl::retrieveContacts( pod::Manifold& current, const pod::Manifold& previous, float distanceThreshold, float separationThreshold, float decay ) {
+void impl::retrieveManifold( pod::Manifold& current, const pod::Manifold& previous, float distanceThreshold, float separationThreshold, float decay ) {
 	auto& a = *current.a;
 	auto& b = *current.b;
 
@@ -320,7 +320,7 @@ void impl::pruneManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& ca
 	}
 }
 
-void impl::warmupContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& c, float dt ) {
+void impl::warmupContact( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& c, float dt ) {
 	if ( !c.lifetime ) return; // too new
 
 	// build relative offsets
@@ -337,7 +337,7 @@ void impl::warmupContacts( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::
 }
 void impl::warmupManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Manifold& manifold, float dt ) {
 	for ( auto& contact : manifold.points ) {
-		impl::warmupContacts( a, b, contact, dt );
+		impl::warmupContact( a, b, contact, dt );
 	}
 }
 
@@ -348,7 +348,25 @@ void impl::resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manif
 	for ( auto& contact : manifold.points ) impl::iterativeImpulseSolver( a, b, contact, dt );
 }
 
-void impl::solveContacts( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
+void impl::solveManifold( uf::stl::vector<pod::Manifold>& manifolds, float dt ) {
 	if ( uf::physics::settings.warmupSolver ) for ( auto& manifold : manifolds ) impl::warmupManifold( *manifold.a, *manifold.b, manifold, dt );
 	for ( auto i = 0; i < uf::physics::settings.solverIterations; ++i ) for ( auto& manifold : manifolds ) impl::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
+}
+
+void impl::dispatchManifold( pod::Manifold& manifold, pod::CollisionEvent::events_t& events, pod::CollisionEvent::map_t& active, const pod::CollisionEvent::map_t& previous ) {
+	auto pairKey = impl::makePairKey( *manifold.a, *manifold.b );
+	// find largest impulse
+	float maxImpulse = 0.0f;
+	for ( const auto& c : manifold.points ) maxImpulse = std::max( maxImpulse, c.accumulatedNormalImpulse );
+	// mark as an active collision
+	active[pairKey] = { manifold.a, manifold.b };
+	// dispatch
+	events.emplace_back(pod::CollisionEvent{
+		.state = previous.count( pairKey ) == 0 ? pod::CollisionState::ENTER : pod::CollisionState::SUSTAIN,
+		.a = manifold.a,
+		.b = manifold.b,
+		.point = manifold.points[0].point,
+		.normal = manifold.points[0].normal,
+		.impulse = maxImpulse,
+	});
 }

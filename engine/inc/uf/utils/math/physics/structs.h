@@ -376,6 +376,25 @@ namespace pod {
 		static constexpr float linearSleepEpsilon = 0.2f; // m/s
 		static constexpr float angularSleepEpsilon = 0.2f; // rad/s		
 	};
+
+	enum class CollisionState {
+		ENTER,
+		SUSTAIN,
+		EXIT
+	};
+
+	struct CollisionEvent {
+		typedef std::pair<pod::PhysicsBody*, pod::PhysicsBody*> pairs_t;
+		typedef uf::stl::vector<pod::CollisionEvent> events_t;
+		typedef uf::stl::unordered_map<uint64_t, pod::CollisionEvent::pairs_t> map_t;
+
+		pod::CollisionState state = {};
+		pod::PhysicsBody* a = NULL;
+		pod::PhysicsBody* b = NULL;
+		pod::Vector3f point = {};
+		pod::Vector3f normal = {};
+		float impulse = 0;
+	};
 }
 	
 namespace pod {
@@ -473,6 +492,9 @@ namespace pod {
 		pod::Vector3f gravity = { 0, -9.81f, 0 };
 		pod::BVH dynamicBvh;
 		pod::BVH staticBvh;
+
+		pod::CollisionEvent::events_t collisionEvents;
+		pod::CollisionEvent::map_t activeCollisions;
 	};
 }
 

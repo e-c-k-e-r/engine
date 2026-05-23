@@ -14,6 +14,7 @@
 
 namespace impl {
 	void solveConstraint( pod::Constraint& constraint, float dt );
+	void solveConstraints( uf::stl::vector<pod::Constraint*>& constraint, float dt );
 }
 	
 namespace uf {

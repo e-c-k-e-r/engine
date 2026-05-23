@@ -36,6 +36,11 @@ namespace binds {
 			return uf::transform::flatten( t );
 		}
 
+		auto getCollisionEvents( const pod::PhysicsBody& body ) {
+			auto events = uf::physics::getCollisionEvents( body );
+			return sol::as_table( events );
+		}
+
 		std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
 			pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
 			uf::Object* object = query.hit ? query.body->object : NULL;
@@ -102,6 +107,14 @@ namespace binds {
 
 #include <uf/ext/lua/component.h>
 
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::CollisionEvent,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::state),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::a),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::b),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::point),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::normal),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::impulse)
+)
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::AABB,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::AABB& self ) {
@@ -206,6 +219,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(::binds::body::applyRotation) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, UF_LUA_C_FUN(::binds::body::getTransform) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getCollisionEvents, UF_LUA_C_FUN(::binds::body::getCollisionEvents) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setGravity, UF_LUA_C_FUN(::binds::body::setGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::body::enableGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::body::rayCast) ),
