@@ -39,7 +39,7 @@ namespace {
 	#if EXT_COLOR_FLOATS
 		pod::Vector4f color;
 	#else
-		pod::ColorRgba color;
+		pod::Vector4b color;
 	#endif
 
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
@@ -349,7 +349,7 @@ namespace {
 			#if EXT_COLOR_FLOATS
 				auto& color = g.color;
 			#else
-				pod::ColorRgba color = {
+				pod::Vector4b color = {
 					(uint8_t)(g.color[0] * 255),
 					(uint8_t)(g.color[1] * 255),
 					(uint8_t)(g.color[2] * 255),

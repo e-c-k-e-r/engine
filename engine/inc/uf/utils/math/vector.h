@@ -28,6 +28,8 @@ namespace pod {
 
 	template<typename T = float> using Vector1t = Vector<T,1>;
 	typedef Vector1t<NUM> Vector1;
+	typedef Vector1t<int16_t> Vector1s;
+	typedef Vector1t<uint16_t> Vector1us;
 	typedef Vector1t<int32_t> Vector1i;
 	typedef Vector1t<uint32_t> Vector1ui;
 
@@ -37,6 +39,8 @@ namespace pod {
 
 	template<typename T = float> using Vector2t = Vector<T,2>;
 	typedef Vector2t<NUM> Vector2;
+	typedef Vector2t<int16_t> Vector2s;
+	typedef Vector2t<uint16_t> Vector2us;
 	typedef Vector2t<int32_t> Vector2i;
 	typedef Vector2t<uint32_t> Vector2ui;
 
@@ -46,9 +50,11 @@ namespace pod {
 
 	template<typename T = float> using Vector3t = Vector<T,3>;
 	typedef Vector3t<NUM> Vector3;
+	typedef Vector3t<uint8_t> Vector3b;
+	typedef Vector3t<int16_t> Vector3s;
+	typedef Vector3t<uint16_t> Vector3us;
 	typedef Vector3t<int32_t> Vector3i;
 	typedef Vector3t<uint32_t> Vector3ui;
-	typedef Vector3t<uint8_t> ColorRGB;
 
 	typedef Vector3t<long> Vector3l;
 	typedef Vector3t<float> Vector3f;
@@ -56,9 +62,11 @@ namespace pod {
 
 	template<typename T = float> using Vector4t = Vector<T,4>;
 	typedef Vector4t<NUM> Vector4;
+	typedef Vector4t<uint8_t> Vector4b;
+	typedef Vector4t<int16_t> Vector4s;
+	typedef Vector4t<uint16_t> Vector4us;
 	typedef Vector4t<int32_t> Vector4i;
 	typedef Vector4t<uint32_t> Vector4ui;
-	typedef Vector4t<uint8_t> ColorRgba;
 
 	typedef Vector4t<long> Vector4l;
 	typedef Vector4t<float> Vector4f;
@@ -86,6 +94,7 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ pod::Vector3t<T> /*UF_API*/ create( T x, T y, T z ); // creates a 3D vector
 		template<typename T> /*FORCE_INLINE*/ pod::Vector4t<T> /*UF_API*/ create( T x, T y, T z, T w ); // creates a 4D vector
 		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ copy( const pod::Vector<T, N>& = {}); // creates a copy of a vector (for whatever reason)
+		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ copy( const T* ); // creates a copy of a vector (for whatever reason)
 		template<typename T, size_t N, typename U> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ cast( const U& from ); // casts one vector of one type to another (of the same size)
 	// 	Equality checking
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ equals( const T& left, const T& right ); // equality check between two vectors (==)

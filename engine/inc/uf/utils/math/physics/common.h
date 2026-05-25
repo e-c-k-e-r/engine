@@ -45,13 +45,6 @@ namespace impl {
 	pod::Vector3f triangleCenter( const pod::Triangle& tri );
 	pod::Vector3f triangleNormal( const pod::Triangle& tri );
 	pod::Vector3f triangleNormal( const pod::TriangleWithNormal& tri );
-
-	size_t getIndex( const void* pointer, size_t stride, size_t index ); 
-	size_t getIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ); 
-	pod::Vector3f getVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
-	pod::Triangle fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
-	/*FORCE_INLINE*/ pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID );
-	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID );
 	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body );
 
 	/*FORCE_INLINE*/ bool aabbOverlap( const pod::AABB& a, const pod::AABB& b );

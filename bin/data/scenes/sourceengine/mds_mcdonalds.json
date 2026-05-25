@@ -4,6 +4,7 @@
 	//	{ "filename": "./models/mds_mcdonalds.glb" }
 		{ "filename": "./models/mds_mcdonalds/graph.json" }
 		,{ "filename": "/ragdoll.json", "delay": 1 }
+		,{ "filename": "/craeture.json", "delay": 2.0 }
 	],
 	"metadata": {
 		"graph": {

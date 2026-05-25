@@ -35,7 +35,7 @@ namespace {
 	#if EXT_COLOR_FLOATS
 		pod::Vector4f color;
 	#else
-		pod::ColorRgba color;
+		pod::Vector4b color;
 	#endif
 
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;

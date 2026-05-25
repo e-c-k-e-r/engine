@@ -12,13 +12,9 @@ struct {
 if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) || graph.metadata["renderer"]["invert"].as<bool>(true) ) {
 	sanitizer.windingOrder.should = true;
 }
-#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
-if ( graph.metadata["sanitizer"]["tangents"].as<bool>(true) ) {
+if ( graph.metadata["sanitizer"]["tangents"].as<bool>(false) ) {
 	sanitizer.tangents.should = true;
 }
-#else
-sanitizer.tangents.should = false;
-#endif
 
 uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
 
@@ -44,8 +40,8 @@ for ( auto& p : m.primitives ) {
 		{"TEXCOORD_0", {}},
 		{"COLOR_0", {}},
 		{"NORMAL", {}},
-#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		{"TANGENT", {}},
+#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		{"JOINTS_0", {}},
 		{"WEIGHTS_0", {}},
 #endif
@@ -127,8 +123,8 @@ for ( auto& p : m.primitives ) {
 		ITERATE_ATTRIBUTE("TEXCOORD_0", uv, 1);
 		ITERATE_ATTRIBUTE("COLOR_0", color, 255.0f);
 		ITERATE_ATTRIBUTE("NORMAL", normal, 1);
-	#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		ITERATE_ATTRIBUTE("TANGENT", tangent, 1);
+	#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		ITERATE_ATTRIBUTE("JOINTS_0", joints, 1);
 		ITERATE_ATTRIBUTE("WEIGHTS_0", weights, 1);
 	#endif
@@ -243,7 +239,6 @@ for ( auto& p : m.primitives ) {
 			}
 		}
 	}
-#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 	/* calculate tangents */ if ( sanitizer.tangents.should ) {
 		if ( !meshlet.indices.empty() ) {
 			for ( size_t i = 0; i < meshlet.indices.size() / 3; ++i ) {
@@ -276,12 +271,12 @@ for ( auto& p : m.primitives ) {
 				auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
 				auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
 
-				for ( auto i = 0; i < 3; ++i ) {
-					auto& normal = meshlet.vertices[indices[0]].normal;
-					auto& tangent = meshlet.vertices[indices[0]].tangent;
+				for ( auto j = 0; j < 3; ++j ) {
+					auto& normal = meshlet.vertices[indices[j]].normal;
+					auto& tangent = meshlet.vertices[indices[j]].tangent;
 					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
-			
-					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
+
+					if ( uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f )
 						tangent = tangent * -1.0f;
 				}
 			}
@@ -316,18 +311,17 @@ for ( auto& p : m.primitives ) {
 				auto tangent_tri = (deltaTriPosition[0] * deltaTriUV[1].y   - deltaTriPosition[1] * deltaTriUV[0].y) * r;
 				auto bitangent_tri = (deltaTriPosition[1] * deltaTriUV[0].x   - deltaTriPosition[0] * deltaTriUV[1].x) * r;
 
-				for ( auto i = 0; i < 3; ++i ) {
-					auto& normal = meshlet.vertices[indices[0]].normal;
-					auto& tangent = meshlet.vertices[indices[0]].tangent;
+				for ( auto j = 0; j < 3; ++j ) {
+					auto& normal = meshlet.vertices[indices[j]].normal;
+					auto& tangent = meshlet.vertices[indices[j]].tangent;
 					tangent = uf::vector::normalize(tangent_tri - normal * uf::vector::dot(normal, tangent_tri));
-			
+
 					if (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent_tri) < 0.0f)
 						tangent = tangent * -1.0f;
 				}
 			}
 		}
 	}
-#endif
 }
 
 if ( sanitizer.windingOrder.should && !graph.metadata["renderer"]["invert"].as<bool>(true) ) {

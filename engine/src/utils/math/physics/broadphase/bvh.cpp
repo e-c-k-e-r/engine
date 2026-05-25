@@ -228,7 +228,7 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 
 		auto tris = view.index.count / 3;
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-			auto tri = impl::fetchTriangle( view, indices, positions, triIndexID );
+			auto tri = uf::mesh::fetchTriangle( view, indices, positions, triIndexID );
 			auto aabb = impl::computeTriangleAABB( tri );
 			auto triID = triIndexID + (view.index.first / 3);
 
@@ -446,7 +446,7 @@ void impl::refitBVH( pod::BVH& bvh, const uf::Mesh& mesh ) {
 
 		auto tris = view.index.count / 3;
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
-			auto tri = impl::fetchTriangle( view, indices, positions, triIndexID );
+			auto tri = uf::mesh::fetchTriangle( view, indices, positions, triIndexID );
 			auto aabb = impl::computeTriangleAABB( tri );
 			bounds.emplace_back(aabb);
 		}

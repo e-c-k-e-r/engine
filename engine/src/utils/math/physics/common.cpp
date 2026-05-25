@@ -500,98 +500,9 @@ pod::Vector3f impl::triangleNormal( const pod::TriangleWithNormal& tri ) {
 	if ( uf::vector::magnitude( tri.normal ) < 0.001f )  return impl::triangleNormal( (const pod::Triangle&) tri );
 	return tri.normal;
 }
-// mesh accessing
-size_t impl::getIndex( const void* pointer, size_t stride, size_t index ) { 
-	#define CAST_INDEX(T) case sizeof(T): return ((T*) pointer)[index];
-	switch ( stride ) {
-		CAST_INDEX(uint8_t);
-		CAST_INDEX(uint16_t);
-		CAST_INDEX(uint32_t);
-		default: {
-			UF_EXCEPTION("invalid stride type: {}", stride);
-		} break;
-	}
-}
-size_t impl::getIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) { 
-	return impl::getIndex( indices.data(view.index.first), indices.stride(), index );
-}
-pod::Vector3f impl::getVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index ) {
-	const auto stride = positions.stride();
-	#define CAST_VERTEX(T) {\
-		const T* vertices = (T*) positions.data(view.vertex.first + index);\
-		return { vertices[0], vertices[1], vertices[2], };\
-	}
-	#define DEQUANTIZE_VERTEX(T) {\
-		const T* vertices = (T*) positions.data(view.vertex.first + index);\
-		return { uf::quant::dequantize(vertices[0]), uf::quant::dequantize(vertices[1]), uf::quant::dequantize(vertices[2]), };\
-	}
-
-	switch ( positions.attribute.descriptor.type ) {
-		// dequantize
-		case uf::renderer::enums::Type::USHORT:
-		case uf::renderer::enums::Type::SHORT: {
-			DEQUANTIZE_VERTEX(uint16_t);
-		} break;
-		case uf::renderer::enums::Type::FLOAT: {
-			CAST_VERTEX(float);
-		} break;
-	#if UF_USE_FLOAT16
-		case uf::renderer::enums::Type::HALF: {
-			CAST_VERTEX(std::float16_t);
-		} break;
-	#endif
-	#if UF_USE_BFLOAT16
-		case uf::renderer::enums::Type::BFLOAT: {
-			CAST_VERTEX(std::bfloat16_t);
-		} break;
-	#endif
-		default: UF_EXCEPTION("unsupported vertex type: {}", positions.attribute.descriptor.type); break;
-	}
-//	return impl::getVertex( positions.data(view.vertex.first), positions.stride(), index );
-}
-
-pod::Triangle impl::fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID ) {
-	auto index = triID * 3;
-	pod::Triangle tri;
-	FOR_EACH(3, {
-		tri.points[i] = impl::getVertex( view, positions, impl::getIndex( view, indices, index + i ) );
-	});
-	return tri;
-}
-
-// for clean code, this would be preferable
-// but this incurs two lookups every triangle fetch, and I doubt the optimizer will optimize that away, so explicitly passing attribute views is preferable
-pod::Triangle impl::fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
-	return impl::fetchTriangle( view, view["index"], view["position"], triID );
-}
-
-pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
-	const auto& views = mesh.buffer_views;
-	UF_ASSERT(!views.empty());
-
-	// find which view contains this triangle index.
-	size_t triBase = 0;
-	const uf::Mesh::View* view = nullptr;
-	for ( auto& v : views ) {
-		auto trisInView = v.index.count / 3;
-		if (triID < triBase + trisInView) {
-			view = &v;
-			triID -= triBase; // local triangle index inside this view
-			break;
-		}
-		triBase += trisInView;
-	}
-	UF_ASSERT( view );
-	
-	pod::TriangleWithNormal tri = { impl::fetchTriangle( *view, triID ) };
-	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
-
-	return tri;
-}
-
 // if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
 pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body ) {
-	auto tri = impl::fetchTriangle( mesh, triID );
+	auto tri = uf::mesh::fetchTriangle( mesh, triID );
 
 	auto transform = impl::getTransform( body );
 
@@ -646,7 +557,7 @@ pod::AABB impl::computeTriangleAABB( const pod::Triangle& tri ) {
 // returns the AABB of a hull
 pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, pod::AABB bounds ) {
 	for ( size_t i = 0; i < view.vertex.count; ++i ) {
-		pod::Vector3f v = impl::getVertex( view, positions, i );
+		pod::Vector3f v = uf::mesh::fetchVertex( view, positions, i );
 		bounds.min = uf::vector::min( bounds.min, v );
 		bounds.max = uf::vector::max( bounds.max, v );
 	}

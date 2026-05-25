@@ -44,6 +44,10 @@ template<typename T, size_t N>
 pod::Vector<T, N> uf::vector::copy( const pod::Vector<T, N>& v ) {
 	return v;
 }
+template<typename T, size_t N>
+pod::Vector<T, N> uf::vector::copy( const T* p ) {
+	return *((pod::Vector<T, N>*) p);
+}
 template<typename T, size_t N, typename U>
 pod::Vector<T, N> uf::vector::cast( const U& from ) {
 	pod::Vector<T, N> to;

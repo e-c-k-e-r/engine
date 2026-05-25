@@ -142,7 +142,7 @@ bool impl::obbObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Ma
 
 
 bool impl::obbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
-	ASSERT_COLLIDER_TYPES( OBB, OBB );
+	ASSERT_COLLIDER_TYPES( OBB, AABB );
 
 	auto tA = impl::getTransform( a );
 	auto tB = impl::getTransform( b );

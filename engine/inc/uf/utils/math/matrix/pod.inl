@@ -166,7 +166,7 @@ template<typename T, size_t M, size_t N> pod::Matrix<T,M,N> /*UF_API*/ uf::matri
 			m(i, j) = a[i] * b[j];
 		}
 	}
-    return m;
+	return m;
 }
 
 template<typename T, size_t R, size_t C> pod::Vector<T, R> /*UF_API*/ uf::matrix::diagonal(const pod::Matrix<T, R, C>& mat ) {
@@ -287,7 +287,7 @@ pod::Vector2t<T> uf::matrix::multiply(const pod::Matrix2t<T>& mat, const pod::Ve
 	return pod::Vector2t<T>{
 		v[0] * mat(0,0) + v[1] * mat(0,1),
 		v[0] * mat(1,0) + v[1] * mat(1,1)
-    };
+	};
 }
 
 template<typename T>
@@ -333,7 +333,7 @@ template<typename T> T uf::matrix::translate( const T& matrix, const pod::Vector
 	return res;
 }
 template<typename T> T uf::matrix::rotate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-    T res = matrix;
+	T res = matrix;
 
 	if (vector.x != 0) {
 		T Rx = uf::matrix::identity<T>();
@@ -353,7 +353,7 @@ template<typename T> T uf::matrix::rotate( const T& matrix, const pod::Vector3t<
 		Rz(1,0) = sin(vector.z); Rz(1,1) = cos(vector.z);
 		res = uf::matrix::multiply(res, Rz);
 	}
-    return res;
+	return res;
 }
 template<typename T> T uf::matrix::scale( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
 	T res = matrix;
@@ -361,6 +361,85 @@ template<typename T> T uf::matrix::scale( const T& matrix, const pod::Vector3t<t
 	res(1,1) = vector.y;
 	res(2,2) = vector.z;
 	return res;
+}
+// extract translation from matrix
+template<typename T>
+pod::Vector3t<typename T::type_t> uf::matrix::extractTranslation( const T& matrix ) {
+	return { matrix(0,3), matrix(1,3), matrix(2,3) };
+}
+
+// extracts the scale by calculating the length of the 3 basis column vectors
+template<typename T>
+pod::Vector3t<typename T::type_t> uf::matrix::extractScale( const T& matrix ) {
+	using type_t = typename T::type_t;
+
+	type_t sx = std::sqrt( matrix(0,0) * matrix(0,0) + matrix(1,0) * matrix(1,0) + matrix(2,0) * matrix(2,0) );
+	type_t sy = std::sqrt( matrix(0,1) * matrix(0,1) + matrix(1,1) * matrix(1,1) + matrix(2,1) * matrix(2,1) );
+	type_t sz = std::sqrt( matrix(0,2) * matrix(0,2) + matrix(1,2) * matrix(1,2) + matrix(2,2) * matrix(2,2) );
+
+	// to-do: write uf::matrix::determinant()
+	type_t det =  matrix(0,0) * ( matrix(1,1) * matrix(2,2) - matrix(2,1) * matrix(1,2))
+				- matrix(0,1) * ( matrix(1,0) * matrix(2,2) - matrix(1,2) * matrix(2,0))
+				+ matrix(0,2) * ( matrix(1,0) * matrix(2,1) - matrix(1,1) * matrix(2,0));
+	if ( det < 0 ) { sx = -sx; sy = -sy; sz = -sz; }
+	return { sx, sy, sz };
+}
+
+// extracts the rotation by normalizing out the scale
+template<typename T>
+pod::Vector4t<typename T::type_t> uf::matrix::extractRotation( const T& matrix ) {
+	using type_t = typename T::type_t;
+
+	pod::Vector4t<typename T::type_t> q;
+	pod::Vector3t<type_t> s = uf::matrix::extractScale( matrix );
+
+	type_t invX = (s.x != 0) ? (1.0 / s.x) : 0;
+	type_t invY = (s.y != 0) ? (1.0 / s.y) : 0;
+	type_t invZ = (s.z != 0) ? (1.0 / s.z) : 0;
+
+	type_t m00 = matrix(0,0) * invX; type_t m01 = matrix(0,1) * invY; type_t m02 = matrix(0,2) * invZ;
+	type_t m10 = matrix(1,0) * invX; type_t m11 = matrix(1,1) * invY; type_t m12 = matrix(1,2) * invZ;
+	type_t m20 = matrix(2,0) * invX; type_t m21 = matrix(2,1) * invY; type_t m22 = matrix(2,2) * invZ;
+
+	type_t trace = m00 + m11 + m22;
+
+	if ( trace > 0.0 ) {
+		type_t root = std::sqrt(trace + 1.0);
+		q.w = 0.5 * root;
+		root = 0.5 / root;
+		q.x = (m21 - m12) * root;
+		q.y = (m02 - m20) * root;
+		q.z = (m10 - m01) * root;
+	} else {
+		int i = 0;
+		if ( m11 > m00 ) i = 1;
+		if ( m22 > (i == 0 ? m00 : m11) ) i = 2;
+
+		if (i == 0) {
+			type_t root = std::sqrt(m00 - m11 - m22 + 1.0);
+			q.x = 0.5 * root;
+			root = 0.5 / root;
+			q.w = (m21 - m12) * root;
+			q.y = (m01 + m10) * root;
+			q.z = (m02 + m20) * root;
+		} else if (i == 1) {
+			type_t root = std::sqrt(m11 - m00 - m22 + 1.0);
+			q.y = 0.5 * root;
+			root = 0.5 / root;
+			q.w = (m02 - m20) * root;
+			q.x = (m01 + m10) * root;
+			q.z = (m12 + m21) * root;
+		} else {
+			type_t root = std::sqrt(m22 - m00 - m11 + 1.0);
+			q.z = 0.5 * root;
+			root = 0.5 / root;
+			q.w = (m10 - m01) * root;
+			q.x = (m02 + m20) * root;
+			q.y = (m12 + m21) * root;
+		}
+	}
+
+	return uf::vector::normalize( q );
 }
 
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply_( T& left, const T& right ) {
@@ -382,14 +461,14 @@ template<typename T> T& uf::matrix::inverse_( T& matrix ) {
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t, T f, T n ) {
 	pod::Matrix4t<T> m = uf::matrix::identity();
-    m(0,0) = static_cast<T>(2) / (r - l);
-    m(1,1) = static_cast<T>(2) / (t - b);
-    m(2,2) = static_cast<T>(-2) / (f - n);
+	m(0,0) = static_cast<T>(2) / (r - l);
+	m(1,1) = static_cast<T>(2) / (t - b);
+	m(2,2) = static_cast<T>(-2) / (f - n);
 
-    // Translation terms go in the last column (col = 3)
-    m(0,3) = - (r + l) / (r - l);
-    m(1,3) = - (t + b) / (t - b);
-    m(2,3) = - (f + n) / (f - n);
+	// Translation terms go in the last column (col = 3)
+	m(0,3) = - (r + l) / (r - l);
+	m(1,3) = - (t + b) / (t - b);
+	m(2,3) = - (f + n) / (f - n);
 	return m;
 }
 template<typename T>

@@ -56,7 +56,7 @@ namespace {
 			pod::Vector4f tangent;
 		};
 		struct TexCoord {
-			pod::ColorRgba color;
+			pod::Vector4b color;
 			pod::Vector2f16 uv;
 			pod::Vector2f st;
 			pod::Vector2f16 wx;

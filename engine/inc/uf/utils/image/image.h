@@ -10,7 +10,7 @@ namespace uf {
 	class UF_API Image {
 	public:
 		typedef pod::Vector2ui vec2_t;
-		typedef pod::Vector<uint8_t, 4> pixel_t;
+		typedef pod::Vector4b pixel_t;
 		typedef uf::stl::vector<pixel_t::type_t> container_t;
 	protected:
 		uf::stl::string m_filename;

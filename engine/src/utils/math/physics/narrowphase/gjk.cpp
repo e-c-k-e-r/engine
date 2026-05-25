@@ -68,7 +68,7 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 				const auto& view = mesh.buffer_views[viewIdx];
 				auto& positions = view["position"];
 				for ( size_t i = 0; i < view.vertex.count; ++i ) {
-					pod::Vector3f v = impl::getVertex( view, positions, i );
+					pod::Vector3f v = uf::mesh::fetchVertex( view, positions, i );
 					float dist = uf::vector::dot( v, localDir );
 					if ( dist > maxDist ) {
 						maxDist = dist;

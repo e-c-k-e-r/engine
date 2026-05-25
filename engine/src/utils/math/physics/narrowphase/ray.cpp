@@ -243,7 +243,7 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 	impl::queryBVH( bvh, ray, candidates );
 
 	for ( auto triID : candidates ) {
-		auto tri = impl::fetchTriangle( meshData, triID );
+		auto tri = uf::mesh::fetchTriangle( meshData, triID );
 
 		float t, u, v;
 		if ( !impl::rayTriangleIntersect( ray, tri, t, u, v ) ) continue;

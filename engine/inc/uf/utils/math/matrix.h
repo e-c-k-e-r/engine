@@ -96,6 +96,11 @@ namespace uf {
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ translate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ rotate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ T /*UF_API*/ scale( const T& matrix, const pod::Vector3t<typename T::type_t>& vector );
+
+		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ pod::Vector3t<typename T::type_t> extractTranslation( const T& matrix );
+		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ pod::Vector3t<typename T::type_t> extractScale( const T& matrix );
+		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ pod::Vector4t<typename T::type_t> extractRotation( const T& matrix );
+
 		template<typename T=pod::Matrix4> /*FORCE_INLINE*/ pod::Vector3t<typename T::type_t> /*UF_API*/ eulerAngles( const T& matrix );
 
 		template<typename T=NUM> /*FORCE_INLINE*/ pod::Matrix4t<T> /*UF_API*/ orthographic( T, T, T, T, T, T );

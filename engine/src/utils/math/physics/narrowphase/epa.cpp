@@ -154,7 +154,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				auto& indices = view["index"];
 				auto& positions = view["position"];
 				for ( size_t i = 0; i < view.index.count / 3; ++i ) {
-					pod::Triangle tri = impl::fetchTriangle( view, indices, positions, i );
+					pod::Triangle tri = uf::mesh::fetchTriangle( view, indices, positions, i );
 					pod::Vector3f normal = impl::triangleNormal( tri );
 					float d = uf::vector::dot( normal, localDir );
 					if ( d > bestDot ) {

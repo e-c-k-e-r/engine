@@ -200,7 +200,8 @@ local function tickGravGun( transform, inputs )
 		else
 			-- update rotation
 			if heldObject.rotate then
-				heldObjectTransform.orientation = Quaternion.lookAt( (heldObjectTransform.position - transform.position):normalize(), transform.up )
+				--heldObjectTransform.orientation = Quaternion.lookAt( (heldObjectTransform.position - transform.position):normalize(), transform.up )
+				heldObjectTransform.orientation = cameraTransform:flatten().orientation
 			end
 			
 			-- move held object

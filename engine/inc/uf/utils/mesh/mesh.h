@@ -3,6 +3,7 @@
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/math/quant.h>
+#include <uf/utils/math/shapes.h>
 
 #include <functional>
 #include <uf/utils/memory/unordered_map.h>
@@ -36,10 +37,10 @@ namespace ext {
 			// essential for vertex input
 			size_t offset = 0;
 			size_t size = 0;
-			ext::RENDERER::enums::Format::type_t format = ext::RENDERER::enums::Format::UNDEFINED;
+			uf::renderer::enums::Format::type_t format = uf::renderer::enums::Format::UNDEFINED;
 			// not as essential
 			uf::stl::string name = "";
-			ext::RENDERER::enums::Type::type_t type = 0;
+			uf::renderer::enums::Type::type_t type = 0;
 			size_t components = 0;
 			
 			bool operator==( const AttributeDescriptor& right ) const { return name == right.name;
@@ -153,7 +154,7 @@ namespace uf {
 		static bool defaultInterleaved;
 		typedef uf::stl::vector<uint8_t> buffer_t;
 		struct Attribute {
-			ext::RENDERER::AttributeDescriptor descriptor;
+			uf::renderer::AttributeDescriptor descriptor;
 			 int32_t buffer = -1;
 			size_t offset = 0;
 
@@ -187,6 +188,7 @@ namespace uf {
 			bool valid() const { return attribute.pointer != NULL; }
 			size_t stride() const { return attribute.stride; }
 			size_t components() const { return attribute.descriptor.components; }
+			uf::renderer::enums::Type::type_t type() const { return attribute.descriptor.type; }
 		};
 
 		struct View {
@@ -202,6 +204,41 @@ namespace uf {
 				UF_EXCEPTION("invalid view: {}", name);
 				//return null;
 			}
+
+			// to-do: resolve dependency order hell
+			// these probably won't be directly called anyways?
+		#if 0
+			size_t fetchIndex( size_t index ) {
+				return uf::mesh::fetchIndex( index );
+			}
+			size_t fetchIndex( const uf::Mesh::AttributeView& indices, size_t index ) {
+				return uf::mesh::fetchIndex( indices, index );
+			}
+			size_t fetchIndex( const uf::stl::string& indices, size_t index ) {
+				return uf::mesh::fetchIndex( indices, index );
+			}
+
+			pod::Vector3f fetchVertex( size_t index ) {
+				return uf::mesh::fetchVertex( index );
+			}
+			pod::Vector3f fetchVertex( const uf::Mesh::AttributeView& positions, size_t index ) {
+				return uf::mesh::fetchVertex( positions, index );
+			}
+			pod::Vector3f fetchVertex( const uf::stl::string& positions, size_t index ) {
+				return uf::mesh::fetchVertex( positions, index );
+			}
+
+			pod::TriangleWithNormal fetchTriangle( size_t triID ) {
+				return uf::mesh::fetchTriangle( *this, triID );
+			}
+			pod::TriangleWithNormal fetchTriangle( const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID ) {
+				return uf::mesh::fetchTriangle( *this, indices, positions, triID );
+			}
+			pod::TriangleWithNormal fetchTriangle( const uf::stl::string& indices, const uf::stl::string& positions, size_t triID ) {
+				auto& view = *this;
+				return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
+			}
+		#endif
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;
 
@@ -218,9 +255,9 @@ namespace uf {
 		void _updateViews();
 		uf::Mesh::Attribute _remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i = 0 ) const;
 
-		bool _hasV( const uf::Mesh::Input& input, const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const;
+		bool _hasV( const uf::Mesh::Input& input, const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) const;
 		bool _hasV( const uf::Mesh::Input& input, const uf::Mesh::Input& src ) const;
-		void _bindV( uf::Mesh::Input& input, const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors );
+		void _bindV( uf::Mesh::Input& input, const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors );
 		void _resizeVs( uf::Mesh::Input& input, size_t count );
 		void _reserveVs( uf::Mesh::Input& input, size_t count );
 		void _insertV( uf::Mesh::Input& input, const void* data );
@@ -232,14 +269,14 @@ namespace uf {
 		template<typename T> inline void _insertV( uf::Mesh::Input& input, const T& vertex ) { return _insertV( input, (const void*) &vertex ); }
 		template<typename T> inline void _insertVs( uf::Mesh::Input& input, const uf::stl::vector<T>& vs ) { return _insertVs( input, (const void*) vs.data(), vs.size() ); }
 
-		void _bindI( uf::Mesh::Input& input, size_t size, ext::RENDERER::enums::Type::type_t type, size_t count = 1 );
+		void _bindI( uf::Mesh::Input& input, size_t size, uf::renderer::enums::Type::type_t type, size_t count = 1 );
 		void _reserveIs( uf::Mesh::Input& input, size_t count, size_t i = 0 );
 		void _resizeIs( uf::Mesh::Input& input, size_t count, size_t i = 0 );
 		void _insertI( uf::Mesh::Input& input, const void* data, size_t i );
 		void _insertIs( uf::Mesh::Input& input, const void* data, size_t size, size_t i );
 		void _insertIs( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput );
 		
-		template<typename U> inline void _bindI( uf::Mesh::Input& input, size_t indices = 1 ) { return _bindI( input, sizeof(U), ext::RENDERER::typeToEnum<U>(), indices ); }
+		template<typename U> inline void _bindI( uf::Mesh::Input& input, size_t indices = 1 ) { return _bindI( input, sizeof(U), uf::renderer::typeToEnum<U>(), indices ); }
 		template<typename U> inline void _insertI( uf::Mesh::Input& input, U index, size_t i = 0 ) { return _insertI( input, (const void*) &index, i ); }
 		template<typename U> inline void _insertIs( uf::Mesh::Input& input, const uf::stl::vector<U>& is, size_t i = 0 ) { return _insertIs( input, (const void*) is.data(), is.size(), i ); }
 	public:
@@ -292,9 +329,9 @@ namespace uf {
 		uf::Mesh::View makeView( size_t commandIndex, const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
 		uf::stl::vector<uf::Mesh::View> makeViews( const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
 
-		inline bool hasVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
+		inline bool hasVertex( const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
 		inline bool hasVertex( const uf::Mesh& mesh ) const { return _hasV( vertex, mesh.vertex ); }
-		inline void bindVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) { return _bindV( vertex, descriptors ); }
+		inline void bindVertex( const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) { return _bindV( vertex, descriptors ); }
 		inline void resizeVertices( size_t count ) { return _resizeVs( vertex, count ); }
 		inline void reserveVertices( size_t count ) { return _reserveVs( vertex, count ); }
 		inline void insertVertex( const void* data ) { return _insertV( vertex, data ); }
@@ -308,7 +345,7 @@ namespace uf {
 		template<typename T> inline void insertVertex( const T& v ) { return _insertV( vertex, (const void*) &v ); }
 		template<typename T> inline void insertVertices( const uf::stl::vector<T>& vertices ) { return _insertVs( vertex, (const void*) vertices.data(), vertices.size() ); }
 
-		inline void bindIndex( size_t size, ext::RENDERER::enums::Type::type_t type, size_t count = 1 ) { return _bindI( index, size, type, count ); }
+		inline void bindIndex( size_t size, uf::renderer::enums::Type::type_t type, size_t count = 1 ) { return _bindI( index, size, type, count ); }
 		inline void reserveIndices( size_t count, size_t i = 0 ) { return _reserveIs( index, count, i ); }
 		inline void resizeIndices( size_t count, size_t i = 0 ) { return _resizeIs( index, count, i ); }
 		inline void insertIndex( const void* data, size_t i = 0 ) { return _insertI( index, data, i ); }
@@ -317,13 +354,13 @@ namespace uf {
 		inline void updateIndexDescriptor() { return _updateDescriptor( index ); }
 		inline uf::Mesh::Attribute remapIndexAttribute( const uf::Mesh::Attribute& attribute, size_t i = 0 ) const { return _remapAttribute( index, attribute, i ); }
 
-		template<typename U> inline void bindIndex( size_t count = 1 ) { return _bindI( index, sizeof(U), ext::RENDERER::typeToEnum<U>(), count ); }
+		template<typename U> inline void bindIndex( size_t count = 1 ) { return _bindI( index, sizeof(U), uf::renderer::typeToEnum<U>(), count ); }
 		template<typename U> inline void insertIndex( U I, size_t i = 0 ) { return _insertI( index, (const void*) &I, i ); }
 		template<typename U> inline void insertIndices( const uf::stl::vector<U>& indices, size_t i = 0 ) { return _insertIs( index, (const void*) indices.data(), indices.size(), i ); }
 
-		inline bool hasInstance( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( instance, descriptors ); }
+		inline bool hasInstance( const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) const { return _hasV( instance, descriptors ); }
 		inline bool hasInstance( const uf::Mesh& mesh ) const { return _hasV( instance, mesh.instance ); }
-		inline void bindInstance( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) { return _bindV( instance, descriptors ); }
+		inline void bindInstance( const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) { return _bindV( instance, descriptors ); }
 		inline void resizeInstances( size_t count ) { return _resizeVs( instance, count ); }
 		inline void reserveInstances( size_t count ) { return _reserveVs( instance, count ); }
 		inline void insertInstance( const void* data ) { return _insertV( instance, data ); }
@@ -336,7 +373,7 @@ namespace uf {
 		template<typename T> inline void insertInstance( const T& v ) { return _insertV( instance, (const void*) &v ); }
 		template<typename T> inline void insertInstances( const uf::stl::vector<T>& instances ) { return _insertVs( instance, (const void*) instances.data(), instances.size() ); }
 
-		inline void bindIndirect( size_t size, ext::RENDERER::enums::Type::type_t type, size_t count = 1 ) { return _bindI( indirect, size, type, count ); }
+		inline void bindIndirect( size_t size, uf::renderer::enums::Type::type_t type, size_t count = 1 ) { return _bindI( indirect, size, type, count ); }
 		inline void reserveIndirects( size_t count, size_t i = 0 ) { return _reserveIs( indirect, count, i ); }
 		inline void resizeIndirects( size_t count, size_t i = 0 ) { return _resizeIs( indirect, count, i ); }
 		inline void insertIndirect( const void* data, size_t i = 0 ) { return _insertI( indirect, data, i ); }
@@ -344,11 +381,11 @@ namespace uf {
 		inline void insertIndirects( const uf::Mesh& mesh ) { return _insertIs( indirect, mesh, mesh.indirect ); }
 		inline void updateIndirectDescriptor() { return _updateDescriptor( indirect ); }
 
-		template<typename U> inline void bindIndirect( size_t i = 1 ) { return _bindI( indirect, sizeof(U), ext::RENDERER::typeToEnum<U>(), i ); }
+		template<typename U> inline void bindIndirect( size_t i = 1 ) { return _bindI( indirect, sizeof(U), uf::renderer::typeToEnum<U>(), i ); }
 		template<typename U> inline void insertIndirect( U v, size_t i = 0 ) { return _insertI( indirect, (const void*) &v, i ); }
 		template<typename U> inline void insertIndirects( const uf::stl::vector<U>& indirects, size_t i = 0 ) { return _insertIs( indirect, (const void*) indirects.data(), indirects.size(), i ); }
 
-		template<typename T, typename U = ext::RENDERER::index_t>
+		template<typename T, typename U = uf::renderer::index_t>
 		void bind( bool interleave = uf::Mesh::defaultInterleaved, size_t indices = 1 ) {
 			bindVertex<T>();
 			bindIndex<U>( indices );
@@ -448,16 +485,16 @@ namespace ext {
 				size_t bufferOffset = 0;
 			} inputs;
 
-			ext::RENDERER::enums::PrimitiveTopology::type_t topology = ext::RENDERER::enums::PrimitiveTopology::TRIANGLE_LIST;
-			ext::RENDERER::enums::PolygonMode::type_t fill = ext::RENDERER::enums::PolygonMode::FILL;
-			ext::RENDERER::enums::CullMode::type_t cullMode = ext::RENDERER::enums::CullMode::BACK;
-			ext::RENDERER::enums::Face::type_t frontFace = ext::RENDERER::enums::Face::CW;
+			uf::renderer::enums::PrimitiveTopology::type_t topology = uf::renderer::enums::PrimitiveTopology::TRIANGLE_LIST;
+			uf::renderer::enums::PolygonMode::type_t fill = uf::renderer::enums::PolygonMode::FILL;
+			uf::renderer::enums::CullMode::type_t cullMode = uf::renderer::enums::CullMode::BACK;
+			uf::renderer::enums::Face::type_t frontFace = uf::renderer::enums::Face::CW;
 			float lineWidth = 1.0f;
 
 			struct {
 				bool test = true;
 				bool write = true;
-				ext::RENDERER::enums::Compare::type_t operation = ext::RENDERER::enums::Compare::GREATER_OR_EQUAL;
+				uf::renderer::enums::Compare::type_t operation = uf::renderer::enums::Compare::GREATER_OR_EQUAL;
 				struct {
 					bool enable = false;
 					float constant = 0;
@@ -492,8 +529,8 @@ namespace ext {
 
 namespace std {
 	template <>
-	struct hash<ext::RENDERER::GraphicDescriptor> {
-		size_t operator()(const ext::RENDERER::GraphicDescriptor& descriptor) const { return descriptor.hash(); }
+	struct hash<uf::renderer::GraphicDescriptor> {
+		size_t operator()(const uf::renderer::GraphicDescriptor& descriptor) const { return descriptor.hash(); }
 	};
 }
 
@@ -503,7 +540,7 @@ namespace std {
 		.size = sizeof(decltype(TYPE::ATTRIBUTE)),\
 		.format = uf::renderer::enums::Format::FORMAT,\
 		.name = #ATTRIBUTE,\
-		.type = ext::RENDERER::typeToEnum<decltype(TYPE::ATTRIBUTE)::type_t>(),\
+		.type = uf::renderer::typeToEnum<decltype(TYPE::ATTRIBUTE)::type_t>(),\
 		.components = decltype(TYPE::ATTRIBUTE)::size,\
 	},
 
@@ -580,7 +617,7 @@ namespace pod {
 }
 
 namespace uf {
-	template<typename T = pod::Vertex_3F, typename U = ext::RENDERER::index_t>
+	template<typename T = pod::Vertex_3F, typename U = uf::renderer::index_t>
 	struct UF_API Mesh_T {
 		typedef T vertex_t;
 		typedef U index_t;
@@ -590,7 +627,7 @@ namespace uf {
 		uf::stl::vector<pod::Primitive> primitives;
 	};
 
-	template<typename T = pod::Vertex_3F, typename U = ext::RENDERER::index_t>
+	template<typename T = pod::Vertex_3F, typename U = uf::renderer::index_t>
 	struct UF_API Meshlet_T {
 		typedef T vertex_t;
 		typedef U index_t;
@@ -599,4 +636,78 @@ namespace uf {
 		uf::stl::vector<index_t> indices;
 		pod::Primitive primitive;
 	};
+
+	namespace mesh {
+		size_t UF_API fetchIndex( const void* pointer, size_t stride, size_t index );
+		pod::Vector3f UF_API fetchVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
+		pod::Triangle UF_API fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
+		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t triID );
+
+		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) {
+			return uf::mesh::fetchIndex( indices.data(view.index.first), indices.stride(), index );
+		}
+		// for clean code, these would be preferable
+		// but they incur additional lookups every triangle fetch, and I doubt the optimizer will optimize that away, so explicitly passing attribute views is preferable
+		static inline size_t fetchIndex( const uf::Mesh::View& view, size_t index ) {
+			return uf::mesh::fetchIndex( view, view["indices"], index );
+		}
+		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
+			return uf::mesh::fetchIndex( view, view[indices], index );
+		}
+		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, size_t index ) {
+			return uf::mesh::fetchVertex( view, view["positions"], index );
+		}
+		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, const uf::stl::string& positions, size_t index ) {
+			return uf::mesh::fetchVertex( view, view[positions], index );
+		}
+		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, const uf::stl::string& indices, const uf::stl::string& positions, size_t triID ) {
+			return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
+		}
+		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
+			return uf::mesh::fetchTriangle( view, view["index"], view["position"], triID );
+		}
+
+		template<typename T>
+		T fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
+			#define CAST_VERTEX(type) {\
+				const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
+				for ( auto i = 0; i < T::size; ++i ) res[i] = vertices[i];\
+				return res;\
+			}
+			#define DEQUANTIZE_VERTEX(type) {\
+				const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
+				for ( auto i = 0; i < T::size; ++i ) res[i] = uf::quant::dequantize(vertices[i]);\
+				return res;\
+			}
+
+			// direct copy
+			if ( uf::renderer::typeToEnum<typename T::type_t>() == attributeView.type() && T::size == attributeView.components() ) {
+				return uf::vector::copy<typename T::type_t, T::size>( (typename T::type_t*) attributeView.data( view.vertex.first + index ) );
+			}
+
+			// implicit copy
+			T res;
+			switch ( attributeView.type() ) {
+				// dequantize
+				case uf::renderer::enums::Type::USHORT:
+				case uf::renderer::enums::Type::SHORT: {
+					DEQUANTIZE_VERTEX(uint16_t);
+				} break;
+				case uf::renderer::enums::Type::FLOAT: {
+					CAST_VERTEX(float);
+				} break;
+			#if UF_USE_FLOAT16
+				case uf::renderer::enums::Type::HALF: {
+					CAST_VERTEX(std::float16_t);
+				} break;
+			#endif
+			#if UF_USE_BFLOAT16
+				case uf::renderer::enums::Type::BFLOAT: {
+					CAST_VERTEX(std::bfloat16_t);
+				} break;
+			#endif
+				default: UF_EXCEPTION("unsupported attribute type: {}", attributeView.attribute.descriptor.type); break;
+			}
+		}
+	}
 }

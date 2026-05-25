@@ -115,6 +115,12 @@ namespace {
 		}
 		return nodeIndex;
 	}
+
+	pod::Vector3f computeTangent( const pod::Vector3f& normal ) {
+		pod::Vector3f up = ( std::fabs(normal.y) < 0.999f ) ? pod::Vector3f{0,1,0} : pod::Vector3f{1,0,0}; // pick a vector not parallel to normal
+		pod::Vector3f tangent = uf::vector::normalize( uf::vector::cross( up, normal ) );
+		return tangent;
+	}
 }
 
 void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {

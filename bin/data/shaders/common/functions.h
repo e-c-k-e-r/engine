@@ -24,18 +24,18 @@ float mipLevels( ivec2 size ) {
 vec4 rgbaUVec4toVec4( uvec4 rgba ) {
 /*
 	return vec4(float((val & 0x000000FF)), 
-    float((val & 0x0000FF00) >> 8U), 
-    float((val & 0x00FF0000) >> 16U), 
-    float((val & 0xFF000000) >> 24U));
+	float((val & 0x0000FF00) >> 8U), 
+	float((val & 0x00FF0000) >> 16U), 
+	float((val & 0xFF000000) >> 24U));
 */
 	return rgba / vec4(256.0);
 }
 uvec4 rgbaVec4toUvec4( vec4 rgba ) {
 /*
 	 return (uint(val.w) & 0x000000FF) << 24U | 
-    (uint(val.z) & 0x000000FF) << 16U | 
-    (uint(val.y) & 0x000000FF) << 8U | 
-    (uint(val.x) & 0x000000FF);
+	(uint(val.z) & 0x000000FF) << 16U | 
+	(uint(val.y) & 0x000000FF) << 8U | 
+	(uint(val.x) & 0x000000FF);
 */
 	return uvec4(rgba * uvec4(256));
 }
@@ -67,7 +67,7 @@ uint tea(uint val0, uint val1) {
 uint lcg(inout uint prev) {
 	uint LCG_A = 1664525u;
 	uint LCG_C = 1013904223u;
-	prev       = (LCG_A * prev + LCG_C);
+	prev	   = (LCG_A * prev + LCG_C);
 	return prev & 0x00FFFFFF;
 }
 float rnd(inout uint prev) { return (float(lcg(prev)) / float(0x01000000)); }
@@ -99,7 +99,7 @@ vec3 samplingHemisphere(inout uint seed, in vec3 x, in vec3 y, in vec3 z) {
 	float r2 = rnd(seed);
 	float sq = sqrt(1.0 - r2);
 	vec3 direction = vec3(cos(2 * PI * r1) * sq, sin(2 * PI * r1) * sq, sqrt(r2));
-	direction      = direction.x * x + direction.y * y + direction.z * z;
+	direction	  = direction.x * x + direction.y * y + direction.z * z;
 	return direction;
 }
 vec3 samplingHemisphere(inout uint seed, in vec3 z) {
@@ -111,7 +111,7 @@ vec3 samplingHemisphere(inout uint seed, in vec3 z) {
 	float r2 = rnd(seed);
 	float sq = sqrt(1.0 - r2);
 	vec3 direction = vec3(cos(2 * PI * r1) * sq, sin(2 * PI * r1) * sq, sqrt(r2));
-	direction      = direction.x * x + direction.y * y + direction.z * z;
+	direction	  = direction.x * x + direction.y * y + direction.z * z;
 	return direction;
 }
 //
@@ -376,7 +376,23 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 		if ( isValidAddress(instanceAddresses.tangent) ) {
 			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
 			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent[_] = buf.v[/*triangle.*/indices[_]*3+_];
+			for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent[_] = buf.v[/*triangle.*/indices[_]*3+_];
+		} else {
+			vec3 edge1 = points[1].position - points[0].position;
+			vec3 edge2 = points[2].position - points[0].position;
+			vec2 deltaUV1 = points[1].uv - points[0].uv;
+			vec2 deltaUV2 = points[2].uv - points[0].uv;
+
+			float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+			vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
+
+			#pragma unroll 3
+			for ( uint i = 0; i < 3; ++i ) {
+				vec3 n = points[i].normal;
+				// Gram-Schmidt orthogonalization
+				points[i].tangent = normalize(tangent_tri - n * dot(n, tangent_tri));
+			}
 		}
 	}
 
@@ -413,14 +429,6 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
 	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
 
-	// triangle.point.normal = triangle.geomNormal;
-	
-	if ( triangle.point.tangent != vec3(0) ) {
-		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
-		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
-		surface.tbn = mat3(surface.tangent.world, bitangent, triangle.point.normal);
-	}
-
 	// bind position (seems to muck with the skybox + fog)
 #if 0 && BARYCENTRIC_CALCULATE
 	{
@@ -432,6 +440,12 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	{
 		surface.normal.world = normalize(vec3( surface.object.model * vec4(triangle.point.normal, 0.0 ) ));
 	//	surface.normal.eye = vec3( VIEW_MATRIX * vec4(surface.normal.world, 0.0) );
+	}
+	// bind tangent
+	if ( triangle.point.tangent != vec3(0) ) {
+		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
+		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		surface.tbn = mat3(surface.tangent.world, bitangent, surface.normal.world);
 	}
 	// bind UVs
 	{

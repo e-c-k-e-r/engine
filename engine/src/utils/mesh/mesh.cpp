@@ -757,3 +757,53 @@ void uf::Mesh::_insertIs( uf::Mesh::Input& input, const void* data, size_t size,
 	}
 #endif
 }
+
+////
+
+size_t uf::mesh::fetchIndex( const void* pointer, size_t stride, size_t index ) { 
+	#define CAST_INDEX(T) case sizeof(T): return ((T*) pointer)[index];
+	switch ( stride ) {
+		CAST_INDEX(uint8_t);
+		CAST_INDEX(uint16_t);
+		CAST_INDEX(uint32_t);
+		default: {
+			UF_EXCEPTION("invalid stride type: {}", stride);
+		} break;
+	}
+}
+pod::Vector3f uf::mesh::fetchVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index ) {
+	return uf::mesh::fetchVertexAttribute<pod::Vector3f>( view, positions, index );
+}
+
+pod::Triangle uf::mesh::fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID ) {
+	auto index = triID * 3;
+	pod::Triangle tri;
+	FOR_EACH(3, {
+		tri.points[i] = uf::mesh::fetchVertex( view, positions, uf::mesh::fetchIndex( view, indices, index + i ) );
+	});
+	return tri;
+}
+
+pod::TriangleWithNormal uf::mesh::fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
+	const auto& views = mesh.buffer_views;
+	UF_ASSERT(!views.empty());
+
+	// find which view contains this triangle index.
+	size_t triBase = 0;
+	const uf::Mesh::View* view = nullptr;
+	for ( auto& v : views ) {
+		auto trisInView = v.index.count / 3;
+		if (triID < triBase + trisInView) {
+			view = &v;
+			triID -= triBase; // local triangle index inside this view
+			break;
+		}
+		triBase += trisInView;
+	}
+	UF_ASSERT( view );
+	
+	pod::TriangleWithNormal tri = { uf::mesh::fetchTriangle( *view, triID ) };
+	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
+
+	return tri;
+}
