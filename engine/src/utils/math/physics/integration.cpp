@@ -186,6 +186,8 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	if ( !body.activity.awake || body.inverseMass == 0.0f ) return;
 
 	auto& world = *body.world;
+	auto& transform = *body.transform;
+	auto fT = uf::transform::flatten( transform );
 
 	// linear integration
 	pod::Vector3f acceleration = body.forceAccumulator * body.inverseMass;
@@ -194,26 +196,26 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 
 	// angular integration
 	{
-		pod::Matrix3f R = uf::quaternion::matrix3(body.transform->orientation);
+		pod::Matrix3f R = uf::quaternion::matrix3( fT.orientation );
 		pod::Vector3f localTorque = uf::matrix::multiply( uf::matrix::transpose(R), body.torqueAccumulator );
 		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
 		body.angularVelocity += uf::matrix::multiply( R, localAngAccel ) * dt;
 	}
 
 	// update position
-	body.transform/*.reference*/->position += body.velocity * dt;
+	transform.position += body.velocity * dt;
 
 	// update orientation
 	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
 	if ( angularSpeed2 > EPS2 ) {
 		float angularSpeed = std::sqrt( angularSpeed2 );
 		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, angularSpeed * dt);
-		uf::transform::rotate( *body.transform/*.reference*/, dq );
+		uf::transform::rotate( transform, dq );
 	}
 
 	// pseudo-impulse position correction
 	if ( !uf::physics::settings.ngsPositionSolver ) {
-		body.transform->position += body.pseudoVelocity * dt;
+		transform.position += body.pseudoVelocity * dt;
 
 		float pseudoAngularSpeed2 = uf::vector::magnitude( body.pseudoAngularVelocity );
 		if ( pseudoAngularSpeed2 > EPS ) {
@@ -222,7 +224,7 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 
 			float clampedSpeed = std::min(pseudoAngularSpeed, (2.0f * M_PI / 180.0f) / dt);
 			pod::Quaternion<> dq = uf::quaternion::axisAngle( axis, clampedSpeed * dt );
-			uf::transform::rotate( *body.transform, dq );
+			uf::transform::rotate( transform, dq );
 		}
 		
 		// reset

@@ -59,3 +59,26 @@ pod::Constraint& uf::physics::constrainBallSocket( pod::Constraint& constraint, 
 
 	return constraint;
 }
+
+void impl::drawBallSocket( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+	auto tA = impl::getTransform(*constraint.a);
+	auto tB = impl::getTransform(*constraint.b);
+
+	const auto& joint = constraint.ballSocket;
+
+	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
+	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+
+	uf::debug::drawLine( tA.position, pA );
+	uf::debug::drawLine( tB.position, pB );
+
+	uf::debug::drawLine( pA, pB );
+
+	// crosshair
+	float size = 0.1f;
+	uf::debug::drawLine( pA - pod::Vector3f{size, 0.0f, 0.0f}, pA + pod::Vector3f{size, 0.0f, 0.0f} );
+	uf::debug::drawLine( pA - pod::Vector3f{0.0f, size, 0.0f}, pA + pod::Vector3f{0.0f, size, 0.0f} );
+	uf::debug::drawLine( pA - pod::Vector3f{0.0f, 0.0f, size}, pA + pod::Vector3f{0.0f, 0.0f, size} );
+}

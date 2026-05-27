@@ -21,7 +21,10 @@
 #if BARYCENTRIC
 	// 0 keeps a buffer for barycentric coordinates, 1 will reconstruct in the deferred pass
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 1
+		// currently has issues with:
+		// * skinned meshes because I'm not applying joint transformations
+		// * this weird texture offsetting from movement despite having fixed this with the original camera buffers
+		#define BARYCENTRIC_CALCULATE 0
 	#endif
 #endif
 

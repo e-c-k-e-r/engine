@@ -67,8 +67,12 @@ bool impl::planeHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 }
 
 void impl::drawPlane( const pod::PhysicsBody& body ) {
+	const auto& plane = body.collider.plane;
 	auto transform = impl::getTransform(body);
 
+#if 0
+	uf::debug::drawPlane( plane, transform );
+#else
 	pod::Vector3f right = uf::quaternion::rotate(transform.orientation, pod::Vector3f{1, 0, 0});
 	pod::Vector3f forward = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 0, 1});
 
@@ -78,13 +82,14 @@ void impl::drawPlane( const pod::PhysicsBody& body ) {
 	pod::Vector3f p2 = transform.position - (right * size) - (forward * size);
 	pod::Vector3f p3 = transform.position + (right * size) - (forward * size);
 
-	impl::addLine( p0, p1 );
-	impl::addLine( p1, p2 );
-	impl::addLine( p2, p3 );
-	impl::addLine( p3, p0 );
+	uf::debug::drawLine( p0, p1 );
+	uf::debug::drawLine( p1, p2 );
+	uf::debug::drawLine( p2, p3 );
+	uf::debug::drawLine( p3, p0 );
 
-	impl::addLine( p0, p2 );
-	impl::addLine( p1, p3 );
+	uf::debug::drawLine( p0, p2 );
+	uf::debug::drawLine( p1, p3 );
+#endif
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Plane& plane ) {

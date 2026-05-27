@@ -59,3 +59,8 @@ pod::Constraint& uf::physics::constrainSpring( pod::Constraint& constraint, cons
 
 	return constraint;
 }
+
+void impl::drawSpring( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+}

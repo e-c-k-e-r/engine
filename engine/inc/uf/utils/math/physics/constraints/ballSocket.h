@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveBallSocketConstraint( pod::Constraint& constraint, float dt );
+	void drawBallSocket( const pod::Constraint& constraint );
 }
 
 namespace uf {

@@ -12,6 +12,9 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 			auto tA = impl::getTransform( a );
 			auto tB = impl::getTransform( b );
 
+			auto& aT = *a.transform;
+			auto& bT = *b.transform;
+
 			if ( a.inverseMass == 0.0f && b.inverseMass == 0.0f ) continue;
 
 			for ( auto& c : manifold.points ) {
@@ -38,7 +41,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 				// apply impulses directly
 				if ( ctxA.invM > 0.0f ) {
 					pod::Vector3f translation = P * ctxA.invM;
-					a.transform->position -= translation;
+					aT.position -= translation;
 					tA.position -= translation;
 
 					pod::Vector3f deltaAngleA = uf::matrix::multiply(ctxA.invI, uf::vector::cross(rA, -P));
@@ -53,7 +56,7 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 
 				if ( ctxB.invM > 0.0f ) {
 					pod::Vector3f translation = P * ctxB.invM;
-					b.transform->position += translation;
+					bT.position += translation;
 					tB.position += translation;
 
 					pod::Vector3f deltaAngleB = uf::matrix::multiply(ctxB.invI, uf::vector::cross(rB, P));

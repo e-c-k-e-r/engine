@@ -1,6 +1,8 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/math/physics/constraints.h>
+#include <uf/utils/math/physics/common.h>
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/string/base64.h>
@@ -301,72 +303,12 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 	for ( auto& box : bounds ) {
 		auto extent = (box.extent - box.center) * 0.5f;
 		auto center = (box.extent + box.center) * 0.5f;
-		box = pod::OBB{ center, extent * 0.5f };
+		box = pod::OBB{ center, extent };
 	}
 
 	return bounds;
 }
 
 void uf::graph::rigRagdoll( pod::Graph& graph, pod::Node& node ) {
-	auto& storage = ::getGraphStorage(uf::scene::getCurrentScene());
-	auto& name = graph.skins[node.skin];
-	auto& skin = storage.skins[name];
-
-	auto bounds = uf::graph::obbFromSkin( graph, node );
-	uf::stl::unordered_map<int32_t, pod::PhysicsBody*> bodies;
-
-	// create physics bodies
-	const float density = 1.0f;
-	for ( auto i = 0; i < skin.joints.size(); ++i ) {
-		auto& obb = bounds[i];
-		if ( obb.extent.x < 0 ) continue; // invalid bounds
-		auto jointID = skin.joints[i]; // gLTF standard guarantees a jointID is the nodeID
-
-		auto& node = graph.nodes[jointID];
-		auto& entity = *node.entity;
-
-		auto offset = obb.center;
-	/*
-		auto matrix = ::worldMatrix( graph, jointID );
-		auto offset = uf::matrix::multiply( matrix, obb.center );
-	*/
-
-		float volume = 8.0f * obb.extent.x * obb.extent.y * obb.extent.z;
-		float mass = 10.0f; // volume * density;
-
-		auto& body = uf::physics::create( entity, mass, offset );
-		uf::physics::initialize( body, pod::OBB{ pod::Vector3f{}, obb.extent } );
-		bodies[jointID] = &body;
-	}
-
-	// create constraints
-	for ( auto i = 0; i < skin.joints.size(); ++i ) {
-		int32_t jointID = skin.joints[i];
-		auto& node = graph.nodes[jointID];
-
-		// no body: cannot constrain
-		if ( bodies.count( jointID ) == 0 ) continue;
-		// no parent: cannot constrain
-		if ( bodies.count( node.parent ) == 0 ) continue;
-
-		auto* bodyA = bodies[node.parent];
-		auto* bodyB = bodies[jointID];
-
-		auto matrixA = ::worldMatrix( graph, node.parent );
-		auto matrixB = ::worldMatrix( graph, jointID );
-
-		auto pivotA = uf::matrix::extractTranslation( matrixA );
-		auto pivotB = uf::matrix::extractTranslation( matrixB );
-
-		auto pivot = pivotB; // pivot is where the bone starts
-		auto axis = uf::vector::normalize( pivotB - pivotA );
-
-		// fallback
-		if ( uf::vector::distanceSquared( pivotB, pivotA ) < EPS2 ) {
-			axis = uf::quaternion::rotate( uf::matrix::extractRotation(matrixB), pod::Vector3f{0, 1, 0} );
-		}
-
-	//	auto& constraint = uf::physics::constrain( *bodyA, *bodyB );
-	//	uf::physics::constrainConeTwist( constraint, pivot, axis );
-	}
+	// scrapped for now
 }

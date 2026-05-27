@@ -133,3 +133,8 @@ pod::Constraint& uf::physics::constrainSlider( pod::Constraint& constraint, cons
 
 	return constraint;
 }
+
+void impl::drawSlider( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+}

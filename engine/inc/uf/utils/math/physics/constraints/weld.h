@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveWeldConstraint( pod::Constraint& constraint, float dt );
+	void drawWeld( const pod::Constraint& constraint );
 }
 
 namespace uf {

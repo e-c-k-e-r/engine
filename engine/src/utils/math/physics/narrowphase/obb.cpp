@@ -299,28 +299,9 @@ bool impl::obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 }
 
 void impl::drawObb( const pod::PhysicsBody& body ) {
-	auto aabb = impl::obbToAabb( body.collider.obb );
-	pod::Vector3f corners[8] = {
-		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
-		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
-		{aabb.min.x, aabb.min.y, aabb.max.z}, {aabb.max.x, aabb.min.y, aabb.max.z},
-		{aabb.max.x, aabb.max.y, aabb.max.z}, {aabb.min.x, aabb.max.y, aabb.max.z}
-	};
-
-	auto transform = impl::getTransform(body);
-	FOR_EACH( 8, {
-		corners[i] = uf::transform::apply(transform, corners[i]);
-	});
-
-	// bottom face
-	impl::addLine( corners[0], corners[1] ); impl::addLine( corners[1], corners[2] );
-	impl::addLine( corners[2], corners[3] ); impl::addLine( corners[3], corners[0] );
-	// top face
-	impl::addLine( corners[4], corners[5] ); impl::addLine( corners[5], corners[6] );
-	impl::addLine( corners[6], corners[7] ); impl::addLine( corners[7], corners[4] );
-	// vertical edges
-	impl::addLine( corners[0], corners[4] ); impl::addLine( corners[1], corners[5] );
-	impl::addLine( corners[2], corners[6] ); impl::addLine( corners[3], corners[7] );
+	const auto& obb = body.collider.obb;
+	auto transform = impl::getTransform(body);	
+	uf::debug::drawObb( obb, transform );
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::OBB& obb ) {

@@ -72,3 +72,8 @@ pod::Constraint& uf::physics::constrainWeld( pod::Constraint& constraint, const 
 
 	return constraint;
 }
+
+void impl::drawWeld( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+}

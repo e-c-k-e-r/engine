@@ -1105,6 +1105,12 @@ void uf::graph::process( pod::Graph& graph ) {
 			UF_MSG_DEBUG("\tImage: {}", name);
 		}
 	}
+	if ( graphMetadataJson["debug"]["print"]["animations"].as<bool>() ) {
+		UF_MSG_DEBUG("Animations: {}", graph.animations.size());
+		for ( auto& name : graph.animations ) {
+			UF_MSG_DEBUG("\tAnimation: {}", name);
+		}
+	}
 */
 
 	UF_DEBUG_TIMER_MULTITRACE("Rigging ragdolls");
@@ -1358,7 +1364,10 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		}
 	}
 
-	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
+	for ( auto childIndex : node.children ) {
+		uf::graph::process( graph, childIndex, entity );
+		graph.nodes[childIndex].parent = index;
+	}
 }
 
 void uf::graph::destroy( pod::Graph& graph ) {
@@ -1396,6 +1405,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 	graph.root.entity->process([&]( uf::Entity* entity ) {
 		if ( entity->getUid() == 0 ) entity->initialize();
 	});
+
 
 	auto& scene = uf::scene::getCurrentScene();
 	scene.invalidateGraph();

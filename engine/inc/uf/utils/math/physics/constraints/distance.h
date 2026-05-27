@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveDistanceConstraint( pod::Constraint& constraint, float dt );
+	void drawDistance( const pod::Constraint& contact );
 }
 
 namespace uf {

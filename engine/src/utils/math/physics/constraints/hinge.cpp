@@ -72,3 +72,24 @@ pod::Constraint& uf::physics::constrainHinge( pod::Constraint& constraint, const
 
 	return constraint;
 }
+
+void impl::drawHinge( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+	auto tA = impl::getTransform(*constraint.a);
+	auto tB = impl::getTransform(*constraint.b);
+
+	const auto& joint = constraint.hinge;
+
+	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
+	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+
+	auto aA = uf::quaternion::rotate(tA.orientation, joint.localAxisA);
+	auto aB = uf::quaternion::rotate(tB.orientation, joint.localAxisB);
+
+	uf::debug::drawLine( pA, pB );
+
+	float pin = 0.5f;
+	uf::debug::drawLine( pA - pod::Vector3f{aA.x * pin, aA.y * pin, aA.z * pin}, pA + pod::Vector3f{aA.x * pin, aA.y * pin, aA.z * pin} );
+	uf::debug::drawLine( pB - pod::Vector3f{aB.x * pin, aB.y * pin, aB.z * pin}, pB + pod::Vector3f{aB.x * pin, aB.y * pin, aB.z * pin} );
+}

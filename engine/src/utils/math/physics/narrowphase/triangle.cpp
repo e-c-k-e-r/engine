@@ -358,14 +358,7 @@ bool impl::triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, p
 void impl::drawTriangle( const pod::PhysicsBody& body ) {
 	const auto& tri = body.collider.triangle;
 	auto transform = impl::getTransform(body);
-
-	pod::Vector3f v0 = uf::transform::apply(transform, tri.points[0]);
-	pod::Vector3f v1 = uf::transform::apply(transform, tri.points[1]);
-	pod::Vector3f v2 = uf::transform::apply(transform, tri.points[2]);
-
-	impl::addLine( v0, v1 );
-	impl::addLine( v1, v2 );
-	impl::addLine( v2, v0 );
+	uf::debug::drawTriangle( tri, transform );
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::TriangleWithNormal& tri ) {

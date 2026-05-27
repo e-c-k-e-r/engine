@@ -167,3 +167,31 @@ pod::Constraint& uf::physics::constrainConeTwist( pod::Constraint& constraint, c
 
 	return constraint;
 }
+
+
+void impl::drawConeTwist( const pod::Constraint& constraint ) {
+	if ( !constraint.a || !constraint.b ) return;
+
+	auto tA = impl::getTransform(*constraint.a);
+	auto tB = impl::getTransform(*constraint.b);
+	const auto& joint = constraint.coneTwist;
+
+	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
+	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+
+	auto taA = uf::quaternion::rotate(tA.orientation, joint.localTwistAxisA);
+	auto taB = uf::quaternion::rotate(tB.orientation, joint.localTwistAxisB);
+
+	auto raA = uf::quaternion::rotate(tA.orientation, joint.localReferenceAxisA);
+	auto raB = uf::quaternion::rotate(tB.orientation, joint.localReferenceAxisB);
+
+	uf::debug::drawLine( pA, pB );
+
+	float axisLength = 0.5f;
+	uf::debug::drawLine( pA, pA + taA * axisLength );
+	uf::debug::drawLine( pB, pB + taB * axisLength );
+
+	float refLength = 0.25f;
+	uf::debug::drawLine( pA, pA + raA * refLength );
+	uf::debug::drawLine( pB, pB + raB * refLength );
+}

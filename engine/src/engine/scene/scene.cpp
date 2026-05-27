@@ -5,6 +5,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/debug/draw.h>
 #include <uf/utils/io/fmt.h>
 #include <uf/engine/ext.h>
 #include <regex>
@@ -294,6 +295,8 @@ void uf::scene::tick() {
 	}
 	
 	uf::graph::tick( scene );
+
+	uf::debug::draw( uf::time::delta );
 }
 void uf::scene::render() {
 	if ( scenes.empty() ) return;

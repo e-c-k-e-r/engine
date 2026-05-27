@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveConeTwistConstraint( pod::Constraint& constraint, float dt );
+	void drawConeTwist( const pod::Constraint& constraint );
 }
 
 namespace uf {

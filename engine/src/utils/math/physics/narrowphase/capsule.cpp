@@ -107,26 +107,55 @@ bool impl::capsuleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 }
 
 void impl::drawCapsule( const pod::PhysicsBody& body ) {
-	float radius = body.collider.capsule.radius;
+	const auto& capsule  = body.collider.capsule;
 	auto transform = impl::getTransform(body);
+#if 0
+	uf::debug::drawCapsule( capsule, transform );
+#else
 	auto [p1, p2] = impl::getCapsuleSegment(body);
+	const int segments = 16;
+	const float angleIncrement = (2.0f * M_PI) / segments;
 
-	pod::Vector3f up = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 1, 0});
-	pod::Vector3f right = uf::vector::normalize(impl::computeTangent(up));
-	pod::Vector3f forward = uf::vector::cross(up, right);
+	for ( auto i = 0; i < segments; ++i ) {
+		float theta1 = i * angleIncrement;
+		float theta2 = (i + 1) * angleIncrement;
 
-	pod::Vector3f rightOffset = right * radius;
-	pod::Vector3f forwardOffset = forward * radius;
+		float c1 = std::cos(theta1) * capsule.radius;
+		float s1 = std::sin(theta1) * capsule.radius;
+		float c2 = std::cos(theta2) * capsule.radius;
+		float s2 = std::sin(theta2) * capsule.radius;
 
-	impl::addLine( p1 + rightOffset, p2 + rightOffset );
-	impl::addLine( p1 - rightOffset, p2 - rightOffset );
-	impl::addLine( p1 + forwardOffset, p2 + forwardOffset );
-	impl::addLine( p1 - forwardOffset, p2 - forwardOffset );
+		pod::Vector3f xy1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, s1, 0.0f});
+		pod::Vector3f xy2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, s2, 0.0f});
 
-	impl::addLine( p1 + rightOffset, p1 - rightOffset );
-	impl::addLine( p1 + forwardOffset, p1 - forwardOffset );
-	impl::addLine( p2 + rightOffset, p2 - rightOffset );
-	impl::addLine( p2 + forwardOffset, p2 - forwardOffset );
+		pod::Vector3f xz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, 0.0f, s1});
+		pod::Vector3f xz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, 0.0f, s2});
+
+		pod::Vector3f yz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c1, s1});
+		pod::Vector3f yz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c2, s2});
+
+		uf::debug::drawLine( p1 + xy1, p1 + xy2 );
+		uf::debug::drawLine( p1 + xz1, p1 + xz2 );
+		uf::debug::drawLine( p1 + yz1, p1 + yz2 );
+
+		uf::debug::drawLine( p2 + xy1, p2 + xy2 );
+		uf::debug::drawLine( p2 + xz1, p2 + xz2 );
+		uf::debug::drawLine( p2 + yz1, p2 + yz2 );
+	}
+
+	pod::Vector3f rx = uf::quaternion::rotate(transform.orientation, pod::Vector3f{capsule.radius, 0.0f, 0.0f});
+	pod::Vector3f ry = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, capsule.radius, 0.0f});
+	pod::Vector3f rz = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, 0.0f, capsule.radius});
+
+	uf::debug::drawLine( p1 + rx, p2 + rx );
+	uf::debug::drawLine( p1 - rx, p2 - rx );
+
+	uf::debug::drawLine( p1 + ry, p2 + ry );
+	uf::debug::drawLine( p1 - ry, p2 - ry );
+
+	uf::debug::drawLine( p1 + rz, p2 + rz );
+	uf::debug::drawLine( p1 - rz, p2 - rz );
+#endif
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Capsule& capsule ) {

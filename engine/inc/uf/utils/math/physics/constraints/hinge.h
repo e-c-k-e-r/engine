@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveHingeConstraint( pod::Constraint& constraint, float dt );
+	void drawHinge( const pod::Constraint& constraint );
 }
 
 namespace uf {

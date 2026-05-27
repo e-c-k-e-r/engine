@@ -447,6 +447,8 @@ namespace pod {
 		uint32_t broadphaseBvhCapacity = 1; // number of bodies per leaf node
 		uint32_t meshBvhCapacity = 1; // number of triangles per leaf node
 
+		bool flattenTransforms = true; // flatten transforms before a step, then unflattens it at end of step (to solve a problem involving hierarchies)
+
 		// additionally flattens a BVH for linear iteration, rather than a recursive / stack-based traversal
 		bool flattenBvhBodies = true;
 		bool flattenBvhMeshes = true;

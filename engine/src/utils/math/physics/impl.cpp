@@ -103,6 +103,31 @@ void uf::physics::step( pod::World& world, float dt ) {
 
 	++uf::physics::settings.frameCounter;
 
+	// flatten all transforms into a contiguous buffer
+	static thread_local uf::stl::vector<pod::Transform<>*> originalTransforms; // stores the pointer to the original transform
+	static thread_local uf::stl::vector<pod::Transform<>> flattenedTransforms; // stores the flattened transforms
+	static thread_local uf::stl::unordered_map<pod::Transform<>*, pod::Transform<>*> transformsMap; // maps the original transform to the flattened one (for querying)
+
+	if ( uf::physics::settings.flattenTransforms ) {
+		originalTransforms.resize( bodies.size() );
+		flattenedTransforms.resize( bodies.size() );
+		transformsMap.clear();
+
+		// copy all transforms, flatten them, and map the original to the reference
+		for ( auto i = 0; i < bodies.size(); ++i ) {
+			auto& body = *bodies[i];
+			//if ( body.inverseMass == 0.0f ) continue; // static bodies don't ever move, so the hierarchy problem doesn't affect it (right?)
+			auto& transform = *body.transform;
+			auto& flattenedTransform = flattenedTransforms[i];
+			auto& originalTransform = originalTransforms[i];
+
+			originalTransform = body.transform;
+			flattenedTransform = uf::transform::flatten( transform );		
+			transformsMap[originalTransform] = &flattenedTransform;
+			body.transform = &flattenedTransform; // body now points to the flattened transform
+		}
+	}
+
 	for ( auto* body : bodies ) {
 		impl::integrate( *body, dt );
 	}
@@ -232,6 +257,41 @@ void uf::physics::step( pod::World& world, float dt ) {
 
 	// snap velocities of bodies
 	for ( auto* b : bodies ) impl::snapVelocity( *b, dt );
+
+	// unflatten all transforms
+	if ( uf::physics::settings.flattenTransforms ) for ( auto i = 0; i < bodies.size(); ++i ) {
+		auto& body = *bodies[i];
+		//if ( body.inverseMass == 0.0f ) continue; // do not bother with static bodies
+		auto& originalTransform = originalTransforms[i];
+		auto& flattenedTransform = flattenedTransforms[i];
+		
+		// now points back to original transform
+		body.transform = originalTransform;
+		auto& transform = *body.transform;
+
+		// solo transform: simply update
+		if ( !transform.reference ) {
+			// update position and orientation
+			transform.position = flattenedTransform.position;
+			transform.orientation = flattenedTransform.orientation;
+		// referential transform: convert new world space into local space (to original transform)
+		} else {
+			pod::Transform<> parentTransform;
+			// parent is not within the physics system, use original reference
+			if ( transformsMap.count( originalTransform->reference ) == 0 ) {
+				parentTransform = uf::transform::flatten( *originalTransform->reference );
+			// parent is within the physics system, use the already-flattened transform
+			} else {
+				parentTransform = *transformsMap[originalTransform->reference];
+			}
+
+			transform.position = uf::transform::applyInverse( parentTransform, flattenedTransform.position );
+			transform.orientation = uf::quaternion::multiply(
+				uf::quaternion::inverse( parentTransform.orientation ),
+				flattenedTransform.orientation
+			);
+		}
+	}
 }
 
 void uf::physics::setMass( pod::PhysicsBody& body, float mass ) {
@@ -452,7 +512,7 @@ void uf::physics::applyAngularVelocity( pod::PhysicsBody& body, const pod::Quate
 }
 void uf::physics::applyRotation( pod::PhysicsBody& body, const pod::Quaternion<>& q ) {
 	impl::wakeBody( body );
-	uf::transform::rotate( *body.transform/*.reference*/, q );
+	uf::transform::rotate( *body.transform, q );
 }
 void uf::physics::applyRotation( pod::PhysicsBody& body, const pod::Vector3f& axis, float angle ) {
 	uf::physics::applyRotation( body, uf::quaternion::axisAngle( axis, angle ) );
@@ -481,7 +541,10 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 	// initial initialization
 	body.world = &world;
 	body.object = &object;
-	body.transform/*.reference*/ = &object.getComponent<pod::Transform<>>();
+	body.transform = &object.getComponent<pod::Transform<>>();
+#if UF_PHYSICS_SYNC_TRANSFORMS
+	body.flattenedTransform = uf::transform::flatten( *body.transform );
+#endif
 	body.offset = offset;
 	body.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
 	body.collider.type = {};

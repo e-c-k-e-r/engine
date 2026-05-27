@@ -66,7 +66,11 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 pod::Transform<> impl::getTransform( const pod::PhysicsBody& body ) {
 	pod::Transform<> t;
 	t.position = body.offset;
+#if UF_PHYSICS_SYNC_TRANSFORMS
+	t.reference = const_cast<pod::Transform<>*>( &body.flattenedTransform );
+#else
 	t.reference = body.transform;
+#endif
 	return uf::transform::flatten( t );
 }
 // get position of a body, uses bounds center or transform's position
@@ -112,8 +116,9 @@ bool impl::shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b )
 pod::Matrix3f impl::computeWorldInverseInertia( const pod::PhysicsBody& b ) {
 	if ( b.inverseMass == 0.0f ) return pod::Matrix3f{};
 
+	auto t = impl::getTransform( b );
 	pod::Matrix3f invI_local = uf::matrix::diagonal( b.inverseInertiaTensor );
-	pod::Matrix3f R = uf::quaternion::matrix3(b.transform->orientation);
+	pod::Matrix3f R = uf::quaternion::matrix3( t.orientation );
 
 #if 1
 	return R * invI_local * uf::matrix::transpose(R);

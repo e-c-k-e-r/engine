@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveSpringConstraint( pod::Constraint& constraint, float dt );
+	void drawSpring( const pod::Constraint& constraint );
 }
 
 namespace uf {

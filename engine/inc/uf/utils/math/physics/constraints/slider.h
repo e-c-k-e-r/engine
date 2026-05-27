@@ -4,6 +4,7 @@
 
 namespace impl {
 	void solveSliderConstraint( pod::Constraint& constraint, float dt );
+	void drawSlider( const pod::Constraint& constraint );
 }
 
 namespace uf {

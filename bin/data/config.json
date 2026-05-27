@@ -350,8 +350,8 @@
 				"max": 0.01 // 0.2
 			},
 			"debug draw": {
-				"static": false,
-				"dynamic": false
+				"static": true,
+				"dynamic": true
 			},
 			"fixed step": true,
 			"substeps": 4

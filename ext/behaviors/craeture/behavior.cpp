@@ -157,7 +157,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 void ext::CraetureBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::CraetureBehavior::Metadata>();
 
-	if ( this->hasComponent<pod::Graph>() ) {
+	if ( this->hasComponent<pod::Graph>() && metadata.animation != "" ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		pod::payloads::QueueAnimationPayload payload;
 		payload.name = metadata.animation;

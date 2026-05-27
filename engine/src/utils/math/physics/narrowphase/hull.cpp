@@ -84,16 +84,14 @@ bool impl::hullHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 void impl::drawHull( const pod::PhysicsBody& body ) {
 	const uf::Mesh* meshData = body.collider.convexHull.mesh;
+	auto transform = impl::getTransform( body );
 	if ( !meshData ) return;
 
 	size_t totalTriangles = 0;
 	for ( const auto& view : meshData->buffer_views ) totalTriangles += view.index.count / 3;
 
 	for ( size_t i = 0; i < totalTriangles; ++i ) {
-		auto tri = impl::fetchTriangle(*meshData, i, body);
-		
-		impl::addLine( tri.points[0], tri.points[1] );
-		impl::addLine( tri.points[1], tri.points[2] );
-		impl::addLine( tri.points[2], tri.points[0] );
+		auto tri = uf::mesh::fetchTriangle( *meshData, i );
+		uf::debug::drawTriangle( tri, transform );
 	}
 }
