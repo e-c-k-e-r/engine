@@ -7,6 +7,7 @@
 
 
 void impl::drawManifold( const pod::Manifold& manifold ) {
+	if ( !uf::physics::settings.debugDraw.contacts ) return;
 	for ( auto& contact : manifold.points ) {
 		auto& start = contact.point;
 		auto end = contact.point + (contact.normal * MIN(contact.penetration, 0.1f) * 2);
@@ -15,7 +16,7 @@ void impl::drawManifold( const pod::Manifold& manifold ) {
 	}
 }
 void impl::drawBody( const pod::PhysicsBody& body ) {
-	if ( !(body.collider.category & uf::physics::settings.debugDraw) ) return;
+	if ( !(body.collider.category & uf::physics::settings.debugDraw.mask) ) return;
 	switch( body.collider.type ) {
 		case pod::ShapeType::AABB:
 			impl::drawAabb( body );
@@ -44,8 +45,9 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 	}
 }
 void impl::drawConstraint( const pod::Constraint& constraint ) {
-	if ( !(constraint.a->collider.category & uf::physics::settings.debugDraw) ) return;
-	if ( !(constraint.b->collider.category & uf::physics::settings.debugDraw) ) return;
+	if ( !uf::physics::settings.debugDraw.constraints ) return;
+	if ( !(constraint.a->collider.category & uf::physics::settings.debugDraw.mask) ) return;
+	if ( !(constraint.b->collider.category & uf::physics::settings.debugDraw.mask) ) return;
 
 	switch( constraint.type ) {
 		case pod::ConstraintType::BALL_AND_SOCKET:

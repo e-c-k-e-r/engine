@@ -12,7 +12,9 @@ namespace impl {
 
 	pod::Transform<> getTransform( const pod::PhysicsBody& body );
 	pod::Vector3f getPosition( const pod::PhysicsBody& body, bool useTransform = false );
-	
+	pod::Vector3f apply( const pod::Transform<>& t, const pod::Vector3f& p );
+	pod::Vector3f applyInverse( const pod::Transform<>& t, const pod::Vector3f& p );
+
 	pod::PhysicsBody physicsBodyHullView( const pod::PhysicsBody& body, int32_t index = -1 );
 	pod::PhysicsBody physicsBodyTriView( const pod::TriangleWithNormal triangle, const pod::PhysicsBody& body = {} );
 	pod::PhysicsBody physicsBodyTriView( const pod::PhysicsBody& body, size_t triID );

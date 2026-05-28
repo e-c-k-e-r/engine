@@ -1113,17 +1113,6 @@ void uf::graph::process( pod::Graph& graph ) {
 	}
 */
 
-	UF_DEBUG_TIMER_MULTITRACE("Rigging ragdolls");
-	for ( auto& node : graph.nodes ) {
-		if ( node.skin < 0 || node.mesh < 0 ) continue;
-		ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
-		if ( ext::json::isNull( tag ) ) tag["physics"] = graphMetadataJson["physics"];
-		if ( tag["physics"]["ragdoll"].as<bool>(false) ) {
-			uf::graph::rigRagdoll( graph, node );
-		}
-	}
-	UF_DEBUG_TIMER_MULTITRACE_END("Rigged ragdolls.");
-
 	UF_DEBUG_TIMER_MULTITRACE("Updating master graph");
 #if UF_GRAPH_EXTENDED
 	uf::graph::reload( graph );
@@ -1406,6 +1395,15 @@ void uf::graph::initialize( pod::Graph& graph ) {
 		if ( entity->getUid() == 0 ) entity->initialize();
 	});
 
+	auto& graphMetadataJson = graph.metadata;
+	for ( auto& node : graph.nodes ) {
+		if ( node.skin < 0 || node.mesh < 0 ) continue;
+		ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+		if ( ext::json::isNull( tag ) ) tag["physics"] = graphMetadataJson["physics"];
+		if ( tag["physics"]["ragdoll"].as<bool>(false) ) {
+			uf::graph::rigRagdoll( graph, node );
+		}
+	}
 
 	auto& scene = uf::scene::getCurrentScene();
 	scene.invalidateGraph();

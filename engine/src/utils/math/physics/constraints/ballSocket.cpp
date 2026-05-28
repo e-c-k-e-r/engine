@@ -14,8 +14,11 @@ void impl::solveBallSocketConstraint( pod::Constraint& constraint, float dt ) {
 	auto tA = impl::getTransform( a );
 	auto tB = impl::getTransform( b );
 
-	auto rA = uf::quaternion::rotate( tA.orientation, joint.localAnchorA );
-	auto rB = uf::quaternion::rotate( tB.orientation, joint.localAnchorB );
+	auto anchorA = joint.localAnchorA * tA.scale;
+	auto anchorB = joint.localAnchorB * tB.scale;
+
+	auto rA = uf::quaternion::rotate( tA.orientation, anchorA );
+	auto rB = uf::quaternion::rotate( tB.orientation, anchorB );
 
 	pod::Matrix3f K = {};
 	pod::Vector3f axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
@@ -63,13 +66,12 @@ pod::Constraint& uf::physics::constrainBallSocket( pod::Constraint& constraint, 
 void impl::drawBallSocket( const pod::Constraint& constraint ) {
 	if ( !constraint.a || !constraint.b ) return;
 
-	auto tA = impl::getTransform(*constraint.a);
-	auto tB = impl::getTransform(*constraint.b);
-
 	const auto& joint = constraint.ballSocket;
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
-	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+	auto pA = uf::transform::apply( tA, joint.localAnchorA );
+	auto pB = uf::transform::apply( tB, joint.localAnchorB );
 
 	uf::debug::drawLine( tA.position, pA );
 	uf::debug::drawLine( tB.position, pB );

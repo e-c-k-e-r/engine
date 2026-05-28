@@ -150,6 +150,7 @@ namespace uf {
 		void UF_API override( pod::Graph& );
 		void UF_API animate( pod::Graph&, const uf::stl::string&, float = 1, bool = true );
 
+		uf::stl::vector<pod::Bone> collectBones( const pod::Graph& graph, const pod::Node& node );
 		uf::stl::vector<pod::OBB> obbFromSkin( const pod::Graph& graph, const pod::Node& node );
 		void rigRagdoll( pod::Graph& graph, pod::Node& node );
 		

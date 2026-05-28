@@ -172,26 +172,26 @@ pod::Constraint& uf::physics::constrainConeTwist( pod::Constraint& constraint, c
 void impl::drawConeTwist( const pod::Constraint& constraint ) {
 	if ( !constraint.a || !constraint.b ) return;
 
-	auto tA = impl::getTransform(*constraint.a);
-	auto tB = impl::getTransform(*constraint.b);
 	const auto& joint = constraint.coneTwist;
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
-	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+	auto pA = uf::transform::apply( tA, joint.localAnchorA );
+	auto pB = uf::transform::apply( tB, joint.localAnchorB );
 
-	auto taA = uf::quaternion::rotate(tA.orientation, joint.localTwistAxisA);
-	auto taB = uf::quaternion::rotate(tB.orientation, joint.localTwistAxisB);
+	auto taA = uf::quaternion::rotate( tA.orientation, joint.localTwistAxisA );
+	auto taB = uf::quaternion::rotate( tB.orientation, joint.localTwistAxisB );
 
-	auto raA = uf::quaternion::rotate(tA.orientation, joint.localReferenceAxisA);
-	auto raB = uf::quaternion::rotate(tB.orientation, joint.localReferenceAxisB);
+	auto raA = uf::quaternion::rotate( tA.orientation, joint.localReferenceAxisA );
+	auto raB = uf::quaternion::rotate( tB.orientation, joint.localReferenceAxisB );
 
-	uf::debug::drawLine( pA, pB );
+	uf::debug::drawLine( pA, pB, pod::Vector4f{ 1, 1, 0, 1 } ); // yellow
 
 	float axisLength = 0.5f;
-	uf::debug::drawLine( pA, pA + taA * axisLength );
-	uf::debug::drawLine( pB, pB + taB * axisLength );
+	uf::debug::drawLine( pA, pA + taA * axisLength, pod::Vector4f{ 1, 0, 1, 1 } ); // pink
+	uf::debug::drawLine( pB, pB + taB * axisLength, pod::Vector4f{ 1, 0, 1, 1 } );
 
 	float refLength = 0.25f;
-	uf::debug::drawLine( pA, pA + raA * refLength );
-	uf::debug::drawLine( pB, pB + raB * refLength );
+	uf::debug::drawLine( pA, pA + raA * refLength, pod::Vector4f{ 0, 1, 1, 1 } ); // cyan
+	uf::debug::drawLine( pB, pB + raB * refLength, pod::Vector4f{ 0, 1, 1, 1 } );
 }

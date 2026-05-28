@@ -13,6 +13,7 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/string/hash.h>
 #include <uf/utils/io/inputs.h>
+#include <uf/utils/debug/draw.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::GraphBehavior)
 UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = true, renders = false, thread = "")
@@ -68,13 +69,32 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
 void uf::GraphBehavior::tick( uf::Object& self ) {
-	/* Test */ {
-		TIMER(1, uf::inputs::kbm::states::T ) {
-			UF_MSG_DEBUG("Regenerating graph graphics...");
-			auto& graph = this->getComponent<pod::Graph>();
-			uf::graph::reload( graph );
+	if ( !this->hasComponent<pod::Graph>() ) return;
+	auto& graph = this->getComponent<pod::Graph>();
+	if ( !graph.metadata["debug"]["draw"]["armature"].as<bool>(false) ) return;
+	auto& transform = this->getComponent<pod::Transform<>>();
+	for ( auto& node : graph.nodes ) {
+		if ( node.skin < 0 || node.mesh < 0 ) continue;
+		auto bones = uf::graph::collectBones( graph, node );
+		for ( auto& bone : bones ) {
+			bone.start = uf::transform::apply( transform, bone.start );
+			bone.end = uf::transform::apply( transform, bone.end );
+
+			uf::debug::drawLine( bone.start, bone.end, pod::Vector4f{ 0, 1, 0, 1 } );
 		}
 	}
+
+	static bool hid = false;
+	if ( hid ) return;
+	hid = true;
+	this->process([&](uf::Entity* entity){
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		auto& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized ) return;
+		auto& descriptorSet = graphic.getDescriptorSet();
+		descriptorSet.metadata.process = false;
+		uf::renderer::states::rebuild = true;
+	});
 }
 void uf::GraphBehavior::render( uf::Object& self ) {}
 void uf::GraphBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}

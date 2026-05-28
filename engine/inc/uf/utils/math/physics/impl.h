@@ -58,8 +58,8 @@ namespace uf {
 		const pod::CollisionEvent::events_t& UF_API getCollisionEvents( const pod::World& world );
 		pod::CollisionEvent::events_t UF_API getCollisionEvents( const pod::PhysicsBody& body );
 		
-		pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
-		pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {} );
+		pod::PhysicsBody& UF_API create( uf::Object&, float mass = 0.0f, const pod::Vector3f& = {}, const pod::Quaternion<>& = {0,0,0,1} );
+		pod::PhysicsBody& UF_API create( pod::World&, uf::Object&, float mass = 0.0f, const pod::Vector3f& = {}, const pod::Quaternion<>& = {0,0,0,1} );
 		void UF_API destroy( uf::Object& );
 		void UF_API destroy( pod::PhysicsBody& );
 	}

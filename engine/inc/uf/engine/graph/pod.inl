@@ -58,6 +58,11 @@ namespace pod {
 		uf::stl::vector<pod::Matrix4f> inverseBindMatrices;
 	};
 
+	struct UF_API Bone {
+		pod::Vector3f start;
+		pod::Vector3f end;
+	};
+
 	struct UF_API Animation {
 		struct Sampler {
 			uf::stl::string interpolator;

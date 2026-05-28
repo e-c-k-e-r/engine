@@ -219,7 +219,7 @@ void uf::debug::draw( float dt ) {
 		graphic.material.device = &uf::renderer::device;
 
 		// to-do: bin by descriptor instead of one global set
-		graphic.descriptor.depth.test = true;
+		graphic.descriptor.depth.test = false;
 		graphic.descriptor.depth.write = false;
 		graphic.descriptor.renderTarget = 1; // "forward";
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;

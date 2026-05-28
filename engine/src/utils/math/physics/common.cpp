@@ -65,12 +65,9 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 // to-do: find a succinct way to explain this madness
 pod::Transform<> impl::getTransform( const pod::PhysicsBody& body ) {
 	pod::Transform<> t;
-	t.position = body.offset;
-#if UF_PHYSICS_SYNC_TRANSFORMS
-	t.reference = const_cast<pod::Transform<>*>( &body.flattenedTransform );
-#else
+	t.position = body.offsetPosition;
+	t.orientation = body.offsetOrientation;
 	t.reference = body.transform;
-#endif
 	return uf::transform::flatten( t );
 }
 // get position of a body, uses bounds center or transform's position
@@ -78,6 +75,23 @@ pod::Vector3f impl::getPosition( const pod::PhysicsBody& body, bool useTransform
 	if ( !useTransform ) return impl::aabbCenter( body.bounds );
 	return impl::getTransform( body ).position;
 }
+// applies a transform
+pod::Vector3f impl::apply( const pod::Transform<>& t, const pod::Vector3f& p ) {
+	return uf::transform::apply( t, p );
+}
+// applies an inverse transform
+pod::Vector3f impl::applyInverse( const pod::Transform<>& t, const pod::Vector3f& p ) {
+	return uf::transform::applyInverse( t, p );
+}
+/*
+// these isometrically applies a transform
+pod::Vector3f impl::apply( const pod::Transform<>& t, const pod::Vector3f& p ) {
+	return uf::quaternion::rotate( t.orientation, p + t.position );
+}
+pod::Vector3f impl::applyInverse( const pod::Transform<>& t, const pod::Vector3f& p ) {
+	return uf::quaternion::rotate( uf::quaternion::inverse( t.orientation ), p - t.position );
+}
+*/
 // creates a view of a hull body
 pod::PhysicsBody impl::physicsBodyHullView( const pod::PhysicsBody& body, int32_t index ) {
 	pod::PhysicsBody view = body;
@@ -94,7 +108,8 @@ pod::PhysicsBody impl::physicsBodyTriView( const pod::TriangleWithNormal triangl
 		view.collider.triangle.normal = impl::triangleNormal( (const pod::Triangle&) triangle );
 	}
 	// assume triangle is already transformed
-	view.offset = {};
+	view.offsetPosition = {};
+	view.offsetOrientation = {0,0,0,1};
 	view.transform = NULL;
 	return view;
 }

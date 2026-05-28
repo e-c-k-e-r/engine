@@ -2,8 +2,8 @@
 	"type": "Object",
 	"name": "Craeture",
 	"ignore": false,
+	"import": "./craetureModel.json",
 	"assets": [
-		"./craetureModel.json",
 		"./scripts/craeture.lua"
 	],
 	"behaviors": [
@@ -11,13 +11,10 @@
 		"SoundEmitterBehavior"
 	],
 	"transform": {
+		"position": [ -7.04676, 10.169565, -44.0822 ],
 		//"position": [ 0, 1.5, 21 ],
-		"position": [ 16.3489, 1.37972, -68.1571 ],
-		"rotation": {
-			"axis": [ 0, 1, 0 ],
-			"angle": 0
-		},
-		"scale": [ 1, 1, 1 ]
+		//"position": [ 16.3489, 1.37972, -68.1571 ],
+		"scale": [ 0.3, 0.3, 0.3 ]
 	},
 	"system": {
 		"hot reload": {
@@ -26,7 +23,17 @@
 	},
 	"metadata": {
 		"name": "Craeture",
-
+		"graph": {
+			"debug": {
+				"draw": {
+					"armature": true
+				}
+			},
+			"physics": {
+				"ragdoll": true
+			}
+		}
+		/*
 		"physics": {
 			"gravity": [ 0, -9.81, 0 ],
 			"inertia": [ 0, 0, 0 ],
@@ -41,5 +48,6 @@
 			
 			"shared": false
 		}
+		*/
 	}
 }

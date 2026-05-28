@@ -6,8 +6,9 @@
 	"metadata": {
 		"physics": {
 			"mass": 0,
-			"inertia": [0, 0, 0],
-			"type": "bounding box"
+		//	"inertia": [0, 0, 0],
+		//	"type": "bounding box"
+			"type": "mesh"
 		}
 	}
 }

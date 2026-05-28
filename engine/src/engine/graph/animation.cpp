@@ -76,17 +76,18 @@ namespace {
 	#endif
 	}
 
-	pod::Matrix4f localMatrix( pod::Graph& graph, int32_t index ) {
+	pod::Matrix4f localMatrix( const pod::Graph& graph, int32_t index ) {
 		auto& node = 0 < index && index <= graph.nodes.size() ? graph.nodes[index] : graph.root;
+		auto& transform = node.transform;
 		return
-			uf::matrix::translate( uf::matrix::identity(), node.transform.position ) *
-			uf::quaternion::matrix(node.transform.orientation) *
-			uf::matrix::scale( uf::matrix::identity(), node.transform.scale ) *
-			node.transform.model;
+			uf::matrix::translate( uf::matrix::identity(), transform.position ) *
+			uf::quaternion::matrix(transform.orientation) *
+			uf::matrix::scale( uf::matrix::identity(), transform.scale ) *
+			transform.model;
 	}
-	pod::Matrix4f worldMatrix( pod::Graph& graph, int32_t index ) {
+	pod::Matrix4f worldMatrix( const pod::Graph& graph, int32_t index ) {
 		pod::Matrix4f matrix = ::localMatrix( graph, index );
-		auto& node = *uf::graph::find( graph, index );
+		auto& node = 0 < index && index <= graph.nodes.size() ? graph.nodes[index] : graph.root;
 		int32_t parent = node.parent;
 		while ( 0 < parent && parent <= graph.nodes.size() ) {
 			matrix = ::localMatrix( graph, parent ) * matrix;
@@ -261,6 +262,25 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 }
 
 // separate function in the event something later might need it
+uf::stl::vector<pod::Bone> uf::graph::collectBones( const pod::Graph& graph, const pod::Node& node ) {
+	auto& storage = ::getGraphStorage(uf::scene::getCurrentScene());
+	auto& name = graph.skins[node.skin];
+	auto& skin = storage.skins[name];
+
+	uf::stl::vector<pod::Bone> bones( graph.nodes.size() );
+	for ( auto i = 0; i < skin.joints.size(); ++i ) {
+		auto nodeID = skin.joints[i];
+		auto& node = graph.nodes[nodeID];
+		if ( node.parent < 0 ) continue;
+		auto& parent = graph.nodes[node.parent];
+
+		auto tA = uf::transform::flatten( parent.transform );
+		auto tB = uf::transform::flatten( node.transform );
+
+		bones[nodeID] = pod::Bone{ tA.position, tB.position };
+	}
+	return bones;
+}
 uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const pod::Node& node ) {
 	const float wThresold = 0.15f;
 
@@ -290,11 +310,11 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 
 			for ( auto w = 0; w < 4; ++w ) {
 				if ( weights[w] <= wThresold ) continue;
-				uint16_t boneID = joints[w];
-				pod::Vector3f localPos = uf::matrix::multiply( skin.inverseBindMatrices[boneID], pos );
+				uint16_t jointID = joints[w];
+				pod::Vector3f localPos = uf::matrix::multiply( skin.inverseBindMatrices[jointID], pos );
 
-				bounds[boneID].center = uf::vector::min( bounds[boneID].center, localPos );
-				bounds[boneID].extent = uf::vector::max( bounds[boneID].extent, localPos );
+				bounds[jointID].center = uf::vector::min( bounds[jointID].center, localPos );
+				bounds[jointID].extent = uf::vector::max( bounds[jointID].extent, localPos );
 			}
 		}
 	}
@@ -310,5 +330,107 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 }
 
 void uf::graph::rigRagdoll( pod::Graph& graph, pod::Node& node ) {
-	// scrapped for now
+	auto& storage = ::getGraphStorage(uf::scene::getCurrentScene());
+	auto& name = graph.skins[node.skin];
+	auto& skin = storage.skins[name];
+
+	auto bounds = uf::graph::obbFromSkin( graph, node );
+	auto bones = uf::graph::collectBones( graph, node );
+	auto armatureTransform = uf::transform::flatten( graph.root.entity->getComponent<pod::Transform<>>() );
+
+	// create physics bodies
+	uf::stl::vector<pod::PhysicsBody*> bodies( graph.nodes.size(), NULL );
+
+	for ( auto i = 0; i < skin.joints.size(); ++i ) {
+		auto nodeID = skin.joints[i];
+		auto& node = graph.nodes[nodeID];
+		if ( node.parent < 0 ) continue;
+		auto& entity = *node.entity;
+		auto transform = uf::transform::flatten( entity.getComponent<pod::Transform<>>() );
+
+		// this definitely could be done better......
+		auto& bone = bones[nodeID];
+		auto& obb = bounds[i];
+	//	if ( obb.extent.x < 0 ) continue;
+		// transform center into world space
+		auto boneCenter = uf::transform::apply( armatureTransform, (bone.end + bone.start) * 0.5f );
+		// transform back into local space
+		auto offset = uf::transform::applyInverse( transform, boneCenter );
+		auto orientation = uf::quaternion::identity();
+		float length = uf::vector::norm( offset ) * 2.0f;
+
+		float mass = 100.0f;
+		auto& body = uf::physics::create( entity, mass, offset, orientation );
+		if ( obb.extent.x < 0 ) {
+			uf::physics::initialize( body, pod::Sphere{ 0.1f } );
+		} else {
+			uf::physics::initialize( body, pod::OBB{ pod::Vector3f{}, obb.extent * armatureTransform.scale } );
+		}
+		//uf::physics::initialize( body, pod::Capsule{ 0.5f, length * 0.5f } );
+
+		bodies[nodeID] = &body;
+	}
+
+	// create constraints
+	for ( auto i = 0; i < skin.joints.size(); ++i ) {
+		auto nodeID = skin.joints[i];
+		auto& node = graph.nodes[nodeID];
+		if ( !bodies[node.parent] ) continue; // no parent body, skip constraint
+		if ( !bodies[nodeID] ) continue; // no node body, skip constraint
+		
+		auto& bodyA = *bodies[node.parent];
+		auto& bodyB = *bodies[nodeID];
+
+		auto tA = uf::transform::flatten( *bodyA.transform ); // bone start
+		auto tB = uf::transform::flatten( *bodyB.transform ); // bone end
+
+		auto pivot = tA.position;
+		auto axis = uf::vector::normalize( tB.position - tA.position );
+
+		auto& constraint = uf::physics::constrain( bodyA, bodyB );
+		uf::physics::constrainConeTwist( constraint, pivot, axis );
+	}
+
+	// works only pre-init and for no scaling
+#if 0
+	for ( auto i = 0; i < skin.joints.size(); ++i ) {
+		auto nodeID = skin.joints[i];
+		auto& node = graph.nodes[nodeID];
+		if ( node.parent < 0 ) continue;
+		auto& entity = *node.entity;
+
+		auto boneStart = uf::transform::applyInverse( node.transform, pod::Vector3f{0, 0, 0} );
+		auto offset = uf::vector::lerp( boneStart, pod::Vector3f{}, 0.5f );
+		auto orientation = uf::quaternion::identity();
+		// float length = ...
+
+		float mass = 0.0f;
+		auto& body = uf::physics::create( entity, mass, offset, orientation );
+		uf::physics::initialize( body, pod::Sphere{ 0.5f } );
+
+		bodies[nodeID] = &body;
+	}
+
+	// create constraints
+	for ( auto i = 0; i < skin.joints.size(); ++i ) {
+		auto nodeID = skin.joints[i];
+		auto& node = graph.nodes[nodeID];
+		if ( node.parent < 0 ) continue;
+		auto& parent = graph.nodes[node.parent];
+		if ( bodies.count( node.parent ) == 0 ) continue;
+		if ( bodies.count( nodeID ) == 0 ) continue;
+		
+		auto& bodyA = bodies[node.parent];
+		auto& bodyB = bodies[nodeID];
+
+		auto tA = uf::transform::flatten( parent.transform );
+		auto tB = uf::transform::flatten( node.transform );
+
+		auto pivot = tA.position;
+		auto axis = uf::vector::normalize( tB.position - tA.position );
+
+		auto& constraint = uf::physics::constrain( *bodyA, *bodyB );
+		uf::physics::constrainConeTwist( constraint, pivot, axis );
+	}
+#endif
 }

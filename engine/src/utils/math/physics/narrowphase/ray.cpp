@@ -342,7 +342,7 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 		}
 	}
 	
-	if ( uf::physics::settings.debugDraw ) impl::drawRay( ray, rayHit );
+	if ( uf::physics::settings.debugDraw.rays ) impl::drawRay( ray, rayHit );
 
 	return rayHit;
 }

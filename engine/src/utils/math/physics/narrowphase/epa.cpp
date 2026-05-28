@@ -178,7 +178,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 bool impl::generateClippingManifold( const pod::PhysicsBody& a, const pod::PhysicsBody& b, const pod::Contact& contact, pod::Manifold& manifold ) {
 	if ( !uf::vector::isValid(contact.point) ) return false;
 
-	auto& normal = contact.normal;
+	auto normal = contact.normal;
 
 	pod::Vector3f polyA[4];
 	pod::Vector3f polyB[4];
@@ -192,17 +192,30 @@ bool impl::generateClippingManifold( const pod::PhysicsBody& a, const pod::Physi
 		return true;
 	}
 
-	// to-do: reference face is the most perpendicular face
-	pod::Vector3f* refPoly = polyA;
-	pod::Vector3f* incPoly = polyB;
-	int refCount = countA;
-	int incCount = countB;
+	pod::Vector3f normalA = uf::vector::normalize(uf::vector::cross(polyA[1] - polyA[0], polyA[2] - polyA[0]));
+	pod::Vector3f normalB = uf::vector::normalize(uf::vector::cross(polyB[1] - polyB[0], polyB[2] - polyB[0]));
+
+	float dotA = uf::vector::dot(normalA, normal);
+	float dotB = uf::vector::dot(normalB, -normal);
+
+	pod::Vector3f* refPoly;
+	pod::Vector3f* incPoly;
+	int refCount, incCount;
+	pod::Vector3f refNormal;
+
+	if ( dotA > dotB ) {
+		refPoly = polyA; refCount = countA; refNormal = normalA;
+		incPoly = polyB; incCount = countB;
+	} else {
+		refPoly = polyB; refCount = countB; refNormal = normalB;
+		incPoly = polyA; incCount = countA;
+
+		normal = -normal;
+	}
 
 	pod::Vector3f clipBuffer[8];
 	int clipCount = incCount;
 	for ( auto i = 0; i < incCount; ++i ) clipBuffer[i] = incPoly[i];
-
-	pod::Vector3f refNormal = uf::vector::normalize(uf::vector::cross(refPoly[1] - refPoly[0], refPoly[2] - refPoly[0]));
 
 	for ( auto i = 0; i < refCount; ++i ) {
 		pod::Vector3f edgeStart = refPoly[i];

@@ -407,7 +407,8 @@ namespace pod {
 		float inverseMass = 0.0f;
 		int32_t viewIndex = -1; // -1 means it's not an aliased view
 
-		pod::Vector3f offset = {};
+		pod::Vector3f offsetPosition = {};
+		pod::Quaternion<> offsetOrientation = { 0, 0, 0, 1 };
 
 		pod::Vector3f velocity = {};
 		pod::Vector3f forceAccumulator = {};
@@ -437,7 +438,6 @@ namespace pod {
 		bool resolveBlockContact = true; // attempts to resolve an invalid BlockNxN solve with an BlockN-1xN-1 solve
 		bool useGjk = false; // currently don't have a way to broadphase mesh => narrowphase tri via GJK
 		
-		pod::CollisionMask debugDraw = pod::Collider::CATEGORY_NONE; // draws wireframe of collision bodies
 		bool async = false; // dedicated thread for physics sim
 		float timestep = 1.0f / 60.0f; // timestep for fixed step ticks
 		bool fixedStep = true; // run physics simulation with a fixed delta time (with accumulation), rather than rely on actual engine deltatime
@@ -485,6 +485,13 @@ namespace pod {
 		};
 
 		float groundedThreshold = 0.7f; // threshold before marking a body as grounded
+
+		struct {
+			pod::CollisionMask mask = pod::Collider::CATEGORY_NONE; // draws wireframe of collision bodies
+			bool contacts = false;
+			bool constraints = false;
+			bool rays = false;
+		} debugDraw;
 	};
 
 	struct World {

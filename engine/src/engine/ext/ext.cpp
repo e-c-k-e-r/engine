@@ -223,17 +223,24 @@ void UF_API uf::load( ext::json::Value& json ) {
 		}
 		auto& configEnginePhysicsDebugDrawJson = configEnginePhysicsJson["debug draw"];
 		if ( ext::json::isObject( configEnginePhysicsDebugDrawJson ) ) {
-			if ( configEnginePhysicsDebugDrawJson["static"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_STATIC;
-			if ( configEnginePhysicsDebugDrawJson["dynamic"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_DYNAMIC;
-			if ( configEnginePhysicsDebugDrawJson["player"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_PLAYER;
-			if ( configEnginePhysicsDebugDrawJson["npc"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_NPC;
-			if ( configEnginePhysicsDebugDrawJson["trigger"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_TRIGGER;
-			if ( configEnginePhysicsDebugDrawJson["projectile"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_PROJECTILE;
-			if ( configEnginePhysicsDebugDrawJson["character"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_CHARACTER;
-			if ( configEnginePhysicsDebugDrawJson["all"].as<bool>() ) uf::physics::settings.debugDraw |= pod::Collider::CATEGORY_ALL;
+			if ( configEnginePhysicsDebugDrawJson["static"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_STATIC;
+			if ( configEnginePhysicsDebugDrawJson["dynamic"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_DYNAMIC;
+			if ( configEnginePhysicsDebugDrawJson["player"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_PLAYER;
+			if ( configEnginePhysicsDebugDrawJson["npc"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_NPC;
+			if ( configEnginePhysicsDebugDrawJson["trigger"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_TRIGGER;
+			if ( configEnginePhysicsDebugDrawJson["projectile"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_PROJECTILE;
+			if ( configEnginePhysicsDebugDrawJson["character"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_CHARACTER;
+			if ( configEnginePhysicsDebugDrawJson["all"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_ALL;
+			
+			uf::physics::settings.debugDraw.contacts = configEnginePhysicsDebugDrawJson["contacts"].as( uf::physics::settings.debugDraw.contacts );
+			uf::physics::settings.debugDraw.constraints = configEnginePhysicsDebugDrawJson["constraints"].as( uf::physics::settings.debugDraw.constraints );
+			uf::physics::settings.debugDraw.rays = configEnginePhysicsDebugDrawJson["rays"].as( uf::physics::settings.debugDraw.rays );
 
 		} else if ( configEnginePhysicsDebugDrawJson.is<bool>() && configEnginePhysicsDebugDrawJson.as<bool>() ) {
-			uf::physics::settings.debugDraw = pod::Collider::CATEGORY_ALL;
+			uf::physics::settings.debugDraw.mask = pod::Collider::CATEGORY_ALL;
+			uf::physics::settings.debugDraw.contacts = true;
+			uf::physics::settings.debugDraw.constraints = true;
+			uf::physics::settings.debugDraw.rays = true;
 		}
 	}
 

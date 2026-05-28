@@ -66,7 +66,7 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		accumulator -= timestep; 
 	}
 
-	if ( uf::physics::settings.debugDraw != pod::Collider::CATEGORY_NONE ) impl::draw( world, dt );
+	if ( uf::physics::settings.debugDraw.mask != pod::Collider::CATEGORY_NONE ) impl::draw( world, dt );
 }
 void uf::physics::terminate() {
 	uf::physics::terminate( uf::scene::getCurrentScene() );
@@ -241,7 +241,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		// dispatch collision events
 		impl::dispatchManifold( manifold, collisionEvents, activeCollisions, previousCollisions );
 		// draw collision events
-		if ( uf::physics::settings.debugDraw ) impl::drawManifold( manifold );
+		if ( uf::physics::settings.debugDraw.contacts ) impl::drawManifold( manifold );
 	}
 	// dispatch exiting collisions
 	for ( auto& [ key, pair ] : previousCollisions ) {
@@ -534,7 +534,7 @@ pod::CollisionEvent::events_t uf::physics::getCollisionEvents( const pod::Physic
 	return res;
 }
 // body creation
-pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& offset ) {
+pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& positionOffset, const pod::Quaternion<>& orientationOffset ) {
 	auto& root = object.getComponent<pod::PhysicsBody>();
 	auto isRoot = !root.world;
 	auto& body = isRoot ? root : *(new pod::PhysicsBody);
@@ -542,10 +542,8 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 	body.world = &world;
 	body.object = &object;
 	body.transform = &object.getComponent<pod::Transform<>>();
-#if UF_PHYSICS_SYNC_TRANSFORMS
-	body.flattenedTransform = uf::transform::flatten( *body.transform );
-#endif
-	body.offset = offset;
+	body.offsetPosition = positionOffset;
+	body.offsetOrientation = orientationOffset;
 	body.inverseMass = mass == 0.0f ? 0.0f : 1.0f / mass;
 	body.collider.type = {};
 
@@ -578,8 +576,8 @@ pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, fl
 	return body;
 }
 
-pod::PhysicsBody& uf::physics::create( uf::Object& object, float mass, const pod::Vector3f& offset ) {
-	return create( getWorld(), object, mass, offset );
+pod::PhysicsBody& uf::physics::create( uf::Object& object, float mass, const pod::Vector3f& positionOffset, const pod::Quaternion<>& orientationOffset ) {
+	return create( getWorld(), object, mass, positionOffset, orientationOffset );
 }
 
 void uf::physics::destroy( uf::Object& object ) {

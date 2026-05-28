@@ -31,7 +31,8 @@ namespace binds {
 
 		pod::Transform<> getTransform( pod::PhysicsBody& body ) {
 			pod::Transform<> t;
-			t.position = body.offset;
+			t.position = body.offsetPosition;
+			t.orientation = body.offsetOrientation;
 			t.reference = body.transform;
 			return uf::transform::flatten( t );
 		}

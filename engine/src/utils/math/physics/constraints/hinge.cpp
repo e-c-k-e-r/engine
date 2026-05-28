@@ -76,16 +76,15 @@ pod::Constraint& uf::physics::constrainHinge( pod::Constraint& constraint, const
 void impl::drawHinge( const pod::Constraint& constraint ) {
 	if ( !constraint.a || !constraint.b ) return;
 
-	auto tA = impl::getTransform(*constraint.a);
-	auto tB = impl::getTransform(*constraint.b);
-
 	const auto& joint = constraint.hinge;
+	auto tA = impl::getTransform( *constraint.a );
+	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = tA.position + uf::quaternion::rotate(tA.orientation, joint.localAnchorA);
-	auto pB = tB.position + uf::quaternion::rotate(tB.orientation, joint.localAnchorB);
+	auto pA = uf::transform::apply( tA, joint.localAnchorA );
+	auto pB = uf::transform::apply( tB, joint.localAnchorB );
 
-	auto aA = uf::quaternion::rotate(tA.orientation, joint.localAxisA);
-	auto aB = uf::quaternion::rotate(tB.orientation, joint.localAxisB);
+	auto aA = uf::quaternion::rotate( tA.orientation, joint.localAxisA );
+	auto aB = uf::quaternion::rotate( tB.orientation, joint.localAxisB );
 
 	uf::debug::drawLine( pA, pB );
 

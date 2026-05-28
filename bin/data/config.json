@@ -8,7 +8,7 @@
 				"useLightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": false,
+					"enabled": true,
 					"update": 4,
 					"max": 16,
 					"samples": 2
@@ -351,7 +351,10 @@
 			},
 			"debug draw": {
 				"static": true,
-				"dynamic": true
+				"dynamic": true,
+				"contacts": false,
+				"constraints": true,
+				"rays": false
 			},
 			"fixed step": true,
 			"substeps": 4
