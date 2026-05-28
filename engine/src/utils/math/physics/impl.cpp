@@ -174,12 +174,22 @@ void uf::physics::step( pod::World& world, float dt ) {
 		// sleeping island, skip (asleep islands shouldn't ever be in here)
 		if ( !island.awake ) return;
 
+		// pairs of bodies that shouldn't ever collide
+		uf::stl::unordered_set<size_t> ignorePairs;
+		// mark constraining objects as non-colliding (to-do: add a flag)
+		for ( auto& constraint : constraints ) {
+			ignorePairs.insert( impl::makePairKey( *constraint->a, *constraint->b ) );
+		}
+
 		// iterate overlap pairs
 		for ( auto& [ ia, ib ] : island.pairs ) {
 			auto& a = *bodies[ia];
 			auto& b = *bodies[ib];
+			auto pairKey = impl::makePairKey( a, b );
 
 			pod::Manifold manifold;
+			// marked as ignored
+			if ( ignorePairs.find( pairKey ) != ignorePairs.end() ) continue;
 			// did not collide
 			if ( !impl::generateManifold( a, b, manifold, dt ) ) continue;
 
@@ -197,7 +207,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 			}
 			// retrieve accumulated impulses
 			if ( uf::physics::settings.warmupSolver ) {
-				auto it = uf::physics::settings.manifoldsCache.find( impl::makePairKey( a, b ) );
+				auto it = uf::physics::settings.manifoldsCache.find( pairKey );
 				if ( it != uf::physics::settings.manifoldsCache.end() ) impl::retrieveManifold( manifold, it->second );
 			}
 			// merge similar contacts from a mesh to ensure continuity

@@ -11,7 +11,7 @@
 		"SoundEmitterBehavior"
 	],
 	"transform": {
-		"position": [ -7.04676, 10.169565, -44.0822 ],
+		"position": [ -7, 0, -44 ],
 		//"position": [ 0, 1.5, 21 ],
 		//"position": [ 16.3489, 1.37972, -68.1571 ],
 		"scale": [ 0.3, 0.3, 0.3 ]
@@ -23,10 +23,11 @@
 	},
 	"metadata": {
 		"name": "Craeture",
+		"holdable": true,
 		"graph": {
 			"debug": {
 				"draw": {
-					"armature": true
+					"armature": false
 				}
 			},
 			"physics": {
