@@ -14,11 +14,8 @@ void impl::solveBallSocketConstraint( pod::Constraint& constraint, float dt ) {
 	auto tA = impl::getTransform( a );
 	auto tB = impl::getTransform( b );
 
-	auto anchorA = joint.localAnchorA * tA.scale;
-	auto anchorB = joint.localAnchorB * tB.scale;
-
-	auto rA = uf::quaternion::rotate( tA.orientation, anchorA );
-	auto rB = uf::quaternion::rotate( tB.orientation, anchorB );
+	auto rA = uf::quaternion::rotate( tA.orientation, joint.localAnchorA * tA.scale );
+	auto rB = uf::quaternion::rotate( tB.orientation, joint.localAnchorB * tB.scale );
 
 	pod::Matrix3f K = {};
 	pod::Vector3f axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };

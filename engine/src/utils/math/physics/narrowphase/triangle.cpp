@@ -190,7 +190,7 @@ bool impl::triangleObb( const pod::TriangleWithNormal& tri, const pod::PhysicsBo
 
 	auto transform = impl::getTransform( body );
 	auto box = body.collider.obb;
-	box.center = uf::quaternion::rotate(transform.orientation, box.center) + transform.position;
+	box.center = uf::transform::apply( transform, box.center );
 
 	pod::Vector3f axes[3];
 	impl::boxAxes( axes, transform );
@@ -358,7 +358,17 @@ bool impl::triangleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, p
 void impl::drawTriangle( const pod::PhysicsBody& body ) {
 	const auto& tri = body.collider.triangle;
 	auto transform = impl::getTransform(body);
+#if 0
 	uf::debug::drawTriangle( tri, transform );
+#else
+	auto v0 = uf::transform::apply( transform, tri.points[0] );
+	auto v1 = uf::transform::apply( transform, tri.points[1] );
+	auto v2 = uf::transform::apply( transform, tri.points[2] );
+
+	uf::debug::drawLine( v0, v1 );
+	uf::debug::drawLine( v1, v2 );
+	uf::debug::drawLine( v2, v0 );
+#endif
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::TriangleWithNormal& tri ) {

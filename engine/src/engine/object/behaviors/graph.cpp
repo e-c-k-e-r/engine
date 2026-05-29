@@ -73,28 +73,33 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 	auto& graph = this->getComponent<pod::Graph>();
 	if ( !graph.metadata["debug"]["draw"]["armature"].as<bool>(false) ) return;
 	auto& transform = this->getComponent<pod::Transform<>>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
 	for ( auto& node : graph.nodes ) {
 		if ( node.skin < 0 || node.mesh < 0 ) continue;
 		auto bones = uf::graph::collectBones( graph, node );
-		for ( auto& bone : bones ) {
+		auto bounds = uf::graph::obbFromSkin( graph, node );
+		auto& skinName = graph.skins[node.skin];
+		auto& skin = storage.skins[skinName];
+		for ( auto bone : bones ) {
 			bone.start = uf::transform::apply( transform, bone.start );
 			bone.end = uf::transform::apply( transform, bone.end );
 
 			uf::debug::drawLine( bone.start, bone.end, pod::Vector4f{ 0, 1, 0, 1 } );
 		}
-	}
+		for ( auto obb : bounds ) {
+			uf::debug::drawShape( obb, transform );
+		}
+	/*
+		for ( auto i = 0; i < skin.joints.size(); ++i ) {
+			auto nodeID = skin.joints[i];
+			auto obb = bounds[i];
+			auto bone = bones[nodeID];
 
-	static bool hid = false;
-	if ( hid ) return;
-	hid = true;
-	this->process([&](uf::Entity* entity){
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
-		auto& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized ) return;
-		auto& descriptorSet = graphic.getDescriptorSet();
-		descriptorSet.metadata.process = false;
-		uf::renderer::states::rebuild = true;
-	});
+			uf::debug::drawShape( obb, transform );
+		}
+	*/
+	}
 }
 void uf::GraphBehavior::render( uf::Object& self ) {}
 void uf::GraphBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}

@@ -512,7 +512,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 
 			for ( auto i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				if ( metadata.mode == 1 ) {
-					uniforms.matrices[i].model = transform.model; 
+					uniforms.matrices[i].model = uf::transform::model( transform ); 
 				} else if ( metadata.mode == 2 ) {
 					auto& scene = uf::scene::getCurrentScene();
 					auto& controller = scene.getController();
@@ -523,14 +523,12 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 						camera.getProjection(i) *
 						uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 						uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-						uf::quaternion::matrix( flatten.orientation ) *
-						flatten.model;
+						uf::quaternion::matrix( flatten.orientation );
 				} else {
 					uniforms.matrices[i].model = 
 						uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 						uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-						uf::quaternion::matrix( flatten.orientation ) *
-						flatten.model;
+						uf::quaternion::matrix( flatten.orientation );
 				}
 			}
 

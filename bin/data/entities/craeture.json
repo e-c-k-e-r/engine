@@ -14,7 +14,8 @@
 		"position": [ -7, 0, -44 ],
 		//"position": [ 0, 1.5, 21 ],
 		//"position": [ 16.3489, 1.37972, -68.1571 ],
-		"scale": [ 0.3, 0.3, 0.3 ]
+		"scale": [ 0.09, 0.09, 0.09 ]
+		//"scale": [ 1, 1, 1 ]
 	},
 	"system": {
 		"hot reload": {
@@ -31,7 +32,7 @@
 				}
 			},
 			"physics": {
-				"ragdoll": true
+				"ragdoll": false
 			}
 		}
 		/*

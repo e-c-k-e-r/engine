@@ -21,8 +21,8 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 				auto ctxA = impl::solverBodyContext( a );
 				auto ctxB = impl::solverBodyContext( b );
 
-				auto rA = uf::quaternion::rotate( tA.orientation, c.localA );
-				auto rB = uf::quaternion::rotate( tB.orientation, c.localB );
+				auto rA = uf::quaternion::rotate( tA.orientation, c.localA * tA.scale );
+				auto rB = uf::quaternion::rotate( tB.orientation, c.localB * tB.scale );
 
 				auto pA = tA.position + rA;
 				auto pB = tB.position + rB;

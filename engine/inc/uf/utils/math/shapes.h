@@ -3,22 +3,27 @@
 #include <uf/config.h>
 #include <uf/utils/math/vector.h>
 
+#define OBB_EXTENT_CENTER 0
+
 namespace pod {
 	struct Plane {
-		alignas(16) pod::Vector3f normal;
+		pod::Vector3f normal;
 		float offset;
 	};
 
 	struct AABB {
-		alignas(16) pod::Vector3f min;
-		alignas(16) pod::Vector3f max;
-	//	operator OBB() const { return OBB{ (min + max) * 0.5f, (min - max) * 0.5f }; }
+		pod::Vector3f min;
+		pod::Vector3f max;
 	};
 
 	struct OBB {
-		alignas(16) pod::Vector3f center;
-		alignas(16) pod::Vector3f extent;
-	//	operator AABB() const { return AABB{ center - extent, center + extent }; }
+	#if OBB_EXTENT_CENTER
+		pod::Vector3f extent;
+		pod::Vector3f center;
+	#else
+		pod::Vector3f center;
+		pod::Vector3f extent;
+	#endif
 	};
 
 	struct Sphere {
@@ -27,7 +32,7 @@ namespace pod {
 
 	struct Capsule {
 		float radius;
-		float halfHeight;
+		pod::Vector3f up;
 	};
 
 	struct Ray {

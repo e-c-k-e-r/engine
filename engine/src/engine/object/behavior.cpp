@@ -148,8 +148,11 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 				offset = center;
 				center = {};
 			}
-
+		#if OBB_EXTENT_CENTER
+			uf::physics::initialize( body, pod::OBB{ .extent = extent, .center = center } );
+		#else
 			uf::physics::initialize( body, pod::OBB{ .center = center, .extent = extent } );
+		#endif
 		} else if ( type == "aabb" ) {
 			pod::Vector3f min = uf::vector::decode( metadataJsonPhysics["min"], pod::Vector3f{-0.5f, -0.5f, -0.5f} );
 			pod::Vector3f max = uf::vector::decode( metadataJsonPhysics["max"], pod::Vector3f{0.5f, 0.5f, 0.5f} );
@@ -175,9 +178,12 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::physics::initialize( body, pod::Sphere{ radius } );
 		} else if ( type == "capsule" ) {
 			float radius = metadataJsonPhysics["radius"].as<float>();
-			float halfHeight = metadataJsonPhysics["height"].as<float>() * 0.5f;
+			auto up = uf::vector::decode( metadataJsonPhysics["up"], pod::Vector3f{0,1,0} );
+			if ( metadataJsonPhysics["height"].is<float>() ) {
+				up *= metadataJsonPhysics["height"].as<float>() * 0.5f;
+			}
 			
-			uf::physics::initialize( body, pod::Capsule{ radius, halfHeight } );
+			uf::physics::initialize( body, pod::Capsule{ radius, up } );
 		} else if ( type == "mesh" ) {
 			// ...
 		} else {

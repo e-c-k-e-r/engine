@@ -75,11 +75,11 @@ end
 local useDistance = 6
 local pullDistance = useDistance * 4
 
-local function tickFlashlight( transform, inputs )
+local function tickFlashlight( transform, axes, inputs )
 	-- update light position
 	if light.enabled then
 		local center = transform.position
-		local direction = transform.forward * 8
+		local direction = axes.forward * 8
 		local offset = 0.25
 		local _, depth = physicsBody:rayCast(center, direction)
 		depth = math.clamp(depth, 0, 0.5)
@@ -132,12 +132,12 @@ local function onUse( payload )
 	playSound(validUse and "select" or "deny")
 end
 
-local function tickUse( transform, inputs )
+local function tickUse( transform, axes, inputs )
 	-- trigger use
 	if timers.use:elapsed() > 0.5 and inputs["E"] then
 		timers.use:reset()
 		local center = transform.position
-		local direction = transform.forward * useDistance
+		local direction = axes.forward * useDistance
 		local prop, depth = physicsBody:rayCast(center, direction)
 
 		local payload = {
@@ -150,13 +150,13 @@ local function tickUse( transform, inputs )
 	end
 end
 
-local function tickGravGun( transform, inputs )
+local function tickGravGun( transform, axes, inputs )
 	-- not holding anything
 	if heldObject.uid == 0 then
 		-- try and launch object in sights
 		if inputs["mouse2"] then
 			local center = transform.position
-			local direction = transform.forward * pullDistance
+			local direction = axes.forward * pullDistance
 			local prop, depth = physicsBody:rayCast( center, direction )
 			if depth >= 0 and prop and not string.matched( prop:name(), "/^worldspawn/" ) then
 				local heldObjectTransform = prop:getComponent("Transform")
@@ -165,7 +165,7 @@ local function tickGravGun( transform, inputs )
 				local strength = 500
 				local distanceSquared = (heldObjectTransform.position - transform.position):magnitude()
 
-				heldObjectPhysicsBody:applyImpulse( transform.forward * -heldObjectPhysicsBody:getMass() * strength / distanceSquared )
+				heldObjectPhysicsBody:applyImpulse( axes.forward * -heldObjectPhysicsBody:getMass() * strength / distanceSquared )
 				if timers.physcannon:elapsed() > 1.0 then
 					timers.physcannon:reset()
 
@@ -194,18 +194,18 @@ local function tickGravGun( transform, inputs )
 
 			heldObject.uid = 0
 			heldObjectPhysicsBody:enableGravity(true)
-			heldObjectPhysicsBody:applyImpulse( transform.forward * heldObjectPhysicsBody:getMass() * 50 )
+			heldObjectPhysicsBody:applyImpulse( axes.forward * heldObjectPhysicsBody:getMass() * 50 )
 
 			playSound("phys_launch"..math.random(1,4))
 		else
 			-- update rotation
 			if heldObject.rotate then
-				--heldObjectTransform.orientation = Quaternion.lookAt( (heldObjectTransform.position - transform.position):normalize(), transform.up )
+				--heldObjectTransform.orientation = Quaternion.lookAt( (heldObjectTransform.position - transform.position):normalize(), axes.up )
 				heldObjectTransform.orientation = cameraTransform:flatten().orientation
 			end
 			
 			-- move held object
-			local forward = transform.forward * heldObject.distance
+			local forward = axes.forward * heldObject.distance
 			if heldObject.smoothSpeed ~= 0 then
 				local heldObjectFlattened = heldObjectTransform:flatten()
 
@@ -252,15 +252,16 @@ ent:bind( "tick", function(self)
 
 	-- eye transform
 	local flattenedTransform = fixedCamera and transform:flatten() or cameraTransform:flatten()
+	local axes = flattenedTransform:axes()
 
 	-- update flashlight
-	tickFlashlight( flattenedTransform, inputs )
+	tickFlashlight( flattenedTransform, axes, inputs )
 	
 	-- update use
-	tickUse( flattenedTransform, inputs )
+	tickUse( flattenedTransform, axes, inputs )
 
 	-- update HOLP
-	tickGravGun( flattenedTransform, inputs )
+	tickGravGun( flattenedTransform, axes, inputs )
 
 	-- get collision events
 --[[

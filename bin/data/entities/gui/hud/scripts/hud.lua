@@ -163,7 +163,7 @@ ent:bind( "tick", function(self)
 	for k, obj in pairs(children) do
 		local transform = obj:getComponent("Transform")
 		transform.orientation = orientation
-		transform.model = controllerCamera:getProjection() * Matrix4f.translate( transform.position ) * transform.orientation:matrix() * Matrix4f.scale( transform.scale ) --Matrix4f.scale( Vector3f( 1.7776 * 2, 2, 2 ) )
+	--	controllerCamera:getProjection() * Matrix4f.translate( transform.position ) * transform.orientation:matrix() * Matrix4f.scale( transform.scale ) --Matrix4f.scale( Vector3f( 1.7776 * 2, 2, 2 ) )
 	end
 end )
 

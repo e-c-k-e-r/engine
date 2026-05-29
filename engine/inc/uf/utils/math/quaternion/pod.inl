@@ -166,7 +166,7 @@ template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::
 	pod::Vector3t<T> cross = uf::vector::cross(uNorm, vNorm);
 	T s = sqrt((1 + dot) * 2);
 
-	return uf::quaternion::normalize({
+	return uf::quaternion::normalize(pod::Quaternion<>{
 		.x = cross.x / s,
 		.y = cross.y / s,
 		.z = cross.z / s,

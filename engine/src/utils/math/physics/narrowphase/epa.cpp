@@ -123,9 +123,9 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 			outPoly[0] = transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
 		} break;
 		case pod::ShapeType::CAPSULE: {
-			auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
-			auto p1 = transform.position + up * body.collider.capsule.halfHeight;
-			auto p2 = transform.position - up * body.collider.capsule.halfHeight;
+			auto up = uf::quaternion::rotate( transform.orientation, body.collider.capsule.up );
+			auto p1 = transform.position + up;
+			auto p2 = transform.position - up;
 
 			if ( std::fabs( uf::vector::dot( dir, up ) ) < 0.01f ) {
 				outCount = 2;

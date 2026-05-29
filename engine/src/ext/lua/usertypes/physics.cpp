@@ -139,12 +139,18 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::OBB,
 		[]( pod::OBB& self, const pod::OBB& copy ) {
 			return self = copy;
 		},
-		[]( pod::OBB& self, const pod::Vector3f& center, const pod::Vector3f& extent ) {
-			return self = pod::OBB{ center, extent };
+	#if OBB_EXTENT_CENTER
+		[]( pod::OBB& self, const pod::Vector3f& extent, const pod::Vector3f& center ) {
+			return self = pod::OBB{ .extent = extent, .center = center };
 		}
+	#else
+		[]( pod::OBB& self, const pod::Vector3f& center, const pod::Vector3f& extent ) {
+			return self = pod::OBB{ .center = center, .extent = extent };
+		}
+	#endif
 	),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::center),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::extent)
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::extent),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::center)
 )
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Sphere,
 	sol::call_constructor, sol::initializers( 
@@ -168,12 +174,13 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Capsule,
 		[]( pod::Capsule& self, const pod::Capsule& copy ) {
 			return self = copy;
 		},
-		[]( pod::Capsule& self, float radius, float height ) {
-			return self = pod::Capsule{ radius, height * 0.5f };
+		[]( pod::Capsule& self, float radius, pod::Vector3f up ) {
+			//if ( up == pod::Vector3f{} ) up = pod::Vector3f{0,1,0};
+			return self = pod::Capsule{ .radius = radius, .up = up };
 		}
 	),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::radius),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::halfHeight)
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::up)
 )
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Plane,
 	sol::call_constructor, sol::initializers( 
@@ -184,7 +191,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Plane,
 			return self = copy;
 		},
 		[]( pod::Plane& self, const pod::Vector3f& normal, float offset ) {
-			return self = pod::Plane{ normal, offset };
+			return self = pod::Plane{ .normal = normal, .offset = offset };
 		}
 	),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Plane::normal),

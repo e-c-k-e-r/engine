@@ -126,10 +126,14 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
+	auto& transform = this->getComponent<pod::Transform<>>();
+
 	auto& camera = this->getComponent<uf::Camera>();
 	auto& cameraTransform = camera.getTransform();
-
-	auto& transform = this->getComponent<pod::Transform<>>();
+	
+	auto cameraAxes = uf::transform::axes( cameraTransform );
+	auto axes = uf::transform::axes( transform );
+	
 	auto& scene = uf::scene::getCurrentScene();
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
@@ -296,7 +300,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		uf::Object* pointer = NULL;
 		float length = metadata.use.length;
 	//	pod::Vector3f center = transform.position + cameraTransform.position;
-	//	pod::Vector3f direction = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
+	//	pod::Vector3f direction = uf::vector::normalize( axes.forward + pod::Vector3f{ 0, cameraAxes.forward.y, 0 } ) * length;
 		auto flattened = uf::transform::flatten( cameraTransform );
 		pod::Vector3f center = flattened.position;
 		pod::Vector3f direction = flattened.forward * length;
@@ -385,10 +389,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		metadata.system.menu = stats.menu;
 	}
 
-	pod::Transform<> translator = transform;
+	pod::Axes translator = uf::transform::axes( transform );
 #if UF_USE_OPENVR
 	// use the orientation of our controller to determine our target
-	if ( ext::openvr::context ) {
+	/*if ( ext::openvr::context ) {
 		bool useController = true;
 		translator.orientation = uf::quaternion::multiply( transform.orientation, useController ? ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) : ext::openvr::hmdQuaternion() );
 		translator = uf::transform::reorient( translator );
@@ -401,17 +405,17 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		translator.forward = uf::vector::normalize( translator.forward );
 		translator.right = uf::vector::normalize( translator.right );
-	} else
+	} else*/
 #endif
 	// un-flatted if noclipped
 
 	if ( metadata.camera.fixed ) {
-		translator = cameraTransform;
+		translator = uf::transform::axes( cameraTransform );
 		translator.forward.y = 0;
 		translator.forward = uf::vector::normalize( translator.forward );
 	}
 	else if ( stats.noclipped || physicsBody.gravity == pod::Vector3f{0,0,0} ){
-		translator.forward.y += cameraTransform.forward.y;
+		translator.forward.y += cameraAxes.forward.y;
 		translator.forward = uf::vector::normalize( translator.forward );
 	}
 
@@ -452,12 +456,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				physicsBody.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physicsBody.velocity, target ), 0.0f, speed.move * 10 * ONE_OVER_SIXTY /*uf::physics::time::delta*/ );
 			}
 
-			auto dot = uf::vector::dot( transform.forward, target );
+			auto dot = uf::vector::dot( axes.forward, target );
 			if ( !metadata.movement.strafe && dot < 1.0f ) {
-			//	auto cross = uf::vector::normalize( uf::vector::cross( transform.forward, target ) );
-			//	auto axis = cross == pod::Vector3f{0, 0, 0} ? transform.up : cross;
-				auto axis = transform.up;
-				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4; // speed.rotate;
+			//	auto cross = uf::vector::normalize( uf::vector::cross( axes.forward, target ) );
+			//	auto axis = cross == pod::Vector3f{0, 0, 0} ? axes.up : cross;
+				auto axis = axes.up;
+				float angle = uf::vector::signedAngle( axes.forward, target, axis ) * ONE_OVER_SIXTY /*uf::physics::time::delta*/ * 4; // speed.rotate;
 
 				if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, axis, angle ); else
 				uf::transform::rotate( transform, axis, angle );
@@ -510,39 +514,39 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( metadata.camera.invert.x ) lookDelta.x *= -1;
 				metadata.camera.limit.current.x += lookDelta.x;
 				if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-					if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, transform.up, lookDelta.x ); else
-					uf::transform::rotate( transform, transform.up, lookDelta.x );
+					if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, axes.up, lookDelta.x ); else
+					uf::transform::rotate( transform, axes.up, lookDelta.x );
 				} else metadata.camera.limit.current.x -= lookDelta.x;
 			}
 			if ( lookDelta.y != 0 ) {
 				if ( metadata.camera.invert.y ) lookDelta.y *= -1;
 				metadata.camera.limit.current.y += lookDelta.y;
 					if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
-					//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
-						uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
+					//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraAxes.right, lookDelta.y ); else
+						uf::transform::rotate( cameraTransform, cameraAxes.right, lookDelta.y );
 				} else metadata.camera.limit.current.y -= lookDelta.y;
 			}
 		} else if ( metadata.system.control ) {
 			if ( keys.lookRight ^ keys.lookLeft ) {
-				if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
-				uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
+				if ( physicsBody.object ) uf::physics::applyRotation( physicsBody, axes.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+				uf::transform::rotate( transform, axes.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 			}
 			if ( keys.lookUp ^ keys.lookDown ) {
 				float direction = keys.lookUp ? 1 : -1;
 				if ( metadata.camera.invert.y ) direction *= -1;
-				uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
+				uf::transform::rotate( cameraTransform, cameraAxes.right, speed.rotate * direction );
 			}
 		}	
 	} else {
 		if ( keys.lookRight ^ keys.lookLeft ) {
-		//	auto rotation = uf::quaternion::axisAngle( cameraTransform.up, uf::physics::time::delta * (keys.lookRight ? 1 : -1) );
+		//	auto rotation = uf::quaternion::axisAngle( cameraAxes.up, uf::physics::time::delta * (keys.lookRight ? 1 : -1) );
 		//	cameraTransform.position = uf::quaternion::rotate( rotation, cameraTransform.position - transform.position );
 		}
 		if ( keys.lookUp ^ keys.lookDown ) {
-		//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraTransform.right, lookDelta.y ); else
+		//	if ( physicsBody.object && !physicsBody.shared ) uf::physics::applyRotation( physicsBody, cameraAxes.right, lookDelta.y ); else
 			float direction = keys.lookUp ? 1 : -1;
 			if ( metadata.camera.invert.y ) direction *= -1;
-			uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
+			uf::transform::rotate( cameraTransform, cameraAxes.right, speed.rotate * direction );
 		}
 	}
 	{
@@ -556,7 +560,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		cameraTransform.reference = NULL;
 		cameraTransform.position = transform.position + metadata.camera.offset;
 	//	cameraTransform.orientation = uf::vector::decode( metadataJson["camera"]["orientation"], uf::quaternion::identity() );
-		cameraTransform = uf::transform::reorient( cameraTransform );
+		cameraAxes = uf::transform::axes( cameraTransform );
 	} else {
 		if ( metadata.camera.offset != pod::Vector3f{0,0,0} ) {
 			//auto flattened = uf::transform::flatten( cameraTransform );

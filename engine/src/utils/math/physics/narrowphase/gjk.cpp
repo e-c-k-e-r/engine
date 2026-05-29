@@ -37,9 +37,9 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 			return basePoint + tangent * 100000.0f;
 		} break;
 		case pod::ShapeType::CAPSULE: {
-			auto up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
-			auto p1 = transform.position + up * body.collider.capsule.halfHeight;
-			auto p2 = transform.position - up * body.collider.capsule.halfHeight;
+			auto up = uf::quaternion::rotate( transform.orientation, body.collider.capsule.up );
+			auto p1 = transform.position + up;
+			auto p2 = transform.position - up;
 			auto end = ( uf::vector::dot( dir, p1 ) > uf::vector::dot( dir, p2 ) ) ? p1 : p2; // get closest end
 			return end + uf::vector::normalize( dir ) * body.collider.capsule.radius;
 		}

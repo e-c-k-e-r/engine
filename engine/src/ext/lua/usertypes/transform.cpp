@@ -28,8 +28,8 @@ namespace binds {
 	pod::Transform<> flatten( const pod::Transform<>& t ) {
 		return uf::transform::flatten( t );
 	}
-	pod::Transform<> reorient( const pod::Transform<>& t ) {
-		return uf::transform::reorient( t );
+	pod::Axes axes( const pod::Transform<>& t, sol::optional<pod::Vector3f> at ) {
+		return uf::transform::axes( t, at.value_or(pod::Vector3f{}) );
 	}
 	pod::Transform<> getReference( pod::Transform<>& t ) {
 		return t.reference ? *t.reference : t;
@@ -54,8 +54,8 @@ namespace binds {
 	pod::Transform<>& reference( pod::Transform<>& transform, const pod::Transform<>& parent, sol::optional<bool> reorient ) {
 		return uf::transform::reference( transform, parent, reorient.value_or(true) );
 	}
-	pod::Transform<> interpolate( const pod::Transform<>& from, const pod::Transform<>& to, float factor, sol::optional<bool> reorient ) {
-		return uf::transform::interpolate( from, to, factor, reorient.value_or(true) );
+	pod::Transform<> interpolate( const pod::Transform<>& from, const pod::Transform<>& to, float factor ) {
+		return uf::transform::interpolate( from, to, factor );
 	}
 	pod::Transform<> inverse(const pod::Transform<>& t) {
 		return uf::transform::inverse( t );
@@ -72,19 +72,29 @@ namespace binds {
 }
 
 #include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Axes,
+	sol::call_constructor, sol::initializers( 
+		[]( pod::Axes& self ) {
+			return self = {};
+		},
+		[]( pod::Axes& self, const pod::Axes& copy ) {
+			return self = copy;
+		}
+	),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Axes::right),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Axes::up),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Axes::forward)
+)
+
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Transform<>,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::position),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::scale),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::up),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::right),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::forward),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::orientation),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::model),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::scale),
 	
 	UF_LUA_REGISTER_USERTYPE_DEFINE(move, UF_LUA_C_FUN(::binds::move) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(rotate, UF_LUA_C_FUN(::binds::rotate)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(flatten, UF_LUA_C_FUN(::binds::flatten)),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, UF_LUA_C_FUN(::binds::reorient)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(axes, UF_LUA_C_FUN(::binds::axes)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(getReference, UF_LUA_C_FUN(::binds::getReference)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(setReference, UF_LUA_C_FUN(::binds::setReference)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(unreference, UF_LUA_C_FUN(::binds::unreference)),

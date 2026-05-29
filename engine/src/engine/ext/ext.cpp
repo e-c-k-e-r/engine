@@ -235,6 +235,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 			uf::physics::settings.debugDraw.contacts = configEnginePhysicsDebugDrawJson["contacts"].as( uf::physics::settings.debugDraw.contacts );
 			uf::physics::settings.debugDraw.constraints = configEnginePhysicsDebugDrawJson["constraints"].as( uf::physics::settings.debugDraw.constraints );
 			uf::physics::settings.debugDraw.rays = configEnginePhysicsDebugDrawJson["rays"].as( uf::physics::settings.debugDraw.rays );
+			uf::physics::settings.debugDraw.depthTest = configEnginePhysicsDebugDrawJson["depthTest"].as( uf::physics::settings.debugDraw.depthTest );
 
 		} else if ( configEnginePhysicsDebugDrawJson.is<bool>() && configEnginePhysicsDebugDrawJson.as<bool>() ) {
 			uf::physics::settings.debugDraw.mask = pod::Collider::CATEGORY_ALL;

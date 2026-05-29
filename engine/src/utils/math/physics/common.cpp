@@ -612,10 +612,17 @@ pod::Vector3f impl::obbMax( const pod::OBB& obb ) {
 }
 // converts a min-max AABB to center-extents OBB
 pod::OBB impl::aabbToObb( const pod::AABB& aabb ) {
+#if OBB_EXTENT_CENTER
+	return pod::OBB{
+		.extent = impl::aabbExtent( aabb ),
+		.center = impl::aabbCenter( aabb ),
+	};
+#else
 	return pod::OBB{
 		.center = impl::aabbCenter( aabb ),
 		.extent = impl::aabbExtent( aabb ),
 	};
+#endif
 }
 // converts a center-extents OBB to min-max AABB
 pod::AABB impl::obbToAabb( const pod::OBB& obb ) {
@@ -655,7 +662,7 @@ pod::AABB impl::transformAabbToWorld( const pod::AABB& aabb, const pod::Transfor
 	pod::Vector3f axes[3];
 	impl::boxAxes( axes, transform );
 
-	pod::Vector3f center = uf::quaternion::rotate(transform.orientation, box.center) + transform.position;
+	pod::Vector3f center = uf::transform::apply( transform, box.center );
 	pod::Vector3f extent = impl::extentFromAxes( box, axes );
 
 	return { center - extent, center + extent };
@@ -664,11 +671,11 @@ pod::AABB impl::transformAabbToWorld( const pod::AABB& aabb, const pod::Transfor
 std::pair<pod::Vector3f, pod::Vector3f> impl::getCapsuleSegment( const pod::PhysicsBody& body ) {
 	const auto transform = impl::getTransform( body );
 	const auto& capsule = body.collider.capsule;
-	const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
+	const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, capsule.up );
 
 	// segment defines the cylinder axis only (ignore spherical ends)
-	auto p1 = transform.position + up * capsule.halfHeight;
-	auto p2 = transform.position - up * capsule.halfHeight;
+	auto p1 = transform.position + up;
+	auto p2 = transform.position - up;
 	return { p1, p2 };
 }
 // computes the AABB for a given body

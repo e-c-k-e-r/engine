@@ -210,8 +210,9 @@ void ext::al::close( uf::audio::Metadata& metadata ) {
 
 void ext::al::listener( const pod::Transform<>& transform ) {
 	if ( uf::audio::muted ) return;
-	
-	float o[6] = { transform.forward.x, transform.forward.y, transform.forward.z, transform.up.x, transform.up.y, transform.up.z };
+	auto axes = uf::transform::axes( transform );
+	axes.forward *= -1;
+	float o[6] = { axes.forward.x, axes.forward.y, axes.forward.z, axes.up.x, axes.up.y, axes.up.z };
 	AL_CHECK_RESULT(alListener3f( AL_POSITION, transform.position.x, transform.position.y, transform.position.z ));
 	AL_CHECK_RESULT(alListener3f( AL_VELOCITY, 0, 0, 0 ));
 	AL_CHECK_RESULT(alListenerfv( AL_ORIENTATION, &o[0] ));

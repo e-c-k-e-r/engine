@@ -326,6 +326,7 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 	impl::queryBVH( dynamicBvh, ray, candidates );
 	if ( uf::physics::settings.useSplitBvhs ) impl::queryBVH( staticBvh, ray, candidates );
 
+
 	for ( auto i : candidates ) {
 		auto* b = bodies[i];
 		

@@ -21,17 +21,16 @@ namespace pod {
 		typedef T type_t;
 
 		pod::Vector3t<T> position = {0, 0,0 };
-		pod::Vector3t<T> scale = {1, 1, 1};
-
-		pod::Vector3t<T> up = {0, 1, 0};
-		pod::Vector3t<T> right = {1, 0, 0};
-		pod::Vector3t<T> forward = {0, 0, 1};
-		
 		pod::Quaternion<T> orientation = {0, 0, 0, 1};
-
-		pod::Matrix4t<T> model = uf::matrix::identity();
+		pod::Vector3t<T> scale = {1, 1, 1};		
 
 		pod::Transform<T>* reference = NULL;
+	};
+
+	struct Axes {
+		pod::Vector3f right = { 1, 0, 0 };
+		pod::Vector3f up = { 0, 1, 0 };
+		pod::Vector3f forward = { 0, 0, 1 };
 	};
 }
 
@@ -39,11 +38,10 @@ namespace uf {
 	namespace transform {
 		template<typename T> pod::Transform<T>& /*UF_API*/ initialize( pod::Transform<T>& transform );
 		template<typename T> pod::Transform<T> /*UF_API*/ initialize();
+		template<typename T> pod::Axes /*UF_API*/ axes( const pod::Transform<T>& transform, const pod::Vector3t<T>& at = {} );
 		template<typename T> pod::Transform<T>& /*UF_API*/ lookAt( pod::Transform<T>& transform, const pod::Vector3t<T>& at );
 		template<typename T> pod::Transform<T>& /*UF_API*/ move( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ move( pod::Transform<T>& transform, const pod::Vector3t<T>& delta );
-		template<typename T> pod::Transform<T>& /*UF_API*/ reorient( pod::Transform<T>& transform );
-		template<typename T> pod::Transform<T> /*UF_API*/ reorient( const pod::Transform<T>& transform );
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Quaternion<T>& quat );
 		template<typename T> pod::Transform<T>& /*UF_API*/ scale( pod::Transform<T>& transform, const pod::Vector3t<T>& factor );
@@ -52,7 +50,7 @@ namespace uf {
 		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform, bool flatten = false, size_t depth = SIZE_MAX );
 		template<typename T> pod::Transform<T> /*UF_API*/ fromMatrix( const pod::Matrix4t<T>& matrix );
 		template<typename T> pod::Transform<T>& /*UF_API*/ reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient = true );
-		template<typename T> pod::Transform<T> /*UF_API*/ interpolate( const pod::Transform<T>& from, const pod::Transform<T>& to, float factor, bool reorient = true );
+		template<typename T> pod::Transform<T> /*UF_API*/ interpolate( const pod::Transform<T>& from, const pod::Transform<T>& to, float factor );
 		template<typename T> pod::Transform<T> /*UF_API*/ inverse(const pod::Transform<T>& t);
 		template<typename T> pod::Vector3t<T> /*UF_API*/ apply( const pod::Transform<T>& transform, const pod::Vector3t<T>& point );
 		template<typename T> pod::Vector3t<T> /*UF_API*/ applyInverse(const pod::Transform<T>& t, const pod::Vector3t<T>& worldPoint);

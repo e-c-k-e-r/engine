@@ -99,11 +99,13 @@ namespace {
 		} else {
 			transform.scale = { 1, 1, 1 };
 		}
+		/*
 		if ( node.matrix.size() == 16 ) {
 			for ( size_t i = 0; i < node.matrix.size(); ++i ) transform.model[i] = node.matrix[i];
 		} else {
 			transform.model = uf::matrix::identity();
 		}
+		*/
 		if ( 0 <= parentIndex && parentIndex < graph.nodes.size() && nodeIndex != parentIndex ) {
 			transform.reference = &graph.nodes[parentIndex].transform;
 		}

@@ -4,7 +4,7 @@
 	"ignore": false,
 	"import": "/model.json",
 	"assets": [
-	//	"/player/bear.glb"
+	//	"/player/pbear.glb"
 		{ "filename": "/player/bear/graph.json" }
 	],
 	"behaviors": [],
@@ -16,7 +16,7 @@
 			"axis": [ 0, 1, 0 ],
 			"angle": 0
 		},
-	//	"scale": [ 0.35, 0.35, 0.35 ],
+		"scale": [ 0.09, 0.09, 0.09 ],
 		"reference": "parent"
 	},
 	"system": {
@@ -33,7 +33,7 @@
 				}
 			},
 			"exporter": {
-				"enabled": false,
+				"enabled": true,
 				"unwrap": false,
 				"optimize": false
 			},
@@ -52,7 +52,7 @@
 				"skinned": true
 			},
 			"animations": {
-				"animation": "idle"
+				"animation": "wank"
 			}
 		}
 	}

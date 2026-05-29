@@ -16,14 +16,15 @@ local target_transform = nil
 local soundEmitter = ent
 -- on tick
 ent:bind( "tick", function(self)
+	axes = transform:axes()
 	-- rotate to target
 	if target_transform ~= nil then	
 		local target = (target_transform.position - transform.position):normalize()
-		local dot = transform.forward:dot( target )
+		local dot = axes.forward:dot( target )
 		if dot < 1.0 then
-			local cross = Vector3f.cross( transform.forward, target ):normalize()
-			local axis = transform.up
-			local angle = Vector3f.signedAngle( transform.forward, target, axis ) 
+			local cross = Vector3f.cross( axes.forward, target ):normalize()
+			local axis = axes.up
+			local angle = Vector3f.signedAngle( axes.forward, target, axis ) 
 			local rot = Quaternion.axisAngle( axis, angle * time.delta() * 4 )
 
 			if physicsBody:initialized() then

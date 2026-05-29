@@ -432,9 +432,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			transform = uf::transform::reorient( transform );
 		*/
 		}
-		transform = uf::transform::flatten( transform );
-		transform.forward *= -1;
-		
+		transform = uf::transform::flatten( transform );		
 		ext::al::listener( transform );
 	}
 #endif

@@ -172,8 +172,8 @@ TEST(SpherePlane_NoCollision, {
 TEST(CapsuleCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
-	auto& bodyB = uf::physics::create(world, objB, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
+	auto& bodyB = uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {0.8f,0,0}; // slight overlap
@@ -384,7 +384,7 @@ TEST(PhysicsStep_StaticFriction_Slips, {
 TEST(CapsulePlane_Slope_StaticHold, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f);
 
 	// Place capsule on slope
@@ -402,7 +402,7 @@ TEST(CapsulePlane_Slope_StaticHold, {
 TEST(CapsulePlane_Slope_Slip, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f);
 
 	bodyA.transform->position = {0,2,0};
@@ -417,7 +417,7 @@ TEST(CapsulePlane_Slope_Slip, {
 TEST(CapsulePlane_RestingContact, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
 
 	bodyA.transform->position = {0, 1.5f, 0}; // halfHeight=1, radius=0.5, so "foot" at y=0
@@ -434,7 +434,7 @@ TEST(CapsuleAabb_RestingContact, {
 	pod::World world;
 	uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::AABB{{-5, -1, -5},{5, 0, 5}}, 0.0f);
 
 	bodyA.transform->position = {0, 1.5f, 0};
@@ -450,7 +450,7 @@ TEST(CapsulePlane_Settling, {
 	pod::World world;
 	uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
 	bodyA.transform->position = {0, 2.0f, 0}; // slightly above
@@ -466,7 +466,7 @@ TEST(CapsulePlane_SlopeStaticFriction, {
 	pod::World world;
 	uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,1},0.0f}, 0.0f); // 45° slope
 
 	bodyA.transform->position = {0, 3.0f, 0};
@@ -484,7 +484,7 @@ TEST(CapsuleAabb_StepEdge, {
 	pod::World world;
 	uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::AABB{{0,-1,-5},{5,0,5}}, 0.0f);
 
 	bodyA.transform->position = {0.25f, 1.5f, 0}; // Capsule foot half on, half off
@@ -500,7 +500,7 @@ TEST(Diagnostic_CapsuleGrounding, {
 	uf::Object objA, objFloor;
 
 	// Capsule: radius 0.5, half-height 1.0 (total height 2.0 + end caps)
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 
 	// Test toggle: try both AABB floors and Plane floors.
 	bool usePlane = true;
@@ -519,7 +519,7 @@ TEST(CapsulePlane_ContactNormal, {
 	pod::World world;
 	uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, 1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0,1,0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,0},0.0f}, 0.0f);
 
 	bodyA.transform->position = {0,1.5f,0};
@@ -557,7 +557,7 @@ TEST(AabbPlane_RestingNoSink, {
 TEST(CapsuleSphere_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
 	bodyA.transform->position = {0,0,0};
@@ -575,7 +575,7 @@ TEST(CapsuleSphere_Collision, {
 TEST(CapsuleSphere_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
-	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyA = uf::physics::create(world, objA, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 	auto& bodyB = uf::physics::create(world, objB, pod::Sphere{0.5f}, 1.0f);
 
 	bodyA.transform->position = {0,0,0};
@@ -664,7 +664,7 @@ TEST(AabbCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA	 = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& bodyB	 = uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB	 = uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {0,0.5f,0}; // partially overlapping
@@ -682,7 +682,7 @@ TEST(AabbCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA	 = uf::physics::create(world, objA, pod::AABB{{-1,-1,-1},{1,1,1}}, 1.0f);
-	auto& bodyB	 = uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB	 = uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyA.transform->position = {0,0,0};
 	bodyB.transform->position = {0,5,0};
@@ -700,7 +700,7 @@ TEST(SphereCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA = uf::physics::create(world, objA, pod::Sphere{0.5f}, 1.0f);
-	auto& bodyB	= uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB	= uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyA.transform->position = {0,0.0f,0};
 	bodyB.transform->position	= {0,0.25f,0};
@@ -718,7 +718,7 @@ TEST(SphereCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA = uf::physics::create(world, objA, pod::Sphere{0.5f}, 1.0f);
-	auto& bodyB	= uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB	= uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyA.transform->position = {0,5,0};
 	bodyB.transform->position	= {0,0,0};
@@ -750,7 +750,7 @@ TEST(PlaneCapsule_Collision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA = uf::physics::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
-	auto& bodyB   = uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB   = uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyB.transform->position = {0,0.25f,0}; // foot intersecting
 
@@ -767,7 +767,7 @@ TEST(PlaneCapsule_NoCollision, {
 	pod::World world;
 	uf::Object objA, objB;
 	auto& bodyA = uf::physics::create(world, objA, pod::Plane{{0,1,0},0.0f}, 0.0f);
-	auto& bodyB   = uf::physics::create(world, objB, pod::Capsule{0.5f,1.0f}, 1.0f);
+	auto& bodyB   = uf::physics::create(world, objB, pod::Capsule{0.5f, pod::Vector3f{0, 1, 0}}, 1.0f);
 
 	bodyB.transform->position = {0,5,0}; // far above
 
@@ -1161,7 +1161,7 @@ TEST(TriangleCapsule_Collision_Overlap, {
 	// Capsule aligned along Z axis, radius 0.2
 	pod::Capsule capsule;
 	capsule.radius = 0.2f;
-	capsule.halfHeight = 1.0f; // segment lengt * 0.5fh
+	capsule.up = pod::Vector3f{0,1,0} * 1.0f; // segment lengt * 0.5fh
 	// placed so capsule overlaps the tri plane
 	auto& bodyA = uf::physics::create(world, objA, tri, 0.0f);
 	auto& bodyB = uf::physics::create(world, objB, capsule, 0.0f);
@@ -1191,7 +1191,7 @@ TEST(TriangleCapsule_Collision_NoOverlap, {
 
 	pod::Capsule capsule;
 	capsule.radius = 0.2f;
-	capsule.halfHeight = 1.0f * 0.5f;
+	capsule.up = pod::Vector3f{0,1,0} * 1.0f * 0.5f;
 	// place it well above the tri plane
 	auto& bodyA = uf::physics::create(world, objA, tri, 0.0f);
 	auto& bodyB = uf::physics::create(world, objB, capsule, 0.0f);
@@ -1216,7 +1216,7 @@ TEST(TriangleCapsule_Collision_Tangent, {
 
 	pod::Capsule capsule;
 	capsule.radius = 0.5f;
-	capsule.halfHeight = 1.0f * 0.5f;
+	capsule.up = pod::Vector3f{0,1,0} * 1.0f * 0.5f;
 	auto& bodyA = uf::physics::create(world, objA, tri, 0.0f);
 	auto& bodyB = uf::physics::create(world, objB, capsule, 0.0f);
 	// place the capsule so its sphere-bottom just kisses the triangle
@@ -1248,7 +1248,7 @@ TEST(TriangleCapsule_Collision_EdgeAlignment, {
 
 	pod::Capsule capsule;
 	capsule.radius = 0.1f;
-	capsule.halfHeight = 2.0f; // segment tall and skinn * 0.5fy
+	capsule.up = pod::Vector3f{0,1,0} * 2.0f; // segment tall and skinn * 0.5fy
 	auto& bodyA = uf::physics::create(world, objA, tri, 0.0f);
 	auto& bodyB = uf::physics::create(world, objB, capsule, 0.0f);
 	// lay the capsule along edge (x-axis direction near tri’s base)

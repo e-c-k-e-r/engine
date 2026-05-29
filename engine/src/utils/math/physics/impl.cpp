@@ -377,7 +377,7 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 		} break;
 		case pod::ShapeType::CAPSULE: {
 			float r = body.collider.capsule.radius;
-			float h = body.collider.capsule.halfHeight * 2.0f; // full cyl height
+			float h = uf::vector::norm( body.collider.capsule.up ) * 2.0f; // full cyl height
 
 			float Ixx = 0.25f * mass * r * r + (1.0f/12.0f) * mass * h * h;
 			float Iyy = 0.5f * mass * r * r;

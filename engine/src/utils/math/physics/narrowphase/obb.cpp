@@ -129,8 +129,8 @@ bool impl::obbObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Ma
 	auto boxA = a.collider.obb;
 	auto boxB = b.collider.obb;
 
-	boxA.center = uf::quaternion::rotate(tA.orientation, boxA.center) + tA.position;
-	boxB.center = uf::quaternion::rotate(tB.orientation, boxB.center) + tB.position;
+	boxA.center = uf::transform::apply( tA, boxA.center );
+	boxB.center = uf::transform::apply( tB, boxB.center );
 
 	pod::Vector3f axesA[3];
 	pod::Vector3f axesB[3];
@@ -149,7 +149,7 @@ bool impl::obbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 
 	auto boxA = a.collider.obb;
 	auto boxB = impl::aabbToObb( b.bounds );
-	boxA.center = uf::quaternion::rotate(tA.orientation, boxA.center) + tA.position;
+	boxA.center = uf::transform::apply( tA, boxA.center );
 
 	pod::Vector3f axesA[3];
 	pod::Vector3f axesB[3];
@@ -164,7 +164,7 @@ bool impl::obbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
+	box.center = uf::transform::apply( tA, box.center );
 
 	auto sphereCenter = impl::getPosition( b );
 	float radius = b.collider.sphere.radius;
@@ -212,7 +212,7 @@ bool impl::obbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
+	box.center = uf::transform::apply( tA, box.center );
 
 	pod::Vector3f axesA[3];
 	impl::boxAxes( axesA, tA );
@@ -242,15 +242,20 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::quaternion::rotate(tA.orientation, box.center) + tA.position;
+	box.center = uf::transform::apply( tA, box.center );
 
 	pod::Vector3f axesA[3];
 	impl::boxAxes( axesA, tA );
 
 	auto [p1, p2] = impl::getCapsuleSegment( b );
+
 	pod::Vector3f cB = (p1 + p2) * 0.5f;
-	pod::Vector3f capAxis = uf::vector::normalize(p2 - p1);
-	float halfHeight = b.collider.capsule.halfHeight;
+
+	pod::Vector3f segmentHalf = (p2 - p1) * 0.5f;
+	float halfHeight = uf::vector::norm(segmentHalf);
+
+	pod::Vector3f capAxis = (halfHeight > EPS2) ? (segmentHalf / halfHeight) : pod::Vector3f{0, 1, 0};
+
 	float radius = b.collider.capsule.radius;
 
 	float minOverlap = FLT_MAX;
@@ -264,7 +269,8 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 		float pA = uf::vector::dot(box.center, n);
 		float rA = impl::projectExtents( box, n, axesA );
 		float pB = uf::vector::dot(cB, n);
-		float rB = halfHeight * std::fabs(uf::vector::dot(capAxis, n)) + radius;
+
+		float rB = std::fabs(uf::vector::dot(segmentHalf, n)) + radius;
 
 		float dist = std::fabs(pB - pA);
 		float overlap = (rA + rB) - dist;
@@ -301,7 +307,33 @@ bool impl::obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 void impl::drawObb( const pod::PhysicsBody& body ) {
 	const auto& obb = body.collider.obb;
 	auto transform = impl::getTransform(body);	
+#if 0
 	uf::debug::drawObb( obb, transform );
+#else
+	auto aabb = pod::AABB{
+		.min = obb.center - obb.extent,
+		.max = obb.center + obb.extent,
+	};
+	pod::Vector3f corners[8] = {
+		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
+		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
+		{aabb.min.x, aabb.min.y, aabb.max.z}, {aabb.max.x, aabb.min.y, aabb.max.z},
+		{aabb.max.x, aabb.max.y, aabb.max.z}, {aabb.min.x, aabb.max.y, aabb.max.z}
+	};
+
+	FOR_EACH( 8, {
+		corners[i] = uf::transform::apply(transform, corners[i]);
+	});
+
+	uf::debug::drawLine( corners[0], corners[1] ); uf::debug::drawLine( corners[1], corners[2] );
+	uf::debug::drawLine( corners[2], corners[3] ); uf::debug::drawLine( corners[3], corners[0] );
+
+	uf::debug::drawLine( corners[4], corners[5] ); uf::debug::drawLine( corners[5], corners[6] );
+	uf::debug::drawLine( corners[6], corners[7] ); uf::debug::drawLine( corners[7], corners[4] );
+
+	uf::debug::drawLine( corners[0], corners[4] ); uf::debug::drawLine( corners[1], corners[5] );
+	uf::debug::drawLine( corners[2], corners[6] ); uf::debug::drawLine( corners[3], corners[7] );
+#endif
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::OBB& obb ) {

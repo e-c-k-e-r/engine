@@ -71,7 +71,34 @@ bool impl::sphereHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 void impl::drawSphere( const pod::PhysicsBody& body ) {
 	const auto& sphere = body.collider.sphere;
 	auto transform = impl::getTransform(body);
+#if 0
 	uf::debug::drawSphere( sphere, transform );
+#else
+	const int segments = 16;
+	const float angleIncrement = (2.0f * M_PI) / segments;
+	for ( auto i = 0; i < segments; ++i ) {
+		float theta1 = i * angleIncrement;
+		float theta2 = (i + 1) * angleIncrement;
+
+		float c1 = std::cos(theta1) * sphere.radius;
+		float s1 = std::sin(theta1) * sphere.radius;
+		float c2 = std::cos(theta2) * sphere.radius;
+		float s2 = std::sin(theta2) * sphere.radius;
+
+		pod::Vector3f xy1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, s1, 0.0f});
+		pod::Vector3f xy2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, s2, 0.0f});
+
+		pod::Vector3f xz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c1, 0.0f, s1});
+		pod::Vector3f xz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{c2, 0.0f, s2});
+
+		pod::Vector3f yz1 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c1, s1});
+		pod::Vector3f yz2 = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0.0f, c2, s2});
+
+		uf::debug::drawLine( transform.position + xy1, transform.position + xy2 );
+		uf::debug::drawLine( transform.position + xz1, transform.position + xz2 );
+		uf::debug::drawLine( transform.position + yz1, transform.position + yz2 );
+	}
+#endif
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Sphere& sphere ) {

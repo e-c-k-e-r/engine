@@ -2,6 +2,7 @@
 
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/math/physics.h>
 
 namespace impl {
 	struct Vertex {
@@ -38,7 +39,8 @@ void uf::debug::drawLine( const pod::Vector3f& start, const pod::Vector3f& end, 
 	impl::lines.emplace_back( impl::Vertex{ start, color } );
 	impl::lines.emplace_back( impl::Vertex{ end, color } );
 }
-void uf::debug::drawAabb( pod::AABB aabb, pod::Transform<> transform ) {
+// for some reason compiling these two and not even using them causes physics to break
+void uf::debug::drawShape( const pod::AABB& aabb, const pod::Transform<>& transform ) {
 	pod::Vector3f corners[8] = {
 		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
 		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
@@ -56,7 +58,7 @@ void uf::debug::drawAabb( pod::AABB aabb, pod::Transform<> transform ) {
 	uf::debug::drawLine( corners[0], corners[4] ); uf::debug::drawLine( corners[1], corners[5] );
 	uf::debug::drawLine( corners[2], corners[6] ); uf::debug::drawLine( corners[3], corners[7] );
 }
-void uf::debug::drawObb( pod::OBB obb, pod::Transform<> transform ) {
+void uf::debug::drawShape( const pod::OBB& obb, const pod::Transform<>& transform ) {
 	auto aabb = pod::AABB{
 		.min = obb.center - obb.extent,
 		.max = obb.center + obb.extent,
@@ -83,7 +85,7 @@ void uf::debug::drawObb( pod::OBB obb, pod::Transform<> transform ) {
 	uf::debug::drawLine( corners[2], corners[6] ); uf::debug::drawLine( corners[3], corners[7] );
 }
 
-void uf::debug::drawSphere( pod::Sphere sphere, pod::Transform<> transform ) {
+void uf::debug::drawShape( const pod::Sphere& sphere, const pod::Transform<>& transform ) {
 	const int segments = 16;
 	const float angleIncrement = (2.0f * M_PI) / segments;
 	for ( auto i = 0; i < segments; ++i ) {
@@ -109,12 +111,11 @@ void uf::debug::drawSphere( pod::Sphere sphere, pod::Transform<> transform ) {
 		uf::debug::drawLine( transform.position + yz1, transform.position + yz2 );
 	}
 }
-// for some reason compiling these two and not even using them causes physics to break
-/*
-void uf::debug::drawCapsule( pod::Capsule capsule, pod::Transform<> transform ) {
-	const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, pod::Vector3f{0,1,0} );
-	auto p1 = transform.position + up * capsule.halfHeight;
-	auto p2 = transform.position - up * capsule.halfHeight;
+
+void uf::debug::drawShape( const pod::Capsule& capsule, const pod::Transform<>& transform ) {
+	const pod::Vector3f up = uf::quaternion::rotate( transform.orientation, capsule.up );
+	auto p1 = transform.position + up;
+	auto p2 = transform.position - up;
 
 	const int segments = 16;
 	const float angleIncrement = (2.0f * M_PI) / segments;
@@ -160,7 +161,7 @@ void uf::debug::drawCapsule( pod::Capsule capsule, pod::Transform<> transform ) 
 	uf::debug::drawLine( p1 - rz, p2 - rz );
 }
 // to-do: properly implement this
-void uf::debug::drawPlane( pod::Plane plane, pod::Transform<> transform ) {
+void uf::debug::drawShape( const pod::Plane& plane, const pod::Transform<>& transform ) {
 	pod::Vector3f right = uf::quaternion::rotate(transform.orientation, pod::Vector3f{1, 0, 0});
 	pod::Vector3f forward = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 0, 1});
 
@@ -178,8 +179,7 @@ void uf::debug::drawPlane( pod::Plane plane, pod::Transform<> transform ) {
 	uf::debug::drawLine( p0, p2 );
 	uf::debug::drawLine( p1, p3 );
 }
-*/
-void uf::debug::drawTriangle( pod::Triangle tri, pod::Transform<> transform ) {
+void uf::debug::drawShape( const pod::Triangle& tri, const pod::Transform<>& transform ) {
 	pod::Vector3f v0 = uf::transform::apply(transform, tri.points[0]);
 	pod::Vector3f v1 = uf::transform::apply(transform, tri.points[1]);
 	pod::Vector3f v2 = uf::transform::apply(transform, tri.points[2]);
@@ -219,7 +219,7 @@ void uf::debug::draw( float dt ) {
 		graphic.material.device = &uf::renderer::device;
 
 		// to-do: bin by descriptor instead of one global set
-		graphic.descriptor.depth.test = false;
+		graphic.descriptor.depth.test = uf::physics::settings.debugDraw.depthTest;
 		graphic.descriptor.depth.write = false;
 		graphic.descriptor.renderTarget = 1; // "forward";
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;

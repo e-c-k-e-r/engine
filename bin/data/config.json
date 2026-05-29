@@ -350,11 +350,12 @@
 				"max": 0.01 // 0.2
 			},
 			"debug draw": {
-				"static": true,
-				"dynamic": true,
+				"static": false,
+				"dynamic": false,
 				"contacts": false,
 				"constraints": true,
-				"rays": false
+				"rays": false,
+				"depthTest": false
 			},
 			"fixed step": true,
 			"substeps": 4

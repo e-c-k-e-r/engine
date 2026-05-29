@@ -491,6 +491,7 @@ namespace pod {
 			bool contacts = false;
 			bool constraints = false;
 			bool rays = false;
+			bool depthTest = true;
 		} debugDraw;
 	};
 
