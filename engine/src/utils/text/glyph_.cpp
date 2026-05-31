@@ -300,9 +300,6 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 	for ( const auto& g : layout ) {
 		auto hash = std::to_string( uf::glyph::hashSettings(g.code, metadata) );
 
-		// zero-width
-		if ( g.box.w == 0 || g.box.h == 0 || g.color.w == 0.0f ) continue;
-
 	#if EXT_COLOR_FLOATS
 		auto& color = g.color;
 	#else

@@ -171,7 +171,7 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ orthonormalize( const T& x, const T& y ); // orthonormalizes a vector against another vector
 		
 		template<typename T> /*FORCE_INLINE*/ size_t /*UF_API*/ hash( const T& vector ); // hashes a vector
-		template<typename T> /*FORCE_INLINE*/ uf::stl::string /*UF_API*/ toString( const T& vector ); // parses a vector as a string
+		template<typename T> /*FORCE_INLINE*/ uf::stl::string /*UF_API*/ toString( const T& vector, const uf::stl::string& = "Vector({})" ); // parses a vector as a string
 		template<typename T, size_t N> /*FORCE_INLINE*/ ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); // parses a vector into a JSON value
 		
 		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); // parses a JSON value into a vector
@@ -273,7 +273,7 @@ DEFINE_VECTOR_EXT(T, 4);
 // stringify
 namespace uf {
 	namespace string {
-		template<typename T, size_t N> FORCE_INLINE uf::stl::string toString( const pod::Vector<T,N>& v );
+		template<typename T, size_t N> FORCE_INLINE uf::stl::string toString( const pod::Vector<T,N>& v, const uf::stl::string& = "Vector({})" );
 	}
 }
 // jsonify

@@ -40,7 +40,7 @@ namespace impl {
 	pod::GlyphSettings textSettings = {
 		.alignment = "center",
 		.font = "FragmentMono.ttf",
-		.size = 96,
+		.size = 24,
 		.sdf = false,
 	};
 }
@@ -220,20 +220,26 @@ void uf::debug::drawLines( float dt ) {
 		}
 	}
 
-	if ( impl::lines.empty() ) return;
-	// double buffer
 	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Vertex>, lines);
 	std::swap( impl::lines, lines );
 
 	impl::lineMesh.clear();
 	impl::lineMesh.bind<impl::Vertex>();
+
+	// to-do: only do this when the previous mesh already had lines in it
+	// and if it was already empty just return
+	if ( lines.empty() ) {
+		lines.emplace_back( impl::Vertex{} );
+		lines.emplace_back( impl::Vertex{} );
+	}
+
 	impl::lineMesh.insertVertices<impl::Vertex>(lines);
 	impl::lineMesh.generateIndirect();
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& graphics = scene.getComponent<uf::renderer::Graphics>();
-	
 	auto& graphic = graphics["immediate:lines"];
+
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
@@ -275,8 +281,6 @@ void uf::debug::drawText( const uf::stl::string& string, const pod::Vector3f& po
 }
 
 void uf::debug::drawTexts( float dt ) {
-	if ( impl::texts.empty() ) return;
-	// double buffer
 	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Text>, texts);
 	std::swap( impl::texts, texts );
 	
@@ -287,7 +291,7 @@ void uf::debug::drawTexts( float dt ) {
 
 	uf::stl::vector<pod::GlyphBox> textLayout;
 	// pre-init with ASCII characters
-	if ( !impl::textAtlas.generated() ) {
+	if ( !impl::textAtlas.generated() || texts.empty() ) {
 		uf::stl::string ascii = "";
 		for ( char c = 32; c < 127; ++c ) ascii += c;
 		auto tokens = uf::glyph::parseTextTokens( ascii, {0,0,0,0} );

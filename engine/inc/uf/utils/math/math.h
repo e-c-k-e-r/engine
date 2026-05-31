@@ -16,6 +16,12 @@
 	#define M_PI 3.141592653589793f
 #endif
 
+#define EPS 1.0e-6f
+#define EPS2 (EPS * EPS)
+
+#define RAD_2_DEG (180.0f / M_PI)
+#define DEG_2_RAD (M_PI / 180.0f)
+
 namespace pod {
 	namespace Math {
 		typedef float num_t;

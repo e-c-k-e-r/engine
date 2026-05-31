@@ -150,14 +150,12 @@ template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Ve
 	return uf::quaternion::normalize( q );
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v ) {
-	static const T EPSILON = static_cast<T>(1e-6);
-
 	pod::Vector3t<T> uNorm = uf::vector::normalize( u );
 	pod::Vector3t<T> vNorm = uf::vector::normalize( v );
 
 	T dot = uf::vector::dot( uNorm, vNorm );
 
-	if ( dot < -1 + EPSILON ) {
+	if ( dot < -1 + EPS ) {
 		pod::Vector3t<T> orthogonal = (fabs(uNorm.x) > fabs(uNorm.z)) ? pod::Vector3t<T>{ -uNorm.y, uNorm.x, 0 } : pod::Vector3t<T>{ 0, -uNorm.z, uNorm.y };
 		orthogonal = uf::vector::normalize( orthogonal );
 		return uf::quaternion::axisAngle( orthogonal, static_cast<T>(M_PI) );

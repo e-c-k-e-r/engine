@@ -794,16 +794,13 @@ size_t uf::vector::hash( const T& v ) {
 }
 
 template<typename T>
-uf::stl::string uf::vector::toString( const T& v ) {
+uf::stl::string uf::vector::toString( const T& v, const uf::stl::string& s ) {
 	uf::stl::stringstream ss;
-	ss << "Vector(";
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i ) {
+	FOR_EACH( T::size, {
 		ss << v[i];
 		if ( i + 1 < T::size ) ss << ", ";
-	}
-	ss << ")";
-	return ss.str();
+	});
+	return ::fmt::format( fmt::runtime(s), ss.str() );
 }
 
 template<typename T, size_t N>

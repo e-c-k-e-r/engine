@@ -1,8 +1,8 @@
 #include "pod.inl"
 
 template<typename T, size_t N>
-uf::stl::string /*UF_API*/ uf::string::toString( const pod::Vector<T,N>& v ) {
-	return uf::vector::toString(v);
+uf::stl::string /*UF_API*/ uf::string::toString( const pod::Vector<T,N>& v, const uf::stl::string& s ) {
+	return uf::vector::toString(v, s);
 }
 
 template<typename T, size_t N>

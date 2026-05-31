@@ -16,9 +16,6 @@
 
 #include <cfloat>
 
-
-#define EPS 1.0e-6f
-#define EPS2 (EPS * EPS)
 #define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
 
 #define REORIENT_NORMALS_ON_FETCH 0

@@ -55,37 +55,35 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 	auto cameraAxes = uf::transform::axes( cameraTransform );
 	auto& projection = camera.getProjection();
 	auto fov = std::atan(1.0f / fabs(projection(1,1)));	
-	auto viewThreshold = std::cos(fov * 1.5f);
+	auto angleThreshold = std::cos(fov * 1.5f);
+	auto viewThresholdSq = std::pow(5, 2);
 
-#if 1
-	// (an attempt to) continuously pick the closest point on the AABB
+	// continuously pick the closest point on the AABB
 	auto position = impl::closestPointOnAABB( cameraTransform.position, bounds );
 	auto dir = position - cameraTransform.position;
 	auto magSq = uf::vector::magnitude( dir );
 	if ( magSq > EPS2 ) dir /= std::sqrt( magSq );
 	auto dot = uf::vector::dot( cameraAxes.forward, dir );
 	position -= cameraAxes.forward * 0.1f;
-	if ( dot > viewThreshold ) uf::debug::drawText( body.object->getName(), position );
-#else
-	// picks the closest corner
-	int closestCorner = -1;
-	float closestDistanceSq = FLT_MAX;
-	float closestDot = FLT_MAX; //
-	pod::Vector3f corners[8];
-	impl::getCorners( bounds, corners );
-	for ( auto i = 0; i < 8; ++i ) {
-		auto dir = corners[i] - cameraTransform.position;
-		auto distanceSq = uf::vector::magnitude( dir );
-		if ( distanceSq > EPS2 ) dir /= std::sqrt( distanceSq );
-		auto dot = uf::vector::dot( cameraAxes.forward, dir );
-		if ( dot <= viewThreshold ) continue;
-		if ( distanceSq >= closestDistanceSq ) continue;
-		closestDistanceSq = distanceSq;
-		closestCorner = i;
-	}
 
-	if ( 0 <= closestCorner ) uf::debug::drawText( body.object->getName(), corners[closestCorner] );
-#endif
+	if ( magSq < viewThresholdSq && dot > angleThreshold ) {
+		STATIC_THREAD_LOCAL(uf::stl::vector<uf::stl::string>, strings);
+		strings.emplace_back( ::fmt::format("{}\n", uf::string::toString( *body.object ) ) );
+		strings.emplace_back( ::fmt::format("Mass: {:.3f} kg\n", body.inverseMass == 0.0f ? 0.0f : 1.0f / body.inverseMass) );
+		strings.emplace_back( ::fmt::format(
+			"Position: {} | Pitch: {:.1f} | Yaw: {:.1f} | Roll: {:.1f}\n",
+			uf::vector::toString( transform.position, "{}" ),
+			(RAD_2_DEG) * uf::quaternion::pitch( transform.orientation ),
+			(RAD_2_DEG) * uf::quaternion::yaw( transform.orientation ),
+			(RAD_2_DEG) * uf::quaternion::roll( transform.orientation )
+		) );
+		if ( body.velocity != pod::Vector3f{} && body.angularVelocity != pod::Vector3f{} ) {
+			strings.emplace_back( ::fmt::format( "Velocity: {} | Angular Velocity: {}\n", uf::vector::toString( body.velocity, "{}" ), uf::vector::toString( body.angularVelocity, "{}" ) ) ); 
+		}
+		strings.emplace_back( ::fmt::format("Awake: {} | Timer: {:.3f} | Grounded: {}\n", body.activity.awake, body.activity.sleepTimer, body.activity.grounded) );
+		strings.emplace_back( ::fmt::format("Category: {:#X} | Mask: {:#X}", body.collider.category, body.collider.mask) );
+		uf::debug::drawText( uf::string::join(strings, ""), position );
+	}
 }
 void impl::drawConstraint( const pod::Constraint& constraint ) {
 	if ( !uf::physics::settings.debugDraw.constraints ) return;

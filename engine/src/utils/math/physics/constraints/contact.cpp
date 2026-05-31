@@ -342,6 +342,9 @@ void impl::warmupManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::
 }
 
 void impl::resolveManifold( pod::PhysicsBody& a, pod::PhysicsBody& b, pod::Manifold& manifold, float dt ) {
+	// ignore if a body is a trigger
+	if ( (a.collider.category & pod::Collider::CATEGORY_TRIGGER) || (b.collider.category & pod::Collider::CATEGORY_TRIGGER) ) return;
+
 	if ( uf::physics::settings.blockContactSolver ) {
 		if ( impl::blockSolver( a, b, manifold, dt ) ) return;
 	}
