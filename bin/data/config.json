@@ -355,7 +355,7 @@
 				"contacts": false,
 				"constraints": true,
 				"rays": false,
-				"depthTest": true
+				"depthTest": false
 			},
 			"fixed step": true,
 			"substeps": 4,

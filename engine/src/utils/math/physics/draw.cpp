@@ -56,7 +56,7 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 	auto& projection = camera.getProjection();
 	auto fov = std::atan(1.0f / fabs(projection(1,1)));	
 	auto angleThreshold = std::cos(fov * 1.5f);
-	auto viewThresholdSq = std::pow(5, 2);
+	auto viewThresholdSq = std::pow(10, 2);
 
 	// continuously pick the closest point on the AABB
 	auto position = impl::closestPointOnAABB( cameraTransform.position, bounds );

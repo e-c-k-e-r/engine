@@ -40,7 +40,7 @@ namespace impl {
 	pod::GlyphSettings textSettings = {
 		.alignment = "center",
 		.font = "FragmentMono.ttf",
-		.size = 24,
+		.size = 48,
 		.sdf = false,
 	};
 }
@@ -287,7 +287,7 @@ void uf::debug::drawTexts( float dt ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& camera = scene.getCamera( controller );
-	auto& transform = camera.getTransform();
+	auto transform = uf::transform::flatten( camera.getTransform() );
 
 	uf::stl::vector<pod::GlyphBox> textLayout;
 	// pre-init with ASCII characters
@@ -309,27 +309,8 @@ void uf::debug::drawTexts( float dt ) {
 	for ( auto& text : texts ) {
 		auto tokens = uf::glyph::parseTextTokens( text.string, text.color );
 		auto layout = uf::glyph::calculateLayout( tokens, impl::textSettings );
-
-		auto world = pod::Vector4f{ text.position.x, text.position.y, text.position.z, 1.0f };
-		auto view = camera.getProjection() * camera.getView();
-		auto clip = uf::matrix::multiply( view, world );
-
-		if ( clip.w <= 0.0f ) continue;
-		
-		auto ndc = pod::Vector3f{ clip.x, clip.y, clip.z } / clip.w;
-		float scale = 2.0f / clip.w;
-
-		if ( ndc.z < 0.0f || ndc.z > 1.0f ) continue;
-		
 		for ( auto& g : layout ) {
-			g.box.x  = g.box.x * scale + ndc.x;
-			g.box.y  = g.box.y * scale + ndc.y;
-			g.box.z  = ndc.z;
-			g.box.w *= scale;
-			g.box.h *= scale;
-
-			if ( (g.box.x + g.box.w < -1.0f) || (g.box.x > 1.0f) || (g.box.y + g.box.h < -1.0f) || (g.box.y > 1.0f) ) continue;
-
+			g.anchor += text.position;
 			textLayout.emplace_back( g );
 		}
 	}

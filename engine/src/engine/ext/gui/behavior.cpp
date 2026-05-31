@@ -28,7 +28,7 @@
 #define EXT_COLOR_FLOATS 1
 
 namespace {
-	struct Mesh {
+	struct GuiVertex {
 		pod::Vector3f position;
 		pod::Vector2f uv;
 
@@ -37,6 +37,7 @@ namespace {
 	#else
 		pod::Vector4b color;
 	#endif
+		pod::Vector2f offset;
 
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
@@ -58,14 +59,15 @@ namespace {
 	};
 }
 
-UF_VERTEX_DESCRIPTOR(Mesh,
-	UF_VERTEX_DESCRIPTION(Mesh, R32G32B32_SFLOAT, position)
-	UF_VERTEX_DESCRIPTION(Mesh, R32G32_SFLOAT, uv)
+UF_VERTEX_DESCRIPTOR(GuiVertex,
+	UF_VERTEX_DESCRIPTION(GuiVertex, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(GuiVertex, R32G32_SFLOAT, uv)
 #if EXT_COLOR_FLOATS
-	UF_VERTEX_DESCRIPTION(Mesh, R32G32B32A32_SFLOAT, color)
+	UF_VERTEX_DESCRIPTION(GuiVertex, R32G32B32A32_SFLOAT, color)
 #else
-	UF_VERTEX_DESCRIPTION(Mesh, R8G8B8A8_UNORM, color)
+	UF_VERTEX_DESCRIPTION(GuiVertex, R8G8B8A8_UNORM, color)
 #endif
+	UF_VERTEX_DESCRIPTION(GuiVertex, R32G32_SFLOAT, offset)
 )
 
 namespace {
@@ -87,15 +89,15 @@ namespace {
 	}
 
 	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color, const pod::Vector2f& center ) {
-		mesh.bind<::Mesh, uint16_t>();
-		mesh.insertVertices<::Mesh>({
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
+		mesh.bind<::GuiVertex, uint16_t>();
+		mesh.insertVertices<::GuiVertex>({
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color, center },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
 		
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color, center },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
 		});
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 3, 4, 5
@@ -551,14 +553,20 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		pod::Vector2f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
 		pod::Vector2f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
 
-		uf::Mesh::Attribute vertexAttribute;
-		for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
-		UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+		uf::Mesh::Attribute positionAttribute;
+		uf::Mesh::Attribute offsetAttribute;
+		for ( auto& attribute : mesh.vertex.attributes ) {
+			if ( attribute.descriptor.name == "position" ) positionAttribute = attribute;
+			if ( attribute.descriptor.name == "offset" ) offsetAttribute = attribute;
+		}
+		UF_ASSERT( positionAttribute.descriptor.name == "position" );
 
 		for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-			float* p = (float*) (static_cast<uint8_t*>(vertexAttribute.pointer) + i * vertexAttribute.stride );
+			float* p = (float*) (static_cast<uint8_t*>(positionAttribute.pointer) + i * positionAttribute.stride );
+			float* o = (float*) (static_cast<uint8_t*>(offsetAttribute.pointer) + i * offsetAttribute.stride );
 		//	pod::Vector4f position = { p[0], p[1], p[2], 1 };
-			pod::Vector4f position = { p[0], p[1], 0, 1 };
+			pod::Vector4f position = { p[0] + o[0], p[1] + o[1], 0, 1 };
+
 			pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
 			min.x = std::min( min.x, translated.x );
 			max.x = std::max( max.x, translated.x );

@@ -1,6 +1,7 @@
 layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec2 inPos;
 layout (location = 1) in vec2 inUv;
+layout (location = 3) in vec2 inOffset;
 
 #include "./gui.h"
 
@@ -33,10 +34,16 @@ layout (location = 1) out flat Gui outGui;
 void main() {
 	outUv = inUv;
 	outGui = ubo.gui;
+
 #if GLYPH
 	outVertexID = gl_VertexIndex;
 	outGlyph = uboGlyph.glyph;
 #endif
 	
-	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, ubo.gui.depth, 1.0);
+	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy + inOffset.xy, ubo.gui.depth, 1.0);
+/*
+	vec4 clipPos = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, ubo.gui.depth, 1.0);
+	clipPos.xy += inOffset * clipPos.w;
+	gl_Position = clipPos;
+*/
 }

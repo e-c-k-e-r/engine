@@ -9,11 +9,12 @@
 namespace pod {
 	struct GlyphBox {
 		struct {
-			float x, y, w, h, z;
-		} box;
+			float x = 0, y = 0, w = 0, h = 0, z = 0;
+		} box = {};
 		
-		pod::Vector4f color;
-		uint64_t code;
+		pod::Vector4f color = { 1, 1, 1, 1 };
+		pod::Vector3f anchor = { 0, 0, 0 };
+		uint64_t code = 0;
 	};
 	struct TextToken {
 		uf::stl::string text;

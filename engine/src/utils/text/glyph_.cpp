@@ -28,6 +28,8 @@ namespace {
 		pod::Vector4b color;
 	#endif
 
+		pod::Vector3f offset;
+
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
 }
@@ -40,6 +42,7 @@ UF_VERTEX_DESCRIPTOR(GlyphVertex,
 #else
 	UF_VERTEX_DESCRIPTION(GlyphVertex, R8G8B8A8_UNORM, color)
 #endif
+	UF_VERTEX_DESCRIPTION(GlyphVertex, R32G32_SFLOAT, offset)
 )
 
 namespace {
@@ -216,6 +219,7 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 					.z = 0,
 				},
 				.color = token.color,
+				.anchor = anchor,
 				.code = c,
 			});
 
@@ -315,10 +319,15 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 		indices.insert( indices.end(), { idx, idx + 1, idx + 2, idx, idx + 2, idx + 3 });
 
 		// insert vertices
-		vertices.emplace_back(::GlyphVertex{pod::Vector3f{ g.box.x,	g.box.y + g.box.h, g.box.z }, 			atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{pod::Vector3f{ g.box.x, g.box.y, g.box.z }, 					atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{pod::Vector3f{ g.box.x + g.box.w, g.box.y, g.box.z }, 			atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, g.box.z }, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color});
+		auto p0 = pod::Vector2f{ g.box.x, g.box.y + g.box.h };
+		auto p1 = pod::Vector2f{ g.box.x, g.box.y };
+		auto p2 = pod::Vector2f{ g.box.x + g.box.w, g.box.y };
+		auto p3 = pod::Vector2f{ g.box.x + g.box.w, g.box.y + g.box.h };
+
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color, p0});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color, p1});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color, p2});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color, p3});
 	}
 
 	mesh.insertVertices(vertices);
