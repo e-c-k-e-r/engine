@@ -14,7 +14,7 @@
 			"axis": [ 0, 1, 0 ],
 			"angle": 0
 		},
-		"scale": [ 10.0, 10.0, 10.0 ]
+		"scale": [ 1.0, 1.0, 1.0 ]
 	},
 	"system": {
 		"hot reload": {
@@ -29,7 +29,7 @@
 					"animations": true
 				},
 				"draw": {
-					"armature": true
+					"armature": false
 				}
 			},
 			"exporter": {

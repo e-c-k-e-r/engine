@@ -1,38 +1,23 @@
 #include <uf/utils/image/atlas.h>
 #include <binpack2d/binpack2d.hpp>
 #include <iostream>
+#include <bit>
 
-uf::Atlas::hash_t uf::Atlas::addImage( const uf::Image& _image, bool regenerate ) {
+uf::Atlas::hash_t uf::Atlas::addImage( const uf::Image& image, const uf::Atlas::hash_t& hash ) {
 	size_t index = this->m_tiles.size();
-	auto hash = _image.getHash();
 	if ( this->m_tiles.count( hash ) > 0 ) return hash;
 
 	auto& tile = this->m_tiles[hash];
-	tile.image = _image;
+	tile.image = image;
 	tile.identifier.hash = hash;
 	tile.identifier.index = index;
-	if ( regenerate ) this->generate();
 	return hash;
 }
-uf::Atlas::hash_t uf::Atlas::addImage( uf::Image&& _image, bool regenerate ) {
-	size_t index = this->m_tiles.size();
-	auto hash = _image.getHash();
-	if ( this->m_tiles.count( hash ) > 0 ) return hash;
-
-	auto& tile = this->m_tiles[hash];
-	tile.image = _image;
-	tile.identifier.hash = hash;
-	tile.identifier.index = index;
-	if ( regenerate ) this->generate();
-	return hash;
-}
-uf::Atlas::hash_t uf::Atlas::addImage( const uint8_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip, bool regenerate ) {
-	uf::Image image;
-	image.loadFromBuffer( pointer, size, bpp, channels, flip );
-	return this->addImage( std::move( image ), regenerate );
+uf::Atlas::hash_t uf::Atlas::addImage( const uf::Image& image ) {
+	return this->addImage( image, image.getHash() );
 }
 void uf::Atlas::generate( const uf::Atlas::images_t& images, float padding ) {
-	for ( auto& image : images ) this->addImage( image, true );
+	for ( auto& image : images ) this->addImage( image );
 	generate( padding );
 }
 void uf::Atlas::generate( float padding ) {
@@ -59,27 +44,8 @@ void uf::Atlas::generate( float padding ) {
 	}
 	size_t tries = 16;
 	do {
-		{
-		//	size_t area = largest.x * largest.y * this->m_tiles.size();
-			size_t side = std::sqrt( area ) * padding;
-			size = { side, side };
-			{
-				size.x--;
-				size.x |= size.x >> 1;
-				size.x |= size.x >> 2;
-				size.x |= size.x >> 4;
-				size.x |= size.x >> 8;
-				size.x |= size.x >> 16;
-				size.x++;
-				size.y--;
-				size.y |= size.y >> 1;
-				size.y |= size.y >> 2;
-				size.y |= size.y >> 4;
-				size.y |= size.y >> 8;
-				size.y |= size.y >> 16;
-				size.y++;
-			}
-		}
+		size_t side = std::sqrt( area ) * padding;
+		size = { std::bit_ceil(side), std::bit_ceil(side) }; // to-do: non-C++20 method
 		queue.Sort();
 		internalAtlas = BinPack2D::UniformCanvasArrayBuilder<uf::Atlas::Identifier>(size.x, size.y, 1).Build();
 		bool success = internalAtlas.Place( queue, remainder );
@@ -116,6 +82,9 @@ void uf::Atlas::generate( float padding ) {
 		}
 	}
 }
+bool uf::Atlas::has( const uf::Atlas::hash_t& hash ) const {
+	return this->m_tiles.count( hash ) > 0;
+}
 bool uf::Atlas::generated() const {
 	return !this->m_atlas.getPixels().empty();
 }
@@ -127,17 +96,20 @@ void uf::Atlas::clear( bool full ) {
 	this->m_tiles.clear();
 	this->m_atlas.clear();
 }
-pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, const uf::Atlas::hash_t& hash ) {
-	auto& size = this->m_atlas.getDimensions();
-	for ( auto pair : this->m_tiles ) {
-		auto& tile = pair.second;
-		if ( tile.identifier.hash != hash ) continue;
-		pod::Vector2ui coord = { uv.x * tile.size.x + tile.coord.x, uv.y * tile.size.y + tile.coord.y };
+pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, const uf::Atlas::hash_t& hash ) const {
+	auto it = this->m_tiles.find(hash);
+	if ( it != this->m_tiles.end() ) {
+		auto& tile = it->second;
+		auto& size = this->m_atlas.getDimensions();
+		pod::Vector2ui coord = {
+			uv.x * tile.size.x + tile.coord.x,
+			uv.y * tile.size.y + tile.coord.y
+		};
 		return pod::Vector2f{ (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };
 	}
 	return uv;
 }
-pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
+pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) const {
 	auto& size = this->m_atlas.getDimensions();
 	for ( auto pair : this->m_tiles ) {
 		auto& tile = pair.second;
@@ -147,7 +119,7 @@ pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
 	}
 	return uv;
 }
-pod::Vector3f uf::Atlas::mapUv( const pod::Vector3f& uv ) {
+pod::Vector3f uf::Atlas::mapUv( const pod::Vector3f& uv ) const {
 	pod::Vector2f nuv = mapUv( { uv.x, uv.y }, uv.z );
 	return { nuv.x, nuv.y, uv.z };
 }

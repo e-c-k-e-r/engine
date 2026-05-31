@@ -58,8 +58,8 @@ pod::Constraint& uf::physics::constrainWeld( pod::Constraint& constraint, const 
 
 	auto& joint = constraint.weld;
 	constraint.type = pod::ConstraintType::WELD;
-	joint.localAnchorA = uf::transform::applyInverse( tA, p );
-	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.localAnchorA = impl::applyInverse( tA, p );
+	joint.localAnchorB = impl::applyInverse( tB, p );
 
 	joint.localAxisA = uf::quaternion::rotate( invqA, axis );
 	joint.localAxisB = uf::quaternion::rotate( invqB, axis );

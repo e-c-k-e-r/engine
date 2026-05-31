@@ -19,7 +19,7 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 				( localDir.y >= 0.0f ) ? box.max.y : box.min.y,
 				( localDir.z >= 0.0f ) ? box.max.z : box.min.z
 			};
-			return uf::transform::apply( transform, localPt );
+			return impl::apply( transform, localPt );
 		} break;
 		case pod::ShapeType::SPHERE: {
 			return transform.position + uf::vector::normalize( dir ) * body.collider.sphere.radius;
@@ -77,7 +77,7 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 				}
 			}
 
-			return uf::transform::apply( transform, furthestVertex );
+			return impl::apply( transform, furthestVertex );
 		} break;
 
 		default: {

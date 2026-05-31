@@ -92,12 +92,12 @@ void impl::drawHull( const pod::PhysicsBody& body ) {
 
 	for ( size_t i = 0; i < totalTriangles; ++i ) {
 		auto tri = uf::mesh::fetchTriangle( *meshData, i );
-	#if 0
-		uf::debug::drawTriangle( tri, transform );
+	#if 1
+		uf::debug::drawShape( tri, transform );
 	#else
-		auto v0 = uf::transform::apply( transform, tri.points[0] );
-		auto v1 = uf::transform::apply( transform, tri.points[1] );
-		auto v2 = uf::transform::apply( transform, tri.points[2] );
+		auto v0 = impl::apply( transform, tri.points[0] );
+		auto v1 = impl::apply( transform, tri.points[1] );
+		auto v2 = impl::apply( transform, tri.points[2] );
 
 		uf::debug::drawLine( v0, v1 );
 		uf::debug::drawLine( v1, v2 );

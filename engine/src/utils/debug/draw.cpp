@@ -3,6 +3,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/text/glyph_.h>
 
 namespace impl {
 	struct Vertex {
@@ -19,15 +20,29 @@ namespace impl {
 		float ttl = 0;
 	};
 
-	float decayRate = 0.25f;
-	uf::stl::vector<impl::Vertex> lines;
-	uf::stl::unordered_map<size_t, impl::Line> transientLines;
 
-	size_t getHash( const pod::Vector3f& start, const pod::Vector3f& end, const pod::Vector4f& color ) {
-		size_t hash = 0;
-		uf::hash(hash, start, end, color);
-		return hash;
-	}
+	float decayRate = 1.0f;
+	uf::stl::vector<impl::Vertex> lines;
+	uf::stl::vector<impl::Line> transientLines;
+	uf::Mesh lineMesh;
+}
+
+namespace impl {
+	struct Text {
+		uf::stl::string string = "";
+		pod::Vector3f position = {};
+		pod::Vector4f color = { 1, 1, 1, 1 };
+	};
+	uf::stl::vector<impl::Text> texts;
+	uf::Mesh textMesh;
+	uf::Atlas textAtlas;
+
+	pod::GlyphSettings textSettings = {
+		.alignment = "center",
+		.font = "FragmentMono.ttf",
+		.size = 96,
+		.sdf = false,
+	};
 }
 
 UF_VERTEX_DESCRIPTOR(impl::Vertex,
@@ -39,7 +54,7 @@ void uf::debug::drawLine( const pod::Vector3f& start, const pod::Vector3f& end, 
 	impl::lines.emplace_back( impl::Vertex{ start, color } );
 	impl::lines.emplace_back( impl::Vertex{ end, color } );
 }
-// for some reason compiling these two and not even using them causes physics to break
+
 void uf::debug::drawShape( const pod::AABB& aabb, const pod::Transform<>& transform ) {
 	pod::Vector3f corners[8] = {
 		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
@@ -189,31 +204,36 @@ void uf::debug::drawShape( const pod::Triangle& tri, const pod::Transform<>& tra
 	uf::debug::drawLine( v2, v0 );
 }
 void uf::debug::addLine( const pod::Vector3f& start, const pod::Vector3f& end, const pod::Vector4f& color, float ttl ) {
-	impl::transientLines[impl::getHash( start, end, color )] = impl::Line{ start, end, color, ttl };
+	impl::transientLines.emplace_back(impl::Line{ start, end, color, ttl });
 }
 
-void uf::debug::draw( float dt ) {
-	for ( auto it = impl::transientLines.begin(); it != impl::transientLines.end(); ) {
-		auto& line = it->second;
-		
-		if ( line.ttl <= 0 ) it = impl::transientLines.erase( it );
-		else {
+void uf::debug::drawLines( float dt ) {
+	for ( auto i = 0; i < impl::transientLines.size(); ) {
+		auto& line = impl::transientLines[i];
+		if ( line.ttl <= 0 ) {
+			line = impl::transientLines.back();
+			impl::transientLines.pop_back();
+		} else {
 			uf::debug::drawLine( line.start, line.end, line.color * pod::Vector4f{ 1, 1, 1, CLAMP( line.ttl, 0, 1 ) } );
 			line.ttl -= dt * impl::decayRate;
-			++it;
+			++i;
 		}
 	}
 
 	if ( impl::lines.empty() ) return;
+	// double buffer
+	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Vertex>, lines);
+	std::swap( impl::lines, lines );
 
-	// to-do: make this static to avoid additional allocations
-	uf::Mesh mesh;
-	mesh.bind<impl::Vertex>();
-	mesh.insertVertices<impl::Vertex>(impl::lines);
+	impl::lineMesh.clear();
+	impl::lineMesh.bind<impl::Vertex>();
+	impl::lineMesh.insertVertices<impl::Vertex>(lines);
+	impl::lineMesh.generateIndirect();
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& graphics = scene.getComponent<uf::renderer::Graphics>();
-	auto& graphic = graphics["immediate"];
+	
+	auto& graphic = graphics["immediate:lines"];
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
@@ -243,12 +263,123 @@ void uf::debug::draw( float dt ) {
 		}
 
 		graphic.initialize();
-		graphic.initializeMesh( mesh );
-		UF_MSG_DEBUG("Initialized graphic");
+		graphic.initializeMesh( impl::lineMesh );
 	} else {
-		bool rebuild = graphic.updateMesh( mesh );
+		bool rebuild = graphic.updateMesh( impl::lineMesh );
 		if ( rebuild ) uf::renderer::states::rebuild = true; // to-do: rebuild the defer mode only
 	}
+}
 
-	impl::lines.clear();
+void uf::debug::drawText( const uf::stl::string& string, const pod::Vector3f& position, const pod::Vector4f& color ) {
+	impl::texts.emplace_back( impl::Text{ string, position, color } );
+}
+
+void uf::debug::drawTexts( float dt ) {
+	if ( impl::texts.empty() ) return;
+	// double buffer
+	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Text>, texts);
+	std::swap( impl::texts, texts );
+	
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& camera = scene.getCamera( controller );
+	auto& transform = camera.getTransform();
+
+	uf::stl::vector<pod::GlyphBox> textLayout;
+	// pre-init with ASCII characters
+	if ( !impl::textAtlas.generated() ) {
+		uf::stl::string ascii = "";
+		for ( char c = 32; c < 127; ++c ) ascii += c;
+		auto tokens = uf::glyph::parseTextTokens( ascii, {0,0,0,0} );
+		auto layout = uf::glyph::calculateLayout( tokens, impl::textSettings );
+		for ( auto& g : layout ) {
+			g.box.x = 0;
+			g.box.y = 0;
+			g.box.w = 0;
+			g.box.h = 0;
+
+			textLayout.emplace_back( g );
+		}
+	}
+
+	for ( auto& text : texts ) {
+		auto tokens = uf::glyph::parseTextTokens( text.string, text.color );
+		auto layout = uf::glyph::calculateLayout( tokens, impl::textSettings );
+
+		auto world = pod::Vector4f{ text.position.x, text.position.y, text.position.z, 1.0f };
+		auto view = camera.getProjection() * camera.getView();
+		auto clip = uf::matrix::multiply( view, world );
+
+		if ( clip.w <= 0.0f ) continue;
+		
+		auto ndc = pod::Vector3f{ clip.x, clip.y, clip.z } / clip.w;
+		float scale = 2.0f / clip.w;
+
+		if ( ndc.z < 0.0f || ndc.z > 1.0f ) continue;
+		
+		for ( auto& g : layout ) {
+			g.box.x  = g.box.x * scale + ndc.x;
+			g.box.y  = g.box.y * scale + ndc.y;
+			g.box.z  = ndc.z;
+			g.box.w *= scale;
+			g.box.h *= scale;
+
+			if ( (g.box.x + g.box.w < -1.0f) || (g.box.x > 1.0f) || (g.box.y + g.box.h < -1.0f) || (g.box.y > 1.0f) ) continue;
+
+			textLayout.emplace_back( g );
+		}
+	}
+
+	bool dirty = uf::glyph::generateAtlas( textLayout, impl::textSettings, impl::textAtlas );
+	uf::glyph::generateMesh( textLayout, impl::textSettings, impl::textAtlas, impl::textMesh );
+	impl::textMesh.generateIndirect();
+
+	auto& graphics = scene.getComponent<uf::renderer::Graphics>();	
+	auto& graphic = graphics["immediate:texts"];
+	if ( !graphic.initialized ) {
+		graphic.device = &uf::renderer::device;
+		graphic.material.device = &uf::renderer::device;
+
+		graphic.descriptor.depth.test = uf::physics::settings.debugDraw.depthTest;
+		graphic.descriptor.depth.write = false;
+		graphic.descriptor.renderTarget = 1; // "forward";
+		graphic.descriptor.blend.enabled = true;
+		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+
+		uf::stl::string vertexShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/base/textured/vert.spv");
+		uf::stl::string fragmentShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/base/textured/frag.spv");
+
+		graphic.material.metadata.autoInitializeUniformBuffers = false;
+		graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
+		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.metadata.autoInitializeUniformBuffers = true;
+		
+		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+		
+		// vertex shader
+		{
+			auto& shader = graphic.material.getShader("vertex");
+			shader.aliasBuffer( storage.buffers.camera );
+		}
+		// fragment shader
+		auto& texture = graphic.material.textures.emplace_back();
+		texture.loadFromImage( impl::textAtlas.getAtlas() );
+
+		graphic.initialize();
+		graphic.initializeMesh( impl::textMesh );
+	} else {
+		if ( dirty ) {
+			graphic.material.textures.clear();
+			
+			auto& texture = graphic.material.textures.emplace_back();
+			texture.loadFromImage( impl::textAtlas.getAtlas() );
+		}
+
+		bool rebuild = graphic.updateMesh( impl::textMesh );
+		if ( rebuild ) uf::renderer::states::rebuild = true; // to-do: rebuild the defer mode only
+	}
+}
+void uf::debug::draw( float dt ) {
+	uf::debug::drawLines( dt );
+	uf::debug::drawTexts( dt );
 }

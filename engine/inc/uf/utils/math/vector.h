@@ -166,7 +166,7 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ magnitude( const T& vector ); // gets the magnitude of the vector
 		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ norm( const T& vector ); // compute the norm (length) of the vector
 		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ normalize( const T& vector ); // normalizes a vector
-		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ clampMagnitude( const T& vector ); // clamps the magnitude of a vector
+		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ clampMagnitude( const T& vector, float maxMag ); // clamps the magnitude of a vector
 		template<typename T> /*FORCE_INLINE*/ void /*UF_API*/ orthonormalize( T& x, T& y ); // orthonormalizes a vector against another vector
 		template<typename T> /*FORCE_INLINE*/ T /*UF_API*/ orthonormalize( const T& x, const T& y ); // orthonormalizes a vector against another vector
 		

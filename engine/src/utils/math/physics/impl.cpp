@@ -295,7 +295,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 				parentTransform = *transformsMap[originalTransform->reference];
 			}
 
-			transform.position = uf::transform::applyInverse( parentTransform, flattenedTransform.position );
+			transform.position = impl::applyInverse( parentTransform, flattenedTransform.position );
 			transform.orientation = uf::quaternion::multiply(
 				uf::quaternion::inverse( parentTransform.orientation ),
 				flattenedTransform.orientation

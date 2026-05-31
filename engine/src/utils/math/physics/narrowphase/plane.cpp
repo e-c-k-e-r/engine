@@ -70,8 +70,8 @@ void impl::drawPlane( const pod::PhysicsBody& body ) {
 	const auto& plane = body.collider.plane;
 	auto transform = impl::getTransform(body);
 
-#if 0
-	uf::debug::drawPlane( plane, transform );
+#if 1
+	uf::debug::drawShape( plane, transform );
 #else
 	pod::Vector3f right = uf::quaternion::rotate(transform.orientation, pod::Vector3f{1, 0, 0});
 	pod::Vector3f forward = uf::quaternion::rotate(transform.orientation, pod::Vector3f{0, 0, 1});

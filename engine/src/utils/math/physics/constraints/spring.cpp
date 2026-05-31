@@ -49,8 +49,8 @@ pod::Constraint& uf::physics::constrainSpring( pod::Constraint& constraint, cons
 
 	auto& joint = constraint.spring;
 	constraint.type = pod::ConstraintType::SPRING;
-	joint.localAnchorA = uf::transform::applyInverse( tA, pA );
-	joint.localAnchorB = uf::transform::applyInverse( tB, pB );
+	joint.localAnchorA = impl::applyInverse( tA, pA );
+	joint.localAnchorB = impl::applyInverse( tB, pB );
 
 	joint.restLength = uf::vector::distance( pB, pA );
 	joint.stiffness = stiffness;

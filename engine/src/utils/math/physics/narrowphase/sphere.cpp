@@ -71,8 +71,8 @@ bool impl::sphereHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 void impl::drawSphere( const pod::PhysicsBody& body ) {
 	const auto& sphere = body.collider.sphere;
 	auto transform = impl::getTransform(body);
-#if 0
-	uf::debug::drawSphere( sphere, transform );
+#if 1
+	uf::debug::drawShape( sphere, transform );
 #else
 	const int segments = 16;
 	const float angleIncrement = (2.0f * M_PI) / segments;

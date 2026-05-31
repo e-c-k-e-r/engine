@@ -205,6 +205,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 		uf::physics::settings.timestep = configEnginePhysicsJson["timestep"].as(uf::physics::settings.timestep);
 		uf::physics::settings.fixedStep = configEnginePhysicsJson["fixed step"].as(uf::physics::settings.fixedStep);
 		uf::physics::settings.substeps = configEnginePhysicsJson["substeps"].as(uf::physics::settings.substeps);
+		uf::physics::settings.flattenTransforms = configEnginePhysicsJson["flatten transforms"].as(uf::physics::settings.flattenTransforms);
 
 		auto& configEnginePhysicsSolverJson = configEnginePhysicsJson["solvers"];
 		if ( ext::json::isObject( configEnginePhysicsSolverJson ) ) {

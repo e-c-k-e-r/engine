@@ -1,15 +1,15 @@
 #include <uf/utils/memory/alignment.h>
 
-namespace {
-	FORCE_INLINE __m128i bias_unsigned(__m128i v) {
+/**/namespace {
+	FORCE_INLINE __m128i _impl_bias_unsigned(__m128i v) {
 		const __m128i signbit = _mm_set1_epi32(0x80000000);
 		return _mm_xor_si128(v, signbit);
 	}
 
-	FORCE_INLINE int32_t boolMask(bool b) {
+	FORCE_INLINE int32_t _impl_bool_mask(bool b) {
 		return b ? -1 : 0; // 0xFFFFFFFF for true, 0x00000000 for false
 	}
-}
+/**/}
 
 #define MV_INSTR_SET_DEFAULT __attribute__((target("default")))
 #define MV_INSTR_SET_2 __attribute__((target("sse2")))
@@ -202,13 +202,18 @@ FORCE_INLINE uf::simd::vector<float> uf::simd::sqrt( uf::simd::vector<float> v )
 	return _mm_sqrt_ps( v );
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<float> dot_impl( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
-		return uf::simd::mul( x, y );
+	uf::simd::vector<float> _impl_dot( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+		__m128 mul = _mm_mul_ps(x, y);
+		__m128 shuf = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 3, 0, 1));
+		__m128 sums = _mm_add_ps(mul, shuf);
+		shuf = _mm_movehl_ps(shuf, sums);
+		return _mm_add_ss(sums, shuf);
 	}
 	MV_INSTR_SET_3
-	uf::simd::vector<float> dot_impl( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+	uf::simd::vector<float> _impl_dot( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
 		__m128 mulRes = _mm_mul_ps(x, y);
 		__m128 shufReg = _mm_movehdup_ps(mulRes);
 		__m128 sumsReg = _mm_add_ps(mulRes, shufReg);
@@ -216,47 +221,93 @@ namespace {
 		return _mm_add_ss(sumsReg, shufReg);
 	}
 	MV_INSTR_SET_5
-	uf::simd::vector<float> dot_impl( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
-		return _mm_dp_ps(x, y, 0xF1);
+	uf::simd::vector<float> _impl_dot( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+		return _mm_dp_ps(x, y, 0xFF);
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<float> _impl_dot( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+	#if SSE_INSTR_SET >= 5
+		return _mm_dp_ps(x, y, 0xFF);
+	#elif SSE_INSTR_SET >= 3
+		__m128 mulRes = _mm_mul_ps(x, y);
+		__m128 shufReg = _mm_movehdup_ps(mulRes);
+		__m128 sumsReg = _mm_add_ps(mulRes, shufReg);
+		shufReg = _mm_movehl_ps(shufReg, sumsReg);
+		return _mm_add_ss(sumsReg, shufReg);
+	#else
+		__m128 mul = _mm_mul_ps(x, y);
+		__m128 shuf = _mm_shuffle_ps(mul, mul, _MM_SHUFFLE(2, 3, 0, 1));
+		__m128 sums = _mm_add_ps(mul, shuf);
+		shuf = _mm_movehl_ps(shuf, sums);
+		return _mm_add_ss(sums, shuf);
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE float uf::simd::dot( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
-	return _mm_cvtss_f32( ::dot_impl( x, y ) );
+	return _mm_cvtss_f32( _impl_dot( x, y ) );
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> load_impl( const int32_t* f ) {
+	uf::simd::vector<int32_t> _impl_load( const int32_t* f ) {
 		return uf::simd::vector<int32_t>( f[0], f[1], f[2], f[3] );
 	}
 	MV_INSTR_SET_3
-	uf::simd::vector<int32_t> load_impl( const int32_t* f ) {
+	uf::simd::vector<int32_t> _impl_load( const int32_t* f ) {
 		// if ( uf::aligned(f, 16) ) return _mm_load_si128(reinterpret_cast<const __m128i*>(f));
-		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));
+		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));//
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_load( const int32_t* f ) {
+		// if ( uf::aligned(f, 16) ) return _mm_load_si128(reinterpret_cast<const __m128i*>(f));
+	#if SSE_INSTR_SET >= 3
+		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));//
+	#else
+		return uf::simd::vector<int32_t>( f[0], f[1], f[2], f[3] );
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::load( const int32_t* f ) {
-	return ::load_impl( f );
+	return _impl_load( f );
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	void store_impl( uf::simd::vector<int32_t> v, int32_t* f ) {
+	void _impl_store( uf::simd::vector<int32_t> v, int32_t* f ) {
 		union { __m128i x; int32_t y[4]; } kludge;
 		kludge.x = v;
 		f[0] = kludge.y[0];
 		f[1] = kludge.y[1];
 		f[2] = kludge.y[2];
-		f[3] = kludge.y[3];
+		f[3] = kludge.y[3];//
 	}
 	MV_INSTR_SET_3
-	void store_impl( uf::simd::vector<int32_t> v, int32_t* f ) {
+	void _impl_store( uf::simd::vector<int32_t> v, int32_t* f ) {
 		/*if ( uf::aligned(f, 16) ) _mm_store_si128(reinterpret_cast<__m128i*>(f), v);
 		else*/ _mm_storeu_si128(reinterpret_cast<__m128i*>(f), v);
 	}
-}
+#else
+	FORCE_INLINE void _impl_store( uf::simd::vector<int32_t> v, int32_t* f ) {
+	#if SSE_INSTR_SET >= 3
+		/*if ( uf::aligned(f, 16) ) _mm_store_si128(reinterpret_cast<__m128i*>(f), v);
+		else*/ _mm_storeu_si128(reinterpret_cast<__m128i*>(f), v);
+	#else
+		union { __m128i x; int32_t y[4]; } kludge;
+		kludge.x = v;
+		f[0] = kludge.y[0];
+		f[1] = kludge.y[1];
+		f[2] = kludge.y[2];
+		f[3] = kludge.y[3];//
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE void uf::simd::store( uf::simd::vector<int32_t> v, int32_t* f ) {
-	return ::store_impl( v, f );
+	return _impl_store( v, f );
 }
 
 
@@ -273,20 +324,32 @@ FORCE_INLINE uf::simd::vector<int32_t> uf::simd::sub( uf::simd::vector<int32_t> 
 	return _mm_sub_epi32(x, y);
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> mul_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_mul( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(X[0]*Y[0], X[1]*Y[1], X[2]*Y[2], X[3]*Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> mul_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_mul( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {//
 		return _mm_mullo_epi32(x, y);
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_mul( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {//
+	#if SSE_INSTR_SET >= 4
+		return _mm_mullo_epi32(x, y);
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(X[0]*Y[0], X[1]*Y[1], X[2]*Y[2], X[3]*Y[3]);
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::mul( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::mul_impl( x, y );
+	return _impl_mul( x, y );
 }
 
 
@@ -302,34 +365,56 @@ FORCE_INLINE uf::simd::vector<int32_t> uf::simd::hadd( uf::simd::vector<int32_t>
 	return uf::simd::set( X[0] + Y[0], X[1] + Y[1], X[2] + Y[2], X[3] + Y[3] );
 }
 */
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> min_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_min( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(std::min(X[0],Y[0]), std::min(X[1],Y[1]), std::min(X[2],Y[2]), std::min(X[3],Y[3]));
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> min_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_min( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {//
 		return _mm_min_epi32(x, y);
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> max_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_max( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(std::max(X[0],Y[0]), std::max(X[1],Y[1]), std::max(X[2],Y[2]), std::max(X[3],Y[3]));
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> max_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_max( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		return _mm_max_epi32(x, y);
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_min( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {//
+	#if SSE_INSTR_SET >= 4
+		return _mm_min_epi32(x, y);
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(std::min(X[0],Y[0]), std::min(X[1],Y[1]), std::min(X[2],Y[2]), std::min(X[3],Y[3]));
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_max( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_max_epi32(x, y);
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(std::max(X[0],Y[0]), std::max(X[1],Y[1]), std::max(X[2],Y[2]), std::max(X[3],Y[3]));
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::min( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::min_impl(x, y);
+	return _impl_min(x, y);
 }
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::max( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::max_impl(x, y);
+	return _impl_max(x, y);
 }
 
 
@@ -340,60 +425,100 @@ FORCE_INLINE bool uf::simd::any( uf::simd::vector<int32_t> mask) {
 	return _mm_movemask_epi8( mask ) != 0x0; // any bit set
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> less_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_less( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_i(X[0] < Y[0], X[1] < Y[1], X[2] < Y[2], X[3] < Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> less_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-		return _mm_cmplt_epi32( x, y );
+	uf::simd::vector<int32_t> _impl_less( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+		return _mm_cmplt_epi32( x, y );//
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> lessEquals_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_lessEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_i(X[0] <= Y[0], X[1] <= Y[1], X[2] <= Y[2], X[3] <= Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> lessEquals_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_lessEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		__m128i gt = _mm_cmpgt_epi32(x, y);
 		return _mm_xor_si128(gt, _mm_set1_epi32(-1));
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> greater_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_greater( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_i(X[0] > Y[0], X[1] > Y[1], X[2] > Y[2], X[3] > Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> greater_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_greater( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		return _mm_cmpgt_epi32(x, y);
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<int32_t> greaterEquals_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_greaterEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_i(X[0] >= Y[0], X[1] >= Y[1], X[2] >= Y[2], X[3] >= Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<int32_t> greaterEquals_impl( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	uf::simd::vector<int32_t> _impl_greaterEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
 		__m128i gt = _mm_cmplt_epi32(x, y);
 		return _mm_xor_si128(gt, _mm_set1_epi32(-1));
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_less( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_cmplt_epi32( x, y );//
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_i(X[0] < Y[0], X[1] < Y[1], X[2] < Y[2], X[3] < Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_lessEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		__m128i gt = _mm_cmpgt_epi32(x, y);
+		return _mm_xor_si128(gt, _mm_set1_epi32(-1));
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_i(X[0] <= Y[0], X[1] <= Y[1], X[2] <= Y[2], X[3] <= Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_greater( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_cmpgt_epi32(x, y);
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_i(X[0] > Y[0], X[1] > Y[1], X[2] > Y[2], X[3] > Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<int32_t> _impl_greaterEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		__m128i gt = _mm_cmplt_epi32(x, y);
+		return _mm_xor_si128(gt, _mm_set1_epi32(-1));
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_i(X[0] >= Y[0], X[1] >= Y[1], X[2] >= Y[2], X[3] >= Y[3]);
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::less( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::less_impl( x, y );
+	return _impl_less( x, y );
 }
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::lessEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::lessEquals_impl( x, y );
+	return _impl_lessEquals( x, y );
 }
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::greater( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::greater_impl( x, y );
+	return _impl_greater( x, y );
 }
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::greaterEquals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
-	return ::greaterEquals_impl( x, y );
+	return _impl_greaterEquals( x, y );
 }
 
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::equals( uf::simd::vector<int32_t> x, uf::simd::vector<int32_t> y ) {
@@ -412,19 +537,20 @@ FORCE_INLINE int32_t uf::simd::dot( uf::simd::vector<int32_t> x, uf::simd::vecto
 	return X[0] * Y[0] + X[1] * Y[1] + X[2] * Y[2] + X[3] * Y[3];
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> load_impl( const uint32_t* f ) {
+	uf::simd::vector<uint32_t> _impl_load( const uint32_t* f ) {
 		return uf::simd::vector<uint32_t>( f[0], f[1], f[2], f[3] );
 	}
 	MV_INSTR_SET_3
-	uf::simd::vector<uint32_t> load_impl( const uint32_t* f ) {
+	uf::simd::vector<uint32_t> _impl_load( const uint32_t* f ) {
 		// if ( uf::aligned(f, 16) ) return _mm_load_si128(reinterpret_cast<const __m128i*>(f));
-		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));
+		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));//
 	}
 
 	MV_INSTR_SET_DEFAULT
-	void store_impl( uf::simd::vector<uint32_t> v, uint32_t* f ) {
+	void _impl_store( uf::simd::vector<uint32_t> v, uint32_t* f ) {
 		union { __m128i x; uint32_t y[4]; } kludge;
 		kludge.x = v;
 		f[0] = kludge.y[0];
@@ -433,16 +559,40 @@ namespace {
 		f[3] = kludge.y[3];
 	}
 	MV_INSTR_SET_3
-	void store_impl( uf::simd::vector<uint32_t> v, uint32_t* f ) {
+	void _impl_store( uf::simd::vector<uint32_t> v, uint32_t* f ) {
 		/*if ( uf::aligned(f, 16) ) _mm_store_si128(reinterpret_cast<__m128i*>(f), v);
 		else*/ _mm_storeu_si128(reinterpret_cast<__m128i*>(f), v);
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_load( const uint32_t* f ) {
+	#if SSE_INSTR_SET >= 3
+		// if ( uf::aligned(f, 16) ) return _mm_load_si128(reinterpret_cast<const __m128i*>(f));
+		return _mm_loadu_si128(reinterpret_cast<const __m128i*>(f));//
+	#else
+		return uf::simd::vector<uint32_t>( f[0], f[1], f[2], f[3] );
+	#endif
+	}
+
+	FORCE_INLINE void _impl_store( uf::simd::vector<uint32_t> v, uint32_t* f ) {
+	#if SSE_INSTR_SET >= 3
+		/*if ( uf::aligned(f, 16) ) _mm_store_si128(reinterpret_cast<__m128i*>(f), v);
+		else*/ _mm_storeu_si128(reinterpret_cast<__m128i*>(f), v);
+	#else
+		union { __m128i x; uint32_t y[4]; } kludge;
+		kludge.x = v;
+		f[0] = kludge.y[0];
+		f[1] = kludge.y[1];
+		f[2] = kludge.y[2];
+		f[3] = kludge.y[3];
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::load( const uint32_t* f ) {
-	return ::load_impl( f );
+	return _impl_load( f );
 }
 FORCE_INLINE void uf::simd::store( uf::simd::vector<uint32_t> v, uint32_t* f ) {
-	return ::store_impl( v, f );
+	return _impl_store( v, f );
 }
 
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::set( uint32_t f ) {
@@ -458,20 +608,32 @@ FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::sub( uf::simd::vector<uint32_t
 	return _mm_sub_epi32(x, y);
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> mul_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_mul( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(X[0]*Y[0], X[1]*Y[1], X[2]*Y[2], X[3]*Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<uint32_t> mul_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_mul( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {//
 		return _mm_mullo_epi32(x, y);
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_mul( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {//
+	#if SSE_INSTR_SET >= 4
+		return _mm_mullo_epi32(x, y);
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(X[0]*Y[0], X[1]*Y[1], X[2]*Y[2], X[3]*Y[3]);
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::mul( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::mul_impl( x, y );
+	return _impl_mul( x, y );
 }
 
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::div( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
@@ -487,34 +649,56 @@ FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::hadd( uf::simd::vector<uint32_
 }
 */
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> min_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_min( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(std::min(X[0],Y[0]), std::min(X[1],Y[1]), std::min(X[2],Y[2]), std::min(X[3],Y[3]));
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<uint32_t> min_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_min( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {//
 		return _mm_min_epu32(x, y); // unsigned min
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> max_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_max( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		auto X = uf::simd::cast(x);
 		auto Y = uf::simd::cast(y);
 		return uf::simd::set(std::max(X[0],Y[0]), std::max(X[1],Y[1]), std::max(X[2],Y[2]), std::max(X[3],Y[3]));
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<uint32_t> max_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_max( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		return _mm_max_epu32(x, y); // unsigned max
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_min( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {//
+	#if SSE_INSTR_SET >= 4
+		return _mm_min_epu32(x, y); // unsigned min
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(std::min(X[0],Y[0]), std::min(X[1],Y[1]), std::min(X[2],Y[2]), std::min(X[3],Y[3]));
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_max( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_max_epu32(x, y); // unsigned max
+	#else
+		auto X = uf::simd::cast(x);
+		auto Y = uf::simd::cast(y);
+		return uf::simd::set(std::max(X[0],Y[0]), std::max(X[1],Y[1]), std::max(X[2],Y[2]), std::max(X[3],Y[3]));
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::min( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::min_impl(x, y);
+	return _impl_min(x, y);
 }
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::max( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::max_impl(x, y);
+	return _impl_max(x, y);
 }
 
 FORCE_INLINE bool uf::simd::all( uf::simd::vector<uint32_t> mask) {
@@ -524,66 +708,112 @@ FORCE_INLINE bool uf::simd::any( uf::simd::vector<uint32_t> mask) {
 	return _mm_movemask_epi8( mask ) != 0x0; // any bit set
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> less_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_less( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_ui(X[0] < Y[0], X[1] < Y[1], X[2] < Y[2], X[3] < Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<uint32_t> less_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-		return _mm_cmplt_epi32( ::bias_unsigned(x), ::bias_unsigned(y) );
+	uf::simd::vector<uint32_t> _impl_less( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+		return _mm_cmplt_epi32( _impl_bias_unsigned(x), _impl_bias_unsigned(y) );//
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> lessEquals_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	uf::simd::vector<uint32_t> _impl_lessEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
 		auto X = uf::simd::cast(x), Y = uf::simd::cast(y);
 		return uf::simd::set_ui(X[0] <= Y[0], X[1] <= Y[1], X[2] <= Y[2], X[3] <= Y[3]);
 	}
 	MV_INSTR_SET_2
-	uf::simd::vector<uint32_t> lessEquals_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	uf::simd::vector<uint32_t> _impl_lessEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
 		// a <= b  <=>  !(a > b)
-		__m128i bx = ::bias_unsigned(x);
-		__m128i by = ::bias_unsigned(y);
+		__m128i bx = _impl_bias_unsigned(x);
+		__m128i by = _impl_bias_unsigned(y);
 		__m128i gt = _mm_cmpgt_epi32(bx, by); // signed compare
 		return _mm_xor_si128(gt, _mm_set1_epi32(-1)); // invert mask
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> greater_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	uf::simd::vector<uint32_t> _impl_greater( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
 		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
 		return uf::simd::set_ui(X[0] > Y[0], X[1] > Y[1], X[2] > Y[2], X[3] > Y[3]);
 	}
 	MV_INSTR_SET_4
-	uf::simd::vector<uint32_t> greater_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-		return _mm_cmpgt_epi32( ::bias_unsigned(x), ::bias_unsigned(y) );
+	uf::simd::vector<uint32_t> _impl_greater( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+		return _mm_cmpgt_epi32( _impl_bias_unsigned(x), _impl_bias_unsigned(y) );
 	}
 
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<uint32_t> greaterEquals_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	uf::simd::vector<uint32_t> _impl_greaterEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
 		auto X = uf::simd::cast(x), Y = uf::simd::cast(y);
 		return uf::simd::set_ui(X[0] >= Y[0], X[1] >= Y[1], X[2] >= Y[2], X[3] >= Y[3]);
 	}
 	MV_INSTR_SET_2
-	uf::simd::vector<uint32_t> greaterEquals_impl( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	uf::simd::vector<uint32_t> _impl_greaterEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
 		// a >= b  <=>  !(a < b)
-		__m128i bx = ::bias_unsigned(x);
-		__m128i by = ::bias_unsigned(y);
+		__m128i bx = _impl_bias_unsigned(x);
+		__m128i by = _impl_bias_unsigned(y);
 		__m128i lt = _mm_cmplt_epi32(bx, by); // signed compare
 		return _mm_xor_si128(lt, _mm_set1_epi32(-1)); // invert mask
 	}
-}
+#else
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_less( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_cmplt_epi32( _impl_bias_unsigned(x), _impl_bias_unsigned(y) );//
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_ui(X[0] < Y[0], X[1] < Y[1], X[2] < Y[2], X[3] < Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_lessEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	#if SSE_INSTR_SET >= 2
+		// a <= b  <=>  !(a > b)
+		__m128i bx = _impl_bias_unsigned(x);
+		__m128i by = _impl_bias_unsigned(y);
+		__m128i gt = _mm_cmpgt_epi32(bx, by); // signed compare
+		return _mm_xor_si128(gt, _mm_set1_epi32(-1)); // invert mask
+	#else
+		auto X = uf::simd::cast(x), Y = uf::simd::cast(y);
+		return uf::simd::set_ui(X[0] <= Y[0], X[1] <= Y[1], X[2] <= Y[2], X[3] <= Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_greater( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
+	#if SSE_INSTR_SET >= 4
+		return _mm_cmpgt_epi32( _impl_bias_unsigned(x), _impl_bias_unsigned(y) );
+	#else
+		auto X = uf::simd::cast( x ), Y = uf::simd::cast( y );
+		return uf::simd::set_ui(X[0] > Y[0], X[1] > Y[1], X[2] > Y[2], X[3] > Y[3]);
+	#endif
+	}
+
+	FORCE_INLINE uf::simd::vector<uint32_t> _impl_greaterEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y) {
+	#if SSE_INSTR_SET >= 2
+		// a >= b  <=>  !(a < b)
+		__m128i bx = _impl_bias_unsigned(x);
+		__m128i by = _impl_bias_unsigned(y);
+		__m128i lt = _mm_cmplt_epi32(bx, by); // signed compare
+		return _mm_xor_si128(lt, _mm_set1_epi32(-1)); // invert mask
+	#else
+		auto X = uf::simd::cast(x), Y = uf::simd::cast(y);
+		return uf::simd::set_ui(X[0] >= Y[0], X[1] >= Y[1], X[2] >= Y[2], X[3] >= Y[3]);
+	#endif
+	}
+#endif
+/**/}
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::less( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::less_impl( x, y );
+	return _impl_less( x, y );
 }
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::lessEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::lessEquals_impl( x, y );
+	return _impl_lessEquals( x, y );
 }
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::greater( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::greater_impl( x, y );
+	return _impl_greater( x, y );
 }
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::greaterEquals( uf::simd::vector<uint32_t> x, uf::simd::vector<uint32_t> y ) {
-	return ::greaterEquals_impl( x, y );
+	return _impl_greaterEquals( x, y );
 }
 
 
@@ -604,28 +834,29 @@ FORCE_INLINE uint32_t uf::simd::dot( uf::simd::vector<uint32_t> x, uf::simd::vec
 }
 
 FORCE_INLINE uf::simd::vector<float> uf::simd::set_f( bool x, bool y, bool z, bool w ) {
-	return _mm_castsi128_ps(_mm_setr_epi32(::boolMask(x), ::boolMask(y), ::boolMask(z), ::boolMask(w)));
+	return _mm_castsi128_ps(_mm_setr_epi32(_impl_bool_mask(x), _impl_bool_mask(y), _impl_bool_mask(z), _impl_bool_mask(w)));
 }
 FORCE_INLINE uf::simd::vector<int32_t> uf::simd::set_i( bool x, bool y, bool z, bool w ) {
-	return _mm_setr_epi32(::boolMask(x), ::boolMask(y), ::boolMask(z), ::boolMask(w));
+	return _mm_setr_epi32(_impl_bool_mask(x), _impl_bool_mask(y), _impl_bool_mask(z), _impl_bool_mask(w));
 }
 FORCE_INLINE uf::simd::vector<uint32_t> uf::simd::set_ui( bool x, bool y, bool z, bool w ) {
-	return _mm_setr_epi32(::boolMask(x), ::boolMask(y), ::boolMask(z), ::boolMask(w));
+	return _mm_setr_epi32(_impl_bool_mask(x), _impl_bool_mask(y), _impl_bool_mask(z), _impl_bool_mask(w));
 }
 
-namespace {
+/**/namespace {
+#if SIMD_MV
 	MV_INSTR_SET_DEFAULT
-	uf::simd::vector<float> cross_impl( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+	uf::simd::vector<float> _impl_cross( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
 		__m128 tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
 		__m128 tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
 		tmp0 = _mm_mul_ps(tmp0,x);
 		tmp1 = _mm_mul_ps(tmp1,y);
 		__m128 tmp2 = _mm_sub_ps(tmp0,tmp1);
-		__m128 res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
+		__m128 res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));//
 		return res;
 	}
 	MV_INSTR_SET_7
-	uf::simd::vector<float> cross_impl( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+	uf::simd::vector<float> _impl_cross( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
 		__m128 tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
 		__m128 tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
 		tmp1 = _mm_mul_ps(tmp1,y);
@@ -633,17 +864,37 @@ namespace {
 		__m128 res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
 		return res;
 	}
-}
+#else
+	uf::simd::vector<float> _impl_cross( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
+	#if SSE_INSTR_SET >= 7
+		__m128 tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
+		__m128 tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
+		tmp1 = _mm_mul_ps(tmp1,y);
+		__m128 tmp2 = _mm_fmsub_ps( tmp0,x, tmp1 );
+		__m128 res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
+		return res;
+	#else
+		__m128 tmp0 = _mm_shuffle_ps(y,y,_MM_SHUFFLE(3,0,2,1));
+		__m128 tmp1 = _mm_shuffle_ps(x,x,_MM_SHUFFLE(3,0,2,1));
+		tmp0 = _mm_mul_ps(tmp0,x);
+		tmp1 = _mm_mul_ps(tmp1,y);
+		__m128 tmp2 = _mm_sub_ps(tmp0,tmp1);
+		__m128 res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));//
+		return res;
+	#endif
+	}
+#endif
+/**/}
 
 FORCE_INLINE uf::simd::vector<float> uf::simd::cross( uf::simd::vector<float> x, uf::simd::vector<float> y ) {
-	return ::cross_impl( x, y );
+	return _impl_cross( x, y );
 }
 FORCE_INLINE uf::simd::vector<float> uf::simd::normalize( uf::simd::vector<float> v ) {
-	__m128 len = _mm_sqrt_ss( ::dot_impl( v,v ) );
+	__m128 len = _mm_sqrt_ss( _impl_dot( v,v ) );
 	len = _mm_shuffle_ps(len, len, 0x00);
 	return _mm_div_ps(v, len);
 }
 FORCE_INLINE uf::simd::vector<float> uf::simd::normalize_fast( uf::simd::vector<float> v ) {
-	__m128 invLen = _mm_rsqrt_ps(::dot_impl(v, v));
+	__m128 invLen = _mm_rsqrt_ps(_impl_dot(v, v));
 	return _mm_mul_ps(v, invLen);
 }

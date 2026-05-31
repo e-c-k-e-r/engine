@@ -53,8 +53,8 @@ pod::Constraint& uf::physics::constrainBallSocket( pod::Constraint& constraint, 
 	auto tB = impl::getTransform( *constraint.b );
 
 	constraint.type = pod::ConstraintType::BALL_AND_SOCKET;
-	joint.localAnchorA = uf::transform::applyInverse( tA, p );
-	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.localAnchorA = impl::applyInverse( tA, p );
+	joint.localAnchorB = impl::applyInverse( tB, p );
 	joint.accumulatedImpulse = {};
 
 	return constraint;
@@ -67,8 +67,8 @@ void impl::drawBallSocket( const pod::Constraint& constraint ) {
 	auto tA = impl::getTransform( *constraint.a );
 	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = uf::transform::apply( tA, joint.localAnchorA );
-	auto pB = uf::transform::apply( tB, joint.localAnchorB );
+	auto pA = impl::apply( tA, joint.localAnchorA );
+	auto pB = impl::apply( tB, joint.localAnchorB );
 
 	uf::debug::drawLine( tA.position, pA );
 	uf::debug::drawLine( tB.position, pB );

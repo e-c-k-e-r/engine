@@ -23,18 +23,18 @@ namespace uf {
 		uf::Image m_atlas;
 		atlas_t m_tiles;
 	public:
-		hash_t addImage( const uf::Image&, bool = false );
-		hash_t addImage( uf::Image&&, bool = false );
-		hash_t addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
+		hash_t addImage( const uf::Image&, const hash_t& hash );
+		hash_t addImage( const uf::Image& );
 		
 		void generate(float padding = 1);
 		void generate( const uf::stl::vector<uf::Image>&, float padding = 1);
 		void clear(bool = true);
 		bool generated() const;
+		bool has( const hash_t& ) const;
 		
-		pod::Vector2f mapUv( const pod::Vector2f&, const hash_t& );
-		pod::Vector2f mapUv( const pod::Vector2f&, size_t );
-		pod::Vector3f mapUv( const pod::Vector3f& );
+		pod::Vector2f mapUv( const pod::Vector2f&, const hash_t& ) const;
+		pod::Vector2f mapUv( const pod::Vector2f&, size_t ) const;
+		pod::Vector3f mapUv( const pod::Vector3f& ) const;
 		
 		uf::Image& getAtlas();
 		const uf::Image& getAtlas() const;

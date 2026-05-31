@@ -59,8 +59,8 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		uf::graph::initialize( graph );
 
 		if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
-			if ( metadata["graph"]["animation"].is<uf::stl::string>() ) {
-				uf::graph::animate( graph, metadata["graph"]["animation"].as<uf::stl::string>(), metadata["graph"]["speed"].as<float>( 1.0f ) );
+			if ( ext::json::isObject( metadata["graph"]["animations"] ) ) {
+				uf::graph::animate( graph, metadata["graph"]["animations"]["animation"].as<uf::stl::string>(), metadata["graph"]["animations"]["speed"].as<float>( 1.0f ) );
 			}
 		}
 
@@ -87,18 +87,17 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 
 			uf::debug::drawLine( bone.start, bone.end, pod::Vector4f{ 0, 1, 0, 1 } );
 		}
-		for ( auto obb : bounds ) {
-			uf::debug::drawShape( obb, transform );
-		}
-	/*
 		for ( auto i = 0; i < skin.joints.size(); ++i ) {
 			auto nodeID = skin.joints[i];
-			auto obb = bounds[i];
-			auto bone = bones[nodeID];
-
-			uf::debug::drawShape( obb, transform );
+			auto& obb = bounds[i];
+			auto& bone = bones[nodeID];
+			if ( obb.extent.x < 0 ) continue;
+			auto bindMatrix = uf::matrix::inverse( skin.inverseBindMatrices[i] );
+			auto modelMatrix = uf::transform::model( transform );
+			auto finalMatrix = modelMatrix * bindMatrix;
+			auto t = uf::transform::fromMatrix( finalMatrix );
+			uf::debug::drawShape( obb, t );
 		}
-	*/
 	}
 }
 void uf::GraphBehavior::render( uf::Object& self ) {}

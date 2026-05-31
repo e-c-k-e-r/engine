@@ -20,9 +20,9 @@ namespace pod {
 	struct /*UF_API*/ Transform {
 		typedef T type_t;
 
-		pod::Vector3t<T> position = {0, 0,0 };
-		pod::Quaternion<T> orientation = {0, 0, 0, 1};
-		pod::Vector3t<T> scale = {1, 1, 1};		
+		alignas(16) pod::Vector3t<T> position = {0, 0, 0 };
+		alignas(16) pod::Quaternion<T> orientation = {0, 0, 0, 1};
+		alignas(16) pod::Vector3t<T> scale = {1, 1, 1};		
 
 		pod::Transform<T>* reference = NULL;
 	};
@@ -52,8 +52,9 @@ namespace uf {
 		template<typename T> pod::Transform<T>& /*UF_API*/ reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient = true );
 		template<typename T> pod::Transform<T> /*UF_API*/ interpolate( const pod::Transform<T>& from, const pod::Transform<T>& to, float factor );
 		template<typename T> pod::Transform<T> /*UF_API*/ inverse(const pod::Transform<T>& t);
-		template<typename T> pod::Vector3t<T> /*UF_API*/ apply( const pod::Transform<T>& transform, const pod::Vector3t<T>& point );
-		template<typename T> pod::Vector3t<T> /*UF_API*/ applyInverse(const pod::Transform<T>& t, const pod::Vector3t<T>& worldPoint);
+		// forced inline because of a GCC quirk
+		template<typename T> pod::Vector3t<T> FORCE_INLINE /*UF_API*/ apply( const pod::Transform<T>& transform, const pod::Vector3t<T>& point );
+		template<typename T> pod::Vector3t<T> FORCE_INLINE /*UF_API*/ applyInverse(const pod::Transform<T>& t, const pod::Vector3t<T>& worldPoint);
 		template<typename T> pod::Transform<T> /*UF_API*/ relative(const pod::Transform<T>& a, const pod::Transform<T>& b);
 
 		template<typename T> uf::stl::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );

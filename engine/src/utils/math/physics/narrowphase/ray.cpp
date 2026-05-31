@@ -82,7 +82,7 @@ bool impl::rayObb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQu
 	auto tA = impl::getTransform( body );
 
 	pod::Ray localRay;
-	localRay.origin = uf::transform::applyInverse( tA, ray.origin );
+	localRay.origin = impl::applyInverse( tA, ray.origin );
 	localRay.direction = uf::quaternion::rotate( uf::quaternion::inverse(tA.orientation), ray.direction );
 
 	auto box = impl::obbToAabb( body.collider.obb );
@@ -235,7 +235,7 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 	const auto transform = impl::getTransform( body );
 
 	pod::Ray ray;
-	ray.origin	= uf::transform::applyInverse( transform, r.origin );
+	ray.origin	= impl::applyInverse( transform, r.origin );
 	ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
 
 	thread_local uf::stl::vector<pod::BVH::index_t> candidates;
@@ -253,7 +253,7 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 		auto n = impl::triangleNormal( tri );
 
 		// push back to world
-		auto p = uf::transform::apply( transform, l);
+		auto p = impl::apply( transform, l);
 		n = uf::quaternion::rotate( transform.orientation, n );
 
 		rayHit.hit = true;
@@ -273,7 +273,7 @@ bool impl::rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 	const auto transform = impl::getTransform( body );
 
 	pod::Ray ray;
-	ray.origin	= uf::transform::applyInverse( transform, r.origin );
+	ray.origin	= impl::applyInverse( transform, r.origin );
 	ray.direction = uf::quaternion::rotate( uf::quaternion::inverse( transform.orientation ), r.direction );
 
 	thread_local uf::stl::vector<pod::BVH::index_t> candidates;
@@ -292,7 +292,7 @@ bool impl::rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 		rayHit.hit = true;
 		rayHit.body = &body;
 
-		rayHit.contact.point = uf::transform::apply( transform, ray.origin + ray.direction * t );
+		rayHit.contact.point = impl::apply( transform, ray.origin + ray.direction * t );
 		rayHit.contact.normal = uf::quaternion::rotate( transform.orientation, normal );
 		rayHit.contact.penetration = t;
 	}

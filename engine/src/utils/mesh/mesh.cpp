@@ -228,14 +228,25 @@ uf::Mesh uf::Mesh::expand( bool interleaved ) {
 	return res;
 }
 
-void uf::Mesh::eraseAttribute( uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) {
-	for ( size_t i = 0; i < input.attributes.size(); ++i ) if ( input.attributes[i].descriptor == attribute.descriptor ) return eraseAttribute( input, i );
+void uf::Mesh::clearAttribute( uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) {
+	for ( size_t i = 0; i < input.attributes.size(); ++i ) if ( input.attributes[i].descriptor == attribute.descriptor ) return clearAttribute( input, i );
 }
-void uf::Mesh::eraseAttribute( uf::Mesh::Input& input, size_t i ) {
+void uf::Mesh::clearAttribute( uf::Mesh::Input& input, size_t i ) {
 	UF_ASSERT( !isInterleaved( input ) ); // can't be assed to de-interleave, erase, and then interleave again
 
 	auto attribute = input.attributes[i];
 	buffers[attribute.buffer].clear();
+}
+void uf::Mesh::clear() {
+	for ( size_t i = 0; i < vertex.attributes.size(); ++i ) clearAttribute( vertex, i );
+	for ( size_t i = 0; i < index.attributes.size(); ++i ) clearAttribute( index, i );
+	for ( size_t i = 0; i < instance.attributes.size(); ++i ) clearAttribute( instance, i );
+	for ( size_t i = 0; i < indirect.attributes.size(); ++i ) clearAttribute( indirect, i );
+
+	vertex.count = 0;
+	index.count = 0;
+	instance.count = 0;
+	indirect.count = 0;
 }
 
 void uf::Mesh::generateIndirect() {

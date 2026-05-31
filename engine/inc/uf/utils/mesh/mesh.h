@@ -311,8 +311,9 @@ namespace uf {
 		const buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 ) const;
 		const buffer_t& getBuffer( const uf::Mesh::Input&, const uf::Mesh::Attribute& ) const;
 
-		void eraseAttribute( uf::Mesh::Input&, const uf::Mesh::Attribute& );
-		void eraseAttribute( uf::Mesh::Input&, size_t );
+		void clearAttribute( uf::Mesh::Input&, const uf::Mesh::Attribute& );
+		void clearAttribute( uf::Mesh::Input&, size_t );
+		void clear();
 
 		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t = 0, size_t = 0 ) const;
 		uf::Mesh::Input remapVertexInput( size_t i = 0, size_t = 0 ) const;

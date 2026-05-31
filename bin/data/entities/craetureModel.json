@@ -5,7 +5,7 @@
 	"import": "/model.json",
 	"assets": [
 	//	"/player/pbear.glb"
-		{ "filename": "/player/bear/graph.json" }
+		{ "filename": "/player/pbear/graph.json" }
 	],
 	"behaviors": [],
 	"transform": {
@@ -16,7 +16,7 @@
 			"axis": [ 0, 1, 0 ],
 			"angle": 0
 		},
-		"scale": [ 0.09, 0.09, 0.09 ],
+		"scale": [ 1, 1, 1 ],
 		"reference": "parent"
 	},
 	"system": {
@@ -43,6 +43,9 @@
 			"lights": {
 				"lightmap": false
 			},
+			"stream": {
+				"animations": false
+			},
 			"renderer": {
 				"cull mode": "front",
 				"filter": "linear",
@@ -52,7 +55,7 @@
 				"skinned": true
 			},
 			"animations": {
-				"animation": "wank"
+			//	"animation": "idle"
 			}
 		}
 	}

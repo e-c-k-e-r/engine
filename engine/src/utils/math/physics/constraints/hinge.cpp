@@ -63,8 +63,8 @@ pod::Constraint& uf::physics::constrainHinge( pod::Constraint& constraint, const
 
 	auto& joint = constraint.hinge;
 	constraint.type = pod::ConstraintType::HINGE;
-	joint.localAnchorA = uf::transform::applyInverse( tA, p );
-	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.localAnchorA = impl::applyInverse( tA, p );
+	joint.localAnchorB = impl::applyInverse( tB, p );
 	joint.accumulatedImpulse = {};
 	joint.localAxisA = uf::quaternion::rotate( uf::quaternion::inverse( tA.orientation ), axis );
 	joint.localAxisB = uf::quaternion::rotate( uf::quaternion::inverse( tB.orientation ), axis );
@@ -80,8 +80,8 @@ void impl::drawHinge( const pod::Constraint& constraint ) {
 	auto tA = impl::getTransform( *constraint.a );
 	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = uf::transform::apply( tA, joint.localAnchorA );
-	auto pB = uf::transform::apply( tB, joint.localAnchorB );
+	auto pA = impl::apply( tA, joint.localAnchorA );
+	auto pB = impl::apply( tB, joint.localAnchorB );
 
 	auto aA = uf::quaternion::rotate( tA.orientation, joint.localAxisA );
 	auto aB = uf::quaternion::rotate( tB.orientation, joint.localAxisB );

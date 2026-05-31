@@ -183,7 +183,7 @@ template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vecto
 		right.z,   up.z,   forward.z,   0,
 		0,         0,      0,           1
 	});
-	return uf::quaternion::normalize( uf::quaternion::fromMatrix( m ) );
+	return uf::quaternion::fromMatrix( m );
 }
 
 

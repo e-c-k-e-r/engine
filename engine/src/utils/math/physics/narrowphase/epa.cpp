@@ -47,7 +47,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 			outCount = 3;
 			bool hasTransform = ( body.transform != nullptr );
 			FOR_EACH(3, {
-				outPoly[i] = hasTransform ? uf::transform::apply( transform, body.collider.triangle.points[i] ) : body.collider.triangle.points[i];
+				outPoly[i] = hasTransform ? impl::apply( transform, body.collider.triangle.points[i] ) : body.collider.triangle.points[i];
 			});
 		} break;
 		case pod::ShapeType::AABB: {
@@ -81,7 +81,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				if (n.z < 0) std::swap(outPoly[1], outPoly[3]);
 			}
 			FOR_EACH(4, {
-				outPoly[i] = uf::transform::apply(transform, outPoly[i]);
+				outPoly[i] = impl::apply(transform, outPoly[i]);
 			});
 		} break;
 		case pod::ShapeType::OBB: {
@@ -115,7 +115,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				if (n.z < 0) std::swap(outPoly[1], outPoly[3]);
 			}
 			FOR_EACH(4, {
-				outPoly[i] = uf::transform::apply(transform, outPoly[i]);
+				outPoly[i] = impl::apply(transform, outPoly[i]);
 			});
 		} break;
 		case pod::ShapeType::SPHERE: {
@@ -165,7 +165,7 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 			}
 			outCount = 3;
 			FOR_EACH(3, {
-				outPoly[i] = uf::transform::apply(transform, bestTri.points[i]);
+				outPoly[i] = impl::apply(transform, bestTri.points[i]);
 			});
 		} break;
 		// unsupported, fallback to single contact point

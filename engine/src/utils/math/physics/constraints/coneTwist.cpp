@@ -150,8 +150,8 @@ pod::Constraint& uf::physics::constrainConeTwist( pod::Constraint& constraint, c
 
 	auto& joint = constraint.coneTwist;
 	constraint.type = pod::ConstraintType::CONE_TWIST;
-	joint.localAnchorA = uf::transform::applyInverse( tA, p );
-	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.localAnchorA = impl::applyInverse( tA, p );
+	joint.localAnchorB = impl::applyInverse( tB, p );
 	
 	joint.accumulatedImpulse = {};
 	joint.accumulatedAngularImpulse = {};
@@ -176,8 +176,8 @@ void impl::drawConeTwist( const pod::Constraint& constraint ) {
 	auto tA = impl::getTransform( *constraint.a );
 	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = uf::transform::apply( tA, joint.localAnchorA );
-	auto pB = uf::transform::apply( tB, joint.localAnchorB );
+	auto pA = impl::apply( tA, joint.localAnchorA );
+	auto pB = impl::apply( tB, joint.localAnchorB );
 
 	auto taA = uf::quaternion::rotate( tA.orientation, joint.localTwistAxisA );
 	auto taB = uf::quaternion::rotate( tB.orientation, joint.localTwistAxisB );

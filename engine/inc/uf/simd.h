@@ -4,6 +4,14 @@
 	#define __x86_64__ 1
 #endif
 
+#if __clang__
+	// clang produces multiple symbols or something because the anonymous namespace trick doesn't work
+	// also crashes when producing debug symbols for multi-versioned functions
+	#define SIMD_MV 0
+#else
+	#define SIMD_MV 0 // off for now because there MIGHT be a runtime cost
+#endif
+
 // Find sse instruction set from compiler macros if SSE_INSTR_SET not defined
 // Note: Not all compilers define these macros automatically
 #ifndef SSE_INSTR_SET

@@ -440,9 +440,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	}
 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
-	if ( key != "" ) {
-		key += ":";
-	}
+	if ( key != "" ) key += ":";
 
 	tasks.queue([&]{
 		// load images

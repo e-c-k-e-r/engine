@@ -104,8 +104,8 @@ void impl::computeLocalManifold( pod::Manifold& manifold ) {
 	auto tB = impl::getTransform( b );
 
 	for ( auto& c : manifold.points ) {
-		c.localA = uf::transform::applyInverse( tA, c.point - c.normal * (c.penetration * 0.5f) );
-		c.localB = uf::transform::applyInverse( tB, c.point + c.normal * (c.penetration * 0.5f) );
+		c.localA = impl::applyInverse( tA, c.point - c.normal * (c.penetration * 0.5f) );
+		c.localB = impl::applyInverse( tB, c.point + c.normal * (c.penetration * 0.5f) );
 	}
 }
 
@@ -243,8 +243,8 @@ void impl::retrieveManifold( pod::Manifold& current, const pod::Manifold& previo
 	float distSqThresh = distanceThreshold * distanceThreshold;
 	for ( const auto& oldContact : previous.points ) {
 		// reproject point according to current transform
-		auto worldA = uf::transform::apply( tA, oldContact.localA );
-		auto worldB = uf::transform::apply( tB, oldContact.localB );
+		auto worldA = impl::apply( tA, oldContact.localA );
+		auto worldB = impl::apply( tB, oldContact.localB );
 
 		auto delta = worldB - worldA;
 		auto normal = current.points.empty() ? oldContact.normal : current.points[0].normal;

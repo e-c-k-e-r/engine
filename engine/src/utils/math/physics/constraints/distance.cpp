@@ -45,8 +45,8 @@ pod::Constraint& uf::physics::constrainDistance( pod::Constraint& constraint, co
 
 	auto& joint = constraint.distance;
 	constraint.type = pod::ConstraintType::DISTANCE;
-	joint.localAnchorA = uf::transform::applyInverse( tA, pA );
-	joint.localAnchorB = uf::transform::applyInverse( tB, pB );
+	joint.localAnchorA = impl::applyInverse( tA, pA );
+	joint.localAnchorB = impl::applyInverse( tB, pB );
 
 	joint.targetDistance = uf::vector::distance( pB, pA );
 	joint.accumulatedImpulse = 0.0f;
@@ -62,8 +62,8 @@ void impl::drawDistance( const pod::Constraint& constraint ) {
 	auto tA = impl::getTransform( *constraint.a );
 	auto tB = impl::getTransform( *constraint.b );
 
-	auto pA = uf::transform::apply( tA, joint.localAnchorA );
-	auto pB = uf::transform::apply( tB, joint.localAnchorB );
+	auto pA = impl::apply( tA, joint.localAnchorA );
+	auto pB = impl::apply( tB, joint.localAnchorB );
 
 	uf::debug::drawLine( tA.position, pA );
 	uf::debug::drawLine( tB.position, pB );

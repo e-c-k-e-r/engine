@@ -115,8 +115,8 @@ pod::Constraint& uf::physics::constrainSlider( pod::Constraint& constraint, cons
 
 	auto& joint = constraint.slider;
 	constraint.type = pod::ConstraintType::SLIDER;
-	joint.localAnchorA = uf::transform::applyInverse( tA, p );
-	joint.localAnchorB = uf::transform::applyInverse( tB, p );
+	joint.localAnchorA = impl::applyInverse( tA, p );
+	joint.localAnchorB = impl::applyInverse( tB, p );
 
 	joint.localAxisA = uf::quaternion::rotate( invqA, axis );
 	joint.localAxisB = uf::quaternion::rotate( invqB, axis );

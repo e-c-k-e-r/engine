@@ -121,9 +121,9 @@ pod::Matrix4t<T> /*UF_API*/ uf::transform::model( const pod::Transform<T>& trans
 template<typename T>
 pod::Transform<T> uf::transform::fromMatrix( const pod::Matrix4t<T>& matrix ) {
 	pod::Transform<T> transform;
-	transform.position = uf::matrix::multiply( matrix, pod::Vector4f{ 0, 0, 0, 1 } );
-	transform.orientation = uf::quaternion::fromMatrix( matrix );
-	// transform.scale = ...;
+	transform.position = uf::matrix::extractTranslation( matrix );
+    transform.orientation = uf::quaternion::fromMatrix( matrix );
+    transform.scale = uf::matrix::extractScale( matrix );
 	return transform;
 }
 
@@ -168,7 +168,7 @@ pod::Transform<T> uf::transform::inverse(const pod::Transform<T>& t) {
 }
 
 template<typename T>
-pod::Vector3t<T> /*UF_API*/ uf::transform::apply( const pod::Transform<T>& t, const pod::Vector3t<T>& p ) {
+pod::Vector3t<T> uf::transform::apply( const pod::Transform<T>& t, const pod::Vector3t<T>& p ) {
 	return uf::quaternion::rotate( t.orientation, p * t.scale ) + t.position;
 }
 

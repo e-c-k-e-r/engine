@@ -17,7 +17,8 @@ void impl::drawManifold( const pod::Manifold& manifold ) {
 }
 void impl::drawBody( const pod::PhysicsBody& body ) {
 	if ( !(body.collider.category & uf::physics::settings.debugDraw.mask) ) return;
-	switch( body.collider.type ) {
+	// draw wireframe
+	switch ( body.collider.type ) {
 		case pod::ShapeType::AABB:
 			impl::drawAabb( body );
 		break;
@@ -43,6 +44,48 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 			impl::drawHull( body );
 		break;
 	}
+	// draw name
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& camera = scene.getCamera( controller );
+	auto& bounds = body.bounds;
+	
+	auto transform = impl::getTransform( body );
+	auto cameraTransform = uf::transform::flatten( camera.getTransform() );
+	auto cameraAxes = uf::transform::axes( cameraTransform );
+	auto& projection = camera.getProjection();
+	auto fov = std::atan(1.0f / fabs(projection(1,1)));	
+	auto viewThreshold = std::cos(fov * 1.5f);
+
+#if 1
+	// (an attempt to) continuously pick the closest point on the AABB
+	auto position = impl::closestPointOnAABB( cameraTransform.position, bounds );
+	auto dir = position - cameraTransform.position;
+	auto magSq = uf::vector::magnitude( dir );
+	if ( magSq > EPS2 ) dir /= std::sqrt( magSq );
+	auto dot = uf::vector::dot( cameraAxes.forward, dir );
+	position -= cameraAxes.forward * 0.1f;
+	if ( dot > viewThreshold ) uf::debug::drawText( body.object->getName(), position );
+#else
+	// picks the closest corner
+	int closestCorner = -1;
+	float closestDistanceSq = FLT_MAX;
+	float closestDot = FLT_MAX; //
+	pod::Vector3f corners[8];
+	impl::getCorners( bounds, corners );
+	for ( auto i = 0; i < 8; ++i ) {
+		auto dir = corners[i] - cameraTransform.position;
+		auto distanceSq = uf::vector::magnitude( dir );
+		if ( distanceSq > EPS2 ) dir /= std::sqrt( distanceSq );
+		auto dot = uf::vector::dot( cameraAxes.forward, dir );
+		if ( dot <= viewThreshold ) continue;
+		if ( distanceSq >= closestDistanceSq ) continue;
+		closestDistanceSq = distanceSq;
+		closestCorner = i;
+	}
+
+	if ( 0 <= closestCorner ) uf::debug::drawText( body.object->getName(), corners[closestCorner] );
+#endif
 }
 void impl::drawConstraint( const pod::Constraint& constraint ) {
 	if ( !uf::physics::settings.debugDraw.constraints ) return;

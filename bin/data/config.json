@@ -61,7 +61,7 @@
 		},
 		"graph": {
 			"initial buffer elements": 128,
-			"global storage": false
+			"global storage": true // required for animations to work?
 		},
 		"ext": {
 			"vulkan": {
@@ -350,15 +350,16 @@
 				"max": 0.01 // 0.2
 			},
 			"debug draw": {
-				"static": false,
-				"dynamic": false,
+				"static": true,
+				"dynamic": true,
 				"contacts": false,
 				"constraints": true,
 				"rays": false,
-				"depthTest": false
+				"depthTest": true
 			},
 			"fixed step": true,
-			"substeps": 4
+			"substeps": 4,
+			"flatten transforms": true
 		},
 		"audio": {
 			"mute": false,

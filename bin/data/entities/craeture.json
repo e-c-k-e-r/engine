@@ -11,11 +11,11 @@
 		"SoundEmitterBehavior"
 	],
 	"transform": {
-		"position": [ -7, 0, -44 ],
+		"position": [ -7, -3.5, -44 ],
 		//"position": [ 0, 1.5, 21 ],
 		//"position": [ 16.3489, 1.37972, -68.1571 ],
-		"scale": [ 0.09, 0.09, 0.09 ]
-		//"scale": [ 1, 1, 1 ]
+		//"scale": [ 0.09, 0.09, 0.09 ]
+		"scale": [ 5, 5, 5 ]
 	},
 	"system": {
 		"hot reload": {
@@ -32,7 +32,7 @@
 				}
 			},
 			"physics": {
-				"ragdoll": false
+				"ragdoll": true
 			}
 		}
 		/*

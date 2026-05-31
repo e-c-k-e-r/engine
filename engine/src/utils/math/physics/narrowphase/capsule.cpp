@@ -109,8 +109,8 @@ bool impl::capsuleHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 void impl::drawCapsule( const pod::PhysicsBody& body ) {
 	const auto& capsule  = body.collider.capsule;
 	auto transform = impl::getTransform(body);
-#if 0
-	uf::debug::drawCapsule( capsule, transform );
+#if 1
+	uf::debug::drawShape( capsule, transform );
 #else
 	auto [p1, p2] = impl::getCapsuleSegment(body);
 	const int segments = 16;

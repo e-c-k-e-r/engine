@@ -67,6 +67,9 @@ namespace impl {
 	/*FORCE_INLINE*/ void boxAxes( pod::Vector3f axes[3], const pod::Transform<>& transform );
 	/*FORCE_INLINE*/ pod::Vector3f extentFromAxes( const pod::OBB& box, const pod::Vector3f axes[3] );
 	/*FORCE_INLINE*/ float projectExtents( const pod::OBB& box, const pod::Vector3f& normal, const pod::Vector3f axes[3] );
+
+	void getCorners( const pod::AABB& aabb, pod::Vector3f corners[8] );
+	void getCorners( const pod::AABB& aabb, const pod::Transform<>& transform, pod::Vector3f corners[8] );
 	pod::AABB transformAabbToWorld( const pod::AABB& localBox, const pod::Transform<>& transform );
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body );
 	pod::AABB computeAABB( const pod::PhysicsBody& body );

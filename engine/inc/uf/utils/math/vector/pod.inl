@@ -12,8 +12,8 @@ constexpr void for_each_index(F&& f) {
 	#include "simd.h"
 #endif
 
-// #define FOR_EACH( N, F ) for ( auto i = 0; i < N; ++i ) F;
 #define FOR_EACH( N, F ) for_each_index<N>([&](auto i) F )
+#define FOR_EACH_( N, F ) for ( auto i = 0; i < N; ++i ) F;
 
 template<typename T, typename Op>
 T elementwise( const T& left, const T& right, Op&& op ) {
@@ -309,7 +309,7 @@ T uf::vector::divide( typename T::type_t scalar, const T& vector ) {
 }
 template<typename T>
 typename T::type_t uf::vector::sum( const T& vector ) {
-	auto res = 0;
+	typename T::type_t res = 0;
 	FOR_EACH(T::size, {
 		res += vector[i];
 	});
@@ -317,7 +317,7 @@ typename T::type_t uf::vector::sum( const T& vector ) {
 }
 template<typename T>
 typename T::type_t uf::vector::product( const T& vector ) {
-	auto res = 1;
+	typename T::type_t res = 1;
 	FOR_EACH(T::size, {
 		res *= vector[i];
 	});

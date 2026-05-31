@@ -127,7 +127,7 @@ void uf::graph::override( pod::Graph& graph ) {
 		pod::Animation& animation = storage.animations.map[name];
 
 		// load animation data
-		if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( name );
+		// if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( name );
 
 		for ( auto& channel : animation.channels ) {
 			auto& override = graph.settings.animations.override.map[channel.node];
@@ -152,7 +152,12 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 	auto& storage = ::getGraphStorage( scene );
 
 	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) return;
-	const uf::stl::string name = _name;
+	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
+	if ( key != "" ) key += ":";
+	uf::stl::string name = key + _name;
+
+	if ( storage.animations.map.count( name ) == 0 ) ::loadAnimation( name );
+	//UF_MSG_DEBUG("name={}, count={}", name, storage.animations.map.count( name ) );
 	if ( storage.animations.map.count( name ) > 0 ) {
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
@@ -179,15 +184,12 @@ void uf::graph::updateAnimation( pod::Graph& graph, float delta ) {
 		return;
 	}
 
-
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
 	{
 		uf::stl::string name = graph.sequence.front();
 		pod::Animation* animation = &storage.animations.map[name]; // &graph.animations[name];
 		animation->cur += delta * graph.settings.animations.speed; // * graph.settings.animations.override.speed;
-
-	//	UF_MSG_DEBUG("entity={}, name={}, cur={}", graph.root.entity->getParent().getName(), name, animation->cur);
 		if ( animation->end < animation->cur ) {
 			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
 			// go-to next animation
@@ -207,7 +209,7 @@ void uf::graph::updateAnimation( pod::Graph& graph, float delta ) {
 		}
 
 		// load animation data
-		if ( animation->channels.empty() || animation->samplers.empty() ) ::loadAnimation( name );
+		// if ( animation->channels.empty() || animation->samplers.empty() ) ::loadAnimation( name );
 
 		for ( auto& channel : animation->channels ) {
 			auto& sampler = animation->samplers[channel.sampler];
@@ -245,24 +247,6 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = ::getGraphStorage( scene );
 
-#if 1
-	if ( 0 <= node.skin && node.skin < graph.skins.size() ) {
-		pod::Matrix4f nodeMatrix = ::worldMatrix( graph, node.index );
-		pod::Matrix4f inverseTransform = uf::matrix::inverse( nodeMatrix );
-
-		auto& name = graph.skins[node.skin];
-		auto& skin = storage.skins[name];
-		auto& joints = storage.joints[name];
-		joints.resize( skin.joints.size() );
-		for ( size_t i = 0; i < skin.joints.size(); ++i ) joints[i] = uf::matrix::identity();
-
-		if ( graph.settings.animations.override.a >= 0 || !graph.sequence.empty() ) {
-			for ( size_t i = 0; i < skin.joints.size(); ++i ) {
-				joints[i] = inverseTransform * (::worldMatrix(graph, skin.joints[i]) * skin.inverseBindMatrices[i]);
-			}
-		}
-	}
-#else
 	if ( 0 <= node.skin && node.skin < graph.skins.size() ) {
 		pod::Matrix4f nodeMatrix = ::worldMatrix( graph, node.index );
 		pod::Matrix4f inverseTransform = uf::matrix::inverse( nodeMatrix );
@@ -296,7 +280,6 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 			joints[i] = inverseTransform * matrix * skin.inverseBindMatrices[i];
 		}
 	}
-#endif
 }
 
 // separate function in the event something later might need it
@@ -374,13 +357,6 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 			.center = (aabb.max + aabb.min) * 0.5f,
 			.extent = (aabb.max - aabb.min) * 0.5f,
 		};
-
-		// transform back from bone => mesh space
-		auto bindMatrix = uf::matrix::inverse( skin.inverseBindMatrices[i] );
-		auto scale = uf::matrix::extractScale( bindMatrix );
-		bounds[i].center = uf::matrix::multiply( bindMatrix, bounds[i].center, 1.0f );
-		bounds[i].extent *= scale;
-	//	UF_MSG_DEBUG("name={}, scale={}", graph.nodes[skin.joints[i]].name, uf::vector::toString( scale ));
 	}
 	return bounds;
 }
@@ -415,58 +391,43 @@ void uf::graph::rigRagdoll( pod::Graph& graph, pod::Node& node ) {
 		// skip leaf bones if they aren't used in the mesh
 		if ( !useBone && node.children.empty() ) continue;
 		// useBone = false; // disable for now
-		bool offsetByBodyTransform = true; // offset via physics body rather than in the shape itself
 		auto shapeType = pod::ShapeType::CAPSULE; // default to capsules
 		// transform bone into world space
 		bone.start = uf::transform::apply( armatureTransform, bone.start );
 		bone.end = uf::transform::apply( armatureTransform, bone.end );
 		float length = uf::vector::distance( bone.start, bone.end ); // bone length in world-space
-		float thickness = /*useBone ? MAX( obb.extent.x, obb.extent.z ) :*/ length * 0.15f; // limb thickness
+		float thickness = useBone ? MAX( obb.extent.x, obb.extent.z ) : length * 0.15f; // limb thickness
 		// transform into node space
 		auto start = uf::transform::applyInverse( transform, bone.start );
 		auto end = uf::transform::applyInverse( transform, bone.end );
 		auto dir = uf::vector::normalize( end - start );
-		auto up = pod::Vector3f{0, 1, 0};
 
-		float mass = 0.0f;
-
-		// valid bone, use boxes
-		if ( useBone ) shapeType = pod::ShapeType::OBB;
-
-		// physics body transform offsets
 		auto offset = pod::Vector3f{};
 		auto orientation = uf::quaternion::identity();
-		// offset position
-		if ( offsetByBodyTransform || shapeType != pod::ShapeType::OBB ) {
-			offset = /*useBone ? obb.center :*/ uf::vector::lerp( start, end, 0.5f );
-			obb.center = {};
-		}
-		// offset orientation
-		if ( offsetByBodyTransform || shapeType != pod::ShapeType::CAPSULE ) {
-			//orientation = uf::quaternion::unitVectors( up, dir );
-			orientation = uf::matrix::extractRotation( uf::matrix::inverse( skin.inverseBindMatrices[nodeID] ) );
+
+		float mass = 0.0f;
+		if ( false && useBone ) {
+			shapeType = pod::ShapeType::OBB;
+		//	volume = obb.extent.x * obb.extent.y * obb.extent.z * 8.0f;
 		} else {
-			up = dir; // set up direction to bone direction (for capsule)
+			offset = uf::vector::lerp( start, end, 0.5f );
+		//	auto up = pod::Vector3f{0, 1, 0};
+		//	orientation = uf::quaternion::unitVectors( up, dir );
+		//	dir = up;
 		}
+
 
 		// create body
 		auto& body = uf::physics::create( entity, mass, offset, orientation );
 		bodies[nodeID] = &body;
 
-		// "root" bone will try and parent to local origin
-		/*
-		if ( !isJoint[node.parent] ) {
-			// mark it as non-colliding
-			uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_NONE );
-			// make it heavier
-			uf::physics::setMass( body, 1000.0f );
-		}
-		*/
+		// bone unused, just mark it as non-colliding
+		if ( !useBone ) uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_NONE );
 
 		switch ( shapeType ) {
 			case pod::ShapeType::CAPSULE: {
 				float height = length - (thickness * 2); // subtract end-caps
-				uf::physics::initialize( body, pod::Capsule{ thickness, up * height * 0.5f } );
+				uf::physics::initialize( body, pod::Capsule{ thickness, dir * height * 0.5f } );
 			} break;
 			case pod::ShapeType::AABB:
 			case pod::ShapeType::OBB: {

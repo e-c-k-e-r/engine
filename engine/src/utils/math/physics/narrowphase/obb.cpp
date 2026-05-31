@@ -129,8 +129,8 @@ bool impl::obbObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Ma
 	auto boxA = a.collider.obb;
 	auto boxB = b.collider.obb;
 
-	boxA.center = uf::transform::apply( tA, boxA.center );
-	boxB.center = uf::transform::apply( tB, boxB.center );
+	boxA.center = impl::apply( tA, boxA.center );
+	boxB.center = impl::apply( tB, boxB.center );
 
 	pod::Vector3f axesA[3];
 	pod::Vector3f axesB[3];
@@ -149,7 +149,7 @@ bool impl::obbAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 
 	auto boxA = a.collider.obb;
 	auto boxB = impl::aabbToObb( b.bounds );
-	boxA.center = uf::transform::apply( tA, boxA.center );
+	boxA.center = impl::apply( tA, boxA.center );
 
 	pod::Vector3f axesA[3];
 	pod::Vector3f axesB[3];
@@ -164,12 +164,12 @@ bool impl::obbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::transform::apply( tA, box.center );
+	box.center = impl::apply( tA, box.center );
 
 	auto sphereCenter = impl::getPosition( b );
 	float radius = b.collider.sphere.radius;
 
-	auto localP = uf::transform::applyInverse( tA, sphereCenter ) - box.center;
+	auto localP = impl::applyInverse( tA, sphereCenter ) - box.center;
 	auto closestLocal = uf::vector::clamp( localP, -box.extent, box.extent );
 
 	auto deltaLocal = localP - closestLocal;
@@ -177,7 +177,7 @@ bool impl::obbSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 
 	if ( distSq > radius * radius ) return false;
 
-	auto closestWorld = uf::transform::apply( tA, closestLocal + box.center );
+	auto closestWorld = impl::apply( tA, closestLocal + box.center );
 	float dist = std::sqrt( distSq );
 
 	pod::Vector3f normal;
@@ -212,7 +212,7 @@ bool impl::obbPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::transform::apply( tA, box.center );
+	box.center = impl::apply( tA, box.center );
 
 	pod::Vector3f axesA[3];
 	impl::boxAxes( axesA, tA );
@@ -242,7 +242,7 @@ bool impl::obbCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 
 	auto tA = impl::getTransform( a );
 	auto box = a.collider.obb;
-	box.center = uf::transform::apply( tA, box.center );
+	box.center = impl::apply( tA, box.center );
 
 	pod::Vector3f axesA[3];
 	impl::boxAxes( axesA, tA );
@@ -307,23 +307,10 @@ bool impl::obbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 void impl::drawObb( const pod::PhysicsBody& body ) {
 	const auto& obb = body.collider.obb;
 	auto transform = impl::getTransform(body);	
-#if 0
-	uf::debug::drawObb( obb, transform );
+#if 1
+	uf::debug::drawShape( obb, transform );
 #else
-	auto aabb = pod::AABB{
-		.min = obb.center - obb.extent,
-		.max = obb.center + obb.extent,
-	};
-	pod::Vector3f corners[8] = {
-		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
-		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
-		{aabb.min.x, aabb.min.y, aabb.max.z}, {aabb.max.x, aabb.min.y, aabb.max.z},
-		{aabb.max.x, aabb.max.y, aabb.max.z}, {aabb.min.x, aabb.max.y, aabb.max.z}
-	};
-
-	FOR_EACH( 8, {
-		corners[i] = uf::transform::apply(transform, corners[i]);
-	});
+	impl::getCorners( pod::aabbToObb( obb ), transform, corners );
 
 	uf::debug::drawLine( corners[0], corners[1] ); uf::debug::drawLine( corners[1], corners[2] );
 	uf::debug::drawLine( corners[2], corners[3] ); uf::debug::drawLine( corners[3], corners[0] );

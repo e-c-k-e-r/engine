@@ -81,15 +81,11 @@ bool impl::aabbHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 void impl::drawAabb( const pod::PhysicsBody& body ) {
 	const auto& aabb = body.bounds;
 	auto transform = impl::getTransform( body );
-#if 0
-	uf::debug::drawAabb( aabb, transform );
+#if 1
+	uf::debug::drawShape( aabb, transform );
 #else
-	pod::Vector3f corners[8] = {
-		{aabb.min.x, aabb.min.y, aabb.min.z}, {aabb.max.x, aabb.min.y, aabb.min.z},
-		{aabb.max.x, aabb.max.y, aabb.min.z}, {aabb.min.x, aabb.max.y, aabb.min.z},
-		{aabb.min.x, aabb.min.y, aabb.max.z}, {aabb.max.x, aabb.min.y, aabb.max.z},
-		{aabb.max.x, aabb.max.y, aabb.max.z}, {aabb.min.x, aabb.max.y, aabb.max.z}
-	};
+	pod::Vector3f corners[8];
+	impl::getCorners( aabb, corners );
 
 	uf::debug::drawLine( corners[0], corners[1] ); uf::debug::drawLine( corners[1], corners[2] );
 	uf::debug::drawLine( corners[2], corners[3] ); uf::debug::drawLine( corners[3], corners[0] );

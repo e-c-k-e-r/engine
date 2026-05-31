@@ -64,10 +64,12 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 // returns an absolute transform while also allowing offsetting the collision body
 // to-do: find a succinct way to explain this madness
 pod::Transform<> impl::getTransform( const pod::PhysicsBody& body ) {
-	pod::Transform<> t;
-	t.position = body.offsetPosition;
-	t.orientation = body.offsetOrientation;
-	t.reference = body.transform;
+	pod::Transform<> t = {
+		.position = body.offsetPosition,
+		.orientation = body.offsetOrientation,
+		.scale = {1, 1, 1},
+		.reference = body.transform,
+	};
 	return uf::transform::flatten( t );
 }
 // get position of a body, uses bounds center or transform's position
@@ -78,6 +80,7 @@ pod::Vector3f impl::getPosition( const pod::PhysicsBody& body, bool useTransform
 // applies a transform
 pod::Vector3f impl::apply( const pod::Transform<>& t, const pod::Vector3f& p ) {
 	return uf::transform::apply( t, p );
+//	return uf::quaternion::rotate( t.orientation, p * t.scale ) + t.position; // explicitly needed to copy or GCC breaks
 }
 // applies an inverse transform
 pod::Vector3f impl::applyInverse( const pod::Transform<>& t, const pod::Vector3f& p ) {
@@ -528,7 +531,7 @@ pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID,
 
 	if ( body.collider.type == pod::ShapeType::MESH || body.collider.type == pod::ShapeType::CONVEX_HULL ) {
 		FOR_EACH(3, {
-			tri.points[i] = uf::transform::apply( transform, tri.points[i] );
+			tri.points[i] = impl::apply( transform, tri.points[i] );
 		});
 		tri.normal = uf::quaternion::rotate( transform.orientation, tri.normal );
 	}
@@ -662,7 +665,7 @@ pod::AABB impl::transformAabbToWorld( const pod::AABB& aabb, const pod::Transfor
 	pod::Vector3f axes[3];
 	impl::boxAxes( axes, transform );
 
-	pod::Vector3f center = uf::transform::apply( transform, box.center );
+	pod::Vector3f center = impl::apply( transform, box.center );
 	pod::Vector3f extent = impl::extentFromAxes( box, axes );
 
 	return { center - extent, center + extent };
@@ -713,11 +716,25 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 
 	return {};
 }
+// gets the corners of an AABB
+void impl::getCorners( const pod::AABB& aabb, pod::Vector3f corners[8] ) {
+	corners[0] = {aabb.min.x, aabb.min.y, aabb.min.z};
+	corners[1] = {aabb.max.x, aabb.min.y, aabb.min.z};
+	corners[2] = {aabb.max.x, aabb.max.y, aabb.min.z};
+	corners[3] = {aabb.min.x, aabb.max.y, aabb.min.z};
+	corners[4] = {aabb.min.x, aabb.min.y, aabb.max.z};
+	corners[5] = {aabb.max.x, aabb.min.y, aabb.max.z};
+	corners[6] = {aabb.max.x, aabb.max.y, aabb.max.z};
+	corners[7] = {aabb.min.x, aabb.max.y, aabb.max.z};
+}
+void impl::getCorners( const pod::AABB& aabb, const pod::Transform<>& transform, pod::Vector3f corners[8] ) {
+	impl::getCorners( aabb, corners );
+	FOR_EACH( 8, {
+		corners[i] = impl::apply( transform, corners[i] );
+	});
+}
 // transforms an AABB into local space
 pod::AABB impl::transformAabbToLocal( const pod::AABB& box, const pod::Transform<>& transform ) {
-	auto inv = uf::transform::inverse( transform );
-
-	// transform all 8 corners
 	pod::Vector3f corners[8] = {
 		{ box.min.x, box.min.y, box.min.z },
 		{ box.max.x, box.min.y, box.min.z },
@@ -735,7 +752,7 @@ pod::AABB impl::transformAabbToLocal( const pod::AABB& box, const pod::Transform
 	};
 
 	FOR_EACH(8, {
-		auto local = uf::transform::apply( inv, corners[i] );
+		auto local = impl::applyInverse( transform, corners[i] );
 		out.min = uf::vector::min( out.min, local );
 		out.max = uf::vector::max( out.max, local );
 	});

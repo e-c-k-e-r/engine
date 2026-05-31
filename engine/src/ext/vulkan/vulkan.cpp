@@ -504,7 +504,9 @@ void ext::vulkan::tick() {
 		ext::vulkan::states::rebuild = true;
 	}
 
+#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	ext::fsr::tick();
+#endif
 	
 	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {

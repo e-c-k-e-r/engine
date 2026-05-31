@@ -312,7 +312,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			});
 
 			auto& shader = blitter.material.getShader("fragment");
-			if ( !settings::pipelines::fsr || !ext::fsr::frameUpscale ) {
+		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
+			if ( !settings::pipelines::fsr || !ext::fsr::frameUpscale )
+		#endif
+			{
 				shader.aliasAttachment("output", this);
 			}
 		}
