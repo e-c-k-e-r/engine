@@ -198,11 +198,12 @@ namespace uf {
 			
 			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
 
-			const AttributeView& operator[](const uf::stl::string& name) const {
-				//static AttributeView null{};
+			bool has( const uf::stl::string& name ) const {
+				return attributes.count( name ) > 0;
+			}
+			const AttributeView& operator[]( const uf::stl::string& name ) const {
 				if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
 				UF_EXCEPTION("invalid view: {}", name);
-				//return null;
 			}
 
 			// to-do: resolve dependency order hell

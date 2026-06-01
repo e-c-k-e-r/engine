@@ -1,108 +1,54 @@
 #include <uf/utils/text/glyph.h>
 #include <iostream>
 #if UF_USE_FREETYPE
-uf::Glyph::~Glyph() {
-	delete[] this->m_buffer;
+
+pod::FT_Glyph uf::glyph::initialize( const uf::stl::string& font ) {
+	return ext::freetype::initialize( font );
+}
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g, uint64_t c, size_t size ) {
+	ext::freetype::setPixelSizes( g, size );
+	if ( !ext::freetype::load( g, c ) ) return NULL;
+	return uf::glyph::generate( glyph, g );
 }
 
-// 	OpenGL ops
-uint8_t* uf::Glyph::generate( const uf::stl::string& font, unsigned long c, uint size ) {
-	ext::freetype::Glyph glyph = ext::freetype::initialize(font);
-	return this->generate( glyph, c );
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g, const uf::stl::string& s, size_t size ) {
+	ext::freetype::setPixelSizes( g, size );
+	if ( !ext::freetype::load( g, s ) ) return NULL;
+	return uf::glyph::generate( glyph, g );
 }
-uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, unsigned long c, uint size ) {
-	ext::freetype::setPixelSizes( glyph, size );
-	if ( !ext::freetype::load( glyph, c ) ) return NULL;
-	if ( this->m_buffer ) {
-		delete[] this->m_buffer;
-	}
 
-//	this->m_sdf = false;
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width) >> 6, static_cast<int>(glyph.face->glyph->metrics.height) >> 6 } );
-	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
-	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
-//	this->setPadding( {4, 4} );
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g ) {
+	if ( glyph.spread ) ext::freetype::setRenderMode( g, FT_RENDER_MODE_SDF );
 
-	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
-	
-	pod::Vector2i padding = this->getPadding();
-	if ( padding.x > 0 && padding.y > 0 ) {
-		uint8_t unheadache[this->m_size.x + padding.x * 2][this->m_size.y + padding.y * 2];
-		this->m_buffer = new uint8_t[ ( this->m_size.x + padding.x * 2 ) * ( this->m_size.y + padding.y * 2 ) ];
+	glyph.size = { g.face->glyph->bitmap.width, g.face->glyph->bitmap.rows };
+	glyph.bearing = { g.face->glyph->bitmap_left, g.face->glyph->bitmap_top };
+	glyph.advance = { g.face->glyph->advance.x >> 6, g.face->glyph->advance.y >> 6 };
 
-		// Zero out
-		for ( uint y = 0; y < this->m_size.y + padding.y * 2; ++y ) {
-			for ( uint x = 0; x < this->m_size.x + padding.x * 2; ++x ) {
-				unheadache[x][y] = 0;
-			}
+	glyph.buffer.clear();
+
+	const uint8_t* buffer = g.face->glyph->bitmap.buffer;
+
+	auto size = glyph.size + glyph.padding * 2;
+	glyph.buffer.assign(size.x * size.y, 0);
+	for ( size_t y = 0; y < glyph.size.y; ++y ) {
+		const uint8_t* src = buffer + y * g.face->glyph->bitmap.pitch;
+		for ( size_t x = 0; x < glyph.size.x; ++x ) {
+			size_t dst = (y + glyph.padding.y) * size.x + (x + glyph.padding.x);
+			glyph.buffer[dst] = src[x];
 		}
-		// Fill
-		for ( uint y = 0; y < this->m_size.y; ++y ) {
-			for ( uint x = 0; x < this->m_size.x; ++x ) {
-				unheadache[x + padding.x][y + padding.y] = bitmap[y * this->m_size.x + x];
-			}
-		}
-		// Migrate
-		this->setSize( pod::Vector2ui{ this->m_size.x + padding.x * 2, this->m_size.y + padding.y * 2 } );
-		for ( uint y = 0; y < this->m_size.y; ++y ) {
-			for ( uint x = 0; x < this->m_size.x; ++x ) {
-				this->m_buffer[y * this->m_size.x + x] = unheadache[x][y];
-			}
-		}
-	} else {
-		std::size_t len = this->m_size.x * this->m_size.y;
-		this->m_buffer = new uint8_t[len];
-		memcpy(this->m_buffer, bitmap, len);
 	}
 
-	if ( this->isSdf() ) this->generateSdf(this->m_buffer);
-	return this->m_buffer;
+	glyph.size = size;
+
+	return glyph.buffer.data();
 }
-uint8_t* uf::Glyph::generate( const uf::stl::string& font, const uf::stl::string& c, uint size ) {
-	ext::freetype::Glyph glyph = ext::freetype::initialize(font);
-	return this->generate( glyph, c );
-}
-uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::stl::string& c, uint size ) {
-	ext::freetype::setPixelSizes( glyph, size );
-	if ( !ext::freetype::load( glyph, c ) ) return NULL;
-	if ( this->m_buffer ) {
-		delete[] this->m_buffer;
-	}
 
-	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
-	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
+void uf::glyph::generateSdf( pod::Glyph& glyph ) {
+	auto* buffer = glyph.buffer.data();
+	auto size = glyph.size;
 
-	if ( this->isSdf() ) {
-		ext::freetype::setRenderMode( glyph, FT_RENDER_MODE_NORMAL );
-		ext::freetype::setRenderMode( glyph, FT_RENDER_MODE_SDF );
-	}
-	
-	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
-	std::size_t len = this->m_size.x * this->m_size.y;
-	this->m_buffer = new uint8_t[len];
-	memcpy(this->m_buffer, bitmap, len);
-
-/*
-	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
-	std::size_t len = this->m_size.x * this->m_size.y;
-	this->m_buffer = new uint8_t[len];
-	memcpy(this->m_buffer, bitmap, len);
-
-	if ( this->isSdf() ) this->generateSdf(this->m_buffer);
-*/
-
-	return this->m_buffer;
-}
-bool uf::Glyph::generated() {
-	return this->m_buffer != NULL;
-}
-void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
-	pod::Vector2ui size = this->getSize();
-	this->m_sdf = true;
-
-	int HEIGHT = size.y; int WIDTH = size.x;
+	int HEIGHT = size.y;
+	int WIDTH = size.x;
 	struct Point {
 		int dx, dy;
 		int DistSq() const { return dx*dx + dy*dy; }
@@ -110,17 +56,12 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 	struct Grid {
 		int w, h;
 		Point grid[128][128];
-	/*
-		Point** grid;
-		Grid( int w, int h ) { this->w = w; this->h = h; this->grid = new Point*[h]; for (int y = 0; y < h; ++y ) this->grid[y] = new Point[w]; }
-		~Grid() { std::cout << this->grid << std::endl; for ( int y = 0; y < this->w; ++y ) if ( this->grid[y] ) delete[] this->grid[y]; if ( this->grid ) delete[] this->grid; }
-	*/
 	};
 
 	Point inside = { 0, 0 };
 	Point empty = { 9999, 9999 };
-	Grid grid1; //( WIDTH, HEIGHT );
-	Grid grid2; //( WIDTH, HEIGHT );
+	Grid grid1;
+	Grid grid2;
 
 	auto Get = [&]( Grid &g, int x, int y )->Point{
 		return ( x >= 0 && y >= 0 && x < WIDTH && y < HEIGHT ) ? g.grid[y][x] : empty;
@@ -170,9 +111,9 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 	};
 
 
-	for ( int y = 0; y < this->m_size.y; ++y ) {
-		for ( int x = 0; x < this->m_size.x; ++x ) {
-			int a = buffer[y * this->m_size.x + x];
+	for ( int y = 0; y < HEIGHT; ++y ) {
+		for ( int x = 0; x < WIDTH; ++x ) {
+			int a = buffer[y * WIDTH + x];
 			Put( grid1, x, y, a < 128 ? inside : empty );
 			Put( grid2, x, y, a < 128 ? empty : inside );
 		}
@@ -183,8 +124,8 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 
 	int lowest = 255;
 	int highest = 0;
-	for ( uint y = 0; y < this->m_size.y; ++y ) {
-		for ( uint x = 0; x < this->m_size.x; ++x ) {
+	for ( uint y = 0; y < HEIGHT; ++y ) {
+		for ( uint x = 0; x < WIDTH; ++x ) {
 			int dist1 = (int)( sqrt( (double)Get( grid1, x, y ).DistSq() ) );
 			int dist2 = (int)( sqrt( (double)Get( grid2, x, y ).DistSq() ) );
 			int dist = dist1 - dist2;
@@ -193,61 +134,11 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 			highest = std::max( highest, dist );
 		
 			{
-				int value = dist * this->getSpread() + 128;
+				int value = dist * glyph.spread + 128;
 				uint8_t uvalue = std::max( 0, std::min(255, value) );
-				buffer[y * this->m_size.x + x] = uvalue;
+				buffer[y * WIDTH + x] = uvalue;
 			}
-		
-		/*
-			{
-				float value = 0.5f + 0.5f * ((float) dist / (float) this->getSpread());
-				value = std::max( 0.0f, std::min(1.0f, value) );
-				uint8_t uvalue = value * 256;
-				buffer[y * this->m_size.x + x] = uvalue;
-			}
-		*/
 		}
 	}
-}
-// 	Get
-const pod::Vector2ui& uf::Glyph::getSize() const {
-	return this->m_size;
-}
-const pod::Vector2i& uf::Glyph::getBearing() const {
-	return this->m_bearing;
-}
-const pod::Vector2i& uf::Glyph::getAdvance() const {
-	return this->m_advance;
-}
-const pod::Vector2i& uf::Glyph::getPadding() const {
-	return this->m_padding;
-}
-const uint8_t* uf::Glyph::getBuffer() const {
-	return this->m_buffer;
-}
-int uf::Glyph::getSpread() const {
-	return this->m_spread;
-}
-bool uf::Glyph::isSdf() const {
-	return this->m_sdf;
-}
-//	Set
-void uf::Glyph::setSize( const pod::Vector2ui& size ) {
-	this->m_size = size;
-}
-void uf::Glyph::setBearing( const pod::Vector2i& bearing ) {
-	this->m_bearing = bearing;
-}
-void uf::Glyph::setAdvance( const pod::Vector2i& advance ) {
-	this->m_advance = advance;
-}
-void uf::Glyph::setPadding( const pod::Vector2i& padding ) {
-	this->m_padding = padding;
-}
-void uf::Glyph::setSpread( int spread ) {
-	this->m_spread = spread;
-} 
-void uf::Glyph::useSdf( bool b ) {
-	this->m_sdf = b;
 }
 #endif

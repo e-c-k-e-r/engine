@@ -37,7 +37,10 @@ namespace {
 	#else
 		pod::Vector4b color;
 	#endif
+
+	#if !UF_USE_OPENGL
 		pod::Vector2f offset;
+	#endif
 
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
@@ -91,6 +94,15 @@ namespace {
 	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color, const pod::Vector2f& center ) {
 		mesh.bind<::GuiVertex, uint16_t>();
 		mesh.insertVertices<::GuiVertex>({
+		#if UF_USE_OPENGL
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, color },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
+		
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
+		#else
 			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
 			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color, center },
 			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
@@ -98,6 +110,7 @@ namespace {
 			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
 			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color, center },
 			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
+		#endif
 		});
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 3, 4, 5
@@ -553,26 +566,21 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		pod::Vector2f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
 		pod::Vector2f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
 
-		uf::Mesh::Attribute positionAttribute;
-		uf::Mesh::Attribute offsetAttribute;
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( attribute.descriptor.name == "position" ) positionAttribute = attribute;
-			if ( attribute.descriptor.name == "offset" ) offsetAttribute = attribute;
-		}
-		UF_ASSERT( positionAttribute.descriptor.name == "position" );
+		for ( const auto& view : mesh.buffer_views ) {
+			auto posView	= view["position"];
+			auto offView	= view.has("offset") ? view["offset"] : uf::Mesh::AttributeView{};
+			for ( auto i = 0; i < view.vertex.count; ++i ) {
+				auto pos = uf::mesh::fetchVertex( view, posView, i );
+				auto off = offView.valid() ? uf::mesh::fetchVertex( view, offView, i ) : pod::Vector3f{};
+				auto position = pod::Vector4f{ pos.x + off.x, pos.y + off.y, /*pos.z + off.z*/ 0, 1 };
 
-		for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-			float* p = (float*) (static_cast<uint8_t*>(positionAttribute.pointer) + i * positionAttribute.stride );
-			float* o = (float*) (static_cast<uint8_t*>(offsetAttribute.pointer) + i * offsetAttribute.stride );
-		//	pod::Vector4f position = { p[0], p[1], p[2], 1 };
-			pod::Vector4f position = { p[0] + o[0], p[1] + o[1], 0, 1 };
-
-			pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
-			min.x = std::min( min.x, translated.x );
-			max.x = std::max( max.x, translated.x );
-			
-			min.y = std::min( min.y, translated.y );
-			max.y = std::max( max.y, translated.y );
+				auto translated = uf::matrix::multiply( model, position );
+				min.x = std::min( min.x, translated.x );
+				max.x = std::max( max.x, translated.x );
+				
+				min.y = std::min( min.y, translated.y );
+				max.y = std::max( max.y, translated.y );
+			}
 		}
 		
 		metadata.boxMin.x = min.x;

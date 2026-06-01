@@ -23,6 +23,7 @@ void ext::vulkan::Buffer::swap( ext::vulkan::Buffer& buffer ) {
 	std::swap(this->allocationInfo, buffer.allocationInfo);
 	std::swap(this->count, buffer.count);
 	std::swap(this->written, buffer.written);
+	std::swap(this->staged, buffer.staged);
 }
 ext::vulkan::Buffer ext::vulkan::Buffer::alias() const {
 	ext::vulkan::Buffer buffer;
@@ -44,6 +45,7 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 	this->allocationInfo = buffer.allocationInfo;
 	this->count = buffer.count;
 	this->written = buffer.written;
+	this->staged = buffer.staged;
 }
 
 void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
@@ -95,9 +97,10 @@ size_t ext::vulkan::Buffer::getOffset( size_t i ) const {
 ext::vulkan::Buffer::~Buffer() {
 //	this->destroy(); // bad, will get called every time a vector gets resized, buffer owners will clean it up in their own destructors
 }
-void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignment ) {
+void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignment, bool staged ) {
 	this->device = &device;
 	this->alignment = alignment;
+	this->staged = staged;
 }
 void ext::vulkan::Buffer::destroy(bool defer) {
 	if ( !device || aliased ) return;
@@ -122,10 +125,11 @@ void ext::vulkan::Buffer::destroy(bool defer) {
 	this->allocationInfo = {};
 	this->count = 1;
 	this->written = false;
+	this->staged = VK_DEFAULT_STAGE_BUFFERS;
 }
 void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties ) {
 	if ( !device ) device = &ext::vulkan::device;
-	if ( VK_DEFAULT_STAGE_BUFFERS ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
+	if ( this->staged ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
 
 	// assume all UBOs are dynamic
 	auto totalLength = length;
@@ -184,7 +188,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 		}
 	}
 
-	if ( !VK_DEFAULT_STAGE_BUFFERS ) {
+	if ( !this->staged ) {
 		auto* self = const_cast<ext::vulkan::Buffer*>(this);
 		void* map = self->map(length);
 		for ( const auto& region : regions ) memcpy(static_cast<char*>(map) + region.dstOffset, data, length);
@@ -198,7 +202,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 		data, length,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
-	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER); // waits on finish
+	auto commandBuffer = device->fetchCommandBuffer( QueueEnum::TRANSFER ); // waits on finish
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyBuffer" );
 		vkCmdCopyBuffer(commandBuffer, staging.buffer, buffer, regions.size(), regions.data());
 	device->flushCommandBuffer(commandBuffer);
@@ -207,8 +211,9 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 
 //
 // Buffers
-void ext::vulkan::Buffers::initialize( Device& device ) {
+void ext::vulkan::Buffers::initialize( Device& device, bool staged ) {
 	this->device = &device;
+	this->staged = staged;
 }
 /*
 ext::vulkan::Buffers::~Buffers() {
@@ -224,7 +229,7 @@ void ext::vulkan::Buffers::destroy(bool defer) {
 size_t ext::vulkan::Buffers::initializeBuffer( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties ) {
 	size_t index = buffers.size();
 	auto& buffer = buffers.emplace_back();
-	buffer.initialize( *device, requestedAlignment );
+	buffer.initialize( *device, requestedAlignment, this->staged );
 	buffer.initialize( data, length, usage, memoryProperties );
 	return index;
 }

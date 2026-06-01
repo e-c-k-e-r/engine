@@ -5,7 +5,6 @@
 #include <uf/utils/image/atlas.h>
 #include <uf/utils/mesh/mesh.h>
 
-
 namespace pod {
 	struct GlyphBox {
 		struct {
@@ -16,16 +15,17 @@ namespace pod {
 		pod::Vector3f anchor = { 0, 0, 0 };
 		uint64_t code = 0;
 	};
+
 	struct TextToken {
 		uf::stl::string text;
 		pod::Vector4f color;
 	};
+
 	struct GlyphSettings {
 		uf::stl::string alignment = "";
 		uf::stl::string font = "Coolvetica.ttf";
-		float size = 96;
-		bool sdf = true;
-		float spread = 8;
+		size_t size = 96;
+		size_t spread = 0;
 		pod::Vector2ui padding = { 8, 8 };
 	};
 }

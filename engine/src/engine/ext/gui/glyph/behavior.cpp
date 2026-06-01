@@ -14,7 +14,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/text/glyph.h>
-#include <uf/utils/text/glyph_.h>
+#include <uf/utils/text/graphic.h>
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/memory/unordered_map.h>
@@ -45,7 +45,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 
 		// override
 	#if UF_USE_OPENGL
-		metadata.sdf = false;
+		metadata.spread = 0;
 	#endif
 		metadataGui.scaling = "none";
 
@@ -60,7 +60,6 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 			.alignment = metadataGui.alignment,
 			.font = font,
 			.size = metadata.size,
-			.sdf = metadata.sdf,
 			.spread = metadata.spread,
 			.padding = metadata.padding,
 		};
@@ -70,7 +69,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 		uf::glyph::generateMesh( layout, settings, atlas, mesh );
 
 		// set proper shaders
-		if ( metadata.sdf ) {
+		if ( metadata.spread > 0 ) {
 			metadataJson["shaders"]["vertex"] = uf::io::root+"/shaders/gui/text/vert.spv";
 			metadataJson["shaders"]["fragment"] = uf::io::root+"/shaders/gui/text/frag.spv";
 		}
@@ -143,7 +142,6 @@ void ext::GuiGlyphBehavior::destroy( uf::Object& self ){}
 void ext::GuiGlyphBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
 	serializer["string"] = /*this->*/string;
 	serializer["font"] = /*this->*/font;
-	serializer["sdf"] = /*this->*/sdf;
 	serializer["spread"] = /*this->*/spread;
 	serializer["padding"] = uf::vector::encode( /*this->*/padding);
 
@@ -158,14 +156,12 @@ void ext::GuiGlyphBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 		.alignment = "",
 		.font = /*this->*/font,
 		.size = /*this->*/size,
-		.sdf = /*this->*/sdf,
 		.spread = /*this->*/spread,
 		.padding = /*this->*/padding,
 	});
 
 	/*this->*/string = serializer["string"].as(/*this->*/string);
 	/*this->*/font = serializer["font"].as(/*this->*/font);
-	/*this->*/sdf = serializer["sdf"].as(/*this->*/sdf);
 	/*this->*/spread = serializer["spread"].as(/*this->*/spread);
 	/*this->*/padding = uf::vector::decode(serializer["padding"], /*this->*/padding);
 	
@@ -179,7 +175,6 @@ void ext::GuiGlyphBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 		.alignment = "",
 		.font = /*this->*/font,
 		.size = /*this->*/size,
-		.sdf = /*this->*/sdf,
 		.spread = /*this->*/spread,
 		.padding = /*this->*/padding,
 	});

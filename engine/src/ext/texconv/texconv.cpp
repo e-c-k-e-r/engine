@@ -49,17 +49,17 @@ namespace {
 		auto height = image.height();
 		auto& pixels = image.pixels();
 
-		uf::Image::container_t buffer;
-		buffer.reserve(width * height * 4);
+		pod::Image out;
+		out.pixels.reserve(width * height * 4);
 
 		for (auto& pixel : pixels) {
-			buffer.emplace_back(pixel.r);
-			buffer.emplace_back(pixel.g);
-			buffer.emplace_back(pixel.b);
-			buffer.emplace_back(pixel.a);
+			out.pixels.emplace_back(pixel.r);
+			out.pixels.emplace_back(pixel.g);
+			out.pixels.emplace_back(pixel.b);
+			out.pixels.emplace_back(pixel.a);
 		}
 
-		return uf::Image{ std::move(buffer), { width, height } };
+		return out;
 	}
 }
 

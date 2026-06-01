@@ -254,7 +254,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			"right",
 			"left",
 		};
-		uf::Image::container_t pixels;
+		pod::Image::container_t pixels;
 		uf::stl::vector<uf::Image> images(filenames.size());
 
 		pod::Vector2ui size = {0,0};

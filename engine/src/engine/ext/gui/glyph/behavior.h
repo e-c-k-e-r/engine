@@ -11,16 +11,11 @@ namespace ext {
 		EXT_BEHAVIOR_DEFINE_TRAITS();
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
-			uf::stl::string font = "Coolvetica.ttf";
 			uf::stl::string string = "";
-
-			bool sdf = true;
-			float size = 96;
-			float spread = 8;
-
+			uf::stl::string font = "Coolvetica.ttf";
+			size_t size = 96;
+			size_t spread = 8;
 			pod::Vector2ui padding = { 8, 8 };
-
-			size_t reserve = 128;
 
 			struct {
 				float scale = 1.5;

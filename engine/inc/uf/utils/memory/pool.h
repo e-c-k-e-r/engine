@@ -38,23 +38,21 @@ namespace pod {
 
 		Strategy strategy = Strategy::BUDDY;
 		union State {
-			// linear
-			struct { size_t offset; } linear;
-
-			// pool
-			struct { void* freeListHead; size_t fixedChunkSize; } pool;
-
-			// segregated
+			struct {
+				size_t offset;
+			} linear;
+			struct {
+				void* freeListHead;
+				size_t fixedChunkSize;
+			} pool;
 			struct {
 				void* freeListHeads[UF_MAX_BUCKETS];
-				size_t offset; // To carve new memory when a bucket is empty
-				size_t minChunkSize; // Base size, e.g., 16 bytes
+				size_t offset;
+				size_t minChunkSize;
 			} segregated;
-
-			// buddy
 			struct {
-				void* freeLists[32]; // Max 32 levels for powers of two up to 4GB
-                uint8_t* splitBlockBitset; // Tracks if a block was split
+				void* freeLists[32];
+                uint8_t* splitBlockBitset;
                 size_t maxLevel;
                 size_t minBlockSize;
 			} buddy;
@@ -102,9 +100,7 @@ namespace uf {
 }
 
 namespace uf {
-	class UF_API MemoryPool {
-	protected:
-		pod::MemoryPool m_pod;
+	class UF_API MemoryPool : protected pod::MemoryPool {
 	public:
 		MemoryPool( size_t = 0 );
 		~MemoryPool();

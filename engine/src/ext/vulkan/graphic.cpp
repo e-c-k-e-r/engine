@@ -1695,18 +1695,16 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	size_t tlasBufferIndex{};
 	size_t tlasBackBufferIndex{};
 
-	// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
-	// manually copy because I can't be assed to expose an un-staged API now
+	// do not stage to avoid needing to wait for the transfer
 	if ( !update ) {
-		instanceIndex = this->buffers.size();
-		auto& buffer = this->buffers.emplace_back();
-		buffer.alignment = 16;
-		device.createBuffer(
+		this->requestedAlignment = 16;
+		this->staged = false;
+		instanceIndex = this->initializeBuffer(
 			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			buffer
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
 		);
+		this->staged = true;
+		this->requestedAlignment = 0;
 		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
 		if ( this->metadata.buffers.count("tlasInstance") > 0 ) {

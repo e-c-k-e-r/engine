@@ -3,38 +3,32 @@
 #include <iostream>
 #include <bit>
 
-uf::Atlas::hash_t uf::Atlas::addImage( const uf::Image& image, const uf::Atlas::hash_t& hash ) {
-	size_t index = this->m_tiles.size();
-	if ( this->m_tiles.count( hash ) > 0 ) return hash;
+pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image, const pod::Atlas::hash_t& hash ) {
+	size_t index = atlas.tiles.size();
+	if ( atlas.tiles.count( hash ) > 0 ) return hash;
 
-	auto& tile = this->m_tiles[hash];
+	auto& tile = atlas.tiles[hash];
 	tile.image = image;
-	tile.identifier.hash = hash;
-	tile.identifier.index = index;
 	return hash;
 }
-uf::Atlas::hash_t uf::Atlas::addImage( const uf::Image& image ) {
-	return this->addImage( image, image.getHash() );
+pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image ) {
+	return uf::atlas::add( atlas, image, uf::image::hash( image ) );
 }
-void uf::Atlas::generate( const uf::Atlas::images_t& images, float padding ) {
-	for ( auto& image : images ) this->addImage( image );
-	generate( padding );
-}
-void uf::Atlas::generate( float padding ) {
-	if ( this->m_tiles.empty() ) return;
 
-	BinPack2D::CanvasArray<Identifier> internalAtlas;
-	BinPack2D::ContentAccumulator<uf::Atlas::Identifier> queue, stored, remainder;
-	pod::Vector2ui size = {0,0};
-	pod::Vector3ui largest = {0,0,0};
+void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
+	if ( atlas.tiles.empty() ) return;
+
+	BinPack2D::CanvasArray<pod::Atlas::hash_t> internalAtlas;
+	BinPack2D::ContentAccumulator<pod::Atlas::hash_t> queue, stored, remainder;
+	pod::Vector2ui size = {};
+	pod::Vector3ui largest = {};
 	size_t index = 0;
 	size_t area = 0;
 	size_t channels = 1;
-	for ( auto pair : this->m_tiles ) {
-		auto& tile = pair.second;
-		auto& dim = tile.image.getDimensions();
-		channels = std::max( channels, tile.image.getChannels() );
-		queue += BinPack2D::Content<uf::Atlas::Identifier>(tile.identifier, BinPack2D::Coord(), BinPack2D::Size(dim.x, dim.y), false );
+	for ( auto& [ hash, tile ] : atlas.tiles ) {
+		auto& dim = tile.image.size;
+		channels = std::max( channels, tile.image.channels );
+		queue += BinPack2D::Content<pod::Atlas::hash_t>(hash, BinPack2D::Coord(), BinPack2D::Size(dim.x, dim.y), false );
 		size += dim;
 		area += dim.x * dim.y;
 		if ( area >= largest.z ) {
@@ -47,7 +41,7 @@ void uf::Atlas::generate( float padding ) {
 		size_t side = std::sqrt( area ) * padding;
 		size = { std::bit_ceil(side), std::bit_ceil(side) }; // to-do: non-C++20 method
 		queue.Sort();
-		internalAtlas = BinPack2D::UniformCanvasArrayBuilder<uf::Atlas::Identifier>(size.x, size.y, 1).Build();
+		internalAtlas = BinPack2D::UniformCanvasArrayBuilder<pod::Atlas::hash_t>(size.x, size.y, 1).Build();
 		bool success = internalAtlas.Place( queue, remainder );
 		if ( success && remainder.Get().empty() ) break;
 		// increase padding
@@ -55,21 +49,17 @@ void uf::Atlas::generate( float padding ) {
 	} while ( --tries );
 	internalAtlas.CollectContent( stored );
 
-	this->m_atlas.loadFromBuffer( NULL, size, 8, channels );
-	auto& dstBuffer = this->m_atlas.getPixels();
+	uf::image::load( atlas.image, NULL, size, 8, channels );
+	auto& dstBuffer = atlas.image.pixels;
 	for ( size_t i = 0; i < size.x * size.y * channels; ++i ) dstBuffer[i] = 0;
 	for ( auto& it : stored.Get() ) {
-		auto& tile = this->m_tiles[it.content.hash];
+		auto& tile = atlas.tiles[it.content];
 		tile.coord = { it.coord.x, it.coord.y };
 		tile.size = { it.size.w, it.size.h };
-/*
-	}
-	for ( auto pair : this->m_tiles ) {
-		auto& tile = pair.second;
-*/
+
 		auto& image = tile.image;
-		auto& srcBuffer = image.getPixels();
-		auto srcChannels = image.getChannels();
+		auto& srcBuffer = image.pixels;
+		auto srcChannels = image.channels;
 
 		for ( size_t y = 0; y < tile.size.y; ++y ) {
 		for ( size_t x = 0; x < tile.size.x; ++x ) {
@@ -82,25 +72,27 @@ void uf::Atlas::generate( float padding ) {
 		}
 	}
 }
-bool uf::Atlas::has( const uf::Atlas::hash_t& hash ) const {
-	return this->m_tiles.count( hash ) > 0;
+void uf::atlas::generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, float padding  ) {
+	for ( auto& image : images ) uf::atlas::add( atlas, image );
+	uf::atlas::generate( atlas, padding );
 }
-bool uf::Atlas::generated() const {
-	return !this->m_atlas.getPixels().empty();
-}
-void uf::Atlas::clear( bool full ) {
+void uf::atlas::clear( pod::Atlas& atlas, bool full ) {
 	if ( !full ) {
-		for ( auto pair : this->m_tiles ) pair.second.image.clear();
+		for ( auto& [ hash, tile ] : atlas.tiles ) tile.image.pixels.clear();
 		return;
 	}
-	this->m_tiles.clear();
-	this->m_atlas.clear();
+	atlas.tiles.clear();
+	atlas.image.pixels.clear();
 }
-pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, const uf::Atlas::hash_t& hash ) const {
-	auto it = this->m_tiles.find(hash);
-	if ( it != this->m_tiles.end() ) {
+bool uf::atlas::has( const pod::Atlas& atlas, const pod::Atlas::hash_t& hash ) {
+	return atlas.tiles.count( hash ) > 0;
+}
+
+pod::Vector2f uf::atlas::mapUv( const pod::Atlas& atlas, const pod::Vector2f& uv, const pod::Atlas::hash_t& hash ) {
+	auto it = atlas.tiles.find(hash);
+	if ( it != atlas.tiles.end() ) {
 		auto& tile = it->second;
-		auto& size = this->m_atlas.getDimensions();
+		auto& size = atlas.image.size;
 		pod::Vector2ui coord = {
 			uv.x * tile.size.x + tile.coord.x,
 			uv.y * tile.size.y + tile.coord.y
@@ -109,29 +101,46 @@ pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, const uf::Atlas::hash_t
 	}
 	return uv;
 }
-pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) const {
-	auto& size = this->m_atlas.getDimensions();
-	for ( auto pair : this->m_tiles ) {
-		auto& tile = pair.second;
-		if ( tile.identifier.index != index ) continue;
-		pod::Vector2ui coord = { uv.x * tile.size.x + tile.coord.x, uv.y * tile.size.y + tile.coord.y };
-		return pod::Vector2f{ (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };
-	}
-	return uv;
+pod::Image& uf::atlas::get( pod::Atlas& atlas ) {
+	return atlas.image;
 }
-pod::Vector3f uf::Atlas::mapUv( const pod::Vector3f& uv ) const {
-	pod::Vector2f nuv = mapUv( { uv.x, uv.y }, uv.z );
-	return { nuv.x, nuv.y, uv.z };
+const pod::Image& uf::atlas::get( const pod::Atlas& atlas ) {
+	return atlas.image;
 }
-uf::Image& uf::Atlas::getAtlas() {
-	return this->m_atlas;
+
+pod::Atlas::hash_t uf::Atlas::addImage( const pod::Image& image, const pod::Atlas::hash_t& hash ) {
+	return uf::atlas::add( *this, image, hash );
 }
-const uf::Image& uf::Atlas::getAtlas() const {
-	return this->m_atlas;
+pod::Atlas::hash_t uf::Atlas::addImage( const pod::Image& image ) {
+	return uf::atlas::add( *this, image, uf::image::hash( image ) );
+}
+void uf::Atlas::generate( const uf::Atlas::images_t& images, float padding ) {
+	uf::atlas::generate( *this, images, padding );
+}
+void uf::Atlas::generate( float padding ) {
+	uf::atlas::generate( *this, padding );
+}
+bool uf::Atlas::has( const pod::Atlas::hash_t& hash ) const {
+	return uf::atlas::has( *this, hash );
+}
+bool uf::Atlas::generated() const {
+	return !this->image.pixels.empty();
+}
+void uf::Atlas::clear( bool full ) {
+	uf::atlas::clear( *this, full );
+}
+pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, const pod::Atlas::hash_t& hash ) const {
+	return uf::atlas::mapUv( *this, uv, hash );
+}
+pod::Image& uf::Atlas::getAtlas() {
+	return uf::atlas::get( *this );
+}
+const pod::Image& uf::Atlas::getAtlas() const {
+	return uf::atlas::get( *this );
 }
 uf::Atlas::atlas_t& uf::Atlas::getImages() {
-	return this->m_tiles;
+	return this->tiles;
 }
 const uf::Atlas::atlas_t& uf::Atlas::getImages() const {
-	return this->m_tiles;
+	return this->tiles;
 }

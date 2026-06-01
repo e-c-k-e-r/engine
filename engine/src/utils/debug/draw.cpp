@@ -3,7 +3,7 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/math/physics.h>
-#include <uf/utils/text/glyph_.h>
+#include <uf/utils/text/graphic.h>
 
 namespace impl {
 	struct Vertex {
@@ -41,7 +41,7 @@ namespace impl {
 		.alignment = "center",
 		.font = "FragmentMono.ttf",
 		.size = 48,
-		.sdf = false,
+		.spread = 0,
 	};
 }
 
@@ -242,6 +242,7 @@ void uf::debug::drawLines( float dt ) {
 
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
+		graphic.staged = false;
 		graphic.material.device = &uf::renderer::device;
 
 		// to-do: bin by descriptor instead of one global set
@@ -323,6 +324,7 @@ void uf::debug::drawTexts( float dt ) {
 	auto& graphic = graphics["immediate:texts"];
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
+		graphic.staged = false;
 		graphic.material.device = &uf::renderer::device;
 
 		graphic.descriptor.depth.test = uf::physics::settings.debugDraw.depthTest;

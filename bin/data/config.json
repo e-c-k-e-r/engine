@@ -110,7 +110,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": true,
+					"default command buffer immediate": false,
 					"n-buffered uniform": false,
 					"multithreaded recording": true
 				},
@@ -357,9 +357,10 @@
 				"rays": false,
 				"depthTest": false
 			},
+			"async": false,
 			"fixed step": true,
 			"substeps": 4,
-			"flatten transforms": true
+			"flatten transforms": false
 		},
 		"audio": {
 			"mute": false,

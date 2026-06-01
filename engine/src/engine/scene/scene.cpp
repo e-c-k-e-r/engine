@@ -82,8 +82,8 @@ uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
 
 	if ( lastFrame != uf::time::frame ) {
 		auto& sourceCamera = controller.getComponent<uf::Camera>();
-		// update if camera wasn't already updated
-		//sourceCamera.update(true);
+		// update not 
+		if ( controller.getName() == "Player" ) sourceCamera.update();
 		// copy all matrices
 		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
 			cachedCamera.setView(sourceCamera.getView(i), i);

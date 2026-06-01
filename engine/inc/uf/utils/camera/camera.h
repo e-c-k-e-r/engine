@@ -9,48 +9,36 @@
 namespace uf {
 	namespace camera {
 		extern UF_API bool reverseInfiniteProjection;
-		constexpr const uint_fast8_t maxViews = 6;
+		constexpr const size_t maxViews = 6;
 	}
 }
 
 namespace pod {
 	struct UF_API Camera {
-	//	bool modified = false;
-		bool stereoscopic = false;
-		size_t ttl{};
-		pod::Transform<> transform;
-		
+		pod::Transform<> transform;		
 		struct Viewports {
 			struct Matrices{
 				pod::Matrix4f view;
 				pod::Matrix4f projection;
 			} matrices[uf::camera::maxViews];
+			size_t views = uf::camera::maxViews;
 		} viewport;
-		
-	//	pod::Matrix4f previous[uf::camera::maxViews];
 
-	/*
-		struct Metadata {
-			float fov;
-			pod::Vector2f bounds;
-		};
-	*/
+		bool stereoscopic = false;
 	};
 }
 
 namespace uf {
 	namespace camera {
-		pod::Vector3f UF_API eye( const pod::Camera&, uint_fast8_t = 0 );
-		void UF_API view( pod::Camera&, const pod::Matrix4&, uint_fast8_t = 255 );
-		void UF_API projection( pod::Camera&, const pod::Matrix4&, uint_fast8_t = 255 );
-		void UF_API update( pod::Camera&, bool = true );
+		pod::Vector3f UF_API eye( const pod::Camera&, size_t = 0 );
+		void UF_API view( pod::Camera&, const pod::Matrix4&, size_t = uf::camera::maxViews );
+		void UF_API projection( pod::Camera&, const pod::Matrix4&, size_t = uf::camera::maxViews );
+		void UF_API update( pod::Camera& );
 	}
 }
 
 namespace uf {
-	class UF_API Camera {
-	protected:
-		pod::Camera m_pod;
+	class UF_API Camera : protected pod::Camera {
 	public:
 		Camera();
 
@@ -61,22 +49,20 @@ namespace uf {
 		const pod::Transform<>& getTransform() const;
 		void setTransform( const pod::Transform<>& transform );
 
-		pod::Matrix4& getView( uint_fast8_t = 0 );
-		const pod::Matrix4& getView( uint_fast8_t = 0 ) const;
+		pod::Matrix4& getView( size_t = 0 );
+		const pod::Matrix4& getView( size_t = 0 ) const;
 
-		pod::Matrix4& getProjection( uint_fast8_t = 0 );
-		const pod::Matrix4& getProjection( uint_fast8_t = 0 ) const;
+		pod::Matrix4& getProjection( size_t = 0 );
+		const pod::Matrix4& getProjection( size_t = 0 ) const;
 
-		pod::Matrix4& getPrevious( uint_fast8_t = 0 );
-		const pod::Matrix4& getPrevious( uint_fast8_t = 0 ) const;
+		pod::Matrix4& getPrevious( size_t = 0 );
+		const pod::Matrix4& getPrevious( size_t = 0 ) const;
 
-		bool modified() const;
-		void setStereoscopic( bool );
-		
-		pod::Vector3f getEye( uint_fast8_t = 0 ) const;
+		pod::Vector3f getEye( size_t = 0 ) const;
+		void setStereoscopic( bool );		
 
-		void setView( const pod::Matrix4& mat, uint_fast8_t = 255 );
-		void setProjection( const pod::Matrix4& mat, uint_fast8_t = 255 );
-		void update(bool = false);
+		void setView( const pod::Matrix4& mat, size_t = uf::camera::maxViews );
+		void setProjection( const pod::Matrix4& mat, size_t = uf::camera::maxViews );
+		void update();
 	};
 }

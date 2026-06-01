@@ -75,7 +75,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			}
 			camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 		}
-		camera.update(true);
+		camera.update();
 	}
 	
 	// sloppy
@@ -682,7 +682,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 #endif
-	camera.update(true);
+	camera.update();
 
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize(self, metadataJson);

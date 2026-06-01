@@ -8,7 +8,6 @@ namespace ext {
 		struct Device;
 
 		struct UF_API Buffer {
-			bool aliased = false;
 			ext::vulkan::Device* device = NULL;
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VkDeviceMemory memory = VK_NULL_HANDLE;
@@ -18,10 +17,12 @@ namespace ext {
 				0
 			};
 			VkDeviceSize alignment = 0;
-			mutable size_t address = {};
 			void* mapped = nullptr;
+			mutable size_t address = {};
+			mutable bool written = false; // could technically be deduced with the address being set
 			int32_t count = 1;
-			mutable bool written = false;
+			bool staged = false;
+			bool aliased = false;
 
 			VkBufferUsageFlags usage = 0;
 			VkMemoryPropertyFlags memoryProperties = 0;
@@ -41,7 +42,7 @@ namespace ext {
 			VkDeviceSize getOffset( size_t = 0 ) const; // returns the offset / stride / length of one object within the buffer
 
 			~Buffer();
-			void initialize( ext::vulkan::Device& device, size_t = {} );
+			void initialize( ext::vulkan::Device& device, size_t = {}, bool = VK_DEFAULT_STAGE_BUFFERS );
 			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 			bool update( const void*, VkDeviceSize ) const; // returns true if a reallocation occurred (to signal rebuilding command buffers)
 			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
@@ -54,11 +55,12 @@ namespace ext {
 			size_t requestedAlignment{};
 			uf::stl::vector<Buffer> buffers;
 			Device* device = NULL;
+			bool staged;
 
 		//	~Buffers();
 			//
-			void initialize( Device& device );
-			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
+			void initialize( Device& device, bool = VK_DEFAULT_STAGE_BUFFERS );
+			void destroy( bool = VK_DEFAULT_DEFER_BUFFER_DESTROY );
 			//
 
 			size_t initializeBuffer( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );

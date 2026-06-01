@@ -3,31 +3,49 @@
 #include <uf/utils/image/image.h>
 #include <uf/utils/memory/unordered_map.h>
 
-namespace uf {
-	class UF_API Atlas {
-	public:
+namespace pod {
+	struct UF_API Atlas {
 		typedef uf::stl::string hash_t;
-		struct Identifier {
-			size_t index;
-			hash_t hash;
-		};
 		struct Tile {
-			uf::Image image;
-			Identifier identifier = {0,""};
+			pod::Image image;
 			pod::Vector2ui size = {};
 			pod::Vector2ui coord = {};
 		};
-		typedef uf::stl::vector<uf::Image> images_t;
+		typedef uf::stl::vector<pod::Image> images_t;
 		typedef uf::stl::unordered_map<hash_t, Tile> atlas_t;
-	protected:
-		uf::Image m_atlas;
-		atlas_t m_tiles;
+
+		pod::Image image;
+		pod::Atlas::atlas_t tiles;
+	};
+}
+
+namespace uf {
+	namespace atlas {
+		pod::Atlas::hash_t UF_API add( pod::Atlas& atlas, const pod::Image& image, const pod::Atlas::hash_t& hash );
+		pod::Atlas::hash_t UF_API add( pod::Atlas& atlas, const pod::Image& image );
+
+		void UF_API generate( pod::Atlas& atlas, float padding = 1 );
+		void UF_API generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, float padding = 1 );
+		void UF_API clear( pod::Atlas& atlas, bool full = true );
+		bool UF_API has( const pod::Atlas& atlas, const pod::Atlas::hash_t& hash );
+
+		pod::Vector2f UF_API mapUv( const pod::Atlas& atlas, const pod::Vector2f& uv, const pod::Atlas::hash_t& hash );
+		pod::Image& UF_API get( pod::Atlas& atlas );
+		const pod::Image& UF_API get( const pod::Atlas& atlas );
+	}
+}
+
+namespace uf {
+	class UF_API Atlas : public pod::Atlas {
 	public:
-		hash_t addImage( const uf::Image&, const hash_t& hash );
-		hash_t addImage( const uf::Image& );
+		Atlas() = default;
+		Atlas( const pod::Atlas& atlas ) : pod::Atlas(atlas) {}
+
+		hash_t addImage( const pod::Image&, const hash_t& hash );
+		hash_t addImage( const pod::Image& );
 		
 		void generate(float padding = 1);
-		void generate( const uf::stl::vector<uf::Image>&, float padding = 1);
+		void generate( const uf::stl::vector<pod::Image>&, float padding = 1);
 		void clear(bool = true);
 		bool generated() const;
 		bool has( const hash_t& ) const;
@@ -36,8 +54,8 @@ namespace uf {
 		pod::Vector2f mapUv( const pod::Vector2f&, size_t ) const;
 		pod::Vector3f mapUv( const pod::Vector3f& ) const;
 		
-		uf::Image& getAtlas();
-		const uf::Image& getAtlas() const;
+		pod::Image& getAtlas();
+		const pod::Image& getAtlas() const;
 		
 	 	atlas_t& getImages();
 		const atlas_t& getImages() const;
@@ -46,7 +64,7 @@ namespace uf {
 	class UF_API HashAtlas {
 	public:
 		typedef uf::stl::string hash_t;
-		typedef uf::stl::unordered_map<hash_t, uf::Image> images_t;
+		typedef uf::stl::unordered_map<hash_t, pod::Image> images_t;
 		
 		struct Identifier {
 			hash_t hash;
@@ -54,23 +72,23 @@ namespace uf {
 		typedef Identifier identifier_t;
 		typedef BinPack2D::CanvasArray<identifier_t> atlas_t;
 	protected:
-		uf::Image m_image;
+		pod::Image m_image;
 		images_t m_images;
 		atlas_t m_atlas;
 	public:
-		hash_t addImage( const uf::Image&, bool = false );
-		hash_t addImage( uf::Image&&, bool = false );
+		hash_t addImage( const pod::Image&, bool = false );
+		hash_t addImage( pod::Image&&, bool = false );
 		hash_t addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
 		
 		void generate(float padding = 1);
 		void generate( const images_t&, float padding = 1);
 		void clear();
-		bool has( const uf::Image& ) const;
+		bool has( const pod::Image& ) const;
 		bool has( const uf::stl::string& ) const;
 		
 		pod::Vector2f mapUv( const pod::Vector2f&, const hash_t& );
 		
-		uf::Image& getAtlas();
+		pod::Image& getAtlas();
 	 	images_t& getImages();
 		const images_t& getImages() const;
 	};

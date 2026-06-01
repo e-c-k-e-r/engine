@@ -6,46 +6,31 @@
 
 #include <uf/utils/math/vector.h>
 #include <uf/ext/freetype/freetype.h>
+#include <uf/utils/memory/vector.h>
+#include <uf/utils/image/atlas.h>
+#include <uf/utils/mesh/mesh.h>
 
-namespace uf {
-	class UF_API Glyph {
-	protected:
-		pod::Vector2ui m_size = { 0, 0 };
-		pod::Vector2i m_bearing = { 0, 0 };
-		pod::Vector2i m_advance = { 0, 0 };
-		
-		pod::Vector2i m_padding = { 0, 0 };
-		
-		bool m_sdf = false;
-		int m_spread = 0;
-		uint8_t* m_buffer;
-	public:
-		~Glyph();
+namespace pod {
+	struct Glyph {
+		pod::Vector2ui size = {};
+		pod::Vector2i bearing = {};
+		pod::Vector2i advance = {};
+		pod::Vector2i padding = {};
+		size_t spread = 0; // 0 if not-SDF
 
-		bool generated();
-		uint8_t* generate( const uf::stl::string&, unsigned long, uint = 48 );
-		uint8_t* generate( ext::freetype::Glyph&, unsigned long, uint = 48 );
-		uint8_t* generate( const uf::stl::string&, const uf::stl::string&, uint = 48 );
-		uint8_t* generate( ext::freetype::Glyph&, const uf::stl::string&, uint = 48 );
-
-		void generateSdf( uint8_t* );
-	// 	Get
-		const pod::Vector2ui& getSize() const;
-		const pod::Vector2i& getBearing() const;
-		const pod::Vector2i& getAdvance() const;
-		const pod::Vector2i& getPadding() const;
-		const uint8_t* getBuffer() const;
-		
-		bool isSdf() const;
-		int getSpread() const;
-	//	Set
-		void setSize( const pod::Vector2ui& );
-		void setBearing( const pod::Vector2i& );
-		void setAdvance( const pod::Vector2i& );
-		void setPadding( const pod::Vector2i& );
-
-		void useSdf( bool = true );
-		void setSpread( int );
+		uf::stl::vector<uint8_t> buffer;
 	};
 }
+
+namespace uf {
+	namespace glyph {
+		pod::FT_Glyph UF_API initialize( const uf::stl::string& font );
+		uint8_t* UF_API generate( pod::Glyph& glyph, pod::FT_Glyph& face, uint64_t c, size_t size = 48 );
+		uint8_t* UF_API generate( pod::Glyph& glyph, pod::FT_Glyph& face, const uf::stl::string& s, size_t size = 48 );
+		uint8_t* UF_API generate( pod::Glyph& glyph, pod::FT_Glyph& face );
+
+		void UF_API generateSdf( pod::Glyph& glyph );
+	}
+}
+
 #endif

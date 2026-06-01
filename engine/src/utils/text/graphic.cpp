@@ -1,5 +1,5 @@
 #include <uf/utils/text/glyph.h>
-#include <uf/utils/text/glyph_.h>
+#include <uf/utils/text/graphic.h>
 
 #if UF_USE_OPENGL
 #define EXT_COLOR_FLOATS 0
@@ -28,7 +28,9 @@ namespace {
 		pod::Vector4b color;
 	#endif
 
+	#if !UF_USE_OPENGL
 		pod::Vector3f offset;
+	#endif
 
 		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
@@ -48,8 +50,8 @@ UF_VERTEX_DESCRIPTOR(GlyphVertex,
 namespace {
 	struct {
 	#if UF_USE_FREETYPE
-		ext::freetype::Glyph glyph;
-		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, uf::Glyph>> cache;
+		pod::FT_Glyph face;
+		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, pod::Glyph>> cache;
 	#else
 		char glyph;
 		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, char>> cache;
@@ -84,12 +86,12 @@ namespace {
 
 size_t uf::glyph::hashSettings( uint64_t c, const pod::GlyphSettings& metadata ) {
 	size_t seed{};
-	uf::hash( seed, c, metadata.padding[0], metadata.padding[1], metadata.spread, metadata.size, metadata.font, metadata.sdf );
+	uf::hash( seed, c, metadata.padding[0], metadata.padding[1], metadata.spread, metadata.size, metadata.font );
 	return seed;
 }
 size_t uf::glyph::hashSettings( const uf::stl::string& c, const pod::GlyphSettings& metadata ) {
 	size_t seed{};
-	uf::hash( seed, c, metadata.padding[0], metadata.padding[1], metadata.spread, metadata.size, metadata.font, metadata.sdf );
+	uf::hash( seed, c, metadata.padding[0], metadata.padding[1], metadata.spread, metadata.size, metadata.font );
 	return seed;
 }
 
@@ -149,10 +151,10 @@ uf::stl::vector<pod::TextToken> uf::glyph::parseTextTokens( const uf::stl::strin
 // compute the boxes for a given string and settings
 uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector<pod::TextToken>& tokens, const pod::GlyphSettings& metadata ) {
 	uf::stl::vector<pod::GlyphBox> layout;
-	auto& glyphsCache = ::glyphs.cache[metadata.font];
+	auto& cache = ::glyphs.cache[metadata.font];
 
-	if ( glyphsCache.empty() ) {
-		ext::freetype::initialize( ::glyphs.glyph, uf::io::root + "/fonts/" + metadata.font );
+	if ( cache.empty() ) {
+		ext::freetype::initialize( ::glyphs.face, uf::io::root + "/fonts/" + metadata.font );
 	}
 
 	pod::Vector2f anchor = ::parseAnchor( metadata.alignment );
@@ -171,18 +173,18 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 			if ( c == '\n' || c == '\t' ) continue; // special characters
 
 			auto key = uf::glyph::hashSettings(c, metadata);
-			auto& glyph = glyphsCache[key];
+			auto& glyph = cache[key];
 
 			// generate glyph
-			if ( !glyph.generated() ) {
-				glyph.setPadding({ metadata.padding[0], metadata.padding[1] });
-				glyph.setSpread(metadata.spread);
-				glyph.useSdf(metadata.sdf);
-				glyph.generate(::glyphs.glyph, c, metadata.size);
+			if ( glyph.buffer.empty() ) {
+				glyph.padding = { metadata.padding[0], metadata.padding[1] };
+				glyph.spread = metadata.spread;
+
+				uf::glyph::generate( glyph, ::glyphs.face, c, metadata.size );
 			}
 
-			tallestGlyphY = std::max(tallestGlyphY, (float) glyph.getSize().y);
-			totalWidth += glyph.getSize().x; // should probably be reset on new-line to find the widest line
+			tallestGlyphY = std::max(tallestGlyphY, (float) glyph.size.y);
+			totalWidth += glyph.size.x; // should probably be reset on new-line to find the widest line
 			charCount++;
 		}
 	}
@@ -209,13 +211,13 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 
 			// retrieve glyph
 			auto key = uf::glyph::hashSettings(c, metadata);
-			auto& glyph = glyphsCache[key];
+			auto& glyph = cache[key];
 			auto& g = layout.emplace_back(pod::GlyphBox{
 				.box = {
-					.x = cursor.x + glyph.getBearing().x,
-					.y = cursor.y - glyph.getBearing().y,
-					.w = glyph.getSize().x,
-					.h = glyph.getSize().y,
+					.x = cursor.x + glyph.bearing.x,
+					.y = cursor.y - glyph.bearing.y,
+					.w = glyph.size.x,
+					.h = glyph.size.y,
 					.z = 0,
 				},
 				.color = token.color,
@@ -224,7 +226,7 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 			});
 
 			// advance cursor
-			cursor.x += glyph.getAdvance().x;
+			cursor.x += glyph.advance.x;
 
 			// advance bounding box
 			maxTextWidth = std::max(maxTextWidth, g.box.x + g.box.w);
@@ -268,13 +270,12 @@ bool uf::glyph::generateAtlas( const uf::stl::vector<pod::GlyphBox>& layout, con
 		dirty = true;
 
 		uf::Image image;
-		const uint8_t* buffer = glyph.getBuffer();
-
-		if ( metadata.sdf ) {
-			image.loadFromBuffer( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
+		if ( metadata.spread > 0 ) {
+			image.loadFromBuffer( glyph.buffer.data(), glyph.size, 8, 1 );
 		} else {
-			uf::Image::container_t pixels;
-			size_t len = glyph.getSize().x * glyph.getSize().y;
+			const uint8_t* buffer = glyph.buffer.data();
+			pod::Image::container_t pixels;
+			size_t len = glyph.size.x * glyph.size.y;
 			pixels.resize(len * 4);
 			for ( auto i = 0; i < len; ++i ) {
 				pixels[i * 4 + 0] = buffer[i]; // R
@@ -282,11 +283,10 @@ bool uf::glyph::generateAtlas( const uf::stl::vector<pod::GlyphBox>& layout, con
 				pixels[i * 4 + 2] = buffer[i]; // B
 				pixels[i * 4 + 3] = buffer[i]; // A
 			}
-			image.loadFromBuffer( &pixels[0], glyph.getSize(), 8, 4, true );
+			image.loadFromBuffer( &pixels[0], glyph.size, 8, 4 );
 		}
 		atlas.addImage( image, hash );
 	}
-
 	atlas.generate();
 #endif
 	return dirty;
@@ -324,10 +324,17 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 		auto p2 = pod::Vector2f{ g.box.x + g.box.w, g.box.y };
 		auto p3 = pod::Vector2f{ g.box.x + g.box.w, g.box.y + g.box.h };
 
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color, p0});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color, p1});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color, p2});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color, p3});
+	#if UF_USE_OPENGL
+		vertices.emplace_back(::GlyphVertex{g.anchor + p0, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{g.anchor + p1, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{g.anchor + p2, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{g.anchor + p3, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color});
+	#else
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color, p0});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color, p1});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color, p2});
+		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color, p3});
+	#endif
 	}
 
 	mesh.insertVertices(vertices);

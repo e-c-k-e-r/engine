@@ -38,6 +38,7 @@
 
 #include <uf/ext/ext.h>
 #include <uf/ext/openal/openal.h>
+#include <uf/ext/freetype/freetype.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
@@ -743,6 +744,11 @@ void UF_API uf::initialize() {
 	}
 
 	pod::Thread& threadMain = uf::thread::get(uf::thread::mainThreadName);
+#if UF_USE_FREETYPE
+	{
+		ext::freetype::initialize();
+	}
+#endif
 #if UF_USE_DISCORD
 	/* Discord */ if ( /*global*/::config.engine.ext.discord.enabled ) {
 		ext::discord::initialize();
@@ -1074,6 +1080,11 @@ void UF_API uf::terminate() {
 #if UF_USE_LUA
 	{
 		ext::lua::terminate();
+	}
+#endif
+#if UF_USE_FREETYPE
+	{
+		ext::freetype::terminate();
 	}
 #endif
 	{

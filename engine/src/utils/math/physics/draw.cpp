@@ -58,6 +58,8 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 	auto angleThreshold = std::cos(fov * 1.5f);
 	auto viewThresholdSq = std::pow(10, 2);
 
+	cameraTransform.position.y -= 1;
+
 	// continuously pick the closest point on the AABB
 	auto position = impl::closestPointOnAABB( cameraTransform.position, bounds );
 	auto dir = position - cameraTransform.position;
