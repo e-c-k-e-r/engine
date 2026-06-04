@@ -62,6 +62,8 @@ namespace uf {
 
 		template<typename T=uf::Entity> pod::Resolvable<T> resolvable();
 
+		bool operator==( const uf::Entity& ) const ;
+
 		void setUid();
 		void unsetUid();
 

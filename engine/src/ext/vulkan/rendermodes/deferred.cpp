@@ -102,6 +102,9 @@ const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
 
+ext::vulkan::RenderTarget& ext::vulkan::DeferredRenderMode::getRenderTarget( size_t i ) {
+	return i == 1 ? forwardRenderTarget : renderTarget;
+}
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -480,7 +483,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( scene );
 
 	// if resized (or initialized)
 	if ( resized ) {
@@ -632,7 +635,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 
 	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( scene );
 
 	// rebuild rendertarget
 	if ( resized ) {
@@ -834,6 +837,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 			for ( auto& pipeline : metadata.pipelines ) {
 				if ( pipeline == metadata.pipeline ) continue;
+				if ( pipeline == "deferred" ) continue;
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->getName() ) continue;
 					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
@@ -975,8 +979,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						size_t currentDraw = 0;
 						for ( auto graphic : graphics ) {
 							// only draw graphics that are assigned to this type of render mode
+							if ( graphic->descriptor.renderMode != this->getName() ) continue;
 							if ( graphic->descriptor.renderTarget != 1 /*"forward"*/ ) continue;
-							//if ( graphic->descriptor.renderMode != this->getName() ) continue;
 							//if ( graphic->descriptor.pipeline != "forward" ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor; // bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );

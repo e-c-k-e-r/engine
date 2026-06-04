@@ -1,6 +1,6 @@
 {
-	"import": "/scene.json",
-	"assets": [
+	"imports": [
+		"/scene.json",
 		"./sponza.json"
 	],
 	"metadata": {

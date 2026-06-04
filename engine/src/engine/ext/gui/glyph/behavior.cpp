@@ -77,7 +77,7 @@ void ext::GuiGlyphBehavior::initialize( uf::Object& self ) {
 		// fire image update
 		{
 			ext::payloads::GuiInitializationPayload payload;
-			payload.image = &atlas.getAtlas();
+			payload.image = (uf::Image*) &atlas.getAtlas();
 			payload.mesh = &mesh;
 			payload.free = false;
 			this->callHook( "gui:Update.%UID%", payload );

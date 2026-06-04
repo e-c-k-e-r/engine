@@ -339,7 +339,7 @@ const ext::opengl::Pipeline& ext::opengl::Graphic::getPipeline( const GraphicDes
 	UF_ASSERT( hasPipeline(descriptor) ); //return initializePipeline( descriptor );
 	return pipelines.at(descriptor.hash());
 }
-void ext::opengl::Graphic::updatePipelines() {
+void ext::opengl::Graphic::update() {
 	for ( auto pair : this->pipelines ) {
 		pair.second.update( *this );
 	}

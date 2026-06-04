@@ -29,9 +29,9 @@ namespace ext {
 			} buffers;
 			struct UBO {
 				alignas(4) uint32_t lights = 0;
-				alignas(4) uint32_t currentID = 0;
-				alignas(4) uint32_t totalIDs = 0;
-				alignas(4) uint32_t padding2 = 0;
+				alignas(4) uint32_t padding = 0;
+				alignas(4) float exposure = 1.0f;
+				alignas(4) float gamma = 1.0f;
 			} uniforms;
 			struct {
 				size_t textures2D = 1024;

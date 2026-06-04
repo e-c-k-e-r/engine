@@ -45,16 +45,18 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
 		auto& graph = payload.asComponent ? this->getComponent<pod::Graph>() : uf::asset::get<pod::Graph>( payload );
 		if ( !payload.asComponent ) {
-		//	auto asset = uf::asset::release( payload.filename );
-		//	this->moveComponent<pod::Graph>( asset );
 			this->moveComponent<pod::Graph>( uf::asset::get( payload.filename ) );
 			uf::asset::remove( payload.filename );
 		}
 
-		// deferred shader loading
-		auto& transform = this->getComponent<pod::Transform<>>();
-		auto& root = *graph.root.entity;
-		root.getComponent<pod::Transform<>>().reference = &transform;
+		// bind graph's root entity to self if different
+		if ( graph.root.entity && graph.root.entity != this ) {
+			UF_MSG_DEBUG("binding root transform to self");
+			auto& transform = this->getComponent<pod::Transform<>>();
+			auto& root = *graph.root.entity;
+			root.getComponent<pod::Transform<>>().reference = &transform;
+			this->addChild(root.as<uf::Entity>());
+		}
 
 		uf::graph::initialize( graph );
 
@@ -63,8 +65,6 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 				uf::graph::animate( graph, metadata["graph"]["animations"]["animation"].as<uf::stl::string>(), metadata["graph"]["animations"]["speed"].as<float>( 1.0f ) );
 			}
 		}
-
-		this->addChild(root.as<uf::Entity>());
 	});
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
@@ -73,8 +73,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 	auto& graph = this->getComponent<pod::Graph>();
 	if ( !graph.metadata["debug"]["draw"]["armature"].as<bool>(false) ) return;
 	auto& transform = this->getComponent<pod::Transform<>>();
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( graph );
 	for ( auto& node : graph.nodes ) {
 		if ( node.skin < 0 || node.mesh < 0 ) continue;
 		auto bones = uf::graph::collectBones( graph, node );

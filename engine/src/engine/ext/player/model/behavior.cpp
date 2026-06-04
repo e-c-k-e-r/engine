@@ -48,6 +48,7 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #endif
+#if !UF_USE_OPENGL
 	this->process([&](uf::Entity* entity){
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		auto& graphic = entity->getComponent<uf::Graphic>();
@@ -57,6 +58,7 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 		metadata.set = true;
 		uf::renderer::states::rebuild = true;
 	});
+#endif
 }
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){}

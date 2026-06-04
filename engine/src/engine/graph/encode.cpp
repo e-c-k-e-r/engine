@@ -300,8 +300,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 #else
 	auto tasks = uf::thread::schedule(false);
 #endif
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( graph );
 
 	tasks.queue([&]{
 		ext::json::reserve( serializer["primitives"], graph.primitives.size() );
@@ -374,7 +373,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				// export DC's .dtex
 			#if UF_USE_DC_TEXCONV
 				// to-do: properly scale per my script
-				auto converted = image.scale( {32, 32}, true );
+				auto converted = image.scale( {32, 32}, "nearest" );
 				auto dtex = ext::texconv::convert( converted );
 				ext::texconv::save( dtex, directory + "/image."+std::to_string(i) );
 			#endif

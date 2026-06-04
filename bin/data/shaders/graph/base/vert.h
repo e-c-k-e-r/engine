@@ -22,11 +22,10 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-#if !BAKING
 layout (binding = 0) uniform Camera {
 	Viewport viewport[PASSES];
 } camera;
-#endif
+
 layout (std140, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
@@ -43,7 +42,7 @@ layout (std140, binding = 3) readonly buffer Objects {
 	};
 #endif
 
-layout (location = 0) out uvec4 outId;
+layout (location = 0) flat out uvec4 outId;
 layout (location = 1) flat out vec4 outPOS0;
 layout (location = 2) out vec4 outPOS1;
 layout (location = 3) out vec3 outPosition;
@@ -52,6 +51,7 @@ layout (location = 5) out vec4 outColor;
 layout (location = 6) out vec2 outSt;
 layout (location = 7) out vec3 outNormal;
 layout (location = 8) out vec3 outTangent;
+layout (location = 9) out vec3 outBitangent;
 
 vec4 snap(vec4 vertex, vec2 resolution) {
     vec4 snappedPos = vertex;
@@ -101,5 +101,6 @@ void main() {
 	outSt = inSt;
 	outColor = inColor * object.color;
 	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
-	outTangent = normalize(vec3(view * model * vec4(inTangent.xyz, 0.0)));
+	outTangent = normalize(vec3(model * vec4(inTangent.xyz, 0.0)));
+	outBitangent = normalize(vec3(model * vec4(cross( inNormal.xyz, inTangent.xyz ), 0.0)));
 }

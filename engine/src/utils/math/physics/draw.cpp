@@ -71,7 +71,7 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 	if ( magSq < viewThresholdSq && dot > angleThreshold ) {
 		STATIC_THREAD_LOCAL(uf::stl::vector<uf::stl::string>, strings);
 		strings.emplace_back( ::fmt::format("{}\n", uf::string::toString( *body.object ) ) );
-		strings.emplace_back( ::fmt::format("Mass: {:.3f} kg\n", body.inverseMass == 0.0f ? 0.0f : 1.0f / body.inverseMass) );
+		strings.emplace_back( ::fmt::format("Mass: {:.3f} kg ({})\n", body.inverseMass == 0.0f ? 0.0f : 1.0f / body.inverseMass, impl::similarMass( body )) );
 		strings.emplace_back( ::fmt::format(
 			"Position: {} | Pitch: {:.1f} | Yaw: {:.1f} | Roll: {:.1f}\n",
 			uf::vector::toString( transform.position, "{}" ),
@@ -79,7 +79,7 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 			(RAD_2_DEG) * uf::quaternion::yaw( transform.orientation ),
 			(RAD_2_DEG) * uf::quaternion::roll( transform.orientation )
 		) );
-		if ( body.velocity != pod::Vector3f{} && body.angularVelocity != pod::Vector3f{} ) {
+		if ( uf::vector::magnitude( body.velocity ) > EPS2 || uf::vector::magnitude( body.angularVelocity ) > EPS2 ) {
 			strings.emplace_back( ::fmt::format( "Velocity: {} | Angular Velocity: {}\n", uf::vector::toString( body.velocity, "{}" ), uf::vector::toString( body.angularVelocity, "{}" ) ) ); 
 		}
 		strings.emplace_back( ::fmt::format("Awake: {} | Timer: {:.3f} | Grounded: {}\n", body.activity.awake, body.activity.sleepTimer, body.activity.grounded) );

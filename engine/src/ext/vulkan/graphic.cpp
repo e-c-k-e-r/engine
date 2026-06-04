@@ -264,7 +264,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	{
 		RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
 		//UF_MSG_DEBUG("RenderMode: {} // {}: {}", descriptor.renderMode, renderMode.getName(), renderMode.getType());
-		auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
+		auto& renderTarget = renderMode.getRenderTarget(descriptor.renderTarget);
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
 			descriptor.topology,
@@ -1977,11 +1977,11 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 	}
 #endif
 	if ( !hasPipeline( descriptor ) ) {
-	//	UF_MSG_DEBUG("{} has no valid pipeline ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
+		UF_MSG_DEBUG("{} has no valid pipeline: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
 		return;
 	}
 	if ( !hasDescriptorSet( descriptor ) ) {
-	//	UF_MSG_DEBUG("{} has no valid descriptor set ({}:{}:{})", (void*) this, descriptor.renderMode, descriptor.renderTarget, descriptor.pipeline);
+		UF_MSG_DEBUG("{} has no valid descriptor set: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
 		return;
 	}
 

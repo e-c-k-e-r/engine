@@ -21,18 +21,17 @@ namespace pod {
 				pod::Matrix4f view;
 				pod::Matrix4f projection;
 			} matrices[uf::camera::maxViews];
-			size_t views = uf::camera::maxViews;
+			size_t views = 1;
 		} viewport;
-
 		bool stereoscopic = false;
 	};
 }
 
 namespace uf {
 	namespace camera {
-		pod::Vector3f UF_API eye( const pod::Camera&, size_t = 0 );
-		void UF_API view( pod::Camera&, const pod::Matrix4&, size_t = uf::camera::maxViews );
-		void UF_API projection( pod::Camera&, const pod::Matrix4&, size_t = uf::camera::maxViews );
+		pod::Vector3f UF_API eye( const pod::Camera&, int = 0 );
+		void UF_API view( pod::Camera&, const pod::Matrix4&, int = -1 );
+		void UF_API projection( pod::Camera&, const pod::Matrix4&, int = -1 );
 		void UF_API update( pod::Camera& );
 	}
 }
@@ -61,8 +60,8 @@ namespace uf {
 		pod::Vector3f getEye( size_t = 0 ) const;
 		void setStereoscopic( bool );		
 
-		void setView( const pod::Matrix4& mat, size_t = uf::camera::maxViews );
-		void setProjection( const pod::Matrix4& mat, size_t = uf::camera::maxViews );
+		void setView( const pod::Matrix4& mat, int = -1 );
+		void setProjection( const pod::Matrix4& mat, int = -1 );
 		void update();
 	};
 }

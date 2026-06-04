@@ -87,7 +87,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( scene );
 	if ( !metadata.settings.ready ) {
 		TIMER(metadata.settings.readyTimer, !metadata.settings.ready ) {
 			metadata.settings.ready = true;

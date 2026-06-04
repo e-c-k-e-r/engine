@@ -20,13 +20,6 @@
 #include <gltf/tiny_gltf.h>
 #include <uf/ext/gltf/gltf.h>
 
-#if UF_USE_MESHOPT
-	#include <uf/ext/meshopt/meshopt.h>
-#endif
-#if UF_USE_XATLAS
-	#include <uf/ext/xatlas/xatlas.h>
-#endif
-
 namespace {
 	decltype(auto) getWrapMode(int32_t wrapMode) {
 		switch (wrapMode) {
@@ -158,8 +151,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		key += ":";
 	}
 
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( graph );
 
 	// load images
 	{
@@ -174,7 +166,33 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				UF_MSG_DEBUG("Image: {}", i.name );
 			}
 
-			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["renderer"]["flip textures"].as<bool>(true) );
+			if ( i.component == 4 ) {
+				image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["renderer"]["flip textures"].as<bool>(true) );
+			} else {
+				const uint8_t* buffer = &i.image[0];
+				pod::Image::container_t pixels;
+				size_t len = i.width * i.height;
+				pixels.resize(len * 4);
+				for ( auto p = 0; p < len; ++p ) {
+					if ( i.component == 1 ) {
+						pixels[p * 4 + 0] = buffer[p]; // R
+						pixels[p * 4 + 1] = buffer[p]; // G
+						pixels[p * 4 + 2] = buffer[p]; // B
+						pixels[p * 4 + 3] = 255; // A
+					} else if ( i.component == 2 ) {
+						pixels[p * 4 + 0] = buffer[p * 2 + 0];			   // R
+						pixels[p * 4 + 1] = buffer[p * 2 + 0];			   // G
+						pixels[p * 4 + 2] = buffer[p * 2 + 0];			   // B
+						pixels[p * 4 + 3] = buffer[p * 2 + 1]; // A
+					} else if ( i.component == 3 ) {
+						pixels[p * 4 + 0] = buffer[p * 3 + 0]; // R
+						pixels[p * 4 + 1] = buffer[p * 3 + 1]; // G
+						pixels[p * 4 + 2] = buffer[p * 3 + 2]; // B
+						pixels[p * 4 + 3] = 255;			   // A
+					}
+				}
+				image.loadFromBuffer( &pixels[0], { i.width, i.height }, 8, 4, graph.metadata["renderer"]["flip textures"].as<bool>(true) );
+			}
 		}
 	}
 	// load samplers
@@ -277,6 +295,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 			auto& primitives = storage.primitives[keyName];
 			auto& mesh = storage.meshes[keyName];
+			storage.instanceAddresses[keyName] = {};
 			
 			struct {
 				uf::meshgrid::Grid grid;
@@ -495,6 +514,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 		for ( auto& keyName : graph.images ) {
 			auto& texture = storage.textures[keyName];
+			storage.texture2Ds[keyName];
 			if ( texture.index < 0 ) continue;
 			auto& image = storage.images[keyName];
 
@@ -516,113 +536,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			texture.index = atlasImageIndex;
 		}
 	}
-#if UF_USE_XATLAS
-	// generate STs
-	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) || graph.metadata["exporter"]["unwrap"].as<uf::stl::string>() == "tagged" ) {
-		UF_MSG_DEBUG( "Generating ST's..." );
-		size_t atlases = ext::xatlas::unwrap( graph );
-		UF_MSG_DEBUG( "Generated ST's for {} lightmaps", atlases );
-	}
-#endif
-#if UF_USE_MESHOPT
-	// cleanup if blender's exporter is poopy
-	if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" || ext::json::isObject( graph.metadata["exporter"]["optimize"] ) ) {
-		UF_MSG_DEBUG( "Optimizing meshes..." );
-		for ( auto& keyName : graph.meshes ) {
-			size_t level = SIZE_MAX;
-			float simplify = 1.0f;
-			bool print = false;
-			bool lods = false;
 
-			if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
-				bool should = false;
-
-				ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-					if ( ext::json::isNull( value["optimize mesh"] ) ) return;
-					if ( uf::string::isRegex( key ) ) {
-						if ( !uf::string::matched( keyName, key ) ) return;
-					} else if ( keyName != key ) return;
-					should = true;
-					if ( ext::json::isObject( value["optimize mesh"] ) ) {
-						level = value["optimize mesh"]["level"].as(level);
-						simplify = value["optimize mesh"]["simplify"].as(simplify);
-						print = value["optimize mesh"]["print"].as(print);
-						lods = value["optimize mesh"]["lods"].as(lods);
-					}
-				});
-
-				if ( !should ) continue;
-			} else if ( ext::json::isObject( graph.metadata["exporter"]["optimize"] ) ) {
-				level = graph.metadata["exporter"]["optimize"]["level"].as( level );
-				simplify = graph.metadata["exporter"]["optimize"]["simplify"].as( simplify );
-				print = graph.metadata["exporter"]["optimize"]["print"].as( print );
-				lods = graph.metadata["exporter"]["optimize"]["lods"].as( lods );
-			}
-
-			auto& mesh = storage.meshes[keyName];
-			auto& primitives = storage.primitives[keyName];
-			
-			if ( level ) {
-				UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
-				if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
-					UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
-				}
-			}
-			if ( lods ) {
-				auto factors = ext::meshopt::computeLODs( mesh.index.count );
-				auto lodMetadata = ext::meshopt::generateLODs( mesh, factors, print );
-				if ( lodMetadata.empty() ) {
-					UF_MSG_ERROR("LOD generation failed: {}", keyName );
-				} else {
-					UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
-					UF_ASSERT( primitives.size() == lodMetadata.size() );
-					for ( auto i = 0; i < primitives.size(); ++i ) {
-						primitives[i].lod = lodMetadata[i];
-					}
-				}
-			}
-		}
-
-		UF_MSG_DEBUG( "Optimized mesh" );
-	}
-#endif
-	{
-		// update primitive info
-		for ( auto& keyName : graph.meshes ) {
-			auto& mesh = storage.meshes[keyName];
-			auto& primitives = storage.primitives[keyName];
-			
-			UF_ASSERT( primitives.size() == mesh.indirect.count );
-			auto& attribute = mesh.indirect.attributes.front();
-			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
-			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-			for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
-				primitives[drawID].drawCommand = drawCommands[drawID];
-			}
-		}
-	}
-
-	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
-	#if !UF_ENV_DREAMCAST
-		graph.name = uf::graph::save( graph, filename );
-	#endif
-		
-	// 	disable baking, doesn't output right if baking from a gltf imported model
-	//	graph.metadata["baking"]["enabled"] = false;
-
-	//	disable lightmap loading, 99.999% of the time a previously baked lightmap will not work due to changing STs
-		graph.metadata["lights"]["lightmapped"] = false;
-	}
-
-	// disable streaming
-	{
-		graph.settings.stream.enabled = false;
-
-		graph.settings.stream.textures = false;
-		graph.settings.stream.animations = false;
-
-		graph.settings.stream.radius = 0;
-		graph.settings.stream.every = 0;
-	}
+	uf::graph::postprocess( graph );
 }
 #endif

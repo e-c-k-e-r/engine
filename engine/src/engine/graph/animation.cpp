@@ -16,14 +16,9 @@
 #include <uf/engine/ext.h>
 
 namespace {
-	pod::Graph::Storage& getGraphStorage( uf::Object& object ) {
-		return uf::graph::globalStorage ? uf::graph::storage : object.getComponent<pod::Graph::Storage>();
-	}
-
 	// lazy load animations if requested
-	void loadAnimation( const uf::stl::string& name ) {
-		auto& scene = uf::scene::getCurrentScene();
-		auto& storage = ::getGraphStorage( scene );
+	void loadAnimation( pod::Graph& graph, const uf::stl::string& name ) {
+		auto& storage = uf::graph::getStorage( graph );
 		
 		auto& animation = storage.animations.map[name];
 
@@ -62,9 +57,8 @@ namespace {
 		});
 	}
 
-	void unloadAnimation( const uf::stl::string& name ) {
-		auto& scene = uf::scene::getCurrentScene();
-		auto& storage = ::getGraphStorage( scene );
+	void unloadAnimation( pod::Graph& graph, const uf::stl::string& name ) {
+		auto& storage = uf::graph::getStorage( graph );
 		
 		auto& animation = storage.animations.map[name];
 
@@ -105,8 +99,7 @@ pod::Node* uf::graph::find( pod::Graph& graph, const uf::stl::string& name ) {
 }
 
 void uf::graph::override( pod::Graph& graph ) {
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = ::getGraphStorage( scene );
+	auto& storage = uf::graph::getStorage( graph );
 
 	graph.settings.animations.override.a = 0;
 	graph.settings.animations.override.map.clear();
@@ -127,7 +120,7 @@ void uf::graph::override( pod::Graph& graph ) {
 		pod::Animation& animation = storage.animations.map[name];
 
 		// load animation data
-		// if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( name );
+		// if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( graph, name );
 
 		for ( auto& channel : animation.channels ) {
 			auto& override = graph.settings.animations.override.map[channel.node];
@@ -148,15 +141,14 @@ void uf::graph::override( pod::Graph& graph ) {
 }
 
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = ::getGraphStorage( scene );
+	auto& storage = uf::graph::getStorage( graph );
 
 	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) return;
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) key += ":";
 	uf::stl::string name = key + _name;
 
-	if ( storage.animations.map.count( name ) == 0 ) ::loadAnimation( name );
+	if ( storage.animations.map.count( name ) == 0 ) ::loadAnimation( graph, name );
 	//UF_MSG_DEBUG("name={}, count={}", name, storage.animations.map.count( name ) );
 	if ( storage.animations.map.count( name ) > 0 ) {
 		// if already playing, ignore it
@@ -164,7 +156,7 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 		if ( immediate ) {
 			while ( !graph.sequence.empty() ) {
 				// unload
-				if ( graph.settings.stream.animations ) ::unloadAnimation( graph.sequence.front() );
+				if ( graph.settings.stream.animations ) ::unloadAnimation( graph, graph.sequence.front() );
 				graph.sequence.pop();
 			}
 		}
@@ -195,7 +187,7 @@ void uf::graph::updateAnimation( pod::Graph& graph, float delta ) {
 			// go-to next animation
 			if ( !graph.settings.animations.loop ) {
 				// unload
-				if ( graph.settings.stream.animations ) ::unloadAnimation( graph.sequence.front() );
+				if ( graph.settings.stream.animations ) ::unloadAnimation( graph, graph.sequence.front() );
 				graph.sequence.pop();
 
 				// out of animations, set to neutral pose
@@ -209,7 +201,7 @@ void uf::graph::updateAnimation( pod::Graph& graph, float delta ) {
 		}
 
 		// load animation data
-		// if ( animation->channels.empty() || animation->samplers.empty() ) ::loadAnimation( name );
+		// if ( animation->channels.empty() || animation->samplers.empty() ) ::loadAnimation( graph, name );
 
 		for ( auto& channel : animation->channels ) {
 			auto& sampler = animation->samplers[channel.sampler];
@@ -244,8 +236,7 @@ UPDATE:
 	for ( auto& node : graph.nodes ) uf::graph::updateAnimation( graph, node );
 }
 void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = ::getGraphStorage( scene );
+	auto& storage = uf::graph::getStorage( graph );
 
 	if ( 0 <= node.skin && node.skin < graph.skins.size() ) {
 		pod::Matrix4f nodeMatrix = ::worldMatrix( graph, node.index );
@@ -284,7 +275,7 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 
 // separate function in the event something later might need it
 uf::stl::vector<pod::Bone> uf::graph::collectBones( const pod::Graph& graph, const pod::Node& node ) {
-	auto& storage = ::getGraphStorage(uf::scene::getCurrentScene());
+	auto& storage = uf::graph::getStorage( graph );
 	auto& name = graph.skins[node.skin];
 	auto& skin = storage.skins[name];
 
@@ -305,7 +296,7 @@ uf::stl::vector<pod::Bone> uf::graph::collectBones( const pod::Graph& graph, con
 uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const pod::Node& node ) {
 	const float wThresold = 0.15f;
 
-	auto& storage = ::getGraphStorage( uf::scene::getCurrentScene() );
+	auto& storage = uf::graph::getStorage( graph );
 	auto& meshName = graph.meshes[node.mesh];
 	auto& skinName = graph.skins[node.skin];
 	
@@ -362,7 +353,7 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 }
 
 void uf::graph::rigRagdoll( pod::Graph& graph, pod::Node& node ) {
-	auto& storage = ::getGraphStorage(uf::scene::getCurrentScene());
+	auto& storage = uf::graph::getStorage( graph );
 	auto& name = graph.skins[node.skin];
 	auto& skin = storage.skins[name];
 

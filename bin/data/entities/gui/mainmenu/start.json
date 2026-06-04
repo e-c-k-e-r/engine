@@ -16,7 +16,7 @@
 		"events": {
 			"click": {
 				"name": "game:Scene.Load",
-				"payload": { "scene": "SourceEngine" },
+				"payload": { "scene": "VBSP" },
 				"delay": 0.125
 			}
 		},

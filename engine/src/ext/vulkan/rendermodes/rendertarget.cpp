@@ -25,6 +25,8 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.depth.write = false;
 	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
+	//	descriptor.depth.test = false;
+	//	descriptor.depth.write = false;
 	}
 	return descriptor;
 }
@@ -217,7 +219,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( scene );
 
 	// (re)bind aliases
 	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
@@ -298,7 +300,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
+	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, /*VK_NULL_HANDLE*/fences[states::currentBuffer]);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 

@@ -82,7 +82,6 @@ uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
 
 	if ( lastFrame != uf::time::frame ) {
 		auto& sourceCamera = controller.getComponent<uf::Camera>();
-		// update not 
 		if ( controller.getName() == "Player" ) sourceCamera.update();
 		// copy all matrices
 		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
@@ -290,11 +289,8 @@ void uf::scene::tick() {
 		uf::thread::wait( workers );
 	} else
 #endif
-	for ( auto entity : graph ) {
-		entity->tick();
-	}
-	
-	uf::graph::tick( scene );
+	for ( auto entity : graph ) entity->tick();
+	uf::graph::tick();
 
 	uf::debug::draw( uf::time::delta );
 }
@@ -303,7 +299,7 @@ void uf::scene::render() {
 	auto& scene = uf::scene::getCurrentScene();
 	auto/*&*/ graph = scene.getGraph(true);
 	for ( auto entity : graph ) entity->render();
-	uf::graph::render( scene );
+	uf::graph::render();
 }
 void uf::scene::destroy() {
 	while ( !scenes.empty() ) unloadScene();

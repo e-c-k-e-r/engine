@@ -14,7 +14,12 @@ layout (binding = 7) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #define SHADOW_SAMPLES 16
 #define FRAGMENT 1
 #define BAKING 1
-#define PBR 1
+
+#define PBR 0
+#define LAMBERT 1
+
+#define LIGHTING_IN_WORLD_SPACE 1
+
 #define MAX_LIGHTS min(ubo.lights, lights.length())
 #define MAX_SHADOWS MAX_LIGHTS
 #define VIEW_MATRIX camera.viewport[0].view
@@ -22,15 +27,15 @@ layout (binding = 7) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (binding = 8) uniform Camera {
+/*layout (binding = 8) uniform*/ struct Camera {
 	Viewport viewport[6];
 } camera;
 
 layout (binding = 9) uniform UBO {
 	uint lights;
 	uint currentID;
-	uint padding1;
-	uint padding2;
+	float exposure;
+	float gamma;
 } ubo;
 
 layout (std140, binding = 10) readonly buffer DrawCommands {
@@ -88,128 +93,83 @@ float shadowFactor( const Light light, float def ) {
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;
-layout (location = 2) in vec4 inPOS1;
+#if BARYCENTRIC_STABILIZE
+	layout (location = 2) __explicitInterpAMD in vec4 inPOS1;
+#else
+	layout (location = 2) in vec4 inPOS1;
+#endif
 layout (location = 3) in vec3 inPosition;
 layout (location = 4) in vec2 inUv;
 layout (location = 5) in vec4 inColor;
 layout (location = 6) in vec2 inSt;
 layout (location = 7) in vec3 inNormal;
 layout (location = 8) in vec3 inTangent;
-
-layout (location = 0) out vec4 outAlbedo;
+layout (location = 9) in vec3 inBitangent;
 
 void main() {
-	const uint triangleID = uint(inId.x); // gl_PrimitiveID
+	const uint triangleID = gl_PrimitiveID; // uint(inId.x);
 	const uint drawID = uint(inId.y);
 	const uint instanceID = uint(inId.z);
 
-/*
-	surface.pass = 0; // PushConstant.pass;
+//	if ( instanceID != ubo.currentID ) discard;
+
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
-	surface.motion = vec2(0);
-	surface.material.indirect = vec4(0);
-	surface.material.metallic = 1;
-	surface.material.roughness = 0;
-	surface.material.occlusion = 0;
-*/
-
-	if ( instanceID != ubo.currentID ) discard;
 
 	surface.uv.xy = wrap(inUv.xy);
-	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
+	surface.uv.z = 0; // mipLevel(dFdx(inUv), dFdy(inUv));
 	
 	surface.position.world = inPosition;
 	surface.normal.world = inNormal;
+	surface.tangent.world = inTangent;
+	surface.tbn = mat3(inTangent, inBitangent, inNormal);
 
 	const DrawCommand drawCommand = drawCommands[drawID];
-	const Instance instance = instances[instanceID];
-	const Material material = materials[instance.materialID];
+	surface.instance = instances[instanceID >= instances.length() ? 0 : instanceID];
+	const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
 
-	const uint mapID = instance.lightmapID; // was auxID
+	const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
+	const ivec3 uvw = ivec3(int(st.x), int(st.y), int(surface.instance.auxID));
 
-	vec4 A = material.colorBase;
+	surface.material.albedo = vec4(1); // set to 1 for additive lightmapping // material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
-	surface.material.occlusion = 1.0f - material.factorOcclusion;
-
-#if 0
-	vec3 N = inNormal;
-	vec3 T = inTangent;
-	T = normalize(T - dot(T, N) * N);
-	vec3 B = cross(T, N);
-	mat3 TBN = mat3(T, B, N);
-//	mat3 TBN = mat3(N, B, T);
-	if ( T != vec3(0) && validTextureIndex( material.indexNormal ) ) {
-		surface.normal.world = TBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - 1.0 );
-	} else {
-		surface.normal.world = N;
-	}
-#endif
-
+	surface.material.occlusion = material.factorOcclusion;
 	surface.light = material.colorEmissive;
-	surface.material.albedo = vec4(1);
-	{
-		surface.normal.eye = surface.normal.eye;
-		surface.position.eye = surface.position.eye;
-	//	pbr();
-	
-		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
-		for ( uint i = 0; i < min(ubo.lights, lights.length()); ++i ) {
-			const Light light = lights[i];
 
-			if ( light.type <= 0 ) continue;
+	// Emissive mapping
+	if ( validTextureIndex( material.indexEmissive ) ) {
+		surface.light *= sampleTexture( material.indexEmissive );
+	}
+	// (Occlusion/)Metallic/Roughness map
+	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
+		vec4 samp = sampleTexture( material.indexMetallicRoughness );
 
-			const mat4 mat = light.view; // inverse(light.view);
-			const vec3 position = surface.position.world;
-		//	const vec3 position = vec3( mat * vec4(surface.position.world, 1.0) );
-			const vec3 normal = surface.normal.world;
-		//	const vec3 normal = vec3( mat * vec4(surface.normal.world, 0.0) );
+		surface.material.metallic *= samp.b;
+		surface.material.roughness *= samp.g;
 
-			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-			const vec3 Lp = light.position;
-			const vec3 Liu = light.position - surface.position.world;
-			const float La = 1.0 / (1 + PI * pow(length(Liu), 2.0));
-			const float Ls = shadowFactor( light, 0.0 );
-			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
-
-			const vec3 Lo = normalize( -position );
-			const float cosLo = max(0.0, abs(dot(normal, Lo)));
-
-			const vec3 Li = normalize(Liu);
-			const vec3 Lr = light.color.rgb * light.power * La * Ls;
-		//	const float cosLi = max(0.0, dot(normal, Li));
-			const float cosLi = abs(dot(normal, Li));
-		#if LAMBERT
-			const vec3 diffuse = surface.material.albedo.rgb;
-			const vec3 specular = vec3(0);
-		#elif PBR
-			const vec3 Lh = normalize(Li + Lo);
-		//	const float cosLh = max(0.0, dot(normal, Lh));
-			const float cosLh = abs(dot(normal, Lh));
-			
-			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-			const float D = 1; // ndfGGX( cosLh, surface.material.roughness );
-			const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
-			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
-			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-		#endif
-
-			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
-			surface.light.a += light.power * La * Ls;
+		if ( material.indexOcclusion == material.indexMetallicRoughness ) {
+			surface.material.occlusion = mix(1.0, samp.r, material.factorOcclusion);
 		}
 	}
-#define EXPOSURE 0
-#define GAMMA 0
-
-//	surface.light.rgb = vec3(1.0) - exp(-surface.light.rgb * EXPOSURE);
-//	surface.light.rgb = pow(surface.light.rgb, vec3(1.0 / GAMMA));
-
-	outAlbedo = vec4(surface.light.rgb, 1);
-
-	{
-		const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
-		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(mapID));
-		imageStore(outAlbedos, uvw, vec4(surface.light.rgb, 1) );
+	// Occlusion mapping
+	if ( validTextureIndex( material.indexOcclusion ) && material.indexOcclusion != material.indexMetallicRoughness ) {
+		float occ = sampleTexture( material.indexOcclusion ).r;
+		surface.material.occlusion = mix(1.0, occ, material.factorOcclusion);
 	}
+	// Normal mapping
+	if ( validTextureIndex( material.indexNormal ) && surface.tangent.world != vec3(0) ) {
+		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
+	}
+
+#if PBR
+	pbr();
+#elif LAMBERT
+	lambert();
+#endif
+	surface.fragment.rgb = surface.light.rgb;
+
+	if ( length( surface.fragment.rgb ) < 0.001 ) discard;
+		
+	imageStore(outAlbedos, uvw, encodeRGBE(surface.fragment.rgb) );
 }

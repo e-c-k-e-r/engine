@@ -15,6 +15,7 @@ namespace uf {
 			uf::stl::unordered_map<Key, size_t> indices;
 
 			T& operator[]( const Key& key );
+			const T& operator[]( const Key& key ) const;
 			
 			void reserve( size_t i );
 			size_t id( const Key& );
@@ -33,6 +34,12 @@ T& uf::stl::KeyMap<T,Key>::operator[]( const Key& key ) {
 		keys.emplace_back( key );
 	}
 	return map[key];
+}
+
+template<typename T, typename Key>
+const T& uf::stl::KeyMap<T,Key>::operator[]( const Key& key ) const {
+	UF_ASSERT( map.count( key ) > 0 );
+	return map.at(key);
 }
 
 template<typename T, typename Key>

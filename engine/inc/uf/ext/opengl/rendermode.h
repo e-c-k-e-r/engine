@@ -58,7 +58,7 @@ namespace ext {
 			virtual ~RenderMode();
 
 			ext::opengl::Graphic& getBlitter();
-			RenderTarget& getRenderTarget();
+			virtual RenderTarget& getRenderTarget(size_t = 0);
 
 			bool hasAttachment( const uf::stl::string& ) const;
 			const RenderTarget::Attachment& getAttachment( const uf::stl::string& ) const;

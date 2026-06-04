@@ -35,7 +35,7 @@ namespace {
 	#if EXT_COLOR_FLOATS
 		pod::Vector4f color;
 	#else
-		pod::Vector4b color;
+		pod::Vector4ub color;
 	#endif
 
 	#if !UF_USE_OPENGL
@@ -70,7 +70,9 @@ UF_VERTEX_DESCRIPTOR(GuiVertex,
 #else
 	UF_VERTEX_DESCRIPTION(GuiVertex, R8G8B8A8_UNORM, color)
 #endif
+#if !UF_USE_OPENGL
 	UF_VERTEX_DESCRIPTION(GuiVertex, R32G32_SFLOAT, offset)
+#endif
 )
 
 namespace {
@@ -503,15 +505,13 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			uniform.modelView = 
 				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
+				uf::quaternion::matrix( flatten.orientation );
 			uniform.projection = camera.getProjection();
 		} else {
 			uniform.modelView = 
 				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
+				uf::quaternion::matrix( flatten.orientation );
 			uniform.projection = uf::matrix::identity();
 		}
 

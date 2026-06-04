@@ -6,7 +6,7 @@
 
 namespace pod {
 	struct UF_API Image {
-		typedef pod::Vector4b pixel_t;
+		typedef pod::Vector4ub pixel_t;
 		typedef uf::stl::vector<pixel_t::type_t> container_t;
 
 		uf::stl::string filename;
@@ -39,7 +39,7 @@ namespace uf {
 		pod::Image UF_API overlay( const pod::Image&, const pod::Image& top, const pod::Vector2ui& corner = {} );
 		pod::Image UF_API replace( const pod::Image&, const pod::Image::pixel_t& from, const pod::Image::pixel_t& to );
 		pod::Image UF_API subImage( const pod::Image&, const pod::Vector2ui& start, const pod::Vector2ui& end );
-		pod::Image UF_API scale( const pod::Image&, const pod::Vector2ui& size, bool nearest = false );
+		pod::Image UF_API scale( const pod::Image&, const pod::Vector2ui& size, const uf::stl::string& = "nearest" );
 	}
 }
 
@@ -108,6 +108,6 @@ namespace uf {
 		Image overlay(const Image& top, const pod::Vector2ui& corner = {} ) const; 		// Merges one image on top of another
 		Image replace(const Image::pixel_t& from, const Image::pixel_t& to ) const; 	// Changes all pixel from one color (from), to another (to)
 		Image subImage( const pod::Vector2ui& start, const pod::Vector2ui& end) const; 	// Crops an image
-		Image scale( const pod::Vector2ui& size, bool nearest );
+		Image scale( const pod::Vector2ui& size, const uf::stl::string& = "nearest" ) const;
 	};
 }

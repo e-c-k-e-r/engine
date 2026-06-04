@@ -53,7 +53,10 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ T& conjugate_( T& quaternion );
 		template<typename T> /*FORCE_INLINE*/ T& inverse_( T& quaternion );
 
-		template<typename T> /*FORCE_INLINE*/ pod::Vector3t<T> eulerAngles( const pod::Quaternion<T>& quaternion );
+		template<typename T> /*FORCE_INLINE*/ pod::Quaternion<T> euler( T pitch, T yaw, T roll );
+		template<typename T> /*FORCE_INLINE*/ pod::Quaternion<T> euler( const pod::Vector3t<T>& angles );
+		template<typename T> /*FORCE_INLINE*/ pod::Vector3t<T> euler( const pod::Quaternion<T>& quaternion );
+
 		template<typename T> /*FORCE_INLINE*/ T pitch( const pod::Quaternion<T>& quaternion );
 		template<typename T> /*FORCE_INLINE*/ T yaw( const pod::Quaternion<T>& quaternion );
 		template<typename T> /*FORCE_INLINE*/ T roll( const pod::Quaternion<T>& quaternion );

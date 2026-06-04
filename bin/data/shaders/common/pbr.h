@@ -1,28 +1,38 @@
-// PBR
 void pbr() {
+#if LIGHTING_IN_WORLD_SPACE
+	const vec3 POSITION = surface.position.world;
+	const vec3 NORMAL = surface.normal.world;
+#else
+	const vec3 POSITION = surface.position.eye;
+	const vec3 NORMAL = surface.normal.eye;
+#endif
 	// per-surface, not per-light, compute once
 
 	// Fresnel reflectance for a dieletric 
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 	// outcoming light from surface to eye
-	const vec3 Lo = normalize( -surface.position.eye );
+	const vec3 Lo = normalize( -POSITION );
 	// angle of outcoming light
-	const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
+	const float cosLo = DOT(NORMAL, Lo);
 
 	const float Rs = 4.0;
-	
 	for ( uint i = 0, shadows = 0; i < MAX_LIGHTS; ++i ) {
 	#if BAKING
 		// skip if surface is a dynamic light, we aren't baking dynamic lights
 		if ( lights[i].type < 0 ) continue;
+		// shouldn't ever need this, but in the event we hit the end of the buffer and everything after is corrupted
+		if ( lights[i].type <= 0 ) break;
 	#else
 		// skip if surface is already baked, and this isn't a dynamic light
-	//	if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
-		if ( surface.material.lightmapped ) continue;
+		// to-do: still calculate specular
+		if ( surface.material.lightmapped && lights[i].type >= 0 ) continue;
 	#endif
 		// incoming light to surface (non-const to normalize it later)
-	//	vec3 Li = lights[i].position - surface.position.world;
-		vec3 Li = vec3(VIEW_MATRIX * vec4(lights[i].position, 1)) - surface.position.eye;
+	#if LIGHTING_IN_WORLD_SPACE
+		vec3 Li = lights[i].position - POSITION;
+	#else
+		vec3 Li = vec3(VIEW_MATRIX * vec4(lights[i].position, 1)) - POSITION;
+	#endif
 		// magnitude of incoming light vector (for inverse-square attenuation)
 		const float Lmagnitude = dot(Li, Li);
 		// distance incoming light travels (reuse from above)
@@ -30,7 +40,6 @@ void pbr() {
 		// "free" normalization, since we need to compute the above values anyways
 		Li = Li / Ldistance;
 		// attenuation factor
-	//	const float Lattenuation = 1.0 / (1 + (PI * Lmagnitude));
 		const float Lattenuation = 1.0 / (1 + Lmagnitude);
 		// skip if attenuation factor is too low
 	//	if ( Lattenuation <= LIGHT_POWER_CUTOFF ) continue;
@@ -45,12 +54,12 @@ void pbr() {
 		// halfway vector
 		const vec3 Lh = normalize(Li + Lo);
 		// angle of incoming light
-		const float cosLi = max(0.0, dot(surface.normal.eye, Li));
+		const float cosLi = DOT(NORMAL, Li);
 		// angle of halfway light vector
-		const float cosLh = max(0.0, dot(surface.normal.eye, Lh));
+		const float cosLh = DOT(NORMAL, Lh);
 	
 		// Fresnel term for direct lighting
-		const vec3 F = fresnelSchlick(F0, max(0.0, dot(Lh, Lo)));
+		const vec3 F = fresnelSchlick(F0, DOT(Lh, Lo));
 		// Distribution for specular lighting
 		const float D = ndfGGX( cosLh, surface.material.roughness * Rs);
 		// Geometric attenuation for specular lighting
@@ -58,47 +67,13 @@ void pbr() {
 
 		// final lighting
 		const vec3 diffuse = mix(vec3(1.0) - F, vec3(0), surface.material.metallic) * surface.material.albedo.rgb;
+	#if BAKING
 		const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+	#else
+		const vec3 specular = vec3(0);
+	#endif
 
 		surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 		surface.light.a += lights[i].power * Lattenuation * Lshadow;
 	}
-#if 0
-	const float Rs = 4.0; // specular lighting looks gross without this
-	uint shadows = 0;	
-	for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
-		const Light light = lights[i];
-		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-		if ( surface.material.lightmapped && light.type >= 0 ) continue;
-
-		const vec3 Liu = vec3(camera.viewport[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;
-		const float Ld = length(Liu);
-		const float La = 1.0 / (1 + (PI * pow(Ld, 2.0)));
-		if ( La <= LIGHT_POWER_CUTOFF ) continue;
-
-		const vec3 Li = normalize(Liu);
-		const float Ls = ( shadows++ < ubo.settings.lighting.maxShadows ) ? shadowFactor( light, 0.0 ) : 1;
-		if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
-
-		const float cosLi = max(0.0, dot(surface.normal.eye, Li));
-		const vec3 Lr = light.color.rgb * light.power * La * Ls;
-		const vec3 Lh = normalize(Li + Lo);
-		const float cosLh = max(0.0, dot(surface.normal.eye, Lh));
-		
-		const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-		const float D = ndfGGX( cosLh, surface.material.roughness * Rs );
-		const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
-		const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
-		const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-	/*
-		// lightmapped, compute only specular
-		if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.light.rgb += (specular) * Lr * cosLi;
-		// point light, compute only diffuse
-		// else if ( abs(light.type) == 1 ) surface.light.rgb += (diffuse) * Lr * cosLi;
-		else surface.light.rgb += (diffuse + specular) * Lr * cosLi;
-	*/
-		surface.light.rgb += (diffuse + specular) * Lr * cosLi;
-		surface.light.a += light.power * La * Ls;
-	}
-#endif
 }

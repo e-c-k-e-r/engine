@@ -31,6 +31,32 @@ bool uf::Object::deferLazyCalls = true;
 #endif
 
 
+namespace impl {
+	struct ImportJob {
+		uf::stl::string filename;
+		uf::stl::string root;
+	};
+
+	void queueImports( uf::stl::vector<impl::ImportJob>& queue, ext::json::Value& node, const uf::stl::string& currentRoot ) {
+		auto add = [&]( ext::json::Value& val ) {
+			if ( val.is<uf::stl::string>() ) {
+				queue.push_back({ val.as<uf::stl::string>(), currentRoot });
+			}
+		};
+		// Legacy single strings
+		add( node["import"] );
+		add( node["include"] );
+
+		// New arrays
+		if ( ext::json::isArray( node["imports"] ) ) {
+			ext::json::forEach( node["imports"], [&](ext::json::Value& v){ add(v); });
+		}
+		if ( ext::json::isArray( node["includes"] ) ) {
+			ext::json::forEach( node["includes"], [&](ext::json::Value& v){ add(v); });
+		}
+	}
+}
+
 void uf::Object::queueDeletion() {
 	//UF_MSG_DEBUG("Marked for deletion: {}", uf::string::toString(*this));
 	uf::scene::invalidateGraphs();
@@ -288,37 +314,96 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		metadata.system.root = json["root"].as<uf::stl::string>();
 	}
 	// import
-	if ( json["import"].is<uf::stl::string>() || json["include"].is<uf::stl::string>() ) {
-		uf::Serializer chain = json;
-		uf::stl::string root = metadata.system.root;
+#if 0
+	{
+		if ( json["import"].is<uf::stl::string>() || json["include"].is<uf::stl::string>() ) {
+			uf::Serializer chain = json;
+			uf::stl::string root = metadata.system.root;
+			uf::Serializer separated;
+			separated["assets"] = ext::json::isArray( json["assets"] ) ? json["assets"] : ext::json::array();
+			separated["behaviors"] = ext::json::isArray( json["behaviors"] ) ? json["behaviors"] : ext::json::array();
+			do {
+				uf::stl::string filename = chain["import"].is<uf::stl::string>() ? chain["import"].as<uf::stl::string>() : chain["include"].as<uf::stl::string>();
+				filename = uf::io::resolveURI( filename, root );
+				chain.readFromFile( filename );
+				root = uf::io::directory( filename );
+				ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
+					if ( ext::json::isObject( value ) ) {
+						value["filename"] = uf::io::resolveURI( value["filename"].as<uf::stl::string>(), root );
+					} else {
+						value = uf::io::resolveURI( value.as<uf::stl::string>(), root );
+					}
+					separated["assets"].emplace_back( value );
+				});
+				ext::json::forEach(chain["behaviors"], [&](ext::json::Value& value){
+					separated["behaviors"].emplace_back(value);
+				});
+				chain["assets"] = ext::json::null();
+				chain["behaviors"] = ext::json::null();
+				// merge table
+				json.import( chain );
+			} while ( chain["import"].is<uf::stl::string>() || chain["include"].is<uf::stl::string>() );
+			json["import"] = ext::json::null();
+			json["assets"] = separated["assets"];
+			json["behaviors"] = separated["behaviors"];
+		}
+	}
+#else
+	{
+		uf::stl::vector<impl::ImportJob> queue;
 		uf::Serializer separated;
 		separated["assets"] = ext::json::isArray( json["assets"] ) ? json["assets"] : ext::json::array();
 		separated["behaviors"] = ext::json::isArray( json["behaviors"] ) ? json["behaviors"] : ext::json::array();
-		do {
-			uf::stl::string filename = chain["import"].is<uf::stl::string>() ? chain["import"].as<uf::stl::string>() : chain["include"].as<uf::stl::string>();
-			filename = uf::io::resolveURI( filename, root );
+
+		impl::queueImports( queue, json, metadata.system.root );
+
+		// process queue
+		for ( size_t i = 0; i < queue.size(); ++i ) {
+			uf::stl::string filename = uf::io::resolveURI( queue[i].filename, queue[i].root );
+			uf::stl::string nextRoot = uf::io::directory( filename );
+
+			uf::Serializer chain;
 			chain.readFromFile( filename );
-			root = uf::io::directory( filename );
-			ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
+
+			// ueue any nested imports found in this file
+			impl::queueImports( queue, chain, nextRoot );
+
+			// process assets
+			ext::json::forEach( chain["assets"], [&](ext::json::Value& value) {
 				if ( ext::json::isObject( value ) ) {
-					value["filename"] = uf::io::resolveURI( value["filename"].as<uf::stl::string>(), root );
+					value["filename"] = uf::io::resolveURI( value["filename"].as<uf::stl::string>(), nextRoot );
 				} else {
-					value = uf::io::resolveURI( value.as<uf::stl::string>(), root );
+					value = uf::io::resolveURI( value.as<uf::stl::string>(), nextRoot );
 				}
 				separated["assets"].emplace_back( value );
 			});
-			ext::json::forEach(chain["behaviors"], [&](ext::json::Value& value){
-				separated["behaviors"].emplace_back(value);
+
+			// process behaviors
+			ext::json::forEach( chain["behaviors"], [&](ext::json::Value& value) {
+				separated["behaviors"].emplace_back( value );
 			});
+
+			// null these keys
 			chain["assets"] = ext::json::null();
 			chain["behaviors"] = ext::json::null();
-			// merge table
+			chain["import"] = ext::json::null();
+			chain["include"] = ext::json::null();
+			chain["imports"] = ext::json::null();
+			chain["includes"] = ext::json::null();
+
+			// merge into base json
 			json.import( chain );
-		} while ( chain["import"].is<uf::stl::string>() || chain["include"].is<uf::stl::string>() );
+		}
+
 		json["import"] = ext::json::null();
+		json["include"] = ext::json::null();
+		json["imports"] = ext::json::null();
+		json["includes"] = ext::json::null();
+
 		json["assets"] = separated["assets"];
 		json["behaviors"] = separated["behaviors"];
 	}
+#endif
 	// copy system table to base
 	ext::json::forEach( json["system"], [&](const uf::stl::string& key, const ext::json::Value& value){
 		if ( ext::json::isNull( json[key] ) )

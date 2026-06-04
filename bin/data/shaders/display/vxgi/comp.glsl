@@ -13,6 +13,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 #define GAMMA_CORRECT 1
 #define PBR 0
 #define LAMBERT 1
+#define LIGHTING_IN_WORLD_SPACE 1
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -117,49 +118,10 @@ void main() {
 			surface.fragment.rgb += surface.material.albedo.rgb;
 		} else {
 			surface.fragment.rgb += surface.material.albedo.rgb * ambient;
-			// corrections
-			surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4( surface.position.world, 1 ) );
-			surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0) );
-		#if 0
+		#if PBR
 			pbr();
-		#else
-			surface.material.roughness *= 4.0;
-			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
-			const vec3 Lo = normalize( surface.position.world );
-			const float cosLo = max(0.0, dot(surface.normal.world, Lo));
-			for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
-				const Light light = lights[i];
-			
-			//	if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-			//	if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;
-
-				const vec3 Lp = light.position;
-				const vec3 Liu = light.position - surface.position.world;
-				const vec3 Li = normalize(Liu);
-				const float Ls = shadowFactor( light, 0.0 );
-				const float La = 1.0 / (1 + (PI * pow(length(Liu), 2.0)));
-			
-			//	if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
-
-				const float cosLi = max(0.0, dot(surface.normal.world, Li));
-				const vec3 Lr = light.color.rgb * light.power * La * Ls / PI;
-			#if LAMBERT
-				const vec3 diffuse = surface.material.albedo.rgb;
-				const vec3 specular = vec3(0);
-			#elif PBR
-				const vec3 Lh = normalize(Li + Lo);
-				const float cosLh = max(0.0, dot(surface.normal.world, Lh));
-				
-				const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-				const float D = ndfGGX( cosLh, surface.material.roughness );
-				const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
-				const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
-				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-			#endif
-				// lightmapped, compute only specular
-				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
-				surface.light.a += light.power * La * Ls;
-			}
+		#elif LAMBERT
+			lambert();
 		#endif
 		}
 		surface.fragment.rgb += surface.light.rgb;

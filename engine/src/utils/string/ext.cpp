@@ -16,7 +16,7 @@ bool uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 }
 */
 bool uf::string::isRegex( const uf::stl::string& str ) {
-	return str.front() == '/' && str.back() == '/';
+	return  str.size() > 2 && str.front() == '/' && str.back() == '/';
 }
 uf::stl::vector<uf::stl::string> uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
@@ -107,6 +107,7 @@ uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::st
 		std::regex regex(search.substr(1,search.length()-2));
 		result = std::regex_replace( string, regex, replace );
 	} else {
+		// to-do: replace all
 		size_t start_pos = string.find(search);
 		if( start_pos == uf::stl::string::npos ) return result;
 		result.replace(start_pos, search.length(), replace);

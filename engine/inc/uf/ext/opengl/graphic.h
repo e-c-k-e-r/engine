@@ -98,7 +98,7 @@ namespace ext {
 			const Pipeline& getPipeline() const;
 			Pipeline& getPipeline( const GraphicDescriptor& descriptor );
 			const Pipeline& getPipeline( const GraphicDescriptor& descriptor ) const;
-			void updatePipelines();
+			void update();
 			
 			void record( CommandBuffer& commandBuffer, size_t pass = 0, size_t draw = 0 ) const;
 			void record( CommandBuffer& commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 ) const;

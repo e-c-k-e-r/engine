@@ -26,6 +26,9 @@ bool uf::Entity::isValid() const {
 	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
 	return /*this != NULL &&*/ (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
 }
+bool uf::Entity::operator==( const uf::Entity& e ) const {
+	return this == &e;
+}
 void uf::Entity::setUid() {
 	uf::scene::invalidateGraphs();
 	this->m_uid = ++uf::Entity::uids;

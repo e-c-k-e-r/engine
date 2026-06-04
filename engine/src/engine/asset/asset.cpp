@@ -115,11 +115,12 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 
 		{ "lua", 	uf::asset::Type::LUA },
 		
+	#if UF_USE_GLTF
 		{ "glb",  	uf::asset::Type::GRAPH },
-	#if !UF_USE_OPENGL
 		{ "gltf", 	uf::asset::Type::GRAPH },
 		{ "mdl",  	uf::asset::Type::GRAPH },
 	#endif
+		{ "bsp",  	uf::asset::Type::GRAPH },
 	};
 
 	payload.filename = uri;
@@ -255,6 +256,18 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	#endif
 		case uf::asset::Type::GRAPH: {
 			UF_ASSET_REGISTER(pod::Graph)
+
+			// pre-bind root to object
+		#if 0
+			// instance buffer fails to attach for some reason
+			// to-do: fix it?
+			if ( payload.asComponent && payload.object.pointer ) {
+				asset.root.entity = payload.object.pointer;
+				if ( uf::graph::storageMode == pod::Graph::Storage::OBJECT ) {
+					asset.root.entity->addComponent<pod::Graph::Storage>();
+				}
+			}
+		#endif
 
 		//	asset = uf::graph::load( filename, payload.metadata );
 			uf::graph::load( asset, filename, payload.metadata );

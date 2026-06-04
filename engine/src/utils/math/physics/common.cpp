@@ -95,6 +95,42 @@ pod::Vector3f impl::applyInverse( const pod::Transform<>& t, const pod::Vector3f
 	return uf::quaternion::rotate( uf::quaternion::inverse( t.orientation ), p - t.position );
 }
 */
+
+uf::stl::string impl::similarMass( const pod::PhysicsBody& body ) {
+	static uf::stl::vector<std::pair<float, uf::stl::string>> masses = {
+		{ 5e-6,		"snowflake" },
+		{ 2.5e-3,	"ping-pong ball" },
+		{ 5e-3,		"penny" },
+		{ 0.05,		"golf ball" },
+		{ 0.17,		"billard ball" },
+		{ 2,		"bag of sugar" },
+		{ 7,		"male cat" },
+		{ 10,		"bowling ball" },
+		{ 30,		"dog" },
+		{ 60,		"cheetah" },
+		{ 90,		"adult male human" },
+		{ 250,		"refrigerator" },
+		{ 600,		"race horse" },
+		{ 1000,		"small car" },
+		{ 1650,		"medium car" },
+		{ 2500,		"large car" },
+		{ 6000,		"t-rex" },
+		{ 7200,		"elephant" },
+		{ 8e4,		"space shuttle" },
+		{ 7e5,		"locomotive" },
+		{ 9.2e6,	"Eiffel tower" },
+		{ 6e24,		"the Earth" },
+		{ 7e24,		"really freaking heavy" },
+	};
+
+
+	uf::stl::string value = "?";
+	if ( body.inverseMass == 0.0f ) return value;
+	float mass = 1.0f / body.inverseMass;
+	for ( auto& [ m, s ] : masses ) if ( mass < m ) return s;
+	return value;
+}
+
 // creates a view of a hull body
 pod::PhysicsBody impl::physicsBodyHullView( const pod::PhysicsBody& body, int32_t index ) {
 	pod::PhysicsBody view = body;

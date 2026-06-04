@@ -75,6 +75,7 @@
 	#extension GL_EXT_nonuniform_qualifier : enable
 #endif
 
+#define DOT( x, y ) max(0.0, dot(x, y))
 
 // easy and accessible in one place
 #ifndef BARYCENTRIC

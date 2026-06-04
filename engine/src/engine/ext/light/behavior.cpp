@@ -217,6 +217,8 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		// skip if we're handling the camera view matrix position ourselves
 		if ( /*renderMode.execute*/ renderMode.metadata.limiter.execute && !metadata.renderer.external ) {
 			auto& camera = this->getComponent<uf::Camera>();
+			auto& pod = camera.data();
+			pod.viewport.views = 6;
 			// omni light
 			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
 				auto transform = camera.getTransform();

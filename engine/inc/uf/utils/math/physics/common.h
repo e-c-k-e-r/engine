@@ -21,6 +21,8 @@ namespace impl {
 	
 	bool shouldCollide( const pod::Collider& a, const pod::Collider& b );
 	bool shouldCollide( const pod::PhysicsBody& a, const pod::PhysicsBody& b );
+
+	uf::stl::string similarMass( const pod::PhysicsBody& );
 	
 	pod::Matrix3f computeWorldInverseInertia( const pod::PhysicsBody& b );
 	pod::Vector3f normalizeDelta( const pod::Vector3f& delta, float dist, const pod::Vector3f& fallback = pod::Vector3f{0,1,0} );

@@ -1084,7 +1084,10 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 
 uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	uf::Image image;
-	if ( !device ) return image;
+	if ( !device ) {
+		UF_MSG_DEBUG("no device attached");
+		return image;
+	}
 	
 	bool blitting = true;
 	VkFormatProperties formatProperties;
@@ -1114,7 +1117,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	VK_REGISTER_HANDLE( temporary );
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS);
+	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS, true);
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -1168,7 +1171,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 		imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageCopy.dstSubresource.baseArrayLayer = 0;
 		imageCopy.dstSubresource.layerCount = 1;
-		imageCopy.dstOffset = { 0, 0, layerID };
+		imageCopy.dstOffset = { 0, 0, 0 };
 		imageCopy.extent = { this->width, this->height, 1 };
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyImage" );

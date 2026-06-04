@@ -320,7 +320,7 @@ namespace {
 		dispatchParameters.renderSize.height = renderSize.y;
 
 		auto& scene = uf::scene::getCurrentScene();
-		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+		auto& storage = uf::graph::getStorage( scene );
 
 		auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
 		auto& attachmentDepth = storage.buffers.depthPyramid;

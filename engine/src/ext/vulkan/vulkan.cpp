@@ -467,8 +467,6 @@ void ext::vulkan::initialize( bool soft ) {
 		}
 	}
 	
-	// uf::graph::initialize();
-
 	auto renderModes = ::fetchRenderModes();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;

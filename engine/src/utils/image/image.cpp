@@ -13,6 +13,80 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/string/ext.h>
 
+namespace impl {
+	pod::Image scaleNearest( const pod::Image& image, const pod::Vector2ui& size ) {
+		pod::Image out = image;
+		out.size = size;
+		out.pixels.assign(size.x * size.y * image.channels, 0);
+
+		const float xRatio = (float)(image.size.x) / size.x;
+		const float yRatio = (float)(image.size.y) / size.y;
+		const size_t channels = image.channels;
+		const size_t srcWidth = image.size.x;
+		const size_t srcHeight = image.size.y;
+		
+		for ( auto j = 0; j < size.y; ++j ) {
+			const size_t srcY = std::min((size_t)((j + 0.5f) * yRatio), srcHeight - 1);
+			for ( auto i = 0; i < size.x; ++i ) {
+				const size_t srcX = std::min((size_t)((i + 0.5f) * xRatio), srcWidth - 1);
+				const size_t srcIdx = (srcY * srcWidth + srcX) * channels;
+				const size_t dstIdx = (j * size.x + i) * channels;
+
+				for ( size_t c = 0; c < channels; ++c )
+					out.pixels[dstIdx + c] = image.pixels[srcIdx + c];
+			}
+		}
+
+		return out;
+	}
+
+	pod::Image scaleBilinear( const pod::Image& image, const pod::Vector2ui& size ) {
+		pod::Image out = image;
+		out.size = size;
+		out.pixels.assign(size.x * size.y * image.channels, 0);
+
+		const float xRatio = (float)(image.size.x) / size.x;
+		const float yRatio = (float)(image.size.y) / size.y;
+		const size_t channels = image.channels;
+		const size_t srcWidth = image.size.x;
+		const size_t srcHeight = image.size.y;
+
+		for ( auto j = 0; j < size.y; ++j ) {
+			const float gy = (j + 0.5f) * yRatio - 0.5f;
+			const int y0 = (int)(std::floor(gy));
+
+			const size_t sy0 = std::clamp<int>(y0, 0, srcHeight - 1);
+			const size_t sy1 = std::clamp<int>(y0 + 1, 0, srcHeight - 1);
+			const float v = gy - y0;
+
+			for ( auto i = 0; i < size.x; ++i ) {
+				const float gx = (i + 0.5f) * xRatio - 0.5f;
+				const int x0 = (int)(std::floor(gx));
+
+				const size_t sx0 = std::clamp<int>(x0, 0, srcWidth - 1);
+				const size_t sx1 = std::clamp<int>(x0 + 1, 0, srcWidth - 1);
+				const float u = gx - x0;
+
+				const size_t dstIdx = (j * size.x + i) * channels;
+
+				for ( auto c = 0; c < channels; ++c ) {
+					float p00 = image.pixels[(sy0 * srcWidth + sx0) * channels + c];
+					float p10 = image.pixels[(sy0 * srcWidth + sx1) * channels + c];
+					float p01 = image.pixels[(sy1 * srcWidth + sx0) * channels + c];
+					float p11 = image.pixels[(sy1 * srcWidth + sx1) * channels + c];
+
+					float val = (1.0f - u) * (1.0f - v) * p00 + u * (1.0f - v) * p10 +
+								(1.0f - u) * v * p01 + u * v * p11;
+
+					out.pixels[dstIdx + c] = (uint8_t)(std::clamp(val + 0.5f, 0.0f, 255.0f));
+				}
+			}
+		}
+
+		return out;
+	}
+}
+
 
 bool uf::image::open( pod::Image& image, const uf::stl::string& _filename, bool flip ) {
 	// to-do: use preferred
@@ -103,6 +177,7 @@ void uf::image::load( pod::Image& image, const pod::Image::pixel_t::type_t* poin
 	image.channels = channels;
 
 	size_t len = size.x * size.y * channels;
+	UF_ASSERT( len > 0 );
 	image.pixels.clear();
 	image.pixels.resize( len );
 
@@ -245,14 +320,13 @@ void uf::image::convert( pod::Image& image, const uf::stl::string& from, const u
 */
 }
 pod::Image uf::image::overlay( const pod::Image& image, const pod::Image& top, const pod::Vector2ui& corner ) {
-/*
 	Image out = image;
 	for (size_t y = 0; y < top.size.y; ++y) {
 		for (size_t x = 0; x < top.size.x; ++x) {
 			size_t dstX = corner.x + x;
 			size_t dstY = corner.y + y;
-			if (dstX >= size.x || dstY >= size.y) continue;
-			size_t dstIdx = (dstY*size.x + dstX) * channels;
+			if (dstX >= image.size.x || dstY >= image.size.y) continue;
+			size_t dstIdx = (dstY*image.size.x + dstX) * image.channels;
 			size_t srcIdx = (y*top.size.x + x) * top.channels;
 
 			float alpha = top.pixels[srcIdx+3] / 255.0f;
@@ -265,11 +339,9 @@ pod::Image uf::image::overlay( const pod::Image& image, const pod::Image& top, c
 		}
 	}
 	return out;
-*/
 }
 pod::Image uf::image::replace( const pod::Image& image, const pod::Image::pixel_t& from, const pod::Image::pixel_t& to ) {
-/*
-	Image out(*this);
+	Image out = image;
 	for ( auto i = 0; i < out.pixels.size(); i += out.channels ) {
 		if (out.pixels[i]   == from[0] &&
 			out.pixels[i+1] == from[1] &&
@@ -282,62 +354,26 @@ pod::Image uf::image::replace( const pod::Image& image, const pod::Image::pixel_
 		}
 	}
 	return out;
-*/
 }
 pod::Image uf::image::subImage( const pod::Image& image, const pod::Vector2ui& start, const pod::Vector2ui& end ) {
-/*
-	pod::Vector2ui size = { end.x - start.x, end.y - start.y };
-	pod::Image::container_t outPixels(size.x * size.y * channels);
-	for (size_t y = 0; y < size.y; ++y) {
-		for (size_t x = 0; x < size.x; ++x) {
-			size_t dstIdx = (y*size.x + x) * channels;
-			size_t srcIdx = ((start.y+y)*size.x + (start.x+x)) * channels;
-			for (size_t c = 0; c < channels; ++c)
-				outPixels[dstIdx+c] = image.pixels[srcIdx+c];
+	pod::Image out = image;
+	out.size = { end.x - start.x, end.y - start.y };
+	out.pixels.assign(out.size.x * out.size.y * image.channels, 0);
+	for (size_t y = 0; y < out.size.y; ++y) {
+		for (size_t x = 0; x < out.size.x; ++x) {
+			size_t dstIdx = (y*out.size.x + x) * image.channels;
+			size_t srcIdx = ((start.y+y)*out.size.x + (start.x+x)) * image.channels;
+			for (size_t c = 0; c < image.channels; ++c)
+				out.pixels[dstIdx+c] = image.pixels[srcIdx+c];
 		}
 	}
-	return pod::Image(std::move(outPixels), size);
-*/
+	return out;
 }
-pod::Image uf::image::scale( const pod::Image& image, const pod::Vector2ui& size, bool nearest ) {
-/*
-	pod::Image::container_t outPixels(newSize.x * newSize.y * channels);
-	float xRatio = static_cast<float>(size.x) / newSize.x;
-	float yRatio = static_cast<float>(size.y) / newSize.y;
-
-	for (size_t j = 0; j < newSize.y; ++j) {
-		for (size_t i = 0; i < newSize.x; ++i) {
-			if (nearest) {
-				size_t srcX = static_cast<size_t>(i * xRatio);
-				size_t srcY = static_cast<size_t>(j * yRatio);
-				size_t srcIdx = (srcY*size.x + srcX) * channels;
-				size_t dstIdx = (j*newSize.x + i) * channels;
-				for (size_t c = 0; c < channels; ++c)
-					outPixels[dstIdx+c] = pixels[srcIdx+c];
-			} else {
-				float gx = i * xRatio;
-				float gy = j * yRatio;
-				size_t x0 = static_cast<size_t>(gx);
-				size_t y0 = static_cast<size_t>(gy);
-				size_t x1 = std::min(x0+1, (size_t)size.x-1);
-				size_t y1 = std::min(y0+1, (size_t)size.y-1);
-				float u = gx - x0;
-				float v = gy - y0;
-				size_t dstIdx = (j*newSize.x + i) * channels;
-
-				for (size_t c=0; c<channels; ++c) {
-					auto p00 = pixels[(y0*size.x + x0)*channels + c];
-					auto p10 = pixels[(y0*size.x + x1)*channels + c];
-					auto p01 = pixels[(y1*size.x + x0)*channels + c];
-					auto p11 = pixels[(y1*size.x + x1)*channels + c];
-					float val = (1-u)*(1-v)*p00 + u*(1-v)*p10 + (1-u)*v*p01 + u*v*p11;
-					outPixels[dstIdx+c] = static_cast<uint8_t>(val);
-				}
-			}
-		}
-	}
-	return Image(std::move(outPixels), newSize);
-*/
+pod::Image uf::image::scale( const pod::Image& image, const pod::Vector2ui& size, const uf::stl::string& _filter ) {
+	auto filter = uf::string::lowercase( _filter );
+	if ( filter == "nearest" ) return impl::scaleNearest( image, size );
+	if ( filter == "linear" || filter == "bilinear" ) return impl::scaleBilinear( image, size );\
+	UF_EXCEPTION("unrecognized scale filter: {}", filter );
 }
 /*
 uf::Image::Image() {
@@ -513,17 +549,17 @@ void uf::Image::convert( const uf::stl::string& from, const uf::stl::string& to 
 }
 // Merges one image on top of another
 uf::Image uf::Image::overlay(const Image& top, const pod::Vector2ui& corner) const {
-	//return uf::image::overlay( *this, top, corner );
+	return uf::image::overlay( *this, top, corner );
 }
 // Changes all pixel from one color (from), to another (to)
 uf::Image uf::Image::replace(const pod::Image::pixel_t& from, const pod::Image::pixel_t& to ) const {
-	//return uf::image::replace( *this, from, to );
+	return uf::image::replace( *this, from, to );
 }
 // Crops an image
 uf::Image uf::Image::subImage( const pod::Vector2ui& start, const pod::Vector2ui& end) const {
-	//return uf::image::subImage( *this, start, end );
+	return uf::image::subImage( *this, start, end );
 }
 // Scales an image, nearest = true does nearest neighbor, nearest = false does bilinear interpolation
-uf::Image uf::Image::scale( const pod::Vector2ui& newSize, bool nearest ) {
-	//return uf::image::scale( *this, newSize, nearest );
+uf::Image uf::Image::scale( const pod::Vector2ui& newSize, const uf::stl::string& filter ) const {
+	return uf::image::scale( *this, newSize, filter );
 }

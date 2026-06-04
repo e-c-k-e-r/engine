@@ -20,7 +20,9 @@ namespace ext {
 			uf::stl::string renderModeName = "VXGI";
 
 			uf::renderer::Buffer atomicCounter;
+		#if !UF_USE_OPENGL
 			uf::stl::vector<VkImageView> views;
+		#endif
 			
 			size_t cascades = 0;
 			float cascadePower = 0;

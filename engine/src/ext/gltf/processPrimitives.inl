@@ -341,7 +341,7 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 }
 
 // optimize each meshlet if requested
-#if UF_USE_MESHOPT
+#if 0 && UF_USE_MESHOPT // should probably instead do it on the entire mesh?
 if ( meshopt.should ) {
 	for ( auto& meshlet : meshlets ) {
 		if ( !ext::meshopt::optimize( meshlet, meshopt.simplify, meshopt.level, meshopt.print ) ) {

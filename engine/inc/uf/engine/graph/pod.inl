@@ -98,5 +98,6 @@ namespace pod {
 
 		uf::Object* entity = NULL;
 		pod::Transform<> transform;
+		uf::Serializer metadata;
 	};
 }

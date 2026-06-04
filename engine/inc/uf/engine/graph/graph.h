@@ -79,6 +79,13 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
+			enum StorageType : uint32_t {
+				OBJECT,
+				GRAPH,
+				SCENE,
+				GLOBAL,
+			};
+
 			uf::stl::KeyMap<uf::stl::vector<pod::Instance::Addresses>> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
 			uf::stl::KeyMap<uf::Mesh> meshes;
@@ -115,14 +122,19 @@ namespace pod {
 
 				uf::renderer::Texture2D depthPyramid;
 			} buffers;
+
+			bool stale = false;
+			bool shouldRebind = false; 
 		}/* storage*/;
+
+		pod::Graph::Storage* storage = NULL;
 	};
 }
 
 namespace uf {
 	namespace graph {
 		extern UF_API size_t initialBufferElements;
-		extern UF_API bool globalStorage;
+		extern UF_API uint32_t storageMode;
 		extern UF_API pod::Graph::Storage storage;
 	}
 }
@@ -134,6 +146,12 @@ namespace uf {
 
 		pod::Matrix4f UF_API local( pod::Graph&, int32_t );
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
+
+		pod::Graph::Storage& UF_API getStorage( pod::Graph& );
+		pod::Graph::Storage& UF_API getStorage( uf::Object& );
+		
+		const pod::Graph::Storage& UF_API getStorage( const pod::Graph& );
+		const pod::Graph::Storage& UF_API getStorage( const uf::Object& );
 
 	//	void UF_API process( uf::Object& entity );
 		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& );
@@ -170,6 +188,9 @@ namespace uf {
 		void UF_API destroy( uf::Object&, bool soft = false );
 		void UF_API destroy( pod::Graph::Storage&, bool soft = false );
 
+		void UF_API aggregate();
+		void UF_API aggregate( uf::Object&, pod::Graph::Storage& );
+
 		void UF_API load( pod::Graph&, const uf::stl::string&, const uf::Serializer& = ext::json::null() );
 		inline pod::Graph load( const uf::stl::string& filename, const uf::Serializer& metadata = ext::json::null() ) {
 			// do some deprecation warning or something because this actually is bad for doing a copy + dealloc
@@ -178,8 +199,9 @@ namespace uf {
 			return graph;
 		}
 
-		pod::Graph& UF_API convert( uf::Object&, bool = false );
-		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& );
+		pod::Graph& UF_API convert( uf::Object&, bool = false ); // converts an object into a graph
+		void UF_API postprocess( pod::Graph& ); // applies post-processing for format importing
+		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& ); // saves a graph to disk
 
 		uf::stl::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );

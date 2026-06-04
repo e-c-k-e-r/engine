@@ -5,7 +5,7 @@
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": false,
+				"lightmaps": true,
 				"max": 32,
 				"shadows": {
 					"enabled": true,
@@ -61,7 +61,7 @@
 		},
 		"graph": {
 			"initial buffer elements": 128,
-			"global storage": true // required for animations to work?
+			"storage mode": "scene"
 		},
 		"ext": {
 			"vulkan": {
@@ -105,12 +105,12 @@
 					"dedicated thread": false, // mostly works
 					"memory budget": false,
 					"register render modes": true,
-					"skip render on rebuild": false
+					"skip render on rebuild": true // needed for validation to work
 				},
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
+					"default command buffer immediate": true,
 					"n-buffered uniform": false,
 					"multithreaded recording": true
 				},
@@ -355,7 +355,7 @@
 				"contacts": false,
 				"constraints": true,
 				"rays": false,
-				"depthTest": false
+				"depthTest": true
 			},
 			"async": false,
 			"fixed step": true,

@@ -519,7 +519,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #elif UF_USE_VULKAN
 	{
-		auto& storage = uf::graph::globalStorage ? uf::graph::storage : this->getComponent<pod::Graph::Storage>();
+		auto& storage = uf::graph::getStorage( *this );
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
@@ -567,7 +567,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				.entity = entity,
 				.position = flatten.position,
 				.range = 0,
-				.color = pod::Vector4f{ metadata.color.x, metadata.color.y, metadata.color.z },
+				.color = metadata.color,
 				.intensity = metadata.power,
 				.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
 				.bias = metadata.bias,
@@ -708,6 +708,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			}
 		}
 
+		// null-terminator
+		storage.lights.emplace_back(pod::Light{});
+
 		for ( auto& texture : storage.shadowCubes ) {
 			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
@@ -782,7 +785,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["ambient"] = uf::vector::encode( /*this->*/light.ambient );
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
-	serializer["light"]["useLightmaps"] = /*this->*/light.useLightmaps;
+	serializer["light"]["lightmaps"] = /*this->*/light.useLightmaps;
 
 	serializer["light"]["fog"]["color"] = uf::vector::encode( /*this->*/fog.color );
 	serializer["light"]["fog"]["step scale"] = /*this->*/fog.stepScale;
@@ -859,7 +862,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 //	if ( uf::renderer::settings::pipelines::fsr ) serializer["light"]["exposure"] = 1;
 	/*this->*/light.exposure = serializer["light"]["exposure"].as(/*this->*/light.exposure);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as(/*this->*/light.gamma);
-	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
+	/*this->*/light.useLightmaps = serializer["light"]["lightmaps"].as(/*this->*/light.useLightmaps);
 
 	/*this->*/bloom.threshold = serializer["light"]["bloom"]["threshold"].as(/*this->*/bloom.threshold);
 	/*this->*/bloom.size = serializer["light"]["bloom"]["size"].as(/*this->*/bloom.size);
@@ -1125,7 +1128,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 	// struct that contains our skybox cubemap, noise texture, and VXGI voxels
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : this->getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( *this );
 	uf::stl::vector<uf::renderer::Texture> textures2D;
 	textures2D.reserve( metadata.max.textures2D );
 

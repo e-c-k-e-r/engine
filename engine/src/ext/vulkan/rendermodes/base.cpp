@@ -131,7 +131,7 @@ void ext::vulkan::BaseRenderMode::render() {
 	submitInfo.pWaitDstStageMask = waitStageMask;
 	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[imageIndex];
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
@@ -142,7 +142,7 @@ void ext::vulkan::BaseRenderMode::render() {
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
 	
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), imageIndex, renderCompleteSemaphores[states::currentBuffer]));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), imageIndex, renderCompleteSemaphores[imageIndex]));
 #if 0
 	{
 		VkQueue queue = device->getQueue( QueueEnum::PRESENT );

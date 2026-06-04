@@ -16,12 +16,11 @@
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
 
-#define UF_BAKER_SAVE_MULTITHREAD 0
+#define UF_BAKER_SAVE_MULTITHREAD 0 // really slow
 
 namespace {
 	bool accumulated = false;
-	size_t frames = 0;
-	size_t totalIDs = 0;
+	uint8_t frames = 5;
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
@@ -32,7 +31,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( scene );
 	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& controller = scene.getController();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
@@ -40,14 +39,16 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	metadata.previous.lights = sceneMetadata.light.max;
 	metadata.previous.shadows = sceneMetadata.shadow.max;
 	metadata.previous.update = sceneMetadata.shadow.update;
+
 	sceneMetadata.light.max = metadata.max.shadows;
 	sceneMetadata.shadow.max = metadata.max.shadows;
 	sceneMetadata.shadow.update = metadata.max.shadows;
 	UF_MSG_DEBUG("Temporarily altering shadow limits...");
 
 	{
-		metadata.uniforms.lights = metadata.max.shadows;
-		metadata.uniforms.currentID = 0;
+		metadata.uniforms.lights = MIN(sceneMetadata.light.max, metadata.max.shadows);
+		metadata.uniforms.gamma = sceneMetadata.light.gamma;
+		metadata.uniforms.exposure = sceneMetadata.light.exposure;
 		metadata.buffers.uniforms.initialize( (const void*) &metadata.uniforms, sizeof(metadata.uniforms), uf::renderer::enums::Buffer::UNIFORM );
 	}
 
@@ -90,9 +91,10 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
 		for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
-		::totalIDs = storage.primitives.keys.size();
+	//	::totalIDs = storage.primitives.keys.size();
 
-		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		metadata.buffers.baked.mips = 0;
+		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
 		scene.process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
@@ -120,26 +122,20 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 void ext::BakingBehavior::tick( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
-
+	
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+	
+	vkDeviceWaitIdle( ext::vulkan::device );
 	if ( renderMode.executed && !metadata.initialized.renderMode ) goto PREPARE;
 	else if ( renderMode.executed && !metadata.initialized.map ) {
 		sceneMetadata.shadow.update = metadata.previous.update;
-		{
-			if ( metadata.uniforms.currentID == ::totalIDs ) {
-				if ( !accumulated ) {
-					accumulated = true;
-					renderMode.execute = false;
-					UF_MSG_DEBUG("Finished accumulating lightmaps");
-				}
-			} else {
-				UF_MSG_DEBUG("Baking instance ID {} / {}", metadata.uniforms.currentID, ::totalIDs);
-				metadata.buffers.uniforms.update( (const void*) &metadata.uniforms, sizeof(metadata.uniforms) );
-				++metadata.uniforms.currentID;
-			}
+		if ( --::frames == 0 && !accumulated ) {
+			accumulated = true;
+			renderMode.execute = false;
+			UF_MSG_DEBUG("Finished accumulating lightmaps");
 		}
 		TIMER(1.0, accumulated && (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) ) {
 			goto SAVE;
@@ -162,15 +158,15 @@ SAVE: {
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
 
+
 #if UF_BAKER_SAVE_MULTITHREAD
 	auto tasks = uf::thread::schedule(true);
 #else
 	auto tasks = uf::thread::schedule(false);
 #endif
-	// 0 is always broken, do not save it
+	// nothing should render to 0
 	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
 		tasks.queue([&, i]{
-		//	auto image = renderMode.screenshot(0, i);
 			auto image = metadata.buffers.baked.screenshot(i);
 			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
 			bool status = image.save(filename);
@@ -178,8 +174,34 @@ SAVE: {
 
 		// export DC's .dtex
 		#if UF_USE_DC_TEXCONV
-			auto converted = image.scale( {128, 128}, true );
-			auto dtex = ext::texconv::convert( converted, "ARGB4444" );
+			// convert RGBE to RGBA
+			auto* pixels = (pod::Vector4ub*) image.getPixels().data();
+			for ( auto p = 0; p < metadata.size.x * metadata.size.y; ++p ) {
+				auto& pixel = pixels[p];
+				if ( pixel.w == 0 ) {
+					pixel = {0,0,0,255};
+					continue;
+				}
+
+				// decode
+				float exp = (float) pixel.w - 128.0f;
+				float mult = std::exp2(exp);
+
+				const float gamma = 1.0f / 2.2f;
+				auto linear = pod::Vector3f{ pixel.x, pixel.y, pixel.z } * mult / 255.0f;
+				// tone-map
+				FOR_EACH( 3, {
+					linear[i] = linear[i] / ( 1 + linear[i] );
+				});
+				// gamma correct
+				linear = uf::vector::pow( uf::vector::clamp( linear, 0.0f, 1.0f ), gamma );
+				// 0-1 => 0-255
+				linear *= 255.0f;
+				pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
+			}
+			// downscale with bilinear interpolation
+			auto converted = image.scale( {128, 128} );
+			auto dtex = ext::texconv::convert( converted, "RGB565" );
 			ext::texconv::save( dtex, uf::string::replace( filename, ".png", "" ), false );
 		#endif
 		});

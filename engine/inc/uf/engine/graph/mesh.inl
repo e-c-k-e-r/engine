@@ -4,7 +4,7 @@ namespace uf {
 			struct Base {
 				pod::Vector3f position{};
 				pod::Vector2f uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
 				pod::Vector3f tangent{};
@@ -16,7 +16,7 @@ namespace uf {
 			struct Skinned {
 				pod::Vector3f position{};
 				pod::Vector2f uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
 				pod::Vector3f tangent{};
@@ -31,7 +31,7 @@ namespace uf {
 			struct Base_16f {
 				pod::Vector3f16 position{};
 				pod::Vector2f16 uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
 				pod::Vector3f16 tangent{};
@@ -43,7 +43,7 @@ namespace uf {
 			struct Skinned_16f {
 				pod::Vector3f16 position{};
 				pod::Vector2f16 uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
 				pod::Vector3f16 tangent{};
@@ -58,7 +58,7 @@ namespace uf {
 			struct Base_u16q {
 				pod::Vector3us position{};
 				pod::Vector2us uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
 				pod::Vector3us tangent{};
@@ -70,7 +70,7 @@ namespace uf {
 			struct Skinned_u16q {
 				pod::Vector3us position{};
 				pod::Vector2us uv{};
-				pod::Vector4b color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
+				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
 				pod::Vector3us tangent{};

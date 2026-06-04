@@ -28,7 +28,7 @@ const uf::stl::string ext::vulkan::RenderMode::getName() const {
 ext::vulkan::Graphic& ext::vulkan::RenderMode::getBlitter() {
 	return blitter;
 }
-ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget() {
+ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;
 }
 const uf::stl::string ext::vulkan::RenderMode::getTarget() const {

@@ -8,6 +8,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
+#include <uf/ext/valve/bsp.h>
 #include <uf/utils/io/fmt.h>
 
 // it's too unstable right now to do multithreaded loading, perhaps there's a better way
@@ -360,6 +361,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		return ext::gltf::load( graph, filename, metadata );
 	}
 #endif
+	if ( extension == "bsp" ) {
+		return ext::valve::loadBsp( graph, filename, metadata );
+	}
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
 	uf::Serializer serializer;
 	UF_DEBUG_TIMER_MULTITRACE_START("Reading {}", filename);
@@ -385,8 +389,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	auto tasks = uf::thread::schedule(false);
 #endif
 
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( graph );
 
 	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
 	#if UF_USE_OPENGL
@@ -629,7 +632,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["nodes"], [&]( ext::json::Value& value ){
 			graph.nodes.emplace_back(decodeNode( value, graph ));
 		});
+		auto entity = graph.root.entity;
 		graph.root = decodeNode( serializer["root"], graph );
+		graph.root.entity = entity;
 		UF_DEBUG_TIMER_MULTITRACE("Read nodes");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();

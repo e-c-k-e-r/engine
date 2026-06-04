@@ -25,7 +25,7 @@ namespace {
 	#if EXT_COLOR_FLOATS
 		pod::Vector4f color;
 	#else
-		pod::Vector4b color;
+		pod::Vector4ub color;
 	#endif
 
 	#if !UF_USE_OPENGL
@@ -44,7 +44,9 @@ UF_VERTEX_DESCRIPTOR(GlyphVertex,
 #else
 	UF_VERTEX_DESCRIPTION(GlyphVertex, R8G8B8A8_UNORM, color)
 #endif
+#if !UF_USE_OPENGL
 	UF_VERTEX_DESCRIPTION(GlyphVertex, R32G32_SFLOAT, offset)
+#endif
 )
 
 namespace {
@@ -307,7 +309,7 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 	#if EXT_COLOR_FLOATS
 		auto& color = g.color;
 	#else
-		pod::Vector4b color = {
+		pod::Vector4ub color = {
 			(uint8_t)(g.color[0] * 255),
 			(uint8_t)(g.color[1] * 255),
 			(uint8_t)(g.color[2] * 255),

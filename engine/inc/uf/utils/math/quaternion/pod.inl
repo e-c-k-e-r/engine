@@ -35,7 +35,31 @@ template<typename T> pod::Angle uf::quaternion::angle( const T& a, const T& b ) 
 	T tmp = b * uf::quaternion::inverse(a);
 	return acosf(tmp.w) * static_cast<typename T::type_t>(2);
 }
-template<typename T> pod::Vector3t<T> uf::quaternion::eulerAngles( const pod::Quaternion<T>& quaternion ) {
+
+template<typename T>
+pod::Quaternion<T> uf::quaternion::euler( T pitch, T yaw, T roll ) {
+	T cy = cos( yaw * static_cast<T>(0.5) );
+	T sy = sin( yaw * static_cast<T>(0.5) );
+	T cp = cos( pitch * static_cast<T>(0.5) );
+	T sp = sin( pitch * static_cast<T>(0.5) );
+	T cr = cos( roll * static_cast<T>(0.5) );
+	T sr = sin( roll * static_cast<T>(0.5) );
+
+	pod::Quaternion<T> q;
+	q.w = cr * cp * cy + sr * sp * sy;
+	q.x = cr * sp * cy + sr * cp * sy;
+	q.y = cr * cp * sy - sr * sp * cy;
+	q.z = sr * cp * cy - cr * sp * sy;
+
+	return uf::quaternion::normalize(q);
+}
+
+template<typename T>
+pod::Quaternion<T> uf::quaternion::euler( const pod::Vector3t<T>& angles ) {
+	return uf::quaternion::euler( angles.x, angles.y, angles.z );
+}
+
+template<typename T> pod::Vector3t<T> uf::quaternion::euler( const pod::Quaternion<T>& quaternion ) {
 	return pod::Vector3t<T>{
 		uf::quaternion::pitch( quaternion ),
 		uf::quaternion::yaw( quaternion ),

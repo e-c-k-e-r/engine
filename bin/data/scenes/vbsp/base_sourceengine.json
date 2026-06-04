@@ -1,0 +1,33 @@
+{
+	"import": "/model.json",
+	"metadata": {
+		"graph": {
+			"renderer": { "separate": false },
+			"exporter": {
+				"optimize": { "simplify": 0, "lods": true, "print": true }
+			},
+			"baking": { "enabled": true },
+			"tags": {
+				// exact matches
+				"worldspawn": {
+					"physics": { "type": "mesh", "static": true, "mass": 0 },
+					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true }
+				},
+				"info_player_start": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
+
+			//	"/^light_[^e]/": { "ignore": true },
+
+				// regexp matches
+				// "/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				"/^prop_dynamic/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+
+				"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
+			}
+		}	
+	}
+}

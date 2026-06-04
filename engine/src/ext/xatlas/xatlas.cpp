@@ -24,8 +24,7 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 	uf::stl::unordered_map<size_t, size_t> sizesVertex;
 	uf::stl::unordered_map<size_t, size_t> sizesIndex;
 
-	auto& scene = uf::scene::getCurrentScene();
-	auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+	auto& storage = uf::graph::getStorage( graph );
 
 	// copy source meshes
 	// create mesh decls for passing to xatlas

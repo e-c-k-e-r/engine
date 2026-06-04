@@ -198,8 +198,8 @@ namespace binds {
 	pod::Vector3f rotate( const ::Quaternion& left, const pod::Vector3f& right ) {
 		return uf::quaternion::rotate( left, right );
 	}
-	::Quaternion eulerAngles( const ::Quaternion& quaternion ) {
-		return uf::quaternion::eulerAngles( quaternion );
+	::Quaternion euler( float pitch, float yaw, float roll ) {
+		return uf::quaternion::euler( pitch, yaw, roll );
 	}
 	::Quaternion conjugate( const ::Quaternion& quaternion ) {
 		return uf::quaternion::conjugate( quaternion );
@@ -251,7 +251,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(::Quaternion,
 	sol::meta_function::multiplication, UF_LUA_C_FUN(::binds::multiply),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( axisAngle, UF_LUA_C_FUN(::binds::axisAngle) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rotate, UF_LUA_C_FUN( ::binds::rotate ) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( eulerAngles, UF_LUA_C_FUN( ::binds::eulerAngles ) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( euler, UF_LUA_C_FUN( ::binds::euler ) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( conjugate, UF_LUA_C_FUN( ::binds::conjugate ) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( inverse, UF_LUA_C_FUN( ::binds::inverse ) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( pitch, UF_LUA_C_FUN( ::binds::pitch ) ),

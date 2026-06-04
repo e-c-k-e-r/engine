@@ -222,8 +222,6 @@ void ext::opengl::initialize() {
 		renderMode->initialize(device);
 	}
 	
-	// uf::graph::initialize();
-
 	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording);
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
 		tasks.queue([&]{
@@ -455,7 +453,7 @@ void ext::opengl::render(){
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::opengl::setCurrentRenderMode( renderMode );
 
-		uf::graph::render();
+		//uf::graph::render();
 		uf::scene::render();
 		renderMode->render();
 

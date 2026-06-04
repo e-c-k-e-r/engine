@@ -50,6 +50,22 @@ void toneMap( inout vec4 color, float exposure ) { toneMap(color.rgb, exposure);
 void gammaCorrect( inout vec4 color, float gamma ) { gammaCorrect(color.rgb, gamma); }
 float luma( vec3 color ) { return dot(color, vec3(0.2126, 0.7152, 0.0722)); } // REF 709
 float luminance( vec3 color ) { return dot(color, vec3(0.299, 0.587, 0.114)); } // REF 601
+
+vec4 encodeRGBE( vec3 color ) {
+	float maxColor = max(color.r, max(color.g, color.b));
+	if ( maxColor < 1e-6 ) return vec4(0.0); // bail early
+
+	int exponent;
+	float mantissa = frexp( maxColor, exponent );
+	vec3 rgb = color * exp2(-float(exponent));
+	float alpha = (float(exponent) + 128.0) / 255.0;
+	return vec4(rgb, alpha);
+}
+vec4 decodeRGBE(vec4 rgbe) {
+	if ( rgbe.a == 0.0 ) return vec4(0);
+	float exponent = rgbe.a * 255.0 - 128.0;
+	return vec4(rgbe.rgb * exp2(exponent), 1.0);
+}
 //
 uint tea(uint val0, uint val1) {
 	uint v0 = val0;
@@ -255,11 +271,11 @@ vec3 decodeBarycentrics( vec2 attributes ) {
 #if DEFERRED_SAMPLING
 void populateSurfaceMaterial() {
 	const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
-#if 1
 	surface.material.albedo = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = material.factorOcclusion;
+	surface.material.lightmapped = false;
 	surface.light = material.colorEmissive;
 
 	if ( validTextureIndex( material.indexAlbedo ) ) {
@@ -275,52 +291,48 @@ void populateSurfaceMaterial() {
 	} else if ( material.modeAlpha == 2 ) {
 
 	}
-#if 1
-	// Lightmap
-	if ( (/*surface.subID++ > 0 ||*/ bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
-		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st.xy );
-		surface.material.lightmapped = light.a > 0.000000001;
-		if ( surface.material.lightmapped ) {
-			float exposure = 1.0;
-			float gamma = 2.2;
-			
-			light.rgb = vec3(1.0) - exp(-light.rgb * exposure);
-			light.rgb = pow(light.rgb, vec3(1.0 / gamma));
-			
-			surface.light += surface.material.albedo * light;
-		}
-	} else {
-		surface.material.lightmapped = false;
-	}
-#else
-	surface.material.lightmapped = false;
-#endif
-#if 1
-	// Emissive textures
+
+	// Emissive mapping
 	if ( validTextureIndex( material.indexEmissive ) ) {
-		surface.light += sampleTexture( material.indexEmissive );
+		surface.light *= sampleTexture( material.indexEmissive );
 	}
-	// Occlusion map
-	if ( validTextureIndex( material.indexOcclusion ) ) {
-	 	surface.material.occlusion = sampleTexture( material.indexOcclusion ).r;
-	}
-	// Metallic/Roughness map
+	// (Occlusion/)Metallic/Roughness map
 	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
-	 	vec4 samp = sampleTexture( material.indexMetallicRoughness );
-	 	surface.material.metallic = samp.r;
-		surface.material.roughness = samp.g;
+		vec4 samp = sampleTexture( material.indexMetallicRoughness );
+
+		surface.material.metallic *= samp.b;
+		surface.material.roughness *= samp.g;
+
+		if ( material.indexOcclusion == material.indexMetallicRoughness ) {
+			surface.material.occlusion = mix(1.0, samp.r, material.factorOcclusion);
+		}
 	}
-	// Normals
+	// Occlusion mapping
+	if ( validTextureIndex( material.indexOcclusion ) && material.indexOcclusion != material.indexMetallicRoughness ) {
+		float occ = sampleTexture( material.indexOcclusion ).r;
+		surface.material.occlusion = mix(1.0, occ, material.factorOcclusion);
+	}
+	// Normal mapping
 	if ( validTextureIndex( material.indexNormal ) && surface.tangent.world != vec3(0) ) {
 		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
 	}
-#endif
 	{
 		surface.normal.eye = normalize(vec3( VIEW_MATRIX * vec4(surface.normal.world, 0.0) ));
 	}
-	
-	surface.light *= surface.material.albedo;
-#endif
+
+	// Light mapping
+	if ( ( bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
+		surface.material.lightmapped = true; // light.a > 0.001;
+		vec4 light = decodeRGBE( sampleTexture( surface.instance.lightmapID, surface.st.xy ) );
+
+		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
+		const vec3 Lo = normalize(-surface.position.eye);
+		const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
+		const vec3 F = F0 + (max(vec3(1.0 - surface.material.roughness), F0) - F0) * pow(clamp(1.0 - cosLo, 0.0, 1.0), 5.0);
+		const vec3 kD = (vec3(1.0) - F) * (1.0 - surface.material.metallic);
+
+		surface.light.rgb += (kD * surface.material.albedo.rgb * light.rgb) * surface.material.occlusion;
+	}
 }
 
 bool isValidAddress( uint64_t address ) {

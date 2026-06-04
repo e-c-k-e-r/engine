@@ -122,7 +122,15 @@ void UF_API uf::load( ext::json::Value& json ) {
 	{
 		auto& configEngineGraphJson = json["engine"]["graph"];
 		uf::graph::initialBufferElements = configEngineGraphJson["initial buffer elements"].as(uf::graph::initialBufferElements);
-		uf::graph::globalStorage = configEngineGraphJson["global storage"].as(uf::graph::globalStorage);
+		if ( configEngineGraphJson["storage mode"].is<uf::stl::string>()  ) {
+			auto mode = uf::string::lowercase( configEngineGraphJson["storage mode"].as<uf::stl::string>() );
+			if ( mode == "object" ) uf::graph::storageMode = pod::Graph::Storage::OBJECT;
+			else if ( mode == "graph" ) uf::graph::storageMode = pod::Graph::Storage::GRAPH;
+			else if ( mode == "scene" ) uf::graph::storageMode = pod::Graph::Storage::SCENE;
+			else if ( mode == "global" ) uf::graph::storageMode = pod::Graph::Storage::GLOBAL;
+		} else if ( configEngineGraphJson["storage mode"].is<uint32_t>()  ) {
+			uf::graph::storageMode = configEngineGraphJson["storage mode"].as(uf::graph::storageMode);
+		}
 	}
 
 	// Various debug settings

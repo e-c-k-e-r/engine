@@ -30,7 +30,7 @@ const uf::stl::string ext::opengl::RenderMode::getName() const {
 ext::opengl::Graphic& ext::opengl::RenderMode::getBlitter() {
 	return blitter;
 }
-ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget() {
+ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;
 }
 const uf::stl::string ext::opengl::RenderMode::getTarget() const {

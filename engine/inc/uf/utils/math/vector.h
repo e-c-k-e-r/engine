@@ -28,6 +28,8 @@ namespace pod {
 
 	template<typename T = float> using Vector1t = Vector<T,1>;
 	typedef Vector1t<NUM> Vector1;
+	typedef Vector1t<int8_t> Vector1b;
+	typedef Vector1t<uint8_t> Vector1ub;
 	typedef Vector1t<int16_t> Vector1s;
 	typedef Vector1t<uint16_t> Vector1us;
 	typedef Vector1t<int32_t> Vector1i;
@@ -39,6 +41,8 @@ namespace pod {
 
 	template<typename T = float> using Vector2t = Vector<T,2>;
 	typedef Vector2t<NUM> Vector2;
+	typedef Vector2t<int8_t> Vector2b;
+	typedef Vector2t<uint8_t> Vector2ub;
 	typedef Vector2t<int16_t> Vector2s;
 	typedef Vector2t<uint16_t> Vector2us;
 	typedef Vector2t<int32_t> Vector2i;
@@ -50,7 +54,8 @@ namespace pod {
 
 	template<typename T = float> using Vector3t = Vector<T,3>;
 	typedef Vector3t<NUM> Vector3;
-	typedef Vector3t<uint8_t> Vector3b;
+	typedef Vector3t<int8_t> Vector3b;
+	typedef Vector3t<uint8_t> Vector3ub;
 	typedef Vector3t<int16_t> Vector3s;
 	typedef Vector3t<uint16_t> Vector3us;
 	typedef Vector3t<int32_t> Vector3i;
@@ -62,7 +67,8 @@ namespace pod {
 
 	template<typename T = float> using Vector4t = Vector<T,4>;
 	typedef Vector4t<NUM> Vector4;
-	typedef Vector4t<uint8_t> Vector4b;
+	typedef Vector4t<int8_t> Vector4b;
+	typedef Vector4t<uint8_t> Vector4ub;
 	typedef Vector4t<int16_t> Vector4s;
 	typedef Vector4t<uint16_t> Vector4us;
 	typedef Vector4t<int32_t> Vector4i;
@@ -73,12 +79,14 @@ namespace pod {
 	typedef Vector4t<double> Vector4d;
 
 #if UF_USE_FLOAT16
+	typedef Vector1t<std::float16_t> Vector1f16;
 	typedef Vector2t<std::float16_t> Vector2f16;
 	typedef Vector3t<std::float16_t> Vector3f16;
 	typedef Vector4t<std::float16_t> Vector4f16;
 #endif
 
 #if UF_USE_BFLOAT16
+	typedef Vector1t<std::bfloat16_t> Vector1bf16;
 	typedef Vector2t<std::bfloat16_t> Vector2bf16;
 	typedef Vector3t<std::bfloat16_t> Vector3bf16;
 	typedef Vector4t<std::bfloat16_t> Vector4bf16;
@@ -142,10 +150,12 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ max( const T& left, const T& right ); // returns the maximum of each component between two vectors
 		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ min( const T& v ); // returns the minimum component of a vector
 		template<typename T> /*FORCE_INLINE*/ typename T::type_t /*UF_API*/ max( const T& v ); // returns the maximum component of a vector
-		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ min( const T& vector, typename T::type_t& min ); // applies min on a vector
-		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ max( const T& vector, typename T::type_t& max ); // applies max on a vector
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ min( const T& vector, typename T::type_t min ); // applies min on a vector
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ max( const T& vector, typename T::type_t max ); // applies max on a vector
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ clamp( const T& vector, const T& min, const T& max ); // clamps a vector between two bounds
-		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ clamp( const T& vector, typename T::type_t& min, typename T::type_t& max ); // clamps a vector between a bound
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ clamp( const T& vector, typename T::type_t min, typename T::type_t max ); // clamps a vector between a bound
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ pow( const T& vector, const T& v );
+		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ pow( const T& vector, typename T::type_t v );
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ ceil( const T& vector ); // rounds each component of the the vector up
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ floor( const T& vector ); // rounds each component of the vector down
 		template<typename T> /*FORCE_INLINE*/ T  /*UF_API*/ round( const T& vector );  // rounds each component of the vector

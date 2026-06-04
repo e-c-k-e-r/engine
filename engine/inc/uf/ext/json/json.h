@@ -65,6 +65,7 @@ namespace ext {
 			encode( json, output, settings );
 			return output;
 		}
+
 	/*
 		uf::stl::string& UF_API encode( const ext::json::Value& json, uf::stl::string&, const ext::json::EncodingSettings& settings = {} );
 		uf::stl::vector<uint8_t>& UF_API encode( const ext::json::Value& json, uf::stl::vector<uint8_t>&, const ext::json::EncodingSettings& settings = {} );

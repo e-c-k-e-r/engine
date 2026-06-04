@@ -25,6 +25,7 @@ namespace impl {
 	uf::stl::vector<impl::Vertex> lines;
 	uf::stl::vector<impl::Line> transientLines;
 	uf::Mesh lineMesh;
+	bool emptyLine = false;
 }
 
 namespace impl {
@@ -36,6 +37,7 @@ namespace impl {
 	uf::stl::vector<impl::Text> texts;
 	uf::Mesh textMesh;
 	uf::Atlas textAtlas;
+	bool emptyText = true;
 
 	pod::GlyphSettings textSettings = {
 		.alignment = "center",
@@ -220,21 +222,25 @@ void uf::debug::drawLines( float dt ) {
 		}
 	}
 
+	if ( impl::lines.empty() && impl::emptyLine ) return;
+	impl::emptyLine = false;
+
 	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Vertex>, lines);
 	std::swap( impl::lines, lines );
 
 	impl::lineMesh.clear();
 	impl::lineMesh.bind<impl::Vertex>();
 
-	// to-do: only do this when the previous mesh already had lines in it
-	// and if it was already empty just return
 	if ( lines.empty() ) {
+		impl::emptyLine = true;
 		lines.emplace_back( impl::Vertex{} );
 		lines.emplace_back( impl::Vertex{} );
 	}
 
 	impl::lineMesh.insertVertices<impl::Vertex>(lines);
+#if !UF_USE_OPENGL
 	impl::lineMesh.generateIndirect();
+#endif
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& graphics = scene.getComponent<uf::renderer::Graphics>();
@@ -242,7 +248,9 @@ void uf::debug::drawLines( float dt ) {
 
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
+	#if !UF_USE_OPENGL
 		graphic.staged = false;
+	#endif
 		graphic.material.device = &uf::renderer::device;
 
 		// to-do: bin by descriptor instead of one global set
@@ -261,8 +269,8 @@ void uf::debug::drawLines( float dt ) {
 		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
 		graphic.material.metadata.autoInitializeUniformBuffers = true;
 		
-		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
-		
+		auto& storage = uf::graph::getStorage( scene );
+
 		// vertex shader
 		{
 			auto& shader = graphic.material.getShader("vertex");
@@ -282,6 +290,9 @@ void uf::debug::drawText( const uf::stl::string& string, const pod::Vector3f& po
 }
 
 void uf::debug::drawTexts( float dt ) {
+	if ( impl::texts.empty() && impl::emptyText ) return;
+	impl::emptyText = false;
+
 	STATIC_THREAD_LOCAL(uf::stl::vector<impl::Text>, texts);
 	std::swap( impl::texts, texts );
 	
@@ -293,6 +304,7 @@ void uf::debug::drawTexts( float dt ) {
 	uf::stl::vector<pod::GlyphBox> textLayout;
 	// pre-init with ASCII characters
 	if ( !impl::textAtlas.generated() || texts.empty() ) {
+		impl::emptyText = true;
 		uf::stl::string ascii = "";
 		for ( char c = 32; c < 127; ++c ) ascii += c;
 		auto tokens = uf::glyph::parseTextTokens( ascii, {0,0,0,0} );
@@ -318,13 +330,17 @@ void uf::debug::drawTexts( float dt ) {
 
 	bool dirty = uf::glyph::generateAtlas( textLayout, impl::textSettings, impl::textAtlas );
 	uf::glyph::generateMesh( textLayout, impl::textSettings, impl::textAtlas, impl::textMesh );
+#if !UF_USE_OPENGL
 	impl::textMesh.generateIndirect();
+#endif
 
 	auto& graphics = scene.getComponent<uf::renderer::Graphics>();	
 	auto& graphic = graphics["immediate:texts"];
 	if ( !graphic.initialized ) {
 		graphic.device = &uf::renderer::device;
+	#if !UF_USE_OPENGL
 		graphic.staged = false;
+	#endif
 		graphic.material.device = &uf::renderer::device;
 
 		graphic.descriptor.depth.test = uf::physics::settings.debugDraw.depthTest;
@@ -341,7 +357,7 @@ void uf::debug::drawTexts( float dt ) {
 		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
 		graphic.material.metadata.autoInitializeUniformBuffers = true;
 		
-		auto& storage = uf::graph::globalStorage ? uf::graph::storage : scene.getComponent<pod::Graph::Storage>();
+		auto& storage = uf::graph::getStorage( scene );
 		
 		// vertex shader
 		{
@@ -367,6 +383,6 @@ void uf::debug::drawTexts( float dt ) {
 	}
 }
 void uf::debug::draw( float dt ) {
-	uf::debug::drawLines( dt );
-	uf::debug::drawTexts( dt );
+//	uf::debug::drawLines( dt );
+//	uf::debug::drawTexts( dt );
 }

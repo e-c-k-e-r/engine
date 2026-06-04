@@ -11,6 +11,7 @@ namespace ext {
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
+			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual void createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );
 			virtual void build( bool = true );
