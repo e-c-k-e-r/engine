@@ -4,12 +4,10 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
 
-#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Base, uint32_t
-
 namespace impl {
 	const float sourceToMeters = 0.07f;
 	
-	typedef uf::Meshlet_T<UF_GRAPH_MESH_FORMAT> Meshlet;
+	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
 
 	template<typename T>
 	T str2vec( uf::stl::string string ) {

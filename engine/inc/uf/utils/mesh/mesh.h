@@ -4,6 +4,7 @@
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/math/quant.h>
 #include <uf/utils/math/shapes.h>
+#include <uf/utils/string/hash.h>
 
 #include <functional>
 #include <uf/utils/memory/unordered_map.h>
@@ -78,8 +79,8 @@ namespace pod {
 	struct UF_API LODMetadata {
 		struct Level {
 			alignas(4) uint32_t indices = 0;
-			alignas(4) uint32_t vertexID = 0;
 			alignas(4) uint32_t indexID = 0;
+			alignas(4) uint32_t vertexID = 0;
 			alignas(4) uint32_t vertices = 0;
 		} levels[4];
 	};
@@ -126,9 +127,6 @@ namespace pod {
 
 			alignas(8) uint64_t joints{};
 			alignas(8) uint64_t weights{};
-
-			alignas(8) uint64_t id{};
-			alignas(8) uint64_t padding1{};
 		};
 
 		struct UF_API Object {
@@ -151,7 +149,6 @@ namespace pod {
 namespace uf {
 	struct UF_API Mesh {
 	public:
-		static bool defaultInterleaved;
 		typedef uf::stl::vector<uint8_t> buffer_t;
 		struct Attribute {
 			uf::renderer::AttributeDescriptor descriptor;
@@ -169,7 +166,6 @@ namespace uf {
 			size_t first = 0; // base index to start from
 			size_t size = 0; // size of one element in the input's buffer
 			size_t offset = 0; // bytes to offset from within the associated buffer
-			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
 		} vertex, index, instance, indirect;
 
 		struct AttributeView {
@@ -196,50 +192,23 @@ namespace uf {
 			uf::Mesh::Input index;
 			int32_t indirectIndex = -1;
 			
-			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
+			uf::stl::unordered_map<uint32_t, uf::Mesh::AttributeView> attributes;
 
-			bool has( const uf::stl::string& name ) const {
-				return attributes.count( name ) > 0;
-			}
-			const AttributeView& operator[]( const uf::stl::string& name ) const {
-				if ( auto it = attributes.find(name); it != attributes.end() ) return it->second;
-				UF_EXCEPTION("invalid view: {}", name);
-			}
 
-			// to-do: resolve dependency order hell
-			// these probably won't be directly called anyways?
-		#if 0
-			size_t fetchIndex( size_t index ) {
-				return uf::mesh::fetchIndex( index );
+			bool has( uint32_t hash ) const {
+				return attributes.count( hash ) > 0;
 			}
-			size_t fetchIndex( const uf::Mesh::AttributeView& indices, size_t index ) {
-				return uf::mesh::fetchIndex( indices, index );
+			const AttributeView& operator[]( uint32_t hash ) const {
+				if ( auto it = attributes.find( hash ); it != attributes.end() ) return it->second;
+				UF_EXCEPTION("invalid view hash: {}", hash);
 			}
-			size_t fetchIndex( const uf::stl::string& indices, size_t index ) {
-				return uf::mesh::fetchIndex( indices, index );
+			// support legacy code
+			bool has( const uf::stl::string_view name ) const {
+				return has( uf::string::fnv1a( name ) );
 			}
-
-			pod::Vector3f fetchVertex( size_t index ) {
-				return uf::mesh::fetchVertex( index );
+			const AttributeView& operator[]( const uf::stl::string_view name ) const {
+				return operator[]( uf::string::fnv1a( name ) );
 			}
-			pod::Vector3f fetchVertex( const uf::Mesh::AttributeView& positions, size_t index ) {
-				return uf::mesh::fetchVertex( positions, index );
-			}
-			pod::Vector3f fetchVertex( const uf::stl::string& positions, size_t index ) {
-				return uf::mesh::fetchVertex( positions, index );
-			}
-
-			pod::TriangleWithNormal fetchTriangle( size_t triID ) {
-				return uf::mesh::fetchTriangle( *this, triID );
-			}
-			pod::TriangleWithNormal fetchTriangle( const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID ) {
-				return uf::mesh::fetchTriangle( *this, indices, positions, triID );
-			}
-			pod::TriangleWithNormal fetchTriangle( const uf::stl::string& indices, const uf::stl::string& positions, size_t triID ) {
-				auto& view = *this;
-				return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
-			}
-		#endif
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;
 
@@ -251,7 +220,7 @@ namespace uf {
 		uf::stl::vector<uf::Mesh::View> buffer_views;
 	protected:
 		void _destroy( uf::Mesh::Input& input );
-		void _bind( bool interleaved = uf::Mesh::defaultInterleaved );
+		void _bind();
 		void _updateDescriptor( uf::Mesh::Input& input );
 		void _updateViews();
 		uf::Mesh::Attribute _remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i = 0 ) const;
@@ -281,30 +250,32 @@ namespace uf {
 		template<typename U> inline void _insertI( uf::Mesh::Input& input, U index, size_t i = 0 ) { return _insertI( input, (const void*) &index, i ); }
 		template<typename U> inline void _insertIs( uf::Mesh::Input& input, const uf::stl::vector<U>& is, size_t i = 0 ) { return _insertIs( input, (const void*) is.data(), is.size(), i ); }
 	public:
+		Mesh() = default;
+		Mesh( const Mesh& m ) { copy( m ); }
+		Mesh& operator=( const Mesh& m ) { return copy( m ); }
+		Mesh( Mesh&& ) noexcept = default;
+		Mesh& operator=( Mesh&& ) noexcept = default;
+
 		void initialize();
 		void destroy();
 
-		uf::Mesh convert() const;
+		uf::Mesh& copy( const uf::Mesh& );
 		uf::Mesh copy() const;
-		uf::Mesh copy(bool) const;
-		uf::Mesh interleave() const;
-		uf::Mesh deinterleave() const;
-
 		uf::Mesh expand();
-		uf::Mesh expand(bool);
 
 		void updateDescriptor();
 		
 		void bind( const uf::Mesh& );
-		void bind( const uf::Mesh&, bool );
 		void insert( const uf::Mesh& );
 		
 		void generateIndices();
 		void generateIndirect();
 
-		bool isInterleaved() const;
-		bool isInterleaved( const uf::Mesh::Input& ) const;
-		bool isInterleaved( size_t ) const;
+		// API hell
+		template<typename T> inline void compile( const uf::stl::vector<T>& meshlets, uf::stl::vector<pod::Primitive>& primitives );
+		template<typename K, typename V> inline void compile( const uf::stl::unordered_map<K, V>& meshlets, uf::stl::vector<pod::Primitive>& primitives );
+		template<typename T> inline uf::stl::vector<pod::Primitive> compile( const uf::stl::vector<T>& meshlets );
+		template<typename K, typename V> inline uf::stl::vector<pod::Primitive> compile( const uf::stl::unordered_map<K, V>& meshlets );
 
 		buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 );
 		buffer_t& getBuffer( const uf::Mesh::Input&, const uf::Mesh::Attribute& );
@@ -319,13 +290,6 @@ namespace uf {
 		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t = 0, size_t = 0 ) const;
 		uf::Mesh::Input remapVertexInput( size_t i = 0, size_t = 0 ) const;
 		uf::Mesh::Input remapIndexInput( size_t i = 0, size_t = 0 ) const;
-
-		void print( bool = true ) const;
-
-		std::string printVertices( bool = true ) const;
-		std::string printIndices( bool = true ) const;
-		std::string printInstances( bool = true ) const;
-		std::string printIndirects( bool = true ) const;
 
 		uf::Mesh::View makeView( const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
 		uf::Mesh::View makeView( size_t commandIndex, const uf::stl::vector<uf::stl::string>& wanted = {}, size_t index = 0 ) const;
@@ -388,18 +352,14 @@ namespace uf {
 		template<typename U> inline void insertIndirects( const uf::stl::vector<U>& indirects, size_t i = 0 ) { return _insertIs( indirect, (const void*) indirects.data(), indirects.size(), i ); }
 
 		template<typename T, typename U = uf::renderer::index_t>
-		void bind( bool interleave = uf::Mesh::defaultInterleaved, size_t indices = 1 ) {
+		void bind( size_t indices = 1 ) {
 			bindVertex<T>();
 			bindIndex<U>( indices );
-			_bind( interleave );
+			_bind();
 		}
 
 		template<typename From, typename To>
 		void convert() {
-			if ( this->isInterleaved() ) {
-				UF_MSG_DEBUG("Downcasting/upcasting requested yet mesh is interleaved, ignoring...");
-				return;
-			}
 			auto fromEnum = uf::renderer::typeToEnum<From>();
 			auto toEnum = uf::renderer::typeToEnum<To>();
 			if ( toEnum == fromEnum ) return;
@@ -509,13 +469,13 @@ namespace ext {
 			struct {
 				bool enabled = true;
 		#if UF_USE_VULKAN
-				VkBlendFactor            srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-				VkBlendFactor            dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				VkBlendOp                colorBlendOp = VK_BLEND_OP_ADD;
-				VkBlendFactor            srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-				VkBlendFactor            dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				VkBlendOp                alphaBlendOp = VK_BLEND_OP_ADD;
-				VkColorComponentFlags    colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				VkBlendFactor			srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				VkBlendFactor			dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				VkBlendOp				colorBlendOp = VK_BLEND_OP_ADD;
+				VkBlendFactor			srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				VkBlendFactor			dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				VkBlendOp				alphaBlendOp = VK_BLEND_OP_ADD;
+				VkColorComponentFlags	colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		#endif
 			} blend;
 			
@@ -619,6 +579,7 @@ namespace pod {
 }
 
 namespace uf {
+	// ???
 	template<typename T = pod::Vertex_3F, typename U = uf::renderer::index_t>
 	struct UF_API Mesh_T {
 		typedef T vertex_t;
@@ -644,30 +605,6 @@ namespace uf {
 		pod::Vector3f UF_API fetchVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
 		pod::Triangle UF_API fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
 		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t triID );
-
-		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) {
-			return uf::mesh::fetchIndex( indices.data(view.index.first), indices.stride(), index );
-		}
-		// for clean code, these would be preferable
-		// but they incur additional lookups every triangle fetch, and I doubt the optimizer will optimize that away, so explicitly passing attribute views is preferable
-		static inline size_t fetchIndex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchIndex( view, view["indices"], index );
-		}
-		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
-			return uf::mesh::fetchIndex( view, view[indices], index );
-		}
-		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchVertex( view, view["positions"], index );
-		}
-		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, const uf::stl::string& positions, size_t index ) {
-			return uf::mesh::fetchVertex( view, view[positions], index );
-		}
-		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, const uf::stl::string& indices, const uf::stl::string& positions, size_t triID ) {
-			return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
-		}
-		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
-			return uf::mesh::fetchTriangle( view, view["index"], view["position"], triID );
-		}
 
 		template<typename T>
 		T fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
@@ -711,5 +648,143 @@ namespace uf {
 				default: UF_EXCEPTION("unsupported attribute type: {}", attributeView.attribute.descriptor.type); break;
 			}
 		}
+
+		template<typename T>
+		T& getVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
+			UF_ASSERT( uf::renderer::typeToEnum<typename T::type_t>() == attributeView.type() && T::size == attributeView.components() );
+			return *(T*) attributeView.data( view.vertex.first + index );
+		}
+		//
+		template<typename U> inline U& getIndex( void* pointer, size_t index ) {
+			return ((U*) pointer)[index];
+		}
+		template<typename U> inline U& getIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) {
+			return uf::mesh::getIndex<U>( indices.data(view.index.first), index );
+		}
+		template<typename U> inline U& getIndex( const uf::Mesh::View& view, size_t index ) {
+			return uf::mesh::getIndex<U>( view, view["indices"_hash], index );
+		}
+		template<typename U> inline U& getIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
+			return uf::mesh::getIndex<U>( view, view[indices], index );
+		}
+		
+		void UF_API setIndex( void* pointer, size_t stride, size_t index, size_t value );
+		
+		//
+		template<typename T, typename U> void compile( uf::Mesh& mesh, const uf::stl::vector<uf::Meshlet_T<T, U>>& meshlets, uf::stl::vector<pod::Primitive>& primitives );
+		
+		template<typename K, typename V> inline uf::stl::vector<pod::Primitive> compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets );
+		template<typename T> inline uf::stl::vector<pod::Primitive> compile( uf::Mesh& mesh, const uf::stl::vector<T>& meshlets );
+		template<typename K, typename V> inline uf::stl::vector<pod::Primitive> compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets );
+
+		//
+		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index ) {
+			return uf::mesh::fetchIndex( indices.data(view.index.first), indices.stride(), index );
+		}
+		static inline size_t fetchIndex( const uf::Mesh::View& view, size_t index ) {
+			return uf::mesh::fetchIndex( view, view["indices"_hash], index );
+		}
+		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
+			return uf::mesh::fetchIndex( view, view[indices], index );
+		}
+		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, size_t index ) {
+			return uf::mesh::fetchVertex( view, view["positions"_hash], index );
+		}
+		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, const uf::stl::string& positions, size_t index ) {
+			return uf::mesh::fetchVertex( view, view[positions], index );
+		}
+		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, const uf::stl::string& indices, const uf::stl::string& positions, size_t triID ) {
+			return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
+		}
+		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
+			return uf::mesh::fetchTriangle( view, view["index"_hash], view["position"_hash], triID );
+		}
+
+		static inline void setIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index, size_t value ) {
+			return uf::mesh::setIndex( const_cast<void*>(indices.data(view.index.first)), indices.stride(), index, value );
+		}
+		static inline void setIndex( const uf::Mesh::View& view, size_t index, size_t value ) {
+			return uf::mesh::setIndex( view, view["indices"_hash], index, value );
+		}
 	}
+}
+
+template<typename T> uf::stl::vector<pod::Primitive> uf::Mesh::compile( const uf::stl::vector<T>& meshlets ) {
+	uf::stl::vector<pod::Primitive> primitives;
+	uf::mesh::compile( *this, meshlets, primitives );
+	return primitives;
+}
+template<typename K, typename V> uf::stl::vector<pod::Primitive> uf::Mesh::compile( const uf::stl::unordered_map<K, V>& meshlets ) {
+	uf::stl::vector<pod::Primitive> primitives;
+	uf::mesh::compile( *this, uf::stl::values( meshlets ), primitives );
+	return primitives;
+}
+
+template<typename T> void uf::Mesh::compile( const uf::stl::vector<T>& meshlets, uf::stl::vector<pod::Primitive>& primitives ) {
+	return uf::mesh::compile( *this, meshlets, primitives );
+}
+template<typename K, typename V> void uf::Mesh::compile( const uf::stl::unordered_map<K, V>& meshlets, uf::stl::vector<pod::Primitive>& primitives ) {
+	return uf::mesh::compile( *this, uf::stl::values( meshlets ), primitives );
+}
+//
+template<typename T> uf::stl::vector<pod::Primitive> uf::mesh::compile( uf::Mesh& mesh, const uf::stl::vector<T>& meshlets ) {
+	uf::stl::vector<pod::Primitive> primitives;
+	uf::mesh::compile( mesh, meshlets, primitives );
+	return primitives;
+}
+template<typename K, typename V> uf::stl::vector<pod::Primitive> uf::mesh::compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets ) {
+	uf::stl::vector<pod::Primitive> primitives;
+	uf::mesh::compile( mesh, uf::stl::values( meshlets ), primitives );
+	return primitives;
+}
+template<typename K, typename V> void uf::mesh::compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets, uf::stl::vector<pod::Primitive>& primitives ) {
+	return uf::mesh::compile( mesh, uf::stl::values( meshlets ), primitives );
+}
+//
+template<typename T, typename U> void uf::mesh::compile( uf::Mesh& mesh, const uf::stl::vector<uf::Meshlet_T<T, U>>& meshlets, uf::stl::vector<pod::Primitive>& primitives ) {
+	mesh.bindIndirect<pod::DrawCommand>();
+	mesh.bind<T, U>();
+
+	size_t indexID = 0;
+	size_t vertexID = 0;
+	size_t instanceID = 0;
+
+	uf::stl::vector<pod::DrawCommand> drawCommands;
+	drawCommands.reserve( meshlets.size() );
+	primitives.reserve( primitives.size() + meshlets.size() );
+
+	for ( auto& meshlet : meshlets ) {
+		if ( meshlet.indices.empty() ) continue;
+		auto& primitive = primitives.emplace_back(meshlet.primitive);
+		// write draw command
+		primitive.drawCommand = {
+			.indices = meshlet.indices.size(),
+			.instances = MAX(1, primitive.drawCommand.instances),
+			.indexID = indexID,
+			.vertexID = vertexID,
+			.instanceID = instanceID,
+			.auxID = 0,
+			.materialID = 0,
+			.vertices = meshlet.vertices.size(),
+		};
+		// write LOD0
+		primitive.lod.levels[0] = {
+			.indices = meshlet.indices.size(),
+			.indexID = indexID,
+			.vertexID = vertexID,
+			.vertices = meshlet.vertices.size(),
+		};
+		// sync draw command with primitive
+		drawCommands.emplace_back(primitive.drawCommand);
+		// increase IDs
+		indexID += primitive.drawCommand.indices;
+		vertexID += primitive.drawCommand.vertices;
+		instanceID += primitive.drawCommand.instances;
+		// insert
+		mesh.insertVertices( meshlet.vertices );
+		mesh.insertIndices( meshlet.indices );
+	}
+
+	mesh.insertIndirects(drawCommands);
+	mesh.updateDescriptor();
 }

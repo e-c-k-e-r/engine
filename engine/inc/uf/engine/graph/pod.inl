@@ -1,12 +1,4 @@
 namespace pod {
-	template<typename T, typename U = uint32_t>
-	struct UF_API Meshlet_T {
-		uf::stl::vector<T> vertices;
-		uf::stl::vector<U> indices;
-
-		pod::Primitive primitive;
-	};
-
 	struct UF_API Material {
 		pod::Vector4f colorBase = { 0, 0, 0, 0 };
 		pod::Vector4f colorEmissive = { 0, 0, 0, 0 };

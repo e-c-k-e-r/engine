@@ -33,10 +33,6 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 		auto& mesh = /*graph.storage*/storage.meshes[name];
 		auto& source = sources[index];
 
-		if ( mesh.isInterleaved() ) {
-			UF_EXCEPTION("unwrapping interleaved mesh is not supported");
-		}
-
 		bool should = false;
 		if ( graph.metadata["exporter"]["unwrap"].is<bool>() && graph.metadata["exporter"]["unwrap"].as<bool>() ) {
 			should = true;
@@ -247,6 +243,7 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 			if ( source.vertex.count == 0 ) continue;
 
 			const auto& srcView = source.buffer_views[entry.commandID];
+			const auto& dstView = mesh.buffer_views[entry.commandID];
 
 			size_t dstVertexFirst = 0;
 			size_t dstIndexFirst = 0;
@@ -256,22 +253,31 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 				dstIndexFirst  = drawCommands[entry.commandID].indexID;
 			}
 
+			auto stView = dstView["st"];
+			int stAttributeIndex = -1;
+			for ( auto attrIdx = 0; attrIdx < mesh.vertex.attributes.size(); ++attrIdx ) {
+				if ( mesh.vertex.attributes[attrIdx].descriptor.name == "st" ) {
+					stAttributeIndex = attrIdx;
+					break;
+				}
+			}
+
 			for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
 				auto& vertex = xmesh.vertexArray[j];
-				uint32_t ref = vertex.xref; // original vertex index relative to the sub-mesh
+				uint32_t ref = vertex.xref; // original vertex index
 
 				for ( auto attrIdx = 0; attrIdx < mesh.vertex.attributes.size(); ++attrIdx ) {
 					auto srcAttribute = srcView.vertex.attributes[attrIdx];
 					auto dstAttribute = mesh.vertex.attributes[attrIdx];
 
-					uint8_t* dstPtr = static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (dstVertexFirst + j);
-
-					if ( dstAttribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*)dstPtr;
-						st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+					if ( attrIdx == stAttributeIndex ) {
+						auto& st = uf::mesh::getVertexAttribute<pod::Vector2f>( dstView, stView, dstVertexFirst + j );
+						st.x = vertex.uv[0] / atlas.pointer->width;
+						st.y = vertex.uv[1] / atlas.pointer->height;
 					} else {
+						uint8_t* dstPtr = static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (dstVertexFirst + j);
 						const uint8_t* srcPtr = static_cast<const uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (srcView.vertex.first + ref);
-						memcpy(dstPtr, srcPtr, srcAttribute.descriptor.size);
+						std::memcpy(dstPtr, srcPtr, srcAttribute.descriptor.size);
 					}
 				}
 			}
@@ -281,11 +287,7 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 				uint8_t* dstIndexPtr = static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * dstIndexFirst;
 
 				for ( auto idx = 0; idx < xmesh.indexCount; ++idx ) {
-					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) dstIndexPtr)[idx] = (uint8_t)  xmesh.indexArray[idx]; break;
-						case 2: ((uint16_t*) dstIndexPtr)[idx] = (uint16_t) xmesh.indexArray[idx]; break;
-						case 4: ((uint32_t*) dstIndexPtr)[idx] = (uint32_t) xmesh.indexArray[idx]; break;
-					}
+					uf::mesh::setIndex(dstIndexPtr, mesh.index.size, idx, xmesh.indexArray[idx]);
 				}
 			}
 			mesh.updateDescriptor();

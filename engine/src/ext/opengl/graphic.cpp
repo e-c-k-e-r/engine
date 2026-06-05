@@ -244,13 +244,7 @@ void ext::opengl::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		descriptor.inputs.bufferOffset = buffers.size(); // buffers.empty() ? 0 : buffers.size() - 1;
 
 		#define PARSE_INPUT_INITIALIZE(NAME, USAGE){\
-			if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
-				auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
-				if ( !buffer.empty() ) {\
-					descriptor.inputs.NAME.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE, alias );\
-					this->metadata.buffers[#NAME] = descriptor.inputs.NAME.interleaved;\
-				} else mesh.NAME.interleaved = -1;\
-			} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+			for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 				auto& attribute = descriptor.inputs.NAME.attributes[i];\
 				auto& buffer = mesh.buffers[attribute.buffer];\
 				if ( !buffer.empty() ) {\
@@ -294,12 +288,7 @@ bool ext::opengl::Graphic::updateMesh( uf::Mesh& mesh ) {
 	uf::stl::vector<Queue> queue;
 
 	#define PARSE_INPUT_UPDATE(NAME, USAGE){\
-		if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
-			auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
-			if ( !buffer.empty() ) {\
-				rebuild |= updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] );\
-			} else mesh.NAME.interleaved = -1;\
-		} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+		for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 			auto& attribute = descriptor.inputs.NAME.attributes[i];\
 			auto& buffer = mesh.buffers[attribute.buffer];\
 			if ( !buffer.empty() ) {\

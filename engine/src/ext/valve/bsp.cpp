@@ -659,41 +659,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto& primitives = storage.primitives[meshName];
 		storage.instanceAddresses[meshName] = {};
 
-		mesh.bindIndirect<pod::DrawCommand>();
-		mesh.bind<UF_GRAPH_MESH_FORMAT>(false);
-
-		size_t indexID = 0, vertexID = 0, masterInstanceID = 0;
-		uf::stl::vector<pod::DrawCommand> drawCommands;
-
-		for ( auto& [materialID, meshlet] : meshlets) {
-			if ( meshlet.indices.empty() ) continue;
-
-			meshlet.primitive.drawCommand.instances = 1;
-			meshlet.primitive.drawCommand.instanceID = ++masterInstanceID;
-			meshlet.primitive.drawCommand.indexID = indexID;
-			meshlet.primitive.drawCommand.indices = meshlet.indices.size();
-			meshlet.primitive.drawCommand.vertexID = vertexID;
-			meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
-
-			meshlet.primitive.lod.levels[0] = {
-				indexID,
-				meshlet.indices.size(),
-				vertexID,
-				meshlet.vertices.size()
-			};
-
-			drawCommands.emplace_back(meshlet.primitive.drawCommand);
-			primitives.emplace_back(meshlet.primitive);
-
-			indexID += meshlet.indices.size();
-			vertexID += meshlet.vertices.size();
-
-			mesh.insertVertices(meshlet.vertices);
-			mesh.insertIndices(meshlet.indices);
-		}
-
-		mesh.insertIndirects(drawCommands);
-		mesh.updateDescriptor();
+		mesh.compile( meshlets, primitives );
 	}
 
 	// read entities

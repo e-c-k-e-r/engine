@@ -179,47 +179,12 @@ namespace {
 		}
 
 		uf::Serializer json;
-	#if 0
-		uf::Mesh mesh = mesh;
-		// remove extraneous buffers
-		if ( !mesh.isInterleaved() ) {
-			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
-
-			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
-				auto& attribute = mesh.vertex.attributes[i];
-				if ( attribute.descriptor.name == "position" ) continue;
-				if ( attribute.descriptor.name == "color" ) continue;
-				if ( attribute.descriptor.name == "uv" ) continue;
-				if ( attribute.descriptor.name == "st" ) continue;
-
-				if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
-					if ( attribute.descriptor.name == "tangent" ) continue;
-					if ( attribute.descriptor.name == "joints" ) continue;
-					if ( attribute.descriptor.name == "weights" ) continue;
-				}
-			#if !UF_USE_OPENGL
-				if ( attribute.descriptor.name == "normal" ) continue;
-			#endif
-
-				remove.insert(remove.begin(), i);
-			}
-			for ( auto& i : remove ) {
-				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
-				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
-				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
-			}
-		} else {
-			UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
-		}
-	#endif
-
 		#define SERIALIZE_MESH(N) {\
 			auto& input = json["inputs"][#N];\
 			input["count"] = mesh.N.count;\
 			input["first"] = mesh.N.first;\
 			input["size"] = mesh.N.size;\
 			input["offset"] = mesh.N.offset;\
-			input["interleaved"] = mesh.N.interleaved;\
 			ext::json::reserve( input["attributes"], mesh.N.attributes.size() );\
 			for ( auto& attribute : mesh.N.attributes ) {\
 				auto& a = input["attributes"].emplace_back();\

@@ -11,10 +11,9 @@ layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inSt;
 layout (location = 4) in vec3 inNormal;
 layout (location = 5) in vec4 inTangent;
-layout (location = 6) in uvec2 inId;
 #if SKINNED
-	layout (location = 7) in uvec4 inJoints;
-	layout (location = 8) in vec4 inWeights;
+	layout (location = 6) in uvec4 inJoints;
+	layout (location = 7) in vec4 inWeights;
 #endif
 
 layout( push_constant ) uniform PushBlock {

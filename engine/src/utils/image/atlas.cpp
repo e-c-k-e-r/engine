@@ -1,7 +1,9 @@
 #include <uf/utils/image/atlas.h>
-#include <binpack2d/binpack2d.hpp>
 #include <iostream>
 #include <bit>
+
+#define STB_RECT_PACK_IMPLEMENTATION
+#include <stb/stb_rect_pack.h>
 
 pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image, const pod::Atlas::hash_t& hash ) {
 	size_t index = atlas.tiles.size();
@@ -18,57 +20,80 @@ pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image ) 
 void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
 	if ( atlas.tiles.empty() ) return;
 
-	BinPack2D::CanvasArray<pod::Atlas::hash_t> internalAtlas;
-	BinPack2D::ContentAccumulator<pod::Atlas::hash_t> queue, stored, remainder;
-	pod::Vector2ui size = {};
-	pod::Vector3ui largest = {};
-	size_t index = 0;
+	uf::stl::vector<stbrp_rect> rects;
+	uf::stl::vector<pod::Atlas::hash_t> hashes;
+	rects.reserve(atlas.tiles.size());
+	hashes.reserve(atlas.tiles.size());
+
 	size_t area = 0;
 	size_t channels = 1;
+
 	for ( auto& [ hash, tile ] : atlas.tiles ) {
 		auto& dim = tile.image.size;
 		channels = std::max( channels, tile.image.channels );
-		queue += BinPack2D::Content<pod::Atlas::hash_t>(hash, BinPack2D::Coord(), BinPack2D::Size(dim.x, dim.y), false );
-		size += dim;
+
+		stbrp_rect rect;
+		rect.id = static_cast<int>(rects.size());
+		rect.w = dim.x;
+		rect.h = dim.y;
+		rects.push_back(rect);
+		hashes.push_back(hash);
+
 		area += dim.x * dim.y;
-		if ( area >= largest.z ) {
-			largest.x = dim.x;
-			largest.y = dim.y;
+	}
+
+	size_t side = std::sqrt( area ) * std::max(1.0f, padding);
+	pod::Vector2ui size = { std::bit_ceil(side), std::bit_ceil(side) };
+
+	bool all_packed = false;
+	uf::stl::vector<stbrp_node> nodes;
+
+	while ( !all_packed ) {
+		nodes.resize(size.x);
+		stbrp_context context;
+		stbrp_init_target(&context, size.x, size.y, nodes.data(), nodes.size());
+
+		all_packed = stbrp_pack_rects(&context, rects.data(), rects.size());
+
+		if ( !all_packed ) {
+			size.x *= 2;
+			size.y *= 2;
 		}
 	}
-	size_t tries = 16;
-	do {
-		size_t side = std::sqrt( area ) * padding;
-		size = { std::bit_ceil(side), std::bit_ceil(side) }; // to-do: non-C++20 method
-		queue.Sort();
-		internalAtlas = BinPack2D::UniformCanvasArrayBuilder<pod::Atlas::hash_t>(size.x, size.y, 1).Build();
-		bool success = internalAtlas.Place( queue, remainder );
-		if ( success && remainder.Get().empty() ) break;
-		// increase padding
-		padding += 0.10f;
-	} while ( --tries );
-	internalAtlas.CollectContent( stored );
 
 	uf::image::load( atlas.image, NULL, size, 8, channels );
 	auto& dstBuffer = atlas.image.pixels;
-	for ( size_t i = 0; i < size.x * size.y * channels; ++i ) dstBuffer[i] = 0;
-	for ( auto& it : stored.Get() ) {
-		auto& tile = atlas.tiles[it.content];
-		tile.coord = { it.coord.x, it.coord.y };
-		tile.size = { it.size.w, it.size.h };
+
+	memset(dstBuffer.data(), 0, size.x * size.y * channels * sizeof(decltype(dstBuffer[0])));
+
+	for ( size_t i = 0; i < rects.size(); ++i ) {
+		const auto& rect = rects[i];
+		auto hash = hashes[rect.id];
+		auto& tile = atlas.tiles[hash];
+
+		tile.coord = { rect.x, rect.y };
+		tile.size  = { rect.w, rect.h };
 
 		auto& image = tile.image;
 		auto& srcBuffer = image.pixels;
 		auto srcChannels = image.channels;
 
+		size_t rowSizeSrc = tile.size.x * srcChannels;
+		size_t rowSizeDst = tile.size.x * channels;
+
 		for ( size_t y = 0; y < tile.size.y; ++y ) {
-		for ( size_t x = 0; x < tile.size.x; ++x ) {
-			size_t src = (y *  tile.size.x * srcChannels) + (x * srcChannels);
-			size_t dst = ((y + tile.coord.y) * size.x * channels) + ((x + tile.coord.x) * channels);
-			for ( size_t i = 0; i < srcChannels; ++i ) {
-				dstBuffer[dst+i] = srcBuffer[src+i];
+			size_t srcIndex = y * tile.size.x * srcChannels;
+			size_t dstIndex = ((y + tile.coord.y) * size.x * channels) + (tile.coord.x * channels);
+
+			if ( srcChannels == channels ) {
+				memcpy(&dstBuffer[dstIndex], &srcBuffer[srcIndex], rowSizeSrc * sizeof(decltype(dstBuffer[0])));
+			} else {
+				for ( size_t x = 0; x < tile.size.x; ++x ) {
+					for ( size_t c = 0; c < srcChannels; ++c ) {
+						dstBuffer[dstIndex + (x * channels) + c] = srcBuffer[srcIndex + (x * srcChannels) + c];
+					}
+				}
 			}
-		}
 		}
 	}
 }

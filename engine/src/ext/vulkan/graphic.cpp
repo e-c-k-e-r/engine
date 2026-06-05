@@ -359,22 +359,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		size_t vertexBindID = 0;
 		size_t vertexLocationID = 0;
 		if ( !descriptor.inputs.vertex.attributes.empty() ) {
-			if ( 0 <= descriptor.inputs.vertex.interleaved ) {
-				inputBindingDescriptions.emplace_back(ext::vulkan::initializers::vertexInputBindingDescription(
-					vertexBindID, // descriptor.inputs.vertex.interleaved, 
-					descriptor.inputs.vertex.size, 
-					VK_VERTEX_INPUT_RATE_VERTEX
-				));
-				for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
-					attributeDescriptions.emplace_back(ext::vulkan::initializers::vertexInputAttributeDescription(
-						vertexBindID,
-						vertexLocationID++,
-						attribute.descriptor.format,
-						attribute.descriptor.offset
-					));
-				}
-				++vertexBindID;
-			} else for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
+			for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
 				inputBindingDescriptions.emplace_back(ext::vulkan::initializers::vertexInputBindingDescription(
 					vertexBindID, // attribute.buffer, 
 					attribute.descriptor.size, 
@@ -1211,13 +1196,7 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 	//	VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 		#define PARSE_INPUT_INITIALIZE(NAME, USAGE){\
-			if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
-				auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
-				if ( !buffer.empty() ) {\
-					descriptor.inputs.NAME.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE | baseUsage );\
-					this->metadata.buffers[#NAME] = descriptor.inputs.NAME.interleaved;\
-				} else mesh.NAME.interleaved = -1;\
-			} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+			for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 				auto& attribute = descriptor.inputs.NAME.attributes[i];\
 				auto& buffer = mesh.buffers[attribute.buffer];\
 				if ( !buffer.empty() ) {\
@@ -1258,12 +1237,7 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	uf::stl::vector<Queue> queue;
 
 	#define PARSE_INPUT_UPDATE(NAME, USAGE){\
-		if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
-			auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
-			if ( !buffer.empty() ) {\
-				rebuild = updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME] ) || rebuild;\
-			} else mesh.NAME.interleaved = -1;\
-		} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+		for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 			auto& attribute = descriptor.inputs.NAME.attributes[i];\
 			auto& buffer = mesh.buffers[attribute.buffer];\
 			if ( !buffer.empty() ) {\
@@ -1333,7 +1307,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) vertexAttribute = attribute;
 			UF_ASSERT( vertexAttribute.descriptor.name == "position" );
 
-			size_t vertexBufferIndex = (0 <= mesh.vertex.interleaved ? mesh.vertex.interleaved : vertexAttribute.buffer) + mesh.bufferOffset;
+			size_t vertexBufferIndex = (vertexAttribute.buffer) + mesh.bufferOffset;
 			if ( this->metadata.buffers.count("vertexSkinned") > 0 ) vertexBufferIndex = this->metadata.buffers["vertexSkinned"];
 			vertexBufferAddress = this->buffers[vertexBufferIndex].getAddress();
 		}
@@ -1341,7 +1315,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		if ( mesh.index.count ) {
 			indexAttribute = mesh.index.attributes.front();
 
-			size_t indexBufferIndex = (0 <= mesh.index.interleaved ? mesh.index.interleaved : indexAttribute.buffer) + mesh.bufferOffset;
+			size_t indexBufferIndex = (indexAttribute.buffer) + mesh.bufferOffset;
 			indexBufferAddress = this->buffers[indexBufferIndex].getAddress();
 		}
 
@@ -2046,24 +2020,14 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		uf::stl::vector<VkDeviceSize> offset;
 	} vertexInstance;
 
-	if ( 0 <= descriptor.inputs.vertex.interleaved && !descriptor.inputs.vertex.attributes.empty() ) {
-		vertexInstance.buffer.emplace_back( buffers.at(descriptor.inputs.vertex.interleaved).buffer );
-		vertexInstance.offset.emplace_back( descriptor.inputs.vertex.offset );
-	} else {
-		for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
-			vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
-			vertexInstance.offset.emplace_back( attribute.offset );
-		}
+	for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
+		vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
+		vertexInstance.offset.emplace_back( attribute.offset );
 	}
 
-	if ( 0 <= descriptor.inputs.instance.interleaved && !descriptor.inputs.instance.attributes.empty() ) {
-		vertexInstance.buffer.emplace_back( buffers.at(descriptor.inputs.instance.interleaved).buffer );
-		vertexInstance.offset.emplace_back( descriptor.inputs.instance.offset );
-	} else {
-		for ( auto& attribute : descriptor.inputs.instance.attributes ) {
-			vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
-			vertexInstance.offset.emplace_back( attribute.offset );
-		}
+	for ( auto& attribute : descriptor.inputs.instance.attributes ) {
+		vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
+		vertexInstance.offset.emplace_back( attribute.offset );
 	}
 
 	struct {

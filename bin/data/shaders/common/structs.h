@@ -144,9 +144,6 @@ struct InstanceAddresses {
 
 	uint64_t joints;
 	uint64_t weights;
-
-	uint64_t id;
-	uint64_t padding1;
 };
 
 struct Object {
@@ -301,7 +298,6 @@ struct Vertex {
 	vec2 st;
 	vec3 normal;
 	vec3 tangent;
-	uint id;
 	uvec2 joints;
 	vec4 weights;
 };

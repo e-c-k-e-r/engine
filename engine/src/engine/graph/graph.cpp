@@ -288,108 +288,71 @@ namespace {
 					uint32_t jointID;
 				};
 
-				if ( mesh.isInterleaved( mesh.vertex ) ) {
-					uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv"); {
-						compShaderFilename = entity.resolveURI( compShaderFilename, root );
-					}
-					graphic.material.metadata.autoInitializeUniformBuffers = false;
-					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-					graphic.material.metadata.autoInitializeUniformBuffers = true;
-					
-					graphic.descriptor.bind.width = mesh.vertex.count;
-					graphic.descriptor.bind.height = 1;
-					graphic.descriptor.bind.depth = 1;
-
-					// compute shader
-					auto& shader = graphic.material.getShader("compute", "skinning");
-
-					// bind buffers
-					struct {
-						uint32_t jointID;
-					} uniforms = {
-						.jointID = 0
-					};
-
-					auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
-					size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
-
-					auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
-					auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
-					graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
-
-					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-
-					::resetBuffers( shader );
-					shader.aliasBuffer( storage.buffers.joint );
-					shader.aliasBuffer( vertexIn );
-					shader.aliasBuffer( vertexOut );
-				} else {
-					uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
-						compShaderFilename = entity.resolveURI( compShaderFilename, root );
-					}
-				
-				//	graphic.material.metadata.autoInitializeUniformBuffers = false;
-					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
-				//	graphic.material.metadata.autoInitializeUniformBuffers = true;
-				
-					graphic.descriptor.bind.width = mesh.vertex.count;
-					graphic.descriptor.bind.height = 1;
-					graphic.descriptor.bind.depth = 1;
-
-					uf::Mesh::Attribute vertexPos;
-					uf::Mesh::Attribute vertexJoints;
-					uf::Mesh::Attribute vertexWeights;
-
-					size_t vertexPosIndex = 0;
-					size_t vertexJointsIndex = 0;
-					size_t vertexWeightsIndex = 0;
-
-					for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
-						auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
-
-						if ( attribute.buffer < 0 ) continue;
-						if ( attribute.descriptor.name == "position" ) {
-							vertexPos = attribute; 
-							vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
-						}
-						else if ( attribute.descriptor.name == "joints" ) {
-							vertexJoints = attribute;
-							vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
-						}
-						else if ( attribute.descriptor.name == "weights" ) {
-							vertexWeights = attribute;
-							vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
-						}
-					}
-
-					auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
-					size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
-
-					auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
-					auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
-					auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
-
-					auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
-					graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
-
-					auto& shader = graphic.material.getShader("compute", "skinning");
-
-					struct {
-						uint32_t jointID;
-					} uniforms = {
-						.jointID = 0
-					};
-
-					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-
-					// bind buffers
-					::resetBuffers( shader );
-					shader.aliasBuffer( storage.buffers.joint );
-					shader.aliasBuffer( vertexPositionBuffer );
-					shader.aliasBuffer( vertexJointsBuffer );
-					shader.aliasBuffer( vertexWeightsBuffer );
-					shader.aliasBuffer( vertexOutPosition );
+				uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
 				}
+			
+			//	graphic.material.metadata.autoInitializeUniformBuffers = false;
+				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+			//	graphic.material.metadata.autoInitializeUniformBuffers = true;
+			
+				graphic.descriptor.bind.width = mesh.vertex.count;
+				graphic.descriptor.bind.height = 1;
+				graphic.descriptor.bind.depth = 1;
+
+				uf::Mesh::Attribute vertexPos;
+				uf::Mesh::Attribute vertexJoints;
+				uf::Mesh::Attribute vertexWeights;
+
+				size_t vertexPosIndex = 0;
+				size_t vertexJointsIndex = 0;
+				size_t vertexWeightsIndex = 0;
+
+				for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
+					auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
+
+					if ( attribute.buffer < 0 ) continue;
+					if ( attribute.descriptor.name == "position" ) {
+						vertexPos = attribute; 
+						vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
+					}
+					else if ( attribute.descriptor.name == "joints" ) {
+						vertexJoints = attribute;
+						vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
+					}
+					else if ( attribute.descriptor.name == "weights" ) {
+						vertexWeights = attribute;
+						vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
+					}
+				}
+
+				auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
+				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+
+				auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
+				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
+				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
+
+				auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
+				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+				auto& shader = graphic.material.getShader("compute", "skinning");
+
+				struct {
+					uint32_t jointID;
+				} uniforms = {
+					.jointID = 0
+				};
+
+				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+				// bind buffers
+				::resetBuffers( shader );
+				shader.aliasBuffer( storage.buffers.joint );
+				shader.aliasBuffer( vertexPositionBuffer );
+				shader.aliasBuffer( vertexJointsBuffer );
+				shader.aliasBuffer( vertexWeightsBuffer );
+				shader.aliasBuffer( vertexOutPosition );
 			}
 
 			graphic.generateBottomAccelerationStructures();
@@ -532,32 +495,24 @@ namespace {
 
 			auto& instanceAddresses = addresses[drawID]; // THIS IS WRONG (to-do: actually use instanceIDs)
 			if ( mesh.vertex.count ) {
-				if ( mesh.isInterleaved( mesh.vertex ) ) {
-					instanceAddresses.vertex = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved).getAddress();
-				} else {
-					for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
-						if ( attribute.buffer < 0 ) continue;
-						if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress();
-						else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic.buffers.at(attribute.buffer).getAddress();
-					}
+				for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
+					if ( attribute.buffer < 0 ) continue;
+					if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress();
+					else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress();
 				}
 			}
 			if ( mesh.index.count ) {
-				if ( mesh.isInterleaved( mesh.index ) ) instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.interleaved).getAddress();
-				else instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
+				instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
 			}
 
 			if ( mesh.indirect.count ) {
-				if ( mesh.isInterleaved( mesh.indirect ) ) instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.interleaved).getAddress();
-				else instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
-
+				instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
 				instanceAddresses.drawID = drawID;
 			}
 		}
@@ -577,7 +532,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R16G16_UINT, id)
 );
 // it'd be super sugoi if I could somehow macro this annoyance
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base, {
@@ -588,7 +542,6 @@ UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base, {
 		uf::vector::lerp( p1.st, p2.st, t ),
 		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
 		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
-		t < 0.5 ? p1.id : p2.id,
 	};
 })
 
@@ -599,7 +552,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16_UINT, id)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
 );
@@ -611,7 +563,6 @@ UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned, {
 		uf::vector::lerp( p1.st, p2.st, t ),
 		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
 		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
-		t < 0.5 ? p1.id : p2.id,
 		t < 0.5 ? p1.joints : p2.joints,
 		uf::vector::lerp( p1.weights, p2.weights, t ),
 	};
@@ -625,7 +576,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16_UINT, id)
 );
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_16f, {
 	return t < 0.5 ? p1 : p2;
@@ -638,7 +588,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16_SFLOAT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16_UINT, id)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_SFLOAT, weights)
 );
@@ -654,7 +603,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16_UINT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16_UINT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16_UINT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16_UINT, id)
 );
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_u16q, {
 	return t < 0.5 ? p1 : p2;
@@ -667,7 +615,6 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16_UINT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16_UINT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16_UINT, tangent)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16_UINT, id)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, weights)
 );
@@ -1371,7 +1318,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
 				auto& attribute = mesh.indirect.attributes.front();
-				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+				auto& buffer = mesh.buffers[attribute.buffer];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 				auto& drawCommand = drawCommands[drawID];
 				drawCommand.instanceID = instanceID;
@@ -1860,7 +1807,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
 		// deduce draw command (indirect) buffer to write to
 		auto& attribute = mesh.indirect.attributes.front();
-		auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+		auto& buffer = mesh.buffers[attribute.buffer];
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 		// queues
 		uf::stl::unordered_map<size_t, uf::stl::vector<pod::Range>> ranges;
@@ -1951,8 +1898,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 			// reset from LOD0
 			//primitives[drawID].drawCommand.instances = 1;
-			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
 			primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
+			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
 			primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
 			primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
 
@@ -2019,8 +1966,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			int8_t lodLevel = queuedLODs[drawID];
 			// reset from LOD0
 			//primitives[drawID].drawCommand.instances = 1;
-			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
 			primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
+			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
 			primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
 			primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
 

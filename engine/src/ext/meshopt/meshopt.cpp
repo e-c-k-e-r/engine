@@ -26,10 +26,6 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 	if ( o == 0 ) {
 		return false; // true, since theres no error technically?
 	}
-	if ( mesh.isInterleaved() ) {
-		UF_MSG_ERROR("Optimization of interleaved meshes is currently not supported.");
-		return false;
-	}
 	mesh.updateDescriptor();
 
 	const auto& views = mesh.buffer_views;
@@ -145,7 +141,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 	// apply index buffer (if missing)
 	if ( mesh.index.attributes.empty() ) {
 		mesh.bindIndex<uint32_t>();
-		mesh.bind(mesh, mesh.isInterleaved());
+		mesh.bind(mesh);
 	}
 
 	// write indices to buffer
@@ -183,11 +179,6 @@ uf::stl::vector<float> ext::meshopt::computeLODs( size_t count, size_t maxLODs, 
 
 uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, const uf::stl::vector<float>& lodFactors, bool verbose ) {
 	uf::stl::vector<pod::LODMetadata> lodMetadata;
-
-	if ( mesh.isInterleaved() ) {
-		UF_MSG_ERROR("Cannot generate LODs on interleaved meshes.");
-		return lodMetadata;
-	}
 	mesh.updateDescriptor();
 
 	const auto& views = mesh.buffer_views;
@@ -209,8 +200,8 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 	for ( size_t viewIdx = 0; viewIdx < views.size(); ++viewIdx ) {
 		uint32_t cmdIdx = views[viewIdx].indirectIndex;
 		auto& cmd = drawCommands[cmdIdx];
-		lodMetadata[cmdIdx].levels[0].indexID  = cmd.indexID;
 		lodMetadata[cmdIdx].levels[0].indices  = cmd.indices;
+		lodMetadata[cmdIdx].levels[0].indexID  = cmd.indexID;
 		lodMetadata[cmdIdx].levels[0].vertexID = cmd.vertexID;
 		lodMetadata[cmdIdx].levels[0].vertices = cmd.vertices;
 	}
@@ -278,8 +269,8 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 				uint32_t lodVertexOffset = outVertices[0].size() / mesh.vertex.attributes[0].stride;
 				uint32_t lodIndexOffset = outIndices.size();
 
-				lodMetadata[cmdIdx].levels[lodIdx].indexID  = lodIndexOffset;
 				lodMetadata[cmdIdx].levels[lodIdx].indices  = currentIndicesCount;
+				lodMetadata[cmdIdx].levels[lodIdx].indexID  = lodIndexOffset;
 				lodMetadata[cmdIdx].levels[lodIdx].vertexID = lodVertexOffset;
 				lodMetadata[cmdIdx].levels[lodIdx].vertices = uniqueVertices;
 

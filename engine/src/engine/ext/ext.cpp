@@ -114,7 +114,6 @@ void UF_API uf::load( ext::json::Value& json ) {
 	// Scene settings
 	{
 		auto& configEngineSceneJson = json["engine"]["scenes"];
-		uf::Mesh::defaultInterleaved = configEngineSceneJson["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
 		uf::matrix::reverseInfiniteProjection = configEngineSceneJson["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
 	}
 

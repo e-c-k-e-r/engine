@@ -567,8 +567,8 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		pod::Vector2f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
 
 		for ( const auto& view : mesh.buffer_views ) {
-			auto posView	= view["position"];
-			auto offView	= view.has("offset") ? view["offset"] : uf::Mesh::AttributeView{};
+			auto posView	= view["position"_hash];
+			auto offView	= view.has("offset"_hash) ? view["offset"_hash] : uf::Mesh::AttributeView{};
 			for ( auto i = 0; i < view.vertex.count; ++i ) {
 				auto pos = uf::mesh::fetchVertex( view, posView, i );
 				auto off = offView.valid() ? uf::mesh::fetchVertex( view, offView, i ) : pod::Vector3f{};

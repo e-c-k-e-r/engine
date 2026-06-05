@@ -3,7 +3,6 @@
 		"scenes": {
 			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
-			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"lightmaps": true,
 				"max": 32,

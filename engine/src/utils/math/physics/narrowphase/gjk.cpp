@@ -66,7 +66,7 @@ pod::Vector3f impl::support( const pod::PhysicsBody& body, const pod::Vector3f& 
 			for ( auto viewIdx = 0; viewIdx < mesh.buffer_views.size(); ++viewIdx ) {
 				if ( 0 <= selectedViewIdx && selectedViewIdx != viewIdx ) continue; // cringe, but saves code duplication (could just alter the bounds above)
 				const auto& view = mesh.buffer_views[viewIdx];
-				auto& positions = view["position"];
+				auto& positions = view["position"_hash];
 				for ( size_t i = 0; i < view.vertex.count; ++i ) {
 					pod::Vector3f v = uf::mesh::fetchVertex( view, positions, i );
 					float dist = uf::vector::dot( v, localDir );

@@ -21,6 +21,8 @@
 #include <uf/ext/gltf/gltf.h>
 
 namespace {
+	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
+
 	decltype(auto) getWrapMode(int32_t wrapMode) {
 		switch (wrapMode) {
 			case 10497: return uf::renderer::enums::AddressMode::REPEAT;
@@ -138,13 +140,6 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	if ( !ret ) { UF_MSG_ERROR("glTF error: failed to parse file: {}", filename);
 		return;
 	}
-
-#if 0
-	if ( !uf::Mesh::defaultInterleaved ) {
-		uf::Mesh::defaultInterleaved = true;
-		UF_MSG_INFO("loading gltf file, defaulting to de-interleaved meshes (makes things easier)");
-	}
-#endif
 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) {
@@ -323,27 +318,6 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				meshgrid.metadata = value["grid"];
 			});
 
-		#if 0 && UF_USE_MESHOPT
-			// cleanup if blender's exporter is poopy
-			if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
-				if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
-					ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-						if ( ext::json::isNull( value["optimize meshlets"] ) ) return;
-						if ( uf::string::isRegex( key ) ) {
-							if ( !uf::string::matched( keyName, key ) ) return;
-						} else if ( keyName != key ) return;
-						meshopt.should = true;
-						if ( ext::json::isObject( value["optimize meshlets"] ) ) {
-							meshopt.level = value["optimize meshlets"]["level"].as(meshopt.level);
-							meshopt.simplify = value["optimize meshlets"]["simplify"].as(meshopt.simplify);
-							meshopt.print = value["optimize meshlets"]["print"].as(meshopt.print);
-							meshopt.lods = value["optimize meshlets"]["lods"].as(meshopt.lods);
-						}
-					});
-				}
-			}
-		#endif
-
 			if ( ext::json::isObject( meshgrid.metadata ) ) {
 				if ( meshgrid.metadata["size"].is<size_t>() ) {
 					size_t d = meshgrid.metadata["size"].as<size_t>();
@@ -358,19 +332,8 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
 			}
 
-			if ( graph.metadata["renderer"]["skinned"].as<bool>(true) ) {
-				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Skinned, uint32_t
-				#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 1
-				#define UF_GRAPH_GRID 1
+			{
 				#include "processPrimitives.inl"
-				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
-				#undef UF_GRAPH_MESH_FORMAT
-			} else {
-				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Base, uint32_t
-				#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 0
-				#include "processPrimitives.inl"
-				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
-				#undef UF_GRAPH_MESH_FORMAT
 			}
 		}
 	}

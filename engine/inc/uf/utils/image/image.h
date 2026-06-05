@@ -49,20 +49,12 @@ namespace uf {
 	// 	C-tor
 		Image() = default;
 		Image( const pod::Image& image ) : pod::Image(image) {}
-	/*
-		Image();
-		explicit Image(const pod::Vector2ui& size);
-		Image(container_t&& move, const pod::Vector2ui& size);
-		Image(const container_t& copy, const pod::Vector2ui& size);
-		Image(const Image& copy);
-		Image(Image&& move) noexcept;
 
-		~Image() = default;
+		Image( const Image& ) = default;
+		Image& operator=( const Image& ) = default;
 
-		// Assignment
-		Image& operator=(const Image& copy);
-		Image& operator=(Image&& move) noexcept;
-	*/
+		Image( Image&& ) noexcept = default;
+		Image& operator=( Image&& ) noexcept = default;
 
 		bool open( const uf::stl::string& filename, bool = true ); 								// from file
 		void open( const std::istream& stream ); 												// from stream

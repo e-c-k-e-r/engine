@@ -263,16 +263,14 @@ void ext::opengl::initialize() {
 			
 			uf::renderer::AttributeDescriptor 	vertexAttributePosition,
 											vertexAttributeUv,
-											vertexAttributeNormal,
-											vertexAttributeId;
+											vertexAttributeNormal;
 
 			for ( auto& attribute : graphic.descriptor.attributes.vertex.descriptor ) {
 				if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 				else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 				else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
-				else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 			}
-			if ( vertexAttributePosition.name == "" ||  vertexAttributeUv.name == "" || vertexAttributeId.name == "" ) return;
+			if ( vertexAttributePosition.name == "" ||  vertexAttributeUv.name == "" ) return;
 			bool hasNormals = vertexAttributeNormal.name != "";
 			// GPU-buffer based command dispatching
 
@@ -293,12 +291,12 @@ void ext::opengl::initialize() {
 				uint8_t* vertexDst = vertexDstPointer + (currentIndex * vertexStride);
 			
 				const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertexSrc + vertexAttributeId.offset));
 				const pod::Vector2f& uv = *((pod::Vector2f*) (vertexSrc + vertexAttributeUv.offset));
 
 				pod::Vector3f& positionDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributePosition.offset));
 				pod::Vector2f& uvDst 		= *((pod::Vector2f*) (vertexDst + vertexAttributeUv.offset));
 
+				// to-do: update this
 				auto& model = instances[id.x];
 				auto& material = materials[id.y];
 				auto& texture = textures[material.indexAlbedo];

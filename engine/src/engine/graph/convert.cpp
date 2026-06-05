@@ -87,7 +87,7 @@ namespace {
 
 				if ( mesh.indirect.count > 0 ) {
 					auto& attribute = mesh.indirect.attributes.front();
-					auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+					auto& buffer = mesh.buffers[attribute.buffer];
 					if ( !buffer.empty() ) {
 						sourceDrawCommands = (pod::DrawCommand*) buffer.data();
 					}
@@ -296,7 +296,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 			
 			UF_ASSERT( primitives.size() == mesh.indirect.count );
 			auto& attribute = mesh.indirect.attributes.front();
-			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+			auto& buffer = mesh.buffers[attribute.buffer];
 			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 			for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
 				primitives[drawID].drawCommand = drawCommands[drawID];

@@ -16,7 +16,7 @@ if ( graph.metadata["sanitizer"]["tangents"].as<bool>(false) ) {
 	sanitizer.tangents.should = true;
 }
 
-uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
+uf::stl::vector<::Meshlet> meshlets;
 
 for ( auto& p : m.primitives ) {
 	size_t primitiveID = meshlets.size();
@@ -41,10 +41,8 @@ for ( auto& p : m.primitives ) {
 		{"COLOR_0", {}},
 		{"NORMAL", {}},
 		{"TANGENT", {}},
-#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		{"JOINTS_0", {}},
 		{"WEIGHTS_0", {}},
-#endif
 	};
 
 	for ( auto& kv : attributes ) {
@@ -124,10 +122,8 @@ for ( auto& p : m.primitives ) {
 		ITERATE_ATTRIBUTE("COLOR_0", color, 255.0f);
 		ITERATE_ATTRIBUTE("NORMAL", normal, 1);
 		ITERATE_ATTRIBUTE("TANGENT", tangent, 1);
-	#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 		ITERATE_ATTRIBUTE("JOINTS_0", joints, 1);
 		ITERATE_ATTRIBUTE("WEIGHTS_0", weights, 1);
-	#endif
 
 		#undef ITERATE_ATTRIBUTE
 
@@ -136,16 +132,11 @@ for ( auto& p : m.primitives ) {
 		if ( graph.metadata["renderer"]["invert"].as<bool>(true) ){
 			vertex.position.x = -vertex.position.x;
 			vertex.normal.x = -vertex.normal.x;
-		#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
 			vertex.tangent.x = -vertex.tangent.x;
-		#endif
 
 			meshlet.primitive.instance.bounds.min = uf::vector::min( meshlet.primitive.instance.bounds.min, vertex.position );
 			meshlet.primitive.instance.bounds.max = uf::vector::max( meshlet.primitive.instance.bounds.max, vertex.position );
 		}
-
-		vertex.id.x = primitiveID;
-		vertex.id.y = meshID;
 	}
 
 	if ( p.indices > -1 ) {
@@ -340,62 +331,4 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 	meshlets = std::move( partitioned );
 }
 
-// optimize each meshlet if requested
-#if 0 && UF_USE_MESHOPT // should probably instead do it on the entire mesh?
-if ( meshopt.should ) {
-	for ( auto& meshlet : meshlets ) {
-		if ( !ext::meshopt::optimize( meshlet, meshopt.simplify, meshopt.level, meshopt.print ) ) {
-			UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
-		}
-		/*
-		if ( meshopt.lods ) {
-			auto factors = ext::meshopt::computeLODs( meshlet.indices.size() );
-			auto lodMetadata = ext::meshopt::generateLODs( meshlet, factors, meshopt.print );
-			if ( lodMetadata.empty() ) {
-				UF_MSG_ERROR("LOD generation failed: {}", keyName );
-			}
-		}
-		*/
-	}
-}
-#endif
-
-{
-	size_t indexID = 0;
-	size_t vertexID = 0;
-
-	mesh.bindIndirect<pod::DrawCommand>();
-	mesh.bind<UF_GRAPH_MESH_FORMAT>(false); // default to de-interleaved regardless of requirement (makes things easier)
-	
-	uf::stl::vector<pod::DrawCommand> drawCommands;
-	drawCommands.reserve( meshlets.size() );
-	primitives.reserve( meshlets.size() );
-
-	for ( auto& meshlet : meshlets ) {
-		meshlet.primitive.drawCommand.instances = 1;
-		meshlet.primitive.drawCommand.instanceID = ++masterInstanceID; // this doesn't matter......
-		meshlet.primitive.drawCommand.indexID = indexID;
-		meshlet.primitive.drawCommand.indices = meshlet.indices.size();
-		meshlet.primitive.drawCommand.vertexID = vertexID;
-		meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
-
-		// copy to LOD metadata
-		meshlet.primitive.lod.levels[0].indexID = indexID;
-		meshlet.primitive.lod.levels[0].indices = meshlet.indices.size();
-		meshlet.primitive.lod.levels[0].vertexID = vertexID;
-		meshlet.primitive.lod.levels[0].vertices = meshlet.vertices.size();
-
-		drawCommands.emplace_back(meshlet.primitive.drawCommand);
-
-		primitives.emplace_back( meshlet.primitive );
-
-		indexID += meshlet.indices.size();
-		vertexID += meshlet.vertices.size();
-
-		mesh.insertVertices(meshlet.vertices);
-		mesh.insertIndices(meshlet.indices);
-	}
-
-	mesh.insertIndirects(drawCommands);
-	mesh.updateDescriptor();
-}
+mesh.compile( meshlets, primitives );

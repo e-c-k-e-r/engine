@@ -232,7 +232,6 @@ namespace {
 			mesh.N.first = input["first"].as( mesh.N.first );\
 			mesh.N.size = input["size"].as( mesh.N.size );\
 			mesh.N.offset = input["offset"].as( mesh.N.offset );\
-			mesh.N.interleaved = input["interleaved"].as( mesh.N.interleaved );\
 			ext::json::forEach( input["attributes"], [&]( ext::json::Value& value ){\
 				auto& attribute = mesh.N.attributes.emplace_back();\
 				attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);\
@@ -266,7 +265,6 @@ namespace {
 				mesh.buffers.emplace_back();
 				mesh.buffer_paths.emplace_back(directory + "/" + filename);
 			} else {
-				// to-do: make it work for interleaved meshes
 				mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 			}
 		#endif
@@ -289,22 +287,18 @@ namespace {
 		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
 		{
 			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
-			if ( !mesh.isInterleaved() ) {
-				uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
+			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
 
-				for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
-					auto& attribute = mesh.vertex.attributes[i];
-					if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
-					remove.insert(remove.begin(), i);
-					UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
-				}
-				for ( auto& i : remove ) {
-					mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
-					mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
-					mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
-				}
-			} else {
-				UF_MSG_DEBUG("Attribute removal requested yet mesh is interleaved, ignoring...");
+			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
+				auto& attribute = mesh.vertex.attributes[i];
+				if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
+				remove.insert(remove.begin(), i);
+				UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
+			}
+			for ( auto& i : remove ) {
+				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
+				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
+				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
 			}
 		}
 	#endif
@@ -395,7 +389,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	#if UF_USE_OPENGL
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "uv", "st" });
 	#else
-		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "tangent", "joints", "weights", "normal", "id" });
+		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "normal", "tangent", "joints", "weights" });
 	#endif
 	}
 

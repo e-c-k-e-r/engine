@@ -23,9 +23,16 @@ namespace uf {
 
 		template<typename Key, typename T>
 		uf::stl::vector<Key> keys( const uf::stl::unordered_map<Key, T>& map ) {
-			uf::stl::vector<Key> keys;
+			uf::stl::vector<Key> keys; keys.reserve( map.size() );
 			for ( auto pair : map ) keys.emplace_back( pair.first );
 			return keys;
+		}
+
+		template<typename Key, typename T>
+		uf::stl::vector<T> values( const uf::stl::unordered_map<Key, T>& map ) {
+			uf::stl::vector<T> values; values.reserve( map.size() );
+			for ( auto pair : map ) values.emplace_back( pair.second );
+			return values;
 		}
 	}
 }

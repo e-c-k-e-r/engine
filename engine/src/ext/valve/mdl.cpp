@@ -221,33 +221,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 				auto& meshlet = meshlets.emplace_back();
 				uf::stl::unordered_map<uint16_t, uint32_t> vertRemap;
 
-				uf::stl::string matName = "missing_texture";
-				if ( meshID < materials.size() ) {
-					matName = materials[meshID];
-				}
-
-				// does not exist, register
-				if ( storage.textures.map.count(matName) == 0 ) {
-					size_t imageID = graph.images.size();
-					auto imgKeyName = graph.images.emplace_back(matName);
-					auto& image = storage.images[imgKeyName];
-
-					size_t textureID = graph.textures.size();
-					auto texKeyName = graph.textures.emplace_back(matName);
-					storage.textures[texKeyName].index = imageID;
-					storage.texture2Ds[texKeyName];
-
-					size_t materialID = graph.materials.size();
-					auto matKeyName = graph.materials.emplace_back(matName);
-					auto& material = storage.materials[matKeyName];
-					material.indexAlbedo = textureID;
-					material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
-				}
-				
-				// meshlet.primitive.instance.materialID = ...;
-
 				const impl::vtxStripGroup_t* stripGroups = (const impl::vtxStripGroup_t*)((uint8_t*)&mesh + mesh.stripGroupHeaderOffset);
-
 				for ( int sg = 0; sg < mesh.numStripGroups; ++sg ) {
 					const impl::vtxStripGroup_t& stripGroup = stripGroups[sg];
 
@@ -269,15 +243,70 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 							vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal ) );
 							vert.uv = srcVert.m_vecTexCoord;
 							vert.color = {1.0f, 1.0f, 1.0f, 1.0f};
+							vert.joints.x = srcVert.m_BoneWeights.numbones > 0 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[0]) : 0;
+                            vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
+                            vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
+                            vert.joints.w = 0;
 
-							// to-do: bounds calculation
+                            vert.weights.x = srcVert.m_BoneWeights.numbones > 0 ? srcVert.m_BoneWeights.weight[0] : 1.0f;
+                            vert.weights.y = srcVert.m_BoneWeights.numbones > 1 ? srcVert.m_BoneWeights.weight[1] : 0.0f;
+                            vert.weights.z = srcVert.m_BoneWeights.numbones > 2 ? srcVert.m_BoneWeights.weight[2] : 0.0f;
+                            vert.weights.w = 0.0f;
+
+							// Bounds calculation
+							auto& bounds = meshlet.primitive.instance.bounds;
+							if ( vertRemap.size() == 1 ) {
+								bounds.min = bounds.max = vert.position;
+							} else {
+								bounds.min = uf::vector::min( bounds.min, vert.position );
+								bounds.max = uf::vector::max( bounds.max, vert.position );
+							}
 						}
 
 						meshlet.indices.push_back(vertRemap[originalVvdID]);
 					}
 				}
+
+				size_t materialID = 0;
+				uf::stl::string matName = "missing_texture";
+				if ( meshID < materials.size() ) matName = materials[meshID];
+				if ( storage.materials.map.count(matName) > 0 ) {
+					// to-do: add an indexOf
+					for ( ; materialID < graph.materials.size(); ++materialID ) {
+						if ( graph.materials[materialID] == matName ) break;
+					}
+				} else {
+					// does not exist, register
+					size_t imageID = graph.images.size();
+					auto imgKeyName = graph.images.emplace_back(matName);
+					auto& image = storage.images[imgKeyName];
+
+					size_t textureID = graph.textures.size();
+					auto texKeyName = graph.textures.emplace_back(matName);
+					storage.textures[texKeyName].index = imageID;
+					storage.texture2Ds[texKeyName];
+
+					materialID = graph.materials.size();
+					auto matKeyName = graph.materials.emplace_back(matName);
+					auto& material = storage.materials[matKeyName];
+					material.indexAlbedo = textureID;
+					material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
+				}	
+				meshlet.primitive.instance.materialID = materialID;
 			}
 		}
+	}
+
+	if ( !meshlets.empty() ) {
+		auto meshName = filename;
+		graph.meshes.emplace_back(meshName);
+		graph.primitives.emplace_back(meshName);
+
+		auto& mesh = storage.meshes[meshName];
+		auto& primitives = storage.primitives[meshName];
+		storage.instanceAddresses[meshName] = {};
+
+		mesh.compile( meshlets, primitives );
 	}
 
 	return true;

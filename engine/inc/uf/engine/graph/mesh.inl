@@ -8,7 +8,6 @@ namespace uf {
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
 				pod::Vector3f tangent{};
-				pod::Vector2us id{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base interpolate( const Base& p1, const Base& p2, float t );
@@ -20,7 +19,6 @@ namespace uf {
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
 				pod::Vector3f tangent{};
-				pod::Vector2us id{};
 				pod::Vector4us joints{};
 				pod::Vector4f weights{};
 
@@ -35,7 +33,6 @@ namespace uf {
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
 				pod::Vector3f16 tangent{};
-				pod::Vector2us id{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base_16f interpolate( const Base_16f& p1, const Base_16f& p2, float t );
@@ -47,7 +44,6 @@ namespace uf {
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
 				pod::Vector3f16 tangent{};
-				pod::Vector2us id{};
 				pod::Vector4us joints{};
 				pod::Vector3f16 weights{};
 
@@ -62,7 +58,6 @@ namespace uf {
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
 				pod::Vector3us tangent{};
-				pod::Vector2us id{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base_u16q interpolate( const Base_u16q& p1, const Base_u16q& p2, float t );
@@ -74,7 +69,6 @@ namespace uf {
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
 				pod::Vector3us tangent{};
-				pod::Vector2us id{};
 				pod::Vector4us joints{};
 				pod::Vector3us weights{};
 
