@@ -87,11 +87,11 @@ namespace pod {
 			};
 
 			uf::stl::KeyMap<uf::stl::vector<pod::Instance>> groupedInstances;
-			uf::stl::KeyMap<uf::stl::vector<pod::Instance::Addresses>> instanceAddresses;
+			uf::stl::KeyMap<uf::stl::vector<pod::Instance::Addresses>> addresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
 			uf::stl::KeyMap<uf::Mesh> meshes;
 
-			uf::stl::KeyMap<uf::Image> images;
+			uf::stl::KeyMap<pod::ImageTexture> images;
 			uf::stl::KeyMap<pod::Material> materials;
 			uf::stl::KeyMap<pod::Texture> textures;
 			uf::stl::KeyMap<uf::renderer::Sampler> samplers;
@@ -103,7 +103,6 @@ namespace pod {
 			uf::stl::KeyMap<uf::Atlas> atlases;
 			uf::stl::KeyMap<pod::Instance::Object> objects;
 			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
-			uf::stl::KeyMap<uf::renderer::Texture2D> texture2Ds;
 			uf::stl::KeyMap<uf::Entity*> entities;
 			
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
@@ -113,7 +112,7 @@ namespace pod {
 				uf::renderer::Buffer camera;
 				uf::renderer::Buffer drawCommands;
 				uf::renderer::Buffer instance;
-				uf::renderer::Buffer instanceAddresses;
+				uf::renderer::Buffer addresses;
 				uf::renderer::Buffer lodMetadata;
 				uf::renderer::Buffer joint;
 				uf::renderer::Buffer object;
@@ -155,7 +154,7 @@ namespace uf {
 		const pod::Graph::Storage& UF_API getStorage( const uf::Object& );
 
 	//	void UF_API process( uf::Object& entity );
-		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& );
+		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Primitive>& );
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 		void UF_API reload( pod::Graph& );

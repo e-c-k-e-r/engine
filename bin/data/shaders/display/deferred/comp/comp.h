@@ -78,7 +78,7 @@ layout (std140, binding = 13, set = 0) readonly buffer Instances {
 	Instance instances[];
 };
 layout (std140, binding = 14, set = 0) readonly buffer InstanceAddresseses {
-	InstanceAddresses instanceAddresses[];
+	InstanceAddresses addresses[];
 };
 layout (std140, binding = 15, set = 0) readonly buffer Objects {
 	Object objects[];

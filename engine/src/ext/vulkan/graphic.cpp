@@ -1198,9 +1198,8 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		#define PARSE_INPUT_INITIALIZE(NAME, USAGE){\
 			for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 				auto& attribute = descriptor.inputs.NAME.attributes[i];\
-				auto& buffer = mesh.buffers[attribute.buffer];\
-				if ( !buffer.empty() ) {\
-					attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE | baseUsage );\
+				if ( attribute.pointer && attribute.length > 0 ) {\
+					attribute.buffer = initializeBuffer( (const void*) attribute.pointer, attribute.length, USAGE | baseUsage );\
 					this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] = attribute.buffer;\
 				} else attribute.buffer = -1;\
 			}\
@@ -1239,9 +1238,8 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	#define PARSE_INPUT_UPDATE(NAME, USAGE){\
 		for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
 			auto& attribute = descriptor.inputs.NAME.attributes[i];\
-			auto& buffer = mesh.buffers[attribute.buffer];\
-			if ( !buffer.empty() ) {\
-				rebuild = updateBuffer( (const void*) buffer.data(), buffer.size(), this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] ) || rebuild;\
+			if ( attribute.pointer && attribute.length > 0 ) {\
+				rebuild = updateBuffer( (const void*) attribute.pointer, attribute.length, this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] ) || rebuild;\
 			} else attribute.buffer = -1;\
 		}\
 	}

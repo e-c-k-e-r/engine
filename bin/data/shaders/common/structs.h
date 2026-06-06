@@ -67,7 +67,7 @@ struct Material {
 	
 	int indexMetallicRoughness;
 	int padding1;
-	int padding2;
+	int modeCull;
 	int modeAlpha;
 };
 

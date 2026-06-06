@@ -2,6 +2,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/hash.h>
 #include <uf/utils/io/iostream.h>
+#include <uf/utils/io/vfs.h>
 #include <fstream> 					// std::fstream
 #include <iostream> 				// std::fstream
 #include <png/png.h> 				// libpng
@@ -12,6 +13,14 @@
 #include <stb/stb_image_write.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/string/ext.h>
+
+namespace {
+	void stbi_buffer_write_func(void *context, void *data, int size) {
+		auto* buffer = static_cast<uf::stl::vector<uint8_t>*>(context);
+		auto* bytes = static_cast<uint8_t*>(data);
+		buffer->insert(buffer->end(), bytes, bytes + size);
+	}
+}
 
 namespace impl {
 	pod::Image scaleNearest( const pod::Image& image, const pod::Vector2ui& size ) {
@@ -203,12 +212,20 @@ bool uf::image::save( const pod::Image& image, const uf::stl::string& filename, 
 	auto* pixels = &image.pixels[0];
 	uf::stl::string extension = uf::io::extension(filename);
 	stbi_flip_vertically_on_write(flip);
-	if ( extension == "png" ) {
-		stbi_write_png(filename.c_str(), w, h, image.channels, &pixels[0], w * image.channels);
-	} else if ( extension == "jpg" || extension == "jpeg" ) {
-		stbi_write_jpg(filename.c_str(), w, h, image.channels, &pixels[0], w * image.channels);
-	}
-	return true;
+	
+	uf::stl::vector<uint8_t> buffer;
+
+    if ( extension == "png" ) {
+        stbi_write_png_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, w * image.channels);
+    } else if ( extension == "jpg" || extension == "jpeg" ) {
+        stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // 90 is quality
+    } else {
+        UF_MSG_ERROR("Unsupported image save format: {}", extension);
+        return false;
+    }
+
+    if ( buffer.empty() ) return false;
+    return uf::vfs::write( filename, buffer.data(), buffer.size() ) > 0;
 }
 void uf::image::save( const pod::Image& image, std::ostream& stream ) {
 

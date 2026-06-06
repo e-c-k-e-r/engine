@@ -338,6 +338,7 @@ namespace {
 			.skin = json["skin"].as<int32_t>(-1),
 			.entity = NULL,
 			.transform = uf::transform::decode( json["transform"], pod::Transform<>{} ),
+			.metadata = json["metadata"],
 		};
 
 		node.children.reserve( json["children"].size() );
@@ -447,7 +448,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
 			storage.primitives[name] = decodePrimitives( value, graph );
-			storage.instanceAddresses[name] = {};
 
 			graph.primitives.emplace_back(name);
 		});
@@ -478,7 +478,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 			// UF_MSG_DEBUG("{}", name);
-			storage.images[name] = decodeImage( value, graph );
+			storage.images[name] = {
+				.data = decodeImage( value, graph ),
+			};
 			graph.images.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read images");
@@ -509,9 +511,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			// UF_MSG_DEBUG("{}", name);
 			storage.textures[name] = decodeTexture( value, graph );
 			graph.textures.emplace_back(name);
-
-			// pre-allocate
-			storage.texture2Ds[name];
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read texture information");
 	#if UF_ENV_DREAMCAST

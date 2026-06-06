@@ -4,8 +4,8 @@ namespace pod {
 		pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
 		
 		float factorMetallic = 0.0f;
-		float factorRoughness = 0.0f;
-		float factorOcclusion = 0.0f;
+		float factorRoughness = 1.0f;
+		float factorOcclusion = 1.0f;
 		float factorAlphaCutoff = 1.0f;
 
 		int32_t indexAlbedo = -1;
@@ -15,7 +15,7 @@ namespace pod {
 
 		int32_t indexMetallicRoughness = -1;
 		int32_t padding1 = -1;
-		int32_t padding2 = -1;
+		int32_t modeCull = -1;
 		int32_t modeAlpha = -1;
 	};
 	
@@ -91,5 +91,10 @@ namespace pod {
 		uf::Object* entity = NULL;
 		pod::Transform<> transform;
 		uf::Serializer metadata;
+	};
+
+	struct UF_API ImageTexture {
+		uf::Image data;
+		uf::renderer::Texture2D handle;
 	};
 }

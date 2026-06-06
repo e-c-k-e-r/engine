@@ -355,38 +355,38 @@ uvec4 uvec2_16x4( uvec2 i ) {
 }
 
 #if BUFFER_REFERENCE
-void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
+void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
-	if ( false && isValidAddress(instanceAddresses.vertex) ) {
-	//	Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+	if ( false && isValidAddress(addresses.vertex) ) {
+	//	Vertices vertices = Vertices(nonuniformEXT(addresses.vertex));
 	//	#pragma unroll 3
 	//	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
 	} else {
-		if ( isValidAddress(instanceAddresses.position) ) {
-			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
+		if ( isValidAddress(addresses.position) ) {
+			VPos buf = VPos(nonuniformEXT(addresses.position));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) points[_].position = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
 			//for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
-		if ( isValidAddress(instanceAddresses.uv) ) {
-			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
+		if ( isValidAddress(addresses.uv) ) {
+			VUv buf = VUv(nonuniformEXT(addresses.uv));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv/*[_]*/ = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( isValidAddress(instanceAddresses.st) ) {
-			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
+		if ( isValidAddress(addresses.st) ) {
+			VSt buf = VSt(nonuniformEXT(addresses.st));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st/*[_]*/ = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( isValidAddress(instanceAddresses.normal) ) {
-			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
+		if ( isValidAddress(addresses.normal) ) {
+			VNormal buf = VNormal(nonuniformEXT(addresses.normal));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
 			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal[_] = buf.v[/*triangle.*/indices[_]*3+_];
 		}
-		if ( isValidAddress(instanceAddresses.tangent) ) {
-			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
+		if ( isValidAddress(addresses.tangent) ) {
+			VTangent buf = VTangent(nonuniformEXT(addresses.tangent));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
 			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent[_] = buf.v[/*triangle.*/indices[_]*3+_];
@@ -475,23 +475,23 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	surface.instance = instances[instanceID];
 	surface.object = objects[surface.instance.objectID];
 
-	const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
-	if ( !isValidAddress(instanceAddresses.index) ) return;
-	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
+	const InstanceAddresses addresses = addresses[instanceID];
+	if ( !isValidAddress(addresses.index) ) return;
+	const DrawCommand drawCommand = Indirects(nonuniformEXT(addresses.indirect)).dc[addresses.drawID];
 	const uint triangleID = primitiveID + (drawCommand.indexID / 3);
-	//uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	//uvec3 indices = Indices(nonuniformEXT(addresses.index)).i[triangleID];
 	
 	uvec3 indices = uvec3(
-		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+0],
-		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+1],
-		Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID*3+2]
+		Indices(nonuniformEXT(addresses.index)).i[triangleID*3+0],
+		Indices(nonuniformEXT(addresses.index)).i[triangleID*3+1],
+		Indices(nonuniformEXT(addresses.index)).i[triangleID*3+2]
 	);
 	
 
 	#pragma unroll 3
 	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
 
-	populateSurface( instanceAddresses, indices );
+	populateSurface( addresses, indices );
 }
 void populateSurface( RayTracePayload payload ) {
 	surface.fragment = vec4(0);

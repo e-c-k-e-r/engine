@@ -61,6 +61,15 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 			output.close();
 			return size;
 		},
+		.mkdir = [path](const uf::stl::string& file) -> bool {
+			uf::stl::string fullPath = path + file;
+			#if UF_ENV_DREAMCAST || UF_ENV_LINUX
+				return false;
+			#else
+				int status = ::mkdir(fullPath.c_str());
+				return status != -1;
+			#endif
+		},
 		.readRange = [path](const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer) -> bool {
 			uf::stl::string fullPath = path + file;
 			std::ifstream is(fullPath, std::ios::binary);
@@ -161,6 +170,19 @@ bool uf::vfs::exists( const uf::stl::string& path ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
 			if ( mount.exists(relative) ) return true;
+		}
+	}
+	return false;
+}
+
+bool uf::vfs::mkdir( const uf::stl::string& path ) {
+	uf::stl::string prefix, relative;
+	uf::io::splitUri(path, prefix, relative);
+
+	for ( const auto& mount : mounts ) {
+		if ( prefix.empty() && mount.priority < 0 ) continue;
+		if ( prefix.empty() || mount.prefix == prefix ) {
+			if ( mount.mkdir(relative) ) return true;
 		}
 	}
 	return false;

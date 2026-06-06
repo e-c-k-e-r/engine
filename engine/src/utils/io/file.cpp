@@ -216,14 +216,8 @@ bool uf::io::exists( const uf::stl::string& filename ) {
 size_t uf::io::mtime( const uf::stl::string& filename ) {
 	return uf::vfs::mtime( uf::io::resolveURI(filename) );
 }
-bool uf::io::mkdir( const uf::stl::string& _filename ) {
-#if UF_ENV_DREAMCAST || UF_ENV_LINUX
-	return false;
-#else
-	uf::stl::string filename = uf::io::normalize(_filename);
-	int status = ::mkdir(filename.c_str());
-	return status != -1;
-#endif
+bool uf::io::mkdir( const uf::stl::string& filename ) {
+	return uf::vfs::mkdir( uf::io::resolveURI(filename) );
 }
 
 uf::stl::string uf::io::assetType( const uf::stl::string& _filename ) {

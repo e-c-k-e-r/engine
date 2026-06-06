@@ -225,6 +225,7 @@ namespace {
 		for ( auto& child : node.children ) json["children"].emplace_back(child);
 
 		json["transform"] = uf::transform::encode( node.transform, false, settings );
+		json["metadata"] = node.metadata;
 		return json;
 	}
 }
@@ -331,7 +332,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		if ( !settings.combined ) {
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
 				auto& name = graph.images[i];
-				auto& image = /*graph.storage*/storage.images.map.at(name);
+				auto& image = /*graph.storage*/storage.images.map.at(name).data;
 				uf::stl::string f = "image."+std::to_string(i)+".png";
 				image.save(directory + "/" + f);
 
@@ -350,7 +351,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			}
 		} else {
 			for ( auto& name : graph.images ) {
-				auto& image = /*graph.storage*/storage.images.map.at(name);
+				auto& image = /*graph.storage*/storage.images.map.at(name).data;
 				auto json = encode(image, settings, graph);
 				json["name"] = name;
 				serializer["images"].emplace_back( json );

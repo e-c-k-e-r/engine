@@ -45,7 +45,7 @@ layout (std140, binding = 11) readonly buffer Instances {
 	Instance instances[];
 };
 layout (std140, binding = 12) readonly buffer InstanceAddresseses {
-	InstanceAddresses instanceAddresses[];
+	InstanceAddresses addresses[];
 };
 layout (std140, binding = 13) readonly buffer Materials {
 	Material materials[];

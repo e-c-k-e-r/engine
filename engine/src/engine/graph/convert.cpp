@@ -49,12 +49,12 @@ namespace {
 			size_t materialID = graph.materials.size();
 			for ( auto& t : textures ) {
 				size_t textureID = graph.textures.size();
-				size_t texture2DID = graph.texture2Ds.size();
+				size_t texture2DID = graph.images.size();
 
 				uf::stl::string subName = keyName + "[" + std::to_string(sub++) + "]";
 				auto& material = storage.materials[graph.materials.emplace_back(subName)];
 				auto& texture = storage.textures[graph.textures.emplace_back(subName)];
-				auto& texture2D = storage.texture2Ds[graph.texture2Ds.emplace_back(subName)];
+				auto& texture2D = storage.images[graph.images.emplace_back(subName)].handle;
 
 				material.indexAlbedo = textureID;
 				material.colorBase = {1, 1, 1, 1};
@@ -66,7 +66,6 @@ namespace {
 				node.mesh = meshID;
 				auto& primitives = storage.primitives[graph.primitives.emplace_back(keyName)];
 				auto& mesh = (storage.meshes[graph.meshes.emplace_back(keyName)] = object.getComponent<uf::Mesh>());
-				auto& instanceAddresses = storage.instanceAddresses[keyName];
 
 				pod::Vector3f boundsMin = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
 				pod::Vector3f boundsMax = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
@@ -128,7 +127,7 @@ namespace {
 					primitive.lod.levels[0].vertices = drawCommand.vertices;
 				}
 
-				uf::graph::initializeGraphics( graph, object, mesh, instanceAddresses );
+				uf::graph::initializeGraphics( graph, object, mesh, primitives );
 			}
 		}
 

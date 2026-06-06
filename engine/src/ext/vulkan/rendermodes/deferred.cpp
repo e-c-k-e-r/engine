@@ -553,7 +553,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 	//	shader.aliasBuffer( storage.buffers.joint );
 		shader.aliasBuffer( storage.buffers.drawCommands );
 		shader.aliasBuffer( storage.buffers.instance );
-		shader.aliasBuffer( storage.buffers.instanceAddresses );
+		shader.aliasBuffer( storage.buffers.addresses );
 		shader.aliasBuffer( storage.buffers.object );
 		shader.aliasBuffer( storage.buffers.material );
 		shader.aliasBuffer( storage.buffers.texture );

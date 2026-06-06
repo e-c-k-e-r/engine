@@ -156,7 +156,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		for ( auto& i : model.images ) {
 			auto imageID = graph.images.size();
 			auto keyName = graph.images.emplace_back(key + i.name);
-			auto& image = storage.images[keyName];
+			auto& image = storage.images[keyName].data;
 			if ( graph.metadata["debug"]["print"]["images"].as<bool>() ) {
 				UF_MSG_DEBUG("Image: {}", i.name );
 			}
@@ -290,7 +290,6 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 			auto& primitives = storage.primitives[keyName];
 			auto& mesh = storage.meshes[keyName];
-			storage.instanceAddresses[keyName] = {};
 			
 			struct {
 				uf::meshgrid::Grid grid;
@@ -472,14 +471,13 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		auto atlasImageIndex = graph.images.size();
 		auto atlasTextureIndex = graph.textures.size();
 	
-		for ( auto& keyName : graph.images ) atlas.addImage( storage.images[keyName] );
+		for ( auto& keyName : graph.images ) atlas.addImage( storage.images[keyName].data );
 		atlas.generate();
 
 		for ( auto& keyName : graph.images ) {
 			auto& texture = storage.textures[keyName];
-			storage.texture2Ds[keyName];
 			if ( texture.index < 0 ) continue;
-			auto& image = storage.images[keyName];
+			auto& image = storage.images[keyName].data;
 
 			const auto& hash = image.getHash();
 			auto min = atlas.mapUv( {0, 0}, hash );
@@ -491,7 +489,7 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 		{
 			graph.images.emplace_back(atlasName);
-			auto& image = storage.images[atlasName];
+			auto& image = storage.images[atlasName].data;
 			image = atlas.getAtlas();
 
 			graph.textures.emplace_back(atlasName);

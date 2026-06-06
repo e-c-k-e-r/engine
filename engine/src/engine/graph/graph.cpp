@@ -69,7 +69,7 @@ namespace {
 
 		auto& storage = uf::graph::getStorage( graph );
 
-		for ( auto& key : storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
+		for ( auto& key : storage.images.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.images.map[key].handle );
 
 		// bind scene's voxel texture
 	#if 0 && UF_USE_VULKAN
@@ -395,7 +395,7 @@ namespace {
 				::resetBuffers( shader );
 				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 				shader.aliasBuffer( "instance", storage.buffers.instance );
-				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "addresses", storage.buffers.addresses );
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
@@ -413,7 +413,7 @@ namespace {
 			::resetBuffers( shader );
 			shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 			shader.aliasBuffer( "instance", storage.buffers.instance );
-			shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+			shader.aliasBuffer( "addresses", storage.buffers.addresses );
 			shader.aliasBuffer( "material", storage.buffers.material );
 			shader.aliasBuffer( "texture", storage.buffers.texture );
 			shader.aliasBuffer( "light", storage.buffers.light );
@@ -445,7 +445,7 @@ namespace {
 				::resetBuffers( shader );
 				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 				shader.aliasBuffer( "instance", storage.buffers.instance );
-				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "addresses", storage.buffers.addresses );
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
@@ -474,7 +474,7 @@ namespace {
 				::resetBuffers( shader );
 				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 				shader.aliasBuffer( "instance", storage.buffers.instance );
-				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "addresses", storage.buffers.addresses );
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
@@ -483,38 +483,37 @@ namespace {
 		#endif
 	}
 
-	void bindInstanceAddresses( pod::Graph& graph, uf::renderer::Graphic& graphic, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& addresses ) {
+	void bindAddresses( pod::Graph& graph, uf::renderer::Graphic& graphic, uf::Mesh& mesh, uf::stl::vector<pod::Primitive>& primitives ) {
 	#if UF_USE_VULKAN
 		if ( !uf::renderer::settings::invariant::deviceAddressing || !mesh.indirect.count ) return;
-		addresses.resize( mesh.indirect.count );
 
-		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
+		pod::Instance::Addresses addresses;
+		if ( mesh.vertex.count ) {
+			for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
+				if ( attribute.buffer < 0 ) continue;
+				if ( attribute.descriptor.name == "position" ) 		addresses.position = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "uv" ) 		addresses.uv = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "color" ) 	addresses.color = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "st" ) 		addresses.st = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "normal" ) 	addresses.normal = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "tangent" ) 	addresses.tangent = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "joints" ) 	addresses.joints = graphic.buffers.at(attribute.buffer).getAddress();
+				else if ( attribute.descriptor.name == "weights" ) 	addresses.weights = graphic.buffers.at(attribute.buffer).getAddress();
+			}
+		}
+		if ( mesh.index.count ) {
+			addresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
+		}
+
+		if ( mesh.indirect.count ) {
+			addresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
+		}
+
 		for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
-			auto& drawCommand = drawCommands[drawID];
-			auto instanceID = drawCommand.instanceID;
-
-			auto& instanceAddresses = addresses[drawID]; // THIS IS WRONG (to-do: actually use instanceIDs)
-			if ( mesh.vertex.count ) {
-				for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
-					if ( attribute.buffer < 0 ) continue;
-					if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress();
-					else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress();
-				}
-			}
-			if ( mesh.index.count ) {
-				instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
-			}
-
-			if ( mesh.indirect.count ) {
-				instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
-				instanceAddresses.drawID = drawID;
-			}
+			// copy address
+			primitives[drawID].addresses = addresses;
+			// bind draw ID (necessary for deferred pass where we store <instanceID + primitiveID>, to fetch the drawID, to fetch the triangleID) (or something)
+			primitives[drawID].addresses.drawID = drawID;
 		}
 	#endif
 	}
@@ -696,7 +695,7 @@ const pod::Graph::Storage& uf::graph::getStorage( const pod::Graph& graph ) {
 	return uf::graph::getStorage( g );
 }
 
-void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Instance::Addresses>& addresses ) {
+void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Primitive>& primitives ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -731,6 +730,20 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		}
 		else UF_MSG_WARNING("Invalid Face enum string specified: {}", mode);
 	}
+	
+	// query materials if culling needs to be disabled
+	for ( auto& primitive : primitives ) {
+		auto materialID = primitive.instance.materialID;
+		if ( 0 < materialID && materialID <= graph.materials.size() ) {
+			auto& materialName = graph.materials[materialID];
+			auto& material = storage.materials[materialName];
+			if ( material.modeCull == 0 ) {
+				tag["renderer"]["cull mode"] = "none";
+				break;
+			}
+		}
+	}
+
 	if ( tag["renderer"]["cull mode"].is<uf::stl::string>() ) {
 		const auto mode = uf::string::lowercase( tag["renderer"]["cull mode"].as<uf::stl::string>() );
 		if ( mode == "back" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
@@ -740,10 +753,11 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		else UF_MSG_WARNING("Invalid CullMode enum string specified: {}", mode);
 	}
 
+
 	::bindTextures( graph, graphic );
 	::bindShaders( graph, entity, mesh );
 	::bindBuffers( graph, graphic, mesh );
-	::bindInstanceAddresses( graph, graphic, mesh, addresses );
+	::bindAddresses( graph, graphic, mesh, primitives );
 
 	graphic.process = true;
 }
@@ -869,7 +883,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto imageID = graph.images.size();
 
 				auto& texture = storage.textures[graph.textures.emplace_back(f)];
-				auto& image = storage.images[graph.images.emplace_back(f)];
+				auto& image = storage.images[graph.images.emplace_back(f)].data;
 				if ( !graph.settings.stream.textures ) {
 					image.open( f, false );
 				}
@@ -894,9 +908,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	}
 
-	// setup textures
-	storage.texture2Ds.reserve( storage.images.map.size() );
-
 	// figure out what texture is what exactly
 	UF_DEBUG_TIMER_MULTITRACE("Determining format of textures");
 	for ( auto& key : graph.materials ) {
@@ -911,8 +922,8 @@ void uf::graph::process( pod::Graph& graph ) {
 
 	UF_DEBUG_TIMER_MULTITRACE("Processing images...");
 	for ( auto& key : graph.images ) {
-		auto& image = storage.images[key];
-		auto& texture = storage.texture2Ds[key];
+		auto& image = storage.images[key].data;
+		auto& texture = storage.images[key].handle;
 		if ( !texture.generated() ) {
 			// set as null
 			if ( graph.settings.stream.textures ) {
@@ -1177,7 +1188,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( graphMetadataJson["baking"]["enabled"].as<bool>(false) && !tag["bake"].as<bool>(true) ) ignore = true;
 		if ( tag["ignore"].as<bool>() ) ignore = true;
 	}
-	bool isLight = graph.lights.count(node.name) > 0;
 
 	if ( ignore ) return;
 		
@@ -1188,6 +1198,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	uf::Object& entity = *pointer;
 	node.entity = &entity;
 	
+	auto nameID = ::fmt::format( "{}_{}", node.name, index );
 	bool setName = entity.getName() == "Entity";
 	auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = entity.getComponent<uf::Serializer>();
@@ -1220,8 +1231,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 	// create as light
 	{
-		if ( isLight ) {
-			auto& l = graph.lights[node.name];
+		// attempt to resolve a light name
+		auto lightName = node.name;
+		if ( graph.lights.count( nameID ) > 0 ) lightName = nameID;
+		if ( graph.lights.count( lightName ) > 0 ) {
+			auto& l = graph.lights[lightName];
 			
 		#if UF_USE_OPENGL
 			metadata.system.ignoreGraph = true;
@@ -1319,10 +1333,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			};
 		}
 
-		auto primitiveName = graph.primitives[node.mesh];
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+		auto primitiveName = graph.primitives[node.mesh];
 		auto& primitives = storage.primitives.map[primitiveName];
-		auto& grouped = storage.groupedInstances[primitiveName];
 
 		node.object = ::allocateObjectID( storage );
 		auto objectKeyName = std::to_string( node.object );
@@ -1335,6 +1348,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 		pod::Instance::Bounds bounds = {};
 
+		auto& grouped = storage.groupedInstances[primitiveName];
 		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
 			pod::Instance newInstance = primitives[drawID].instance;
 			newInstance.objectID = node.object;
@@ -1349,14 +1363,13 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		bool isFirstInstance = ( grouped.size() == primitives.size() );
 	#if !UF_GRAPH_EXTENDED
 		if ( graphMetadataJson["renderer"]["render"].as<bool>() && isFirstInstance ) {
-			uf::graph::initializeGraphics( graph, entity, mesh, addresses );
+			uf::graph::initializeGraphics( graph, entity, mesh, primitives );
 		}
 	#endif
 
 	#if 0
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-		auto& instanceAddresses = storage.instanceAddresses.map[graph.primitives[node.mesh]];
 
 		pod::Instance::Bounds bounds = {};
 		size_t baseInstanceID = ::allocateInstanceID( storage, graph.primitives[node.mesh] );
@@ -1449,7 +1462,7 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	// to-do: check if opengl really needs these
 	if ( !storage.buffers.drawCommands.buffer ) storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand)  * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.instance.buffer ) storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * initialElements, uf::renderer::enums::Buffer::STORAGE );
-	if ( !storage.buffers.instanceAddresses.buffer ) storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	if ( !storage.buffers.addresses.buffer ) storage.buffers.addresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.lodMetadata.buffer ) storage.buffers.lodMetadata.initialize( (const void*) nullptr, sizeof(pod::LODMetadata) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.joint.buffer ) storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.object.buffer ) storage.buffers.object.initialize( (const void*) nullptr, sizeof(pod::Instance::Object) * initialElements, uf::renderer::enums::Buffer::STORAGE );
@@ -1515,7 +1528,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	bool rebuild = false;
 
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance>, instances);
-	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Addresses>, instanceAddresses);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Addresses>, addresses);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::LODMetadata>, lodMetadata);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Matrix4f>, joints);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Object>, objects);
@@ -1549,44 +1562,40 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 	if ( storage.stale ) {
 		for ( auto& key : storage.primitives.keys ) {
-			auto& submeshes = storage.primitives.map[key];
+			auto& primitives = storage.primitives.map[key];
 			auto& grouped = storage.groupedInstances.map[key];
-			auto& submeshAddresses = storage.instanceAddresses.map[key];
 
 			auto& mesh = storage.meshes.map[key];
-			pod::DrawCommand* meshIndirectCmds = nullptr;
+			pod::DrawCommand* commands = nullptr;
 
-			if (mesh.indirect.count > 0) {
+			if ( mesh.indirect.count > 0 ) {
 				auto& attr = mesh.indirect.attributes.front();
-				meshIndirectCmds = (pod::DrawCommand*) mesh.buffers[attr.buffer].data();
+				commands = (pod::DrawCommand*) mesh.buffers[attr.buffer].data();
 			}
 
-			size_t nodesCount = submeshes.empty() ? 0 : grouped.size() / submeshes.size();
-
-			for ( size_t drawID = 0; drawID < submeshes.size(); ++drawID ) {
-				auto& primitive = submeshes[drawID];
+			size_t count = primitives.empty() ? 0 : grouped.size() / primitives.size();
+			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+				auto& primitive = primitives[drawID];
 
 				primitive.drawCommand.instanceID = instances.size();
-				primitive.drawCommand.instances = nodesCount;
+				primitive.drawCommand.instances = count;
 
-				if (meshIndirectCmds) {
-					meshIndirectCmds[drawID].instanceID = primitive.drawCommand.instanceID;
-					meshIndirectCmds[drawID].instances = primitive.drawCommand.instances;
+				if ( commands ) {
+					commands[drawID].instanceID = primitive.drawCommand.instanceID;
+					commands[drawID].instances = primitive.drawCommand.instances;
 				}
 
 				drawCommands.emplace_back( primitive.drawCommand );
 				lodMetadata.emplace_back( primitive.lod );
 
-				bool hasAddresses = (drawID < submeshAddresses.size());
-
-				for (size_t i = 0; i < nodesCount; ++i) {
-					size_t strideIndex = (i * submeshes.size()) + drawID;
+				for ( size_t i = 0; i < count; ++i ) {
+					size_t strideIndex = (i * primitives.size()) + drawID;
 					instances.emplace_back( grouped[strideIndex] );
-					instanceAddresses.emplace_back( hasAddresses ? submeshAddresses[drawID] : pod::Instance::Addresses{} );
+					addresses.emplace_back( primitive.addresses );
 				}
 			}
 
-			if (meshIndirectCmds && !grouped.empty()) {
+			if ( commands && !grouped.empty() ) {
 				auto hostKeyName = std::to_string(grouped.front().objectID);
 				if (storage.entities.map.count(hostKeyName) > 0) {
 					auto* hostEntity = storage.entities.map[hostKeyName];
@@ -1602,7 +1611,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		for ( auto& key : storage.materials.keys ) materials.emplace_back( storage.materials.map[key] );
 
 		rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;
-		rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
+		rebuild = storage.buffers.addresses.update( (const void*) addresses.data(), addresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 		rebuild = storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) ) || rebuild;
 		rebuild = storage.buffers.lodMetadata.update( (const void*) lodMetadata.data(), lodMetadata.size() * sizeof(pod::LODMetadata) ) || rebuild;
 		rebuild = storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) ) || rebuild;
@@ -1627,7 +1636,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 				shader.aliasBuffer( "instance", storage.buffers.instance );
-				shader.aliasBuffer( "instanceAddresses", storage.buffers.instanceAddresses );
+				shader.aliasBuffer( "addresses", storage.buffers.addresses );
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
@@ -1644,7 +1653,7 @@ void uf::graph::aggregate() {
 }
 void uf::graph::aggregate( uf::Object& object, pod::Graph::Storage& storage ) {
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance>, instances);
-	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Addresses>, instanceAddresses);
+	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Addresses>, addresses);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::LODMetadata>, lodMetadata);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Matrix4f>, joints);
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance::Object>, objects);
@@ -1703,14 +1712,14 @@ void uf::graph::aggregate( uf::Object& object, pod::Graph::Storage& storage ) {
 			}
 		}
 
-		for ( auto& key : storage.instanceAddresses.keys ) {
-			instanceAddresses.insert( instanceAddresses.end(), storage.instanceAddresses.map[key].begin(), storage.instanceAddresses.map[key].end() );
+		for ( auto& key : storage.addresses.keys ) {
+			addresses.insert( addresses.end(), storage.addresses.map[key].begin(), storage.addresses.map[key].end() );
 		}
 	}
 
 	bool rebuild = false;
 	rebuild = storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) ) || rebuild;
-	rebuild = storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
+	rebuild = storage.buffers.addresses.update( (const void*) addresses.data(), addresses.size() * sizeof(pod::Instance::Addresses) ) || rebuild;
 	rebuild = storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) ) || rebuild;
 	rebuild = storage.buffers.lodMetadata.update( (const void*) lodMetadata.data(), lodMetadata.size() * sizeof(pod::LODMetadata) ) || rebuild;
 	rebuild = storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) ) || rebuild;
@@ -1800,16 +1809,17 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 #endif
 
 	// cleanup graphic handles
-	for ( auto pair : storage.texture2Ds.map ) pair.second.destroy();
+	for ( auto pair : storage.images.map ) {
+		pair.second.data.clear();
+		pair.second.handle.destroy();
+	}
 	for ( auto& t : storage.shadow2Ds ) t.destroy();
 	for ( auto& t : storage.shadowCubes ) t.destroy();
 
 	for ( auto pair : storage.atlases.map ) pair.second.clear();
-	for ( auto pair : storage.images.map ) pair.second.clear();
 	for ( auto pair : storage.meshes.map ) pair.second.destroy();
 
 	// cleanup storage cache
-	storage.instanceAddresses.clear();
 	storage.primitives.clear();
 	storage.meshes.clear();
 	storage.images.clear();
@@ -1820,7 +1830,6 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	storage.animations.clear();
 	storage.atlases.clear();
 	storage.joints.clear();
-	storage.texture2Ds.clear();
 	storage.entities.clear();
 	storage.shadow2Ds.clear();
 	storage.shadowCubes.clear();
@@ -1831,7 +1840,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 		storage.buffers.drawCommands.destroy(true);
 		storage.buffers.lodMetadata.destroy(true);
 		storage.buffers.instance.destroy(true);
-		storage.buffers.instanceAddresses.destroy(true);
+		storage.buffers.addresses.destroy(true);
 		storage.buffers.joint.destroy(true);
 		storage.buffers.object.destroy(true);
 		storage.buffers.material.destroy(true);
@@ -1880,7 +1889,6 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	auto model = uf::transform::model( transform );
 	auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-	auto& instanceAddresses = storage.instanceAddresses.map[graph.primitives[node.mesh]];
 
 	float radius = graph.settings.stream.radius;
 	float radiusSquared = radius * radius;
@@ -2133,8 +2141,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 			// iterate through our ref counts
 			for ( auto& [ key, count ] : textureReferences ) {
-				auto& texture = storage.texture2Ds[key];
-				auto& image = storage.images[key];
+				auto& image = storage.images[key].data;
+				auto& texture = storage.images[key].handle;
 				bool visible = count > 0;
 
 				if ( visible && (!texture.generated() || texture.aliased) ) {
@@ -2240,11 +2248,11 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			if ( rebuild ) {
 				::bindBuffers( graph, graphic, mesh );
 				
-				::bindInstanceAddresses( graph, graphic, mesh, instanceAddresses );
+				::bindAddresses( graph, graphic, mesh, primitives );
 				uf::renderer::states::rebuild = true;
 			}
 		} else {
-			uf::graph::initializeGraphics( graph, entity, mesh, instanceAddresses );
+			uf::graph::initializeGraphics( graph, entity, mesh, primitives );
 		}
 	}
 	// bind mesh to physics state
@@ -2306,10 +2314,10 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 
 			auto& graphic = entity.getComponent<uf::renderer::Graphic>();
 			auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
-			auto& instanceAddresses = storage.instanceAddresses.map[graph.primitives[node.mesh]];
+			auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 
 			::bindBuffers( graph, graphic, mesh );
-			::bindInstanceAddresses( graph, graphic, mesh, instanceAddresses );
+			::bindAddresses( graph, graphic, mesh, primitives );
 		}
 		storage.shouldRebind = false;
 	}

@@ -130,6 +130,12 @@ uf::Mesh& uf::Mesh::copy( const uf::Mesh& src ) {
 
 	return *this;
 }
+uf::Mesh uf::Mesh::alias() const {
+	uf::Mesh alias = *this;
+	for ( auto& buf : alias.buffers ) buf.clear();
+	alias.updateDescriptor();
+	return alias;
+}
 void uf::Mesh::updateDescriptor() {
 	_updateDescriptor(vertex);
 	_updateDescriptor(index);
@@ -150,7 +156,7 @@ void uf::Mesh::insert( const uf::Mesh& mesh ) {
 	
 	insertVertices(mesh);
 	insertIndices(mesh);
-	insertInstances(mesh);
+//	insertInstances(mesh);
 	insertIndirects(mesh);
 
 	updateDescriptor();
@@ -282,25 +288,25 @@ const uf::Mesh::buffer_t& uf::Mesh::getBuffer( const uf::Mesh::Input& input, con
 
 uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::Mesh::View view;
-    view.vertex = vertex;
-    view.index  = index;
+	view.vertex = vertex;
+	view.index  = index;
 
-    if ( wanted.size() ) {
-        for ( auto& attr : vertex.attributes ) {
-            if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-            view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
-        }
-    } else {
-        for ( auto& attr : vertex.attributes ) {
-            view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
-        }
-    }
+	if ( wanted.size() ) {
+		for ( auto& attr : vertex.attributes ) {
+			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
+			view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+		}
+	} else {
+		for ( auto& attr : vertex.attributes ) {
+			view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+		}
+	}
 
-    if ( !index.attributes.empty() ) {
-        view.attributes["index"_hash] = { index.attributes[lod] };
-    }
+	if ( !index.attributes.empty() ) {
+		view.attributes["index"_hash] = { index.attributes[lod] };
+	}
 
-    return view;
+	return view;
 }
 uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::Mesh::View view;
@@ -398,9 +404,11 @@ void uf::Mesh::_bind() {
 void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	input.size = 0;
 	for ( auto& attribute : input.attributes ) {
-		auto& buffer = buffers[attribute.buffer];
-		attribute.length = buffer.size();
-		attribute.pointer = buffer.data() + attribute.offset;
+		if ( attribute.buffer >= 0 && attribute.buffer < buffers.size() && !buffers[attribute.buffer].empty() ) {
+			auto& buffer = buffers[attribute.buffer];
+			attribute.length = buffer.size();
+			attribute.pointer = buffer.data() + attribute.offset;
+		}
 
 		if ( &input == &index || &input == &indirect ) input.size = attribute.descriptor.size;
 		else input.size += attribute.descriptor.size;
@@ -510,24 +518,24 @@ void uf::Mesh::_insertV( uf::Mesh::Input& input, const void* data ) {
 }
 void uf::Mesh::_insertVs( uf::Mesh::Input& input, const void* data, size_t size ) {
 	size_t count = input.count;
-    input.count += size;
+	input.count += size;
 
-    _resizeVs( input, input.count );
+	_resizeVs( input, input.count );
 
-    const uint8_t* pointer = static_cast<const uint8_t*>(data);
-    for ( auto& attribute : input.attributes ) {
-        uint8_t* dstBase = buffers[attribute.buffer].data() + (count * attribute.descriptor.size);
+	const uint8_t* pointer = static_cast<const uint8_t*>(data);
+	for ( auto& attribute : input.attributes ) {
+		uint8_t* dstBase = buffers[attribute.buffer].data() + (count * attribute.descriptor.size);
 
-        size_t srcOffset = attribute.descriptor.offset;
-        size_t attrSize = attribute.descriptor.size;
+		size_t srcOffset = attribute.descriptor.offset;
+		size_t attrSize = attribute.descriptor.size;
 
-        for ( size_t i = 0; i < size; ++i ) {
-            const uint8_t* srcAddr = pointer + (i * input.size) + srcOffset;
-            uint8_t* dstAddr = dstBase + (i * attrSize);
+		for ( size_t i = 0; i < size; ++i ) {
+			const uint8_t* srcAddr = pointer + (i * input.size) + srcOffset;
+			uint8_t* dstAddr = dstBase + (i * attrSize);
 
-            memcpy( dstAddr, srcAddr, attrSize );
-        }
-    }
+			memcpy( dstAddr, srcAddr, attrSize );
+		}
+	}
 }
 // Indices
 void uf::Mesh::_bindI( uf::Mesh::Input& input, size_t size, ext::RENDERER::enums::Type::type_t type, size_t count ) {

@@ -21,6 +21,7 @@ namespace pod {
 		std::function<size_t(const uf::stl::string&)> mtime;
 		std::function<bool(const uf::stl::string&, uf::stl::vector<uint8_t>&)> read;
 		std::function<size_t(const uf::stl::string&, const void*, size_t)> write;
+		std::function<bool(const uf::stl::string&)> mkdir;
 
 		std::function<bool(const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
 		std::function<bool(const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
@@ -42,6 +43,7 @@ namespace uf {
         
         size_t UF_API write( const uf::stl::string& path, const void* data, size_t len );
         size_t UF_API write( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer );
+        bool UF_API mkdir( const uf::stl::string& path );
 		
 		bool UF_API readRange( const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API readRanges( const uf::stl::string& path, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer );

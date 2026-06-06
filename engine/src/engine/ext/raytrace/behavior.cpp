@@ -211,7 +211,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.instanceAddresses );
+				shader.aliasBuffer( storage.buffers.addresses );
 				shader.aliasBuffer( storage.buffers.object );
 				shader.aliasBuffer( storage.buffers.material );
 				shader.aliasBuffer( storage.buffers.texture );

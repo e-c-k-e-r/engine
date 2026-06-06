@@ -342,8 +342,8 @@ namespace impl {
 				v.uv.y = uf::vector::dot( vertex, info.textureVecs[1] ) / (float) data.height;
 			}
 
-			v.st.x = (uf::vector::dot( vertex, info.lightmapVecs[0] ) - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
-			v.st.y = (uf::vector::dot( vertex, info.lightmapVecs[1] ) - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
+			v.st.x = (uf::vector::dot( vertex, info.lightmapVecs[0] ) + 0.5f - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
+			v.st.y = (uf::vector::dot( vertex, info.lightmapVecs[1] ) + 0.5f - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
 
 			v.st = uf::atlas::mapUv( context.lightmapAtlas, v.st, impl::faceHash( faceID ) );
 
@@ -386,15 +386,17 @@ namespace impl {
 
 		int32_t spawnID = -1;
 		uf::stl::vector<size_t> spawns;
+		uf::stl::unordered_map<uf::stl::string, size_t> targets;
 
 		for ( auto nodeID : graph.root.children ) {
 			auto& node = graph.nodes[nodeID];
-			auto classname = node.metadata["classname"].as<uf::stl::string>("");
+			auto& metadata = node.metadata["valve"];
+			auto classname = metadata["classname"].as<uf::stl::string>("");
 			//UF_MSG_INFO("Entity found: {}", classname);
 			node.name = classname;
 			
 			// parse origin
-			auto origin = node.metadata["origin"].as<uf::stl::string>("");
+			auto origin = metadata["origin"].as<uf::stl::string>("");
 			if ( origin != "" ) {
 				auto position = impl::str2vec<pod::Vector3f>( origin );
 				node.transform.position = impl::convertPos( position, scale );
@@ -402,7 +404,7 @@ namespace impl {
 
 			// parse angles
 			// to-do: fix oddities
-			auto angles = node.metadata["angles"].as<uf::stl::string>("");
+			auto angles = metadata["angles"].as<uf::stl::string>("");
 			if ( angles != "" ) {
 				auto pyr = impl::str2vec<pod::Vector3f>( angles ) * DEG_2_RAD;
 				pyr.x = -pyr.x;
@@ -411,7 +413,7 @@ namespace impl {
 			}
 
 			// parse model
-			auto model = node.metadata["model"].as<uf::stl::string>();
+			auto model = metadata["model"].as<uf::stl::string>();
 			if ( classname == "worldspawn" ) {
 				node.mesh = context.modelToMesh[0]; // implicitly bind to model 0
 			} else if ( model.starts_with("*") ) {
@@ -420,26 +422,26 @@ namespace impl {
 					node.mesh = context.modelToMesh[modelID];
 				}
 			} else if ( model.length() > 4 && model.ends_with(".mdl") ) {
-                auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
-                if ( it == graph.meshes.end() ) {
-                    if ( ext::valve::loadMdl(graph, model) ) {
-                        node.mesh = (int32_t)(graph.meshes.size() - 1);
-                    }
-                } else {
-                    node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
-                }
-            }
+				auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
+				if ( it == graph.meshes.end() ) {
+					if ( ext::valve::loadMdl(graph, model) ) {
+						node.mesh = (int32_t)(graph.meshes.size() - 1);
+					}
+				} else {
+					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
+				}
+			}
 
 			// parse lighting info
 			if ( classname.starts_with("light") ) {
-				auto lightKeyName = ::fmt::format( "{}_{}", classname, lights++ );
+				auto lightKeyName = ::fmt::format( "{}_{}", classname, nodeID );
 				auto& light = graph.lights[lightKeyName];
 				light.color = { 1.0f, 1.0f, 1.0f };
-				light.intensity = 1.0f;
+				light.intensity = 200.0f;
 				light.range = 0.0f;
 
 				// read color and intensity
-				auto _light = node.metadata["_light"].as<uf::stl::string>("");
+				auto _light = metadata["_light"].as<uf::stl::string>("");
 				if ( _light != "" ) {
 					// to-do: do not use stringstream
 					std::istringstream stream(_light);
@@ -449,10 +451,9 @@ namespace impl {
 					light.color /= 255.0f;
 
 					if (!(stream >> light.intensity)) light.intensity = 200.0f;
-					light.intensity /= 10.0f;
 				}
-
 				// to-do: read range
+				light.intensity *= 0.2f; // scale down
 			}
 
 			// parse player spawn info
@@ -462,8 +463,31 @@ namespace impl {
 				spawns.emplace_back(nodeID);
 			}
 
+			auto targetname = metadata["targetname"].as<uf::stl::string>("");
+			if ( targetname != "" ) {
+				targets[targetname] = nodeID;
+			}
+
 			// to-do: add additional parsing
 		}
+
+		uf::stl::vector<int32_t> newChildren;
+		for ( auto nodeID : graph.root.children ) {
+			auto& node = graph.nodes[nodeID];
+			auto& metadata = node.metadata["valve"];
+
+			auto parentname = metadata["parentname"].as<uf::stl::string>("");
+			if ( parentname != "" && targets.count(parentname) > 0 ) {
+				auto parentID = targets[parentname];
+				auto& parentNode = graph.nodes[parentID];
+				parentNode.children.emplace_back(nodeID);
+
+				node.transform = uf::transform::relative( parentNode.transform, node.transform );
+			} else {
+				newChildren.emplace_back(nodeID);
+			}
+		}
+		graph.root.children = newChildren;
 
 		// no valid spawn
 		UF_ASSERT( !(spawnID == -1 && spawns.empty()) ); // to-do: make the engine implicitly spawn the player at origin
@@ -537,12 +561,11 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 		size_t imageID = graph.images.size();
 		auto imgKeyName = graph.images.emplace_back(matName);
-		auto& image = storage.images[imgKeyName];
+		auto& image = storage.images[imgKeyName].data;
 
 		size_t textureID = graph.textures.size();
 		auto texKeyName = graph.textures.emplace_back(matName);
 		storage.textures[texKeyName].index = imageID;
-		storage.texture2Ds[texKeyName];
 
 		size_t materialID = graph.materials.size();
 		context.texdataToMaterial[texDataID] = materialID;
@@ -551,6 +574,9 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto& material = storage.materials[matKeyName];
 		material.indexAlbedo = textureID;
 		material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
+		material.factorMetallic = 0.0f;
+		material.factorRoughness = 1.0f;
+		material.factorOcclusion = 1.0f;
 
 		//UF_MSG_INFO("Material found: {}", matName);
 	}
@@ -559,13 +585,18 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	auto atlasImageID = graph.images.size();
 	auto atlasTextureID = graph.textures.size();
 
+	for ( size_t i = 3; i < context.lighting.size(); i += 4 ) {
+		int8_t exp = (int8_t)context.lighting[i];
+		context.lighting[i] = (uint8_t)(exp + 128);
+	}
 	for ( auto faceID = 0; faceID < context.faces.size(); ++faceID ) {
 		const auto& face = context.faces[faceID];
 		if ( face.lightofs == -1 || context.lighting.empty() ) continue;
 		
 		size_t width  = face.lightmapTextureSize.x + 1;
 		size_t height = face.lightmapTextureSize.y + 1;
-		
+	
+
 		uf::Image image;
 		image.loadFromBuffer( (uint8_t*)(context.lighting.data() + face.lightofs), { width, height }, 8, 4 );
 
@@ -580,9 +611,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto& imageKey = graph.images.emplace_back("lightmap_atlas");
 		auto& textureKey = graph.textures.emplace_back("lightmap_atlas");
 		
-		storage.images[imageKey] = uf::atlas::get( context.lightmapAtlas );
+		storage.images[imageKey].data = uf::atlas::get( context.lightmapAtlas );
 		storage.textures[textureKey].index = atlasImageID;
-		storage.texture2Ds[textureKey];
 	}
 
 	// read models
@@ -605,7 +635,10 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			// read brush
 			auto& meshlet = meshlets[materialID];
 			meshlet.primitive.instance.materialID = materialID;
-			meshlet.primitive.instance.lightmapID = atlasTextureID;
+			
+			if ( 0 <= face.lightofs ) {
+				meshlet.primitive.instance.lightmapID = atlasTextureID;
+			}
 			
 			if ( face.dispinfo != -1 ) {
 				impl::buildDisplacement( context, meshlet, faceID );
@@ -644,7 +677,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 		auto& mesh = storage.meshes[meshName];
 		auto& primitives = storage.primitives[meshName];
-		storage.instanceAddresses[meshName] = {};
 
 		mesh.compile( meshlets, primitives );
 	}
@@ -667,7 +699,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				// create node
 				auto nodeID = graph.nodes.size();
 				auto& node = graph.nodes.emplace_back();
-				for ( const auto& [k, v] : dict ) node.metadata[k] = v; // store as metadata for later parsing
+				auto& metadata = node.metadata["valve"];
+				for ( const auto& [k, v] : dict ) metadata[k] = v; // store as metadata for later parsing
 
 				// add node as child
 				graph.root.children.emplace_back( nodeID );
@@ -722,11 +755,12 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				if ( type < dict.size() ) {
 					auto nodeID = graph.nodes.size();
 					auto& node = graph.nodes.emplace_back();
+					auto& metadata = node.metadata["valve"];
 
-					node.metadata["classname"] = "prop_static";
-					node.metadata["model"] = dict[type];
-					node.metadata["origin"] = ::fmt::format("{} {} {}", origin.x, origin.y, origin.z);
-					node.metadata["angles"] = ::fmt::format("{} {} {}", angles.x, angles.y, angles.z);
+					metadata["classname"] = "prop_static";
+					metadata["model"] = dict[type];
+					metadata["origin"] = ::fmt::format("{} {} {}", origin.x, origin.y, origin.z);
+					metadata["angles"] = ::fmt::format("{} {} {}", angles.x, angles.y, angles.z);
 
 					graph.root.children.emplace_back( nodeID );
 				}
@@ -743,9 +777,28 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		uf::Serializer vmt;
 		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
 		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
-		auto& image = storage.images[matName];
+		auto& image = storage.images[matName].data;
+		auto& material = storage.materials[matName];
 		
 		if ( !ext::valve::loadVmt( vmt, vmtPath ) ) goto PEETAH;
+
+		material.factorMetallic = vmt["$metalness"].as<float>(0.0f);
+		material.factorRoughness = vmt["$roughness"].as<float>(1.0f);
+
+		if ( vmt["$envmap"].as<uf::stl::string>() != "" ) material.factorRoughness = 0.3f;
+		if ( vmt["$phong"].as<uf::stl::string>("0") == "1" ) material.factorRoughness = std::min(material.factorRoughness, 0.5f);
+
+		if ( vmt["$translucent"].as<uf::stl::string>("0") == "1" ) {
+			material.modeAlpha = 1; // BLEND
+		} else if ( vmt["$alphatest"].as<uf::stl::string>("0") == "1" ) {
+			material.modeAlpha = 2; // MASK
+			material.factorAlphaCutoff = vmt["$alphatestreference"].as<float>(0.5f);
+		}
+		if ( vmt["$nocull"].as<uf::stl::string>("0") == "1" ) material.modeCull = 0;
+
+		// VMTs usually define emissive masks in the albedo's alpha channel or a separate mask
+		// set it to a white glow for now until I can patch the shader
+		if ( vmt["$selfillum"].as<uf::stl::string>("0") == "1" ) material.colorEmissive = { 1.0f, 1.0f, 1.0f, 1.0f };
 		if ( !vmt["$basetexture"].is<uf::stl::string>() ) goto PEETAH;
 
 		vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());

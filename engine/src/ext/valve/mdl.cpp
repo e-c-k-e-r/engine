@@ -288,19 +288,22 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 					// does not exist, register
 					size_t imageID = graph.images.size();
 					auto imgKeyName = graph.images.emplace_back(matName);
-					auto& image = storage.images[imgKeyName];
+					auto& image = storage.images[imgKeyName].data;
 
 					size_t textureID = graph.textures.size();
 					auto texKeyName = graph.textures.emplace_back(matName);
 					storage.textures[texKeyName].index = imageID;
-					storage.texture2Ds[texKeyName];
 
 					materialID = graph.materials.size();
 					auto matKeyName = graph.materials.emplace_back(matName);
 					auto& material = storage.materials[matKeyName];
 					material.indexAlbedo = textureID;
 					material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
-				}	
+					material.factorMetallic = 0.0f;
+					material.factorRoughness = 1.0f;
+					material.factorOcclusion = 1.0f;
+				}
+
 				meshlet.primitive.instance.materialID = materialID;
 			}
 		}
@@ -313,7 +316,6 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 		auto& mesh = storage.meshes[meshName];
 		auto& primitives = storage.primitives[meshName];
-		storage.instanceAddresses[meshName] = {};
 
 		mesh.compile( meshlets, primitives );
 	}

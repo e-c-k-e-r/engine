@@ -143,6 +143,7 @@ namespace pod {
 		pod::DrawCommand drawCommand;
 		pod::Instance instance;
 		pod::LODMetadata lod;
+		pod::Instance::Addresses addresses;
 	};
 }
 
@@ -261,6 +262,7 @@ namespace uf {
 
 		uf::Mesh& copy( const uf::Mesh& );
 		uf::Mesh copy() const;
+		uf::Mesh alias() const;
 		uf::Mesh expand();
 
 		void updateDescriptor();

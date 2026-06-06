@@ -20,7 +20,7 @@
 				// regexp matches
 				// "/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
 				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+			//	"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
 				"/^prop_dynamic/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
 				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },

@@ -1139,7 +1139,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	texturesCube.reserve( metadata.max.texturesCube );
 
 	// bind scene textures
-	for ( auto& key : storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( storage.texture2Ds.map[key] );
+	for ( auto& key : storage.images.keys ) textures2D.emplace_back().aliasTexture( storage.images.map[key].handle );
 	
 	size_t indexSkybox = 0;
 	size_t indexNoise = 0;
