@@ -1,9 +1,9 @@
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
+#include <uf/ext/valve/vpk.h>
 #include <uf/ext/valve/common.h>
-
-#include <sstream> // to-do: get rid of this
+#include <uf/ext/zlib/zlib.h>
 
 namespace impl {
 	struct RGBE {
@@ -186,7 +186,7 @@ namespace impl {
 		uf::stl::vector<impl::BspDispInfo> dispinfos;
 		uf::stl::vector<impl::BspDispVert> dispverts;
 		// disptris
-		// pakfile
+		uf::stl::vector<uint8_t> pakfile;
 		// cubemaps
 		// overlay
 		uf::stl::vector<uint8_t> lighting;
@@ -390,7 +390,7 @@ namespace impl {
 		for ( auto nodeID : graph.root.children ) {
 			auto& node = graph.nodes[nodeID];
 			auto classname = node.metadata["classname"].as<uf::stl::string>("");
-			UF_MSG_INFO("Entity found: {}", classname);
+			//UF_MSG_INFO("Entity found: {}", classname);
 			node.name = classname;
 			
 			// parse origin
@@ -401,6 +401,7 @@ namespace impl {
 			}
 
 			// parse angles
+			// to-do: fix oddities
 			auto angles = node.metadata["angles"].as<uf::stl::string>("");
 			if ( angles != "" ) {
 				auto pyr = impl::str2vec<pod::Vector3f>( angles ) * DEG_2_RAD;
@@ -418,9 +419,16 @@ namespace impl {
 				if ( 0 <= modelID && modelID < context.modelToMesh.size() ) {
 					node.mesh = context.modelToMesh[modelID];
 				}
-			} /* else {
-				// let the engine handle loading the model
-			}*/
+			} else if ( model.length() > 4 && model.ends_with(".mdl") ) {
+                auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
+                if ( it == graph.meshes.end() ) {
+                    if ( ext::valve::loadMdl(graph, model) ) {
+                        node.mesh = (int32_t)(graph.meshes.size() - 1);
+                    }
+                } else {
+                    node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
+                }
+            }
 
 			// parse lighting info
 			if ( classname.starts_with("light") ) {
@@ -441,6 +449,7 @@ namespace impl {
 					light.color /= 255.0f;
 
 					if (!(stream >> light.intensity)) light.intensity = 200.0f;
+					light.intensity /= 10.0f;
 				}
 
 				// to-do: read range
@@ -472,24 +481,15 @@ namespace impl {
 }
 
 void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
-	std::ifstream file(filename, std::ios::binary | std::ios::ate);
-	if ( !file ) {
-		UF_MSG_ERROR("failed to open BSP: {}", filename);
-		return;
-	}
-
-	std::streamsize size = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	uf::stl::vector<uint8_t> buffer(size);
-	if ( !file.read((char*)(buffer.data()), size) ) {
-		UF_MSG_ERROR("failed to read BSP data: {}", filename);
+	uf::stl::vector<uint8_t> buffer;
+	if ( !uf::io::readAsBuffer(buffer, filename) ) {
+		UF_MSG_ERROR("Failed to read BSP data: {}", filename);
 		return;
 	}
 
 	const impl::BspHeader* header = (const impl::BspHeader*)(buffer.data());
 	if ( header->magic != 0x50534256 ) {
-		UF_MSG_ERROR("invalid VBSP magic number: {}", filename);
+		UF_MSG_ERROR("Invalid VBSP magic number: {}", filename);
 		return;
 	}
 
@@ -513,10 +513,14 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	context.gameLumps = impl::extractLump<impl::BspGameLump>(buffer, header->lumps[impl::BspLump::LUMP_GAME_LUMP]);
 	context.dispinfos = impl::extractLump<impl::BspDispInfo>(buffer, header->lumps[impl::BspLump::LUMP_DISPINFO]);
 	context.dispverts = impl::extractLump<impl::BspDispVert>(buffer, header->lumps[impl::BspLump::LUMP_DISP_VERTS]);
+	context.pakfile = impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_PAKFILE]);
 	context.lighting = impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_LIGHTING]);
 
 	context.modelToMesh.assign( context.models.size(), -1 );
 	context.texdataToMaterial.assign( context.texdatas.size(), -1 );
+
+	// mount pakfile
+	size_t pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(::fmt::format("pakfile://{}", filename), context.pakfile, 1000 ) );	
 
 	// read materials
 	for ( int32_t texDataID = 0; texDataID < context.texdatas.size(); ++texDataID ) {
@@ -525,11 +529,11 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 		// lookup material name
 		if ( data.nameStringTableID >= 0 && data.nameStringTableID < context.stringTable.size() ) {
-            int32_t offset = context.stringTable[data.nameStringTableID];
-            if ( offset >= 0 && offset < context.stringData.size() ) {
-                matName = context.stringData.c_str() + offset;
-            }
-        }
+			int32_t offset = context.stringTable[data.nameStringTableID];
+			if ( offset >= 0 && offset < context.stringData.size() ) {
+				matName = uf::string::lowercase( context.stringData.c_str() + offset );
+			}
+		}
 
 		size_t imageID = graph.images.size();
 		auto imgKeyName = graph.images.emplace_back(matName);
@@ -548,24 +552,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		material.indexAlbedo = textureID;
 		material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
 
-		UF_MSG_INFO("Material found: {}", matName);
-	}
-
-	// load materials
-	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
-	for ( auto matName : graph.materials ) {
-		uf::Serializer vmt;
-		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
-		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
-		auto& image = storage.images[matName];
-		
-		if ( !ext::valve::loadVmt( vmt, vmtPath ) ) goto PEETAH;
-		if ( !vmt["$basetexture"].is<uf::stl::string>() ) goto PEETAH;
-
-		vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
-		if ( !ext::valve::loadVtf( image, vtfPath ) ) goto PEETAH;
-	PEETAH:
-		image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
+		//UF_MSG_INFO("Material found: {}", matName);
 	}
 
 	// read lightmaps
@@ -588,7 +575,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	{	
 		UF_MSG_DEBUG("Generating new lightmap atlas...");
 		uf::atlas::generate( context.lightmapAtlas, 0.0f );
-		UF_MSG_DEBUG("Generated lightmap atlas.");
+		//UF_MSG_DEBUG("Generated lightmap atlas.");
 
 		auto& imageKey = graph.images.emplace_back("lightmap_atlas");
 		auto& textureKey = graph.textures.emplace_back("lightmap_atlas");
@@ -748,10 +735,30 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 	}
 
-
 	impl::processNodes( graph, context );
+
+	// load materials
+	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
+	for ( auto matName : graph.materials ) {
+		uf::Serializer vmt;
+		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
+		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+		auto& image = storage.images[matName];
+		
+		if ( !ext::valve::loadVmt( vmt, vmtPath ) ) goto PEETAH;
+		if ( !vmt["$basetexture"].is<uf::stl::string>() ) goto PEETAH;
+
+		vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
+		if ( !ext::valve::loadVtf( image, vtfPath ) ) goto PEETAH;
+		continue;
+	PEETAH:
+		image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
+	}
 
 	graph.metadata["exporter"]["unwrap"] = false; // not necessary to unwrap
 
 	uf::graph::postprocess( graph );
+
+	// unmount pakfile
+	uf::vfs::unmount( pakfileMount );
 }

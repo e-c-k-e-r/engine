@@ -20,6 +20,31 @@ uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/io/fmt.h>
 
+struct vfs_reader {
+	uf::stl::vector<uint8_t> buffer;
+	bool read_once;
+
+	vfs_reader(const uf::stl::string& filename) : read_once(false) {
+		// Use your VFS abstraction to load the entire file into the buffer
+		uf::io::readAsBuffer(buffer, filename);
+	}
+
+	static const char* read(lua_State*, void* data, size_t* size) {
+		vfs_reader* reader = static_cast<vfs_reader*>(data);
+
+		// If we haven't yielded the buffer to Lua yet, do it now.
+		if (!reader->read_once && !reader->buffer.empty()) {
+			*size = reader->buffer.size();
+			reader->read_once = true;
+			return reinterpret_cast<const char*>(reader->buffer.data());
+		}
+
+		// Yield 0 to signify EOF
+		*size = 0;
+		return nullptr;
+	}
+};
+
 sol::table ext::lua::createTable() {
 	return sol::table(ext::lua::state, sol::create);
 }
@@ -210,7 +235,13 @@ void ext::lua::initialize() {
 		const uf::stl::string& name = pair.first;
 		const uf::stl::string& script = pair.second;
 		if ( uf::io::extension(script) == "lua" ) {
-			state.require_file(name, uf::io::resolveURI( script ), true);
+			uf::stl::string code;
+			if ( uf::io::readAsString(code, script) ) {
+				// Pass 'script' as the chunk name so your modules also have proper error tracing!
+				state.require_script(name, code, true, script);
+			} else {
+				UF_MSG_ERROR("Lua: failed to load module via VFS: {}", script);
+			}
 		} else {
 			state.require_script(name, script, true);
 		}
@@ -299,15 +330,29 @@ void ext::lua::initialize() {
 bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 	// is file
 	if ( uf::io::extension(s) == "lua" ) {
+		uf::stl::string resolved = uf::io::resolveURI(s);
+		vfs_reader reader(resolved);
+
+		uf::stl::string chunkname = "@" + resolved;
+		sol::load_result loaded = state.load(vfs_reader::read, &reader, chunkname.c_str());
+
+		if ( !loaded.valid() ) {
+			sol::error err = loaded;
+			UF_MSG_ERROR("{}", err.what());
+			return false;
+		}
+
 		if ( safe ) {
-			auto result = state.safe_script_file( uf::io::resolveURI( s ), sol::script_pass_on_error );
+			sol::protected_function script = loaded;
+			auto result = script();
 			if ( !result.valid() ) {
 				sol::error err = result;
 				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {
-			state.script_file( uf::io::resolveURI( s ) );
+			sol::unsafe_function script = loaded;
+			script();
 		}
 	// is string with lua
 	} else {
@@ -327,9 +372,7 @@ bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 
 pod::LuaScript ext::lua::script( const uf::stl::string& filename ) {
 	pod::LuaScript script;
-	if ( !ext::lua::enabled ) return script;
-	script.file = filename;
-	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
+	ext::lua::script( filename, script );
 	return script;
 }
 void ext::lua::script( const uf::stl::string& filename, pod::LuaScript& script ) {
@@ -340,15 +383,32 @@ void ext::lua::script( const uf::stl::string& filename, pod::LuaScript& script )
 bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 	// is file
 	if ( uf::io::extension(s.file) == "lua" ) {
+		uf::stl::string resolved = uf::io::resolveURI(s.file);
+		vfs_reader reader(resolved);
+
+		uf::stl::string chunkname = "@" + resolved;
+		sol::load_result loaded = state.load(vfs_reader::read, &reader, chunkname.c_str());
+
+		if ( !loaded.valid() ) {
+			sol::error err = loaded;
+			UF_MSG_ERROR("{}", err.what());
+			return false;
+		}
+
+		sol::protected_function script = loaded;
+
+		s.env.set_on(script);
+
 		if ( safe ) {
-			auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );
+			auto result = script();
 			if ( !result.valid() ) {
 				sol::error err = result;
 				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {
-			state.script_file( s.file, s.env );
+			sol::unsafe_function unsafe_script = script;
+			unsafe_script();
 		}
 	// is string with lua
 	} else {

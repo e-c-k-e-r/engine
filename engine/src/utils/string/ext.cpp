@@ -83,35 +83,41 @@ uf::stl::vector<const char*> uf::string::cStrings( const uf::stl::vector<uf::stl
 
 uf::stl::string uf::string::ltrim( const uf::stl::string& str ) {
 	auto s = str;
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }));
-    return s;
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+		return !std::isspace(ch);
+	}));
+	return s;
 }
 
 uf::stl::string uf::string::rtrim( const uf::stl::string& str ) {
 	auto s = str;
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }).base(), s.end());
-    return s;
+	s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+		return !std::isspace(ch);
+	}).base(), s.end());
+	return s;
 }
 uf::stl::string uf::string::trim( const uf::stl::string& str ) {
 	return uf::string::rtrim( uf::string::ltrim( str ) );
 }
 
 uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
+	return uf::string::replace( string, search, replace, uf::string::isRegex( search ) );
+}
+uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace, bool regexp ) {
 	uf::stl::string result = string;
 
-	if ( uf::string::isRegex(search) ) {
+	if ( regexp ) {
 		std::regex regex(search.substr(1,search.length()-2));
-		result = std::regex_replace( string, regex, replace );
-	} else {
-		// to-do: replace all
-		size_t start_pos = string.find(search);
-		if( start_pos == uf::stl::string::npos ) return result;
-		result.replace(start_pos, search.length(), replace);
+		return std::regex_replace( string, regex, replace );
 	}
+	if ( search.empty() ) return result;
+
+	size_t start_pos = 0;
+	while ( (start_pos = result.find(search, start_pos)) != uf::stl::string::npos ) {
+		result.replace(start_pos, search.length(), replace);
+		start_pos += replace.length();
+	}
+
 	return result;
 }
 bool uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {

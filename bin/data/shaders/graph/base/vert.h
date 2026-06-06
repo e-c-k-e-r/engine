@@ -64,7 +64,7 @@ void main() {
 	const uint drawID = gl_DrawIDARB;
 	const uint triangleID = gl_VertexIndex / 3;
 	const DrawCommand drawCommand = drawCommands[drawID];
-	const uint instanceID = drawCommand.instanceID; // gl_InstanceIndex;
+	const uint instanceID = gl_InstanceIndex; // drawCommand.instanceID; // gl_InstanceIndex;
 	const Instance instance = instances[instanceID];
 	const Object object = objects[instance.objectID];
 	const uint jointID = instance.jointID;

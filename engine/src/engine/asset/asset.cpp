@@ -152,19 +152,7 @@ bool uf::asset::isExpected( const uf::asset::Payload& payload, uf::asset::Type e
 uf::stl::string uf::asset::cache( uf::asset::Payload& payload ) {
 	uf::stl::string filename = payload.filename;
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( filename.substr(0,5) == "https" ) {
-		uf::stl::string hash = uf::string::sha256( filename );
-		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
-		if ( !uf::io::exists( cached ) && !retrieve( filename, cached, hash ) ) {
-			if ( !uf::asset::assertionLoad ) {
-				UF_MSG_ERROR("Failed to preload {} ({}): HTTP error", filename, cached);
-			} else {
-				UF_EXCEPTION("Failed to preload {} ({}): HTTP error", filename, cached);
-			}
-			return "";
-		}
-		filename = cached;
-	}
+
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to preload {}, does not exist", filename);
@@ -193,19 +181,6 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	uf::stl::string extension = uf::string::lowercase(uf::io::extension( payload.filename, -1 ));
 	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( payload.filename ), "/.(?:gz|lz4?)$/", "" ) );
 
-	if ( payload.filename.substr(0,5) == "https" ) {
-		uf::stl::string hash = uf::string::sha256( payload.filename );
-		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
-		if ( !uf::io::exists( cached ) && !retrieve( payload.filename, cached, hash ) ) {
-			if ( !uf::asset::assertionLoad ) {
-				UF_MSG_ERROR("Failed to load {} ({}): HTTP error", payload.filename, cached);
-			} else {
-				UF_EXCEPTION("Failed to load {} ({}): HTTP error", payload.filename, cached);
-			}
-			return "";
-		}
-		filename = cached;
-	}
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to load {}: does not exist", filename);

@@ -17,6 +17,7 @@ namespace uf {
 		bool UF_API matched( const uf::stl::string& str, const uf::stl::string& r );
 
 		uf::stl::string UF_API replace( const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		uf::stl::string UF_API replace( const uf::stl::string&, const uf::stl::string&, const uf::stl::string&, bool regexp );
 		uf::stl::string UF_API lowercase( const uf::stl::string& );
 		uf::stl::string UF_API uppercase( const uf::stl::string& );
 		uf::stl::string UF_API ltrim( const uf::stl::string& );

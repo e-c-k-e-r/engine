@@ -26,6 +26,10 @@ namespace uf {
 				pod::Thread::Tasks serial;
 				pod::Thread::Tasks parallel;
 			} tasks;
+
+			struct {
+				size_t hash;
+			} mount;
 		);
 	}
 }

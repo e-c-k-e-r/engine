@@ -1,9 +1,12 @@
 #include <iostream>
 #if UF_USE_FREETYPE
 #include <uf/ext/freetype/freetype.h>
+#include <uf/utils/io/file.h>
+#include <uf/utils/memory/unordered_map.h>
 
 namespace impl {
-	FT_Library library;
+	FT_Library ft_library;
+	uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uint8_t>> ftCache;
 
 	uf::stl::string error( int error ) {
 		#undef FTERRORS_H_
@@ -62,33 +65,35 @@ pod::FT_Glyph::~FT_Glyph() {
 }
 
 bool ext::freetype::initialize() {
-	if ( auto error = FT_Init_FreeType( &impl::library ) ) {
+	if ( auto error = FT_Init_FreeType( &impl::ft_library ) ) {
 		UF_MSG_ERROR("FreeType failed to initialize: {}", impl::error( error ));
 		return false;
 	}
 	return true;
 }
 void ext::freetype::terminate() {
-	FT_Done_FreeType( impl::library );
+	FT_Done_FreeType( impl::ft_library );
+	impl::ftCache.clear();
 }
 
-pod::FT_Glyph ext::freetype::initialize( const uf::stl::string& font ) {
-	pod::FT_Glyph g;
-	if ( auto error = FT_New_Face( impl::library, font.c_str(), 0, &g.face ) ) {
-		UF_MSG_ERROR("FreeType failed to load file '{}': {}", font, impl::error( error ));
-	}
-	if ( auto error = FT_Select_Charmap( g.face, FT_ENCODING_UNICODE ) ) {
-		UF_MSG_ERROR("FreeType failed to load file '{}': {}", font, impl::error( error ));
-	}
-	return g;
-}
-bool ext::freetype::initialize( pod::FT_Glyph& g, const uf::stl::string& font ) {
-	if ( auto error = FT_New_Face( impl::library, font.c_str(), 0, &g.face ) ) {
-		UF_MSG_ERROR("FreeType failed to load file '{}': {}", font, impl::error( error ));
+bool ext::freetype::initialize( pod::FT_Glyph& g, const uf::stl::string& filename ) {
+	// yucky yuck
+	if ( impl::ftCache.find(filename) == impl::ftCache.end() ) {
+        uf::stl::vector<uint8_t> buffer;
+        if ( !uf::io::readAsBuffer( buffer, filename ) ) {
+            UF_MSG_ERROR("FreeType failed to read file: {}", filename);
+            return false;
+        }
+        impl::ftCache[filename] = std::move(buffer);
+    }
+
+    const auto& buffer = impl::ftCache[filename];
+	if ( auto error = FT_New_Memory_Face( impl::ft_library, buffer.data(), (FT_Long) buffer.size(), 0, &g.face ) ) {
+		UF_MSG_ERROR("FreeType failed to load font memory '{}': {}", filename, impl::error( error ));
 		return false;
 	}
 	if ( auto error = FT_Select_Charmap( g.face, FT_ENCODING_UNICODE ) ) {
-		UF_MSG_ERROR("FreeType failed to load file '{}': {}", font, impl::error( error ));
+		UF_MSG_ERROR("FreeType failed to load charmap '{}': {}", filename, impl::error( error ));
 		return false;
 	}
 	return true;

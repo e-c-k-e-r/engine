@@ -88,10 +88,11 @@ namespace impl {
 }
 
 
-bool uf::image::open( pod::Image& image, const uf::stl::string& _filename, bool flip ) {
-	// to-do: use preferred
-	uf::stl::string filename = uf::io::preferred( _filename );
-	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: {}", filename);
+bool uf::image::open( pod::Image& image, const uf::stl::string& filename, bool flip ) {
+	uf::stl::vector<uint8_t> buffer;
+	if ( !uf::io::readAsBuffer( buffer, filename ) ) {
+		return false;
+	}
 #if UF_USE_OPENGL_GLDC
 	 auto extension = uf::io::extension( filename );
 	if ( extension != "dtex" ) UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
@@ -110,12 +111,14 @@ bool uf::image::open( pod::Image& image, const uf::stl::string& _filename, bool 
 			uint32_t 	size;
 		} header;
 
-		FILE* file = NULL;
-		file = fopen(filename.c_str(), "rb");
-		fread(&header, sizeof(header), 1, file);
+		uf::stl::vector<uint8_t> buffer;
+		if ( !uf::io::readAsBuffer( buffer, filename ) ) UF_EXCEPTION("IO error: could not read DTEX: {}", filename);
+		if ( buffer.size() < sizeof(header) ) UF_EXCEPTION("IO error: DTEX file is too small to contain a header: {}", filename);
+		memcpy(&header, buffer.data(), sizeof(header));
+		if ( buffer.size() < sizeof(header) + header.size ) UF_EXCEPTION("IO error: DTEX file is truncated or corrupted: {}", filename);
+
 		image.pixels.resize(header.size);
-		fread(image.pixels.data(), header.size, 1, file);
-		fclose(file);
+		memcpy(image.pixels.data(), buffer.data() + sizeof(header), header.size);
 
 		bool twiddled = (header.type & (1 << 26)) < 1;
 		bool compressed = (header.type & (1 << 30)) > 0;
@@ -150,12 +153,10 @@ bool uf::image::open( pod::Image& image, const uf::stl::string& _filename, bool 
 #endif
 	{
 		stbi_set_flip_vertically_on_load(flip);
-		uint8_t* buffer = stbi_load( filename.c_str(), &width, &height, &channelsDud, STBI_rgb_alpha );
+		uint8_t* stbi_pixels = stbi_load_from_memory( buffer.data(), buffer.size(), &width, &height, &channelsDud, STBI_rgb_alpha );
 		size_t len = width * height * channels;
 		image.pixels.resize( len );
-		memcpy( &image.pixels[0], buffer, len );
-	//	image.pixels.insert( image.pixels.end(), (uint8_t*) buffer, buffer + len );
-		stbi_image_free(buffer);
+		memcpy( &image.pixels[0], stbi_pixels, len );
 	}
 
 	image.size.x = width;

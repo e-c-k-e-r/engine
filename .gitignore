@@ -58,6 +58,10 @@ default/
 *.ttf
 *.otf
 *.bin
+*.bsp
+*.vmt
+*.vtf
+*.ztmp
 
 models/
 llm/

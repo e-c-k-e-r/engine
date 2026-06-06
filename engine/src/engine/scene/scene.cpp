@@ -7,6 +7,7 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/debug/draw.h>
 #include <uf/utils/io/fmt.h>
+#include <uf/utils/io/vfs.h>
 #include <uf/engine/ext.h>
 #include <regex>
 
@@ -184,8 +185,15 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 #endif
 	scene->load(filename);
 
+	auto& metadata = scene->getComponent<uf::SceneBehavior::Metadata>();
+	auto& metadataObject = scene->getComponent<uf::ObjectBehavior::Metadata>();
+	auto mountUri = ::fmt::format("://{}", uf::vfs::resolveBase( metadataObject.system.root ) );
+	metadata.mount.hash = uf::vfs::mount( uf::vfs::createDiskMount( mountUri, 200 ) );
+
 	auto& metadataJson = scene->getComponent<uf::Serializer>();
 	metadataJson["system"]["scene"] = name;
+
+
 #if UF_USE_VULKAN
 	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
@@ -212,6 +220,11 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 	current->queueDeletion();
+
+	{
+		auto& metadataScene = current->getComponent<uf::SceneBehavior::Metadata>();
+		uf::vfs::unmount( metadataScene.mount.hash );
+	}
 	
 	// destroy graph
 	if ( current->hasComponent<pod::Graph::Storage>() ) {

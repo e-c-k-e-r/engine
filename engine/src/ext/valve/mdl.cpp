@@ -1,6 +1,7 @@
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
+#include <uf/ext/valve/vpk.h>
 #include <uf/ext/valve/common.h>
 
 namespace impl {
@@ -138,16 +139,12 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 	auto& storage = uf::graph::getStorage( graph );
 	uf::stl::vector<impl::Meshlet> meshlets;
 
-	// read MDL file
-	std::ifstream mdlFile(filename, std::ios::binary | std::ios::ate);
-	if ( !mdlFile ) {
+	// Read MDL file
+	uf::stl::vector<uint8_t> mdlBuffer;
+	if ( !uf::io::readAsBuffer(mdlBuffer, filename) ) {
 		UF_MSG_ERROR("Failed to find MDL: {}", filename);
 		return false;
 	}
-	std::streamsize mdlSize = mdlFile.tellg();
-	mdlFile.seekg(0, std::ios::beg);
-	uf::stl::vector<uint8_t> mdlBuffer(mdlSize);
-	mdlFile.read((char*)mdlBuffer.data(), mdlSize);
 
 	const impl::studiohdr_t* mdlHdr = (const impl::studiohdr_t*)mdlBuffer.data();
 	if ( mdlHdr->magic != 0x54534449 ) { // "IDST"
@@ -155,17 +152,13 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 		return false;
 	}
 
-	// read VVD file
+	// Read VVD file
 	uf::stl::string vvdPath = filename.substr(0, filename.find_last_of('.')) + ".vvd";
-	std::ifstream vvdFile(vvdPath, std::ios::binary | std::ios::ate);
-	if ( !vvdFile ) {
+	uf::stl::vector<uint8_t> vvdBuffer;
+	if ( !uf::io::readAsBuffer(vvdBuffer, vvdPath) ) {
 		UF_MSG_ERROR("Failed to find VVD: {}", vvdPath);
 		return false;
 	}
-	std::streamsize vvdSize = vvdFile.tellg();
-	vvdFile.seekg(0, std::ios::beg);
-	uf::stl::vector<uint8_t> vvdBuffer(vvdSize);
-	vvdFile.read((char*)vvdBuffer.data(), vvdSize);
 
 	const impl::vertexFileHeader_t* vvdHdr = (const impl::vertexFileHeader_t*)vvdBuffer.data();
 	if ( vvdHdr->magic != 0x56534449 || vvdHdr->checksum != mdlHdr->checksum ) {
@@ -173,15 +166,35 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 		return false;
 	}
 
-	// extract material names from MDL
-	uf::stl::vector<uf::stl::string> materials(mdlHdr->numtextures);
-	for ( int i = 0; i < mdlHdr->numtextures; ++i ) {
-		int32_t texStructOffset = mdlHdr->textureindex + (i * 64);
-		int32_t nameOffset = *(int32_t*)(mdlBuffer.data() + texStructOffset);
+	// extract material directories (cdtextures)
+    uf::stl::vector<uf::stl::string> cdmaterials(mdlHdr->numcdtextures);
+    for ( int i = 0; i < mdlHdr->numcdtextures; ++i ) {
+        int32_t cdOffset = *(int32_t*)(mdlBuffer.data() + mdlHdr->cdtextureindex + (i * 4));
+        uf::stl::string cdPath = (const char*)(mdlBuffer.data() + cdOffset);
 
-		materials[i] = (const char*)(mdlBuffer.data() + texStructOffset + nameOffset);
-		UF_MSG_INFO("Model Material {}: {}", i, materials[i]);
-	}
+        std::replace(cdPath.begin(), cdPath.end(), '\\', '/');
+        std::transform(cdPath.begin(), cdPath.end(), cdPath.begin(), ::tolower);
+        cdmaterials[i] = cdPath;
+    }
+
+    // extract material names from MDL and resolve their full relative paths
+    uf::stl::vector<uf::stl::string> materials(mdlHdr->numtextures);
+    for ( int i = 0; i < mdlHdr->numtextures; ++i ) {
+        int32_t texStructOffset = mdlHdr->textureindex + (i * 64);
+        int32_t nameOffset = *(int32_t*)(mdlBuffer.data() + texStructOffset);
+        uf::stl::string baseName = (const char*)(mdlBuffer.data() + texStructOffset + nameOffset);
+        std::transform(baseName.begin(), baseName.end(), baseName.begin(), ::tolower);
+
+        materials[i] = baseName;
+
+        for ( const auto& cd : cdmaterials ) {
+            uf::stl::string attempt = cd + baseName;
+            if ( uf::vfs::exists("materials/" + attempt + ".vmt") ) {
+                materials[i] = attempt;
+                break;
+            }
+        }
+    }
 
 	// extract LOD0 ertices from VVD
 	const impl::mstudiovertex_t* vvdVertices = (const impl::mstudiovertex_t*)(vvdBuffer.data() + vvdHdr->vertexDataStart);
@@ -189,13 +202,8 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// read VTX file
 	uf::stl::string vtxPath = filename.substr(0, filename.find_last_of('.')) + ".dx90.vtx";
-	std::ifstream vtxFile(vtxPath, std::ios::binary | std::ios::ate);
-	if ( !vtxFile ) return false;
-
-	std::streamsize vtxSize = vtxFile.tellg();
-	vtxFile.seekg(0, std::ios::beg);
-	uf::stl::vector<uint8_t> vtxBuffer(vtxSize);
-	vtxFile.read((char*)vtxBuffer.data(), vtxSize);
+	uf::stl::vector<uint8_t> vtxBuffer;
+	if ( !uf::io::readAsBuffer(vtxBuffer, vtxPath)) return false;
 
 	const impl::vtxHeader_t* vtxHdr = (const impl::vtxHeader_t*)vtxBuffer.data();
 	if ( vtxHdr->checksum != mdlHdr->checksum ) {
@@ -239,19 +247,19 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 							const auto& srcVert = vvdVertices[originalVvdID];
 
-							vert.position = impl::convertPos( srcVert.m_vecPosition, 1.0f );
-							vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal ) );
+							vert.position = impl::convertPos( srcVert.m_vecPosition );
+							vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal, 1.0f ) );
 							vert.uv = srcVert.m_vecTexCoord;
 							vert.color = {1.0f, 1.0f, 1.0f, 1.0f};
 							vert.joints.x = srcVert.m_BoneWeights.numbones > 0 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[0]) : 0;
-                            vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
-                            vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
-                            vert.joints.w = 0;
+							vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
+							vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
+							vert.joints.w = 0;
 
-                            vert.weights.x = srcVert.m_BoneWeights.numbones > 0 ? srcVert.m_BoneWeights.weight[0] : 1.0f;
-                            vert.weights.y = srcVert.m_BoneWeights.numbones > 1 ? srcVert.m_BoneWeights.weight[1] : 0.0f;
-                            vert.weights.z = srcVert.m_BoneWeights.numbones > 2 ? srcVert.m_BoneWeights.weight[2] : 0.0f;
-                            vert.weights.w = 0.0f;
+							vert.weights.x = srcVert.m_BoneWeights.numbones > 0 ? srcVert.m_BoneWeights.weight[0] : 1.0f;
+							vert.weights.y = srcVert.m_BoneWeights.numbones > 1 ? srcVert.m_BoneWeights.weight[1] : 0.0f;
+							vert.weights.z = srcVert.m_BoneWeights.numbones > 2 ? srcVert.m_BoneWeights.weight[2] : 0.0f;
+							vert.weights.w = 0.0f;
 
 							// Bounds calculation
 							auto& bounds = meshlet.primitive.instance.bounds;
@@ -275,6 +283,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 					for ( ; materialID < graph.materials.size(); ++materialID ) {
 						if ( graph.materials[materialID] == matName ) break;
 					}
+
 				} else {
 					// does not exist, register
 					size_t imageID = graph.images.size();

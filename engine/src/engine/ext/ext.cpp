@@ -46,6 +46,7 @@
 #include <uf/ext/ffx/fsr.h>
 #include <uf/ext/imgui/imgui.h>
 #include <uf/ext/vall_e/vall_e.h>
+#include <uf/ext/valve/vpk.h>
 
 bool uf::ready = false;
 uf::stl::vector<uf::stl::string> uf::arguments;
@@ -491,6 +492,13 @@ void UF_API uf::initialize() {
 	}
 	/* Setup commands */ {
 		uf::console::initialize();
+	}
+
+	/* Load VPKs */ {
+		auto& vpks = uf::config["engine"]["ext"]["valve"]["vpks"];
+		ext::json::forEach( vpks, []( const uf::stl::string& uri ) {
+			ext::valve::mountVpk( uri );
+		});
 	}
 
 	/* Create initial scene (kludge) */ {

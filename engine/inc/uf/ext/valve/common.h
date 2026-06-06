@@ -11,7 +11,7 @@ namespace impl {
 
 	template<typename T>
 	T str2vec( uf::stl::string string ) {
-		string = uf::string::join(uf::string::split(string, " "), ","); // replace spaces with commas
+		string = uf::string::replace(string, " ", ","); // replace spaces with commas
 		string = ::fmt::format("[{}]", string); // wrap as an array
 		ext::json::Value j; ext::json::decode( j, string ); // parse JSON string
 		return uf::vector::decode( j, T{} ); // parse JSON object
@@ -21,5 +21,6 @@ namespace impl {
 		return pod::Vector3f{ -vertex.y, vertex.z, vertex.x } * scale;
 	}
 
+	uf::stl::string readString( std::ifstream& file );
 	bool parseKeyValue( const uf::stl::string& line, uf::stl::string& key, uf::stl::string& value );
 }

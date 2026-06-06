@@ -40,7 +40,7 @@ namespace uf {
 	public:
 	// 	Easily access POD's type
 		typedef pod::PointeredUserdata pod_t;
-		bool autoDestruct = uf::userdata::autoDestruct;
+		bool autoDestruct = uf::userdata::autoDestruct; // shouldn't ever use in containers because of auto-destruct......
 	protected:
 	// 	POD storage
 		PointeredUserdata::pod_t m_pod = {};

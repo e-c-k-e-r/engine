@@ -12,7 +12,7 @@ namespace pod {
 		uf::stl::string filename;
 		pod::Image::container_t pixels;
 		pod::Vector2ui size = {};
-		size_t bpp = 8;
+		size_t bpp = 8 * 4;
 		size_t channels = 4;
 		size_t format = 0;
 	};

@@ -22,14 +22,14 @@ namespace uf {
 		uf::stl::string UF_API extension( const uf::stl::string& );
 		uf::stl::string UF_API extension( const uf::stl::string&, int32_t );
 		uf::stl::string UF_API directory( const uf::stl::string& );
-		uf::stl::string UF_API sanitize( const uf::stl::string&, const uf::stl::string& = "" );
+		uf::stl::string UF_API normalize( const uf::stl::string& );
 		size_t UF_API size( const uf::stl::string& );
 		
-		uf::stl::string& UF_API readAsString( uf::stl::string&, const uf::stl::string&, const uf::stl::string& = "" );
+		bool UF_API readAsString( uf::stl::string&, const uf::stl::string&, const uf::stl::string& = "" );
 		
-		uf::stl::vector<uint8_t>& UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::string& = "" );
-		uf::stl::vector<uint8_t>& UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, size_t start, size_t len, const uf::stl::string& = "" );
-		uf::stl::vector<uint8_t>& UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::vector<pod::Range>& ranges, const uf::stl::string& = "" );
+		bool UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::string& = "" );
+		bool UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, size_t start, size_t len, const uf::stl::string& = "" );
+		bool UF_API readAsBuffer( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::vector<pod::Range>& ranges, const uf::stl::string& = "" );
 
 		// yuck!
 		// wrapper in case this gets called without feeding into a buffer directly to avoid additional memory allocations
@@ -62,9 +62,9 @@ namespace uf {
 			return write( filename, string.c_str(), std::min( string.size(), size ) );
 		}
 		
-		uf::stl::vector<uint8_t>& UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string& );
-		uf::stl::vector<uint8_t>& UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string&, size_t, size_t );
-		uf::stl::vector<uint8_t>& UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::vector<pod::Range>& );
+		bool UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string& );
+		bool UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string&, size_t, size_t );
+		bool UF_API decompress( uf::stl::vector<uint8_t>&, const uf::stl::string&, const uf::stl::vector<pod::Range>& );
 
 		inline uf::stl::vector<uint8_t> decompress( const uf::stl::string& filename ) {
 			uf::stl::vector<uint8_t> buffer;
@@ -94,8 +94,21 @@ namespace uf {
 		bool UF_API exists( const uf::stl::string& );
 		size_t UF_API mtime( const uf::stl::string& );
 		bool UF_API mkdir( const uf::stl::string& );
-		uf::stl::string UF_API assetType( const uf::stl::string _filename );
+		uf::stl::string UF_API assetType( const uf::stl::string& _filename );
+		uf::stl::string UF_API assetScheme( const uf::stl::string& _filename );
 		uf::stl::string UF_API resolveURI( const uf::stl::string&, const uf::stl::string& = "" );
 		uf::stl::string UF_API preferred( const uf::stl::string& filename );
+
+		// splits "prefix://path/to/file" into "prefix://" and "path/to/file"
+		inline void splitUri( const uf::stl::string& uri, uf::stl::string& prefix, uf::stl::string& relativePath ) {
+			size_t pos = uri.find("://");
+			if ( pos != uf::stl::string::npos ) {
+				prefix = uri.substr(0, pos + 3);
+				relativePath = uri.substr(pos + 3);
+			} else {
+				prefix = "";
+				relativePath = uri;
+			}
+		}
 	}
 }

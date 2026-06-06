@@ -221,15 +221,15 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 #if UF_USE_XATLAS
 	// generate STs
 	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) || graph.metadata["exporter"]["unwrap"].as<uf::stl::string>() == "tagged" ) {
-		UF_MSG_DEBUG( "Generating ST's..." );
+		//UF_MSG_DEBUG( "Generating ST's..." );
 		size_t atlases = ext::xatlas::unwrap( graph );
-		UF_MSG_DEBUG( "Generated ST's for {} lightmaps", atlases );
+		//UF_MSG_DEBUG( "Generated ST's for {} lightmaps", atlases );
 	}
 #endif
 #if UF_USE_MESHOPT
 	// cleanup if blender's exporter is poopy
 	if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" || ext::json::isObject( graph.metadata["exporter"]["optimize"] ) ) {
-		UF_MSG_DEBUG( "Optimizing meshes..." );
+		//UF_MSG_DEBUG( "Optimizing meshes..." );
 		for ( auto& keyName : graph.meshes ) {
 			size_t level = SIZE_MAX;
 			float simplify = 1.0f;
@@ -265,7 +265,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 			auto& primitives = storage.primitives[keyName];
 			
 			if ( level ) {
-				UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
+				//UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
 				if ( !ext::meshopt::optimize( mesh, simplify, level, print ) ) {
 					UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
 				}
@@ -276,7 +276,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 				if ( lodMetadata.empty() ) {
 					UF_MSG_ERROR("LOD generation failed: {}", keyName );
 				} else {
-					UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
+					//UF_MSG_DEBUG("Generated {} LODs: {}", factors.size() - 1, keyName);
 					UF_ASSERT( primitives.size() == lodMetadata.size() );
 					for ( auto i = 0; i < primitives.size(); ++i ) {
 						primitives[i].lod = lodMetadata[i];
@@ -285,7 +285,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 			}
 		}
 
-		UF_MSG_DEBUG( "Optimized mesh" );
+		//UF_MSG_DEBUG( "Optimized mesh" );
 	}
 #endif
 	{

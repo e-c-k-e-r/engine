@@ -98,7 +98,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o, bool verb
 				srcIndexCount * simplify, targetError, meshopt_SimplifyLockBorder, &realError
 			);
 
-			if ( verbose ) UF_MSG_DEBUG("[View {}] Simplified: {} -> {}", viewIdx, srcIndexCount, optimizedIndexCount);
+			//if ( verbose ) UF_MSG_DEBUG("[View {}] Simplified: {} -> {}", viewIdx, srcIndexCount, optimizedIndexCount);
 			localIndices.swap(simplified);
 			localIndices.resize(optimizedIndexCount);
 		}
@@ -256,7 +256,7 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 					continue;
 				}
 
-				if ( verbose ) UF_MSG_DEBUG("[View {}] LOD {}: {} -> {}", viewIdx, lodIdx, cmd0.indices, currentIndicesCount);
+				//if ( verbose ) UF_MSG_DEBUG("[View {}] LOD {}: {} -> {}", viewIdx, lodIdx, cmd0.indices, currentIndicesCount);
 
 				lodIndices.resize(currentIndicesCount);
 

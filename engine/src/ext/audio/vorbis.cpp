@@ -7,10 +7,9 @@
 
 #include <uf/ext/audio/vorbis.h>
 #include <uf/utils/memory/pool.h>
+#include <uf/utils/io/vfs.h>
 #include <iostream>
-#include <fstream>
 #include <vector>
-#include <cstdio>
 #include <cstring>
 
 #if UF_USE_TREMOR
@@ -22,45 +21,57 @@
 namespace {
 	constexpr int endian = 0; // 0 = little endian
 
+	struct VorbisVfsContext {
+		uf::stl::string filename;
+		size_t currentOffset;
+		size_t totalSize;
+	};
+
 	namespace funs {
 		size_t read(void* destination, size_t size, size_t nmemb, void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-			FILE* file = (FILE*) metadata.stream.file;
-			size_t read_count = fread(destination, size, nmemb, file);
-			metadata.stream.consumed += read_count * size;
-			return read_count;
+			VorbisVfsContext* ctx = (VorbisVfsContext*) userdata;
+			size_t bytesToRead = size * nmemb;
+			size_t bytesLeft = ctx->totalSize - ctx->currentOffset;
+			if (bytesToRead > bytesLeft) bytesToRead = bytesLeft;
+
+			if (bytesToRead > 0) {
+				uf::stl::vector<uint8_t> tempBuffer;
+				if (uf::vfs::readRange(ctx->filename, ctx->currentOffset, bytesToRead, tempBuffer)) {
+					std::memcpy(destination, tempBuffer.data(), tempBuffer.size());
+					ctx->currentOffset += tempBuffer.size();
+					return tempBuffer.size() / size;
+				}
+			}
+			return 0;
 		}
 
 		int seek( void* userdata, ogg_int64_t to, int type ) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-			FILE* file = (FILE*) metadata.stream.file;
+			VorbisVfsContext* ctx = (VorbisVfsContext*) userdata;
 
 			switch ( type ) {
-				case SEEK_CUR: metadata.stream.consumed += to; break;
-				case SEEK_END: metadata.stream.consumed = metadata.info.size - to; break;
-				case SEEK_SET: metadata.stream.consumed = to; break;
+				case SEEK_CUR: ctx->currentOffset += to; break;
+				case SEEK_END: ctx->currentOffset = ctx->totalSize + to; break;
+				case SEEK_SET: ctx->currentOffset = to; break;
 				default: return -1;
 			}
-			if (metadata.stream.consumed < 0) metadata.stream.consumed = 0;
-			if (metadata.stream.consumed > metadata.info.size) metadata.stream.consumed = metadata.info.size;
-			
-			if (fseek(file, to, type) != 0) return -1;
+
+			if ((int64_t)ctx->currentOffset < 0) ctx->currentOffset = 0;
+			if (ctx->currentOffset > ctx->totalSize) ctx->currentOffset = ctx->totalSize;
+
 			return 0;
 		}
 
 		int close(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-			FILE* file = (FILE*) metadata.stream.file;
-			if ( file ) {
-				fclose(file);
-				metadata.stream.file = NULL;
+			VorbisVfsContext* ctx = (VorbisVfsContext*) userdata;
+			if (ctx) {
+				delete ctx;
 			}
 			return 0;
 		}
 
 		long tell(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-			return metadata.stream.consumed;
+			VorbisVfsContext* ctx = (VorbisVfsContext*) userdata;
+			return (long)ctx->currentOffset;
 		}
 	}
 
@@ -78,20 +89,25 @@ namespace {
 }
 
 void ext::vorbis::open(uf::Audio::Metadata& metadata) {
-	if ( !metadata.stream.file ) metadata.stream.file = fopen(metadata.filename.c_str(), "rb");
+	if ( !metadata.stream.context ) {
+		VorbisVfsContext* ctx = new VorbisVfsContext();
+		ctx->filename = metadata.filename;
+		ctx->currentOffset = 0;
+		ctx->totalSize = uf::vfs::size(metadata.filename);
+
+		if ( ctx->totalSize == 0 ) {
+			UF_MSG_ERROR("Vorbis: failed to open file: {}", metadata.filename);
+			delete ctx;
+			return;
+		}
+		metadata.stream.context = (void*) ctx;
+	}
 	if ( !metadata.stream.handle ) metadata.stream.handle = (void*) new OggVorbis_File;
 
-	FILE* file = (FILE*) metadata.stream.file;
+	VorbisVfsContext* ctx = (VorbisVfsContext*) metadata.stream.context;
 	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
-	if ( !file ) {
-		UF_MSG_ERROR("Vorbis: failed to open {}. File error.", metadata.filename);
-		return;
-	}
-
-	fseek(file, 0, SEEK_END);
-	metadata.info.size = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	metadata.info.size = ctx->totalSize;
 	metadata.stream.consumed = 0;
 
 	ov_callbacks callbacks;
@@ -99,10 +115,12 @@ void ext::vorbis::open(uf::Audio::Metadata& metadata) {
 	callbacks.seek_func = funs::seek;
 	callbacks.close_func = funs::close;
 	callbacks.tell_func = funs::tell;
-	
-	int error = ov_open_callbacks((void*) &metadata, vorbisFile, NULL,  metadata.settings.streamed ? -1 : 0, callbacks);
+
+	int error = ov_open_callbacks((void*) ctx, vorbisFile, NULL,  metadata.settings.streamed ? -1 : 0, callbacks);
 	if (error < 0) {
 		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: {}", metadata.filename);
+		delete ctx;
+		metadata.stream.context = nullptr;
 		return;
 	}
 
@@ -114,6 +132,7 @@ void ext::vorbis::open(uf::Audio::Metadata& metadata) {
 
 	if ( !format(metadata, info->channels, 16) ) {
 		ov_clear(vorbisFile);
+		metadata.stream.context = nullptr;
 		return;
 	}
 
@@ -123,10 +142,9 @@ void ext::vorbis::open(uf::Audio::Metadata& metadata) {
 void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	if ( metadata.settings.streamed ) return ext::vorbis::stream(metadata);
 
-	FILE* file = (FILE*) metadata.stream.file;
 	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
-	uf::stl::vector<char> bytes;
+	uf::stl::vector<uint8_t> bytes;
 	char buffer[uf::audio::bufferSize];
 	int bitStream = 0;
 	int read = 0;
@@ -139,7 +157,7 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
 
 	ov_clear(vorbisFile);
-	fclose(file);
+	metadata.stream.context = nullptr;
 }
 
 void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
@@ -147,7 +165,7 @@ void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
 
 	OggVorbis_File* vorbisFile = (OggVorbis_File*) metadata.stream.handle;
 
-	// Fill and queue initial buffers
+	// fill and queue initial buffers
 	char buffer[uf::audio::bufferSize];
 	uint8_t queuedBuffers = 0;
 	int bitStream = 0;
@@ -192,8 +210,8 @@ void ext::vorbis::update(uf::Audio::Metadata& metadata) {
 	ALint state;
 	metadata.al.source.get(AL_SOURCE_STATE, state);
 	if (state != AL_PLAYING) {
-		if (!metadata.settings.loop && metadata.stream.consumed >= metadata.info.size) {
-			// Stream finished
+		VorbisVfsContext* ctx = (VorbisVfsContext*) metadata.stream.context;
+		if (!metadata.settings.loop && ctx && ctx->currentOffset >= ctx->totalSize) {
 			return;
 		}
 		metadata.al.source.play();
@@ -250,11 +268,7 @@ void ext::vorbis::close(uf::Audio::Metadata& metadata) {
 		ov_clear(file);
 		delete file;
 		metadata.stream.handle = NULL;
-	}
-	if ( metadata.stream.file ) {
-		FILE* file = (FILE*) metadata.stream.file;
-		fclose(file);
-		metadata.stream.file = NULL;
+		metadata.stream.context = NULL;
 	}
 }
 

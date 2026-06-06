@@ -46,17 +46,9 @@ void ext::opengl::Shader::initialize( ext::opengl::Device& device, const uf::stl
 // GPU-based shader execution
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 	uf::stl::string glsl;
-	{
-		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
-		if ( !is.is_open() ) {
-			GL_VALIDATION_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
-			return;
-		}
-		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
-		spirv.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
-	
-		assert(spirv.size() > 0);
-	}
+	uf::io::readAsString( glsl, this->filename = filename );
+	if ( glsl.empty() ) UF_EXCEPTION("Error: Could not open shader file: {}", filename);
+	UF_ASSERT(glsl.size() > 0);
 	{
 		device.activateContext();
 		module = glCreateShader(stage);

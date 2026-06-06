@@ -5,33 +5,32 @@
 
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/memory/string.h>
+#include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/io/file.h>
+#include <uf/utils/io/vfs.h>
+
+namespace pod {
+	struct ZipEntry {
+        size_t offset;
+        size_t compressedSize;
+        size_t uncompressedSize;
+        uint16_t compressionMethod;
+    };
+}
 
 namespace ext {
 	namespace zlib {
 		extern UF_API size_t bufferSize;
-	/*
-		uf::stl::vector<uint8_t> UF_API compress( const void*, size_t );
-		uf::stl::vector<uint8_t> UF_API decompress( const void*, size_t );
+		
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& );
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len );
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
+		bool UF_API decompressFromMemory( uf::stl::vector<uint8_t>&, const void*, size_t, size_t );
+		
+		size_t UF_API compressToFile( const uf::stl::string&, const void*, size_t );
+		bool UF_API directory( const uf::stl::vector<uint8_t>& buffer, uf::stl::unordered_map<uf::stl::string, pod::ZipEntry>& entries );
+		pod::Mount UF_API createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority = 0 );
 
-		template<typename T>
-		uf::stl::vector<T> UF_API compress( const uf::stl::vector<T>& data ) {
-			auto compressed = ext::zlib::compress( data.data(), data.size() );
-			uf::stl::vector<T> vector( compressed.size() / sizeof(T) );
-			memcpy( vector.data(), compressed.data(), compressed.size() );
-		}
-		template<typename T>
-		uf::stl::vector<T> UF_API decompress( const uf::stl::vector<T>& data ) {
-			auto compressed = ext::zlib::decompress( data.data(), data.size() );
-			uf::stl::vector<T> vector( compressed.size() / sizeof(T) );
-			memcpy( vector.data(), compressed.data(), compressed.size() );
-		}
-	*/
-		
-		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& );
-		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len );
-		uf::stl::vector<uint8_t>& UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
-		
 		inline uf::stl::vector<uint8_t> decompressFromFile( const uf::stl::string& filename ) {
 			uf::stl::vector<uint8_t> buffer;
 			decompressFromFile( buffer, filename );
@@ -47,9 +46,6 @@ namespace ext {
 			decompressFromFile( buffer, filename, ranges );
 			return buffer;
 		}
-
-
-		size_t UF_API compressToFile( const uf::stl::string&, const void*, size_t );
 	}
 }
 

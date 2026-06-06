@@ -10,3 +10,10 @@ bool impl::parseKeyValue( const uf::stl::string& line, uf::stl::string& key, uf:
 	value = line.substr( q3 + 1, q4 - q3 - 1 );
 	return true;
 }
+
+uf::stl::string impl::readString( std::ifstream& file ) {
+	uf::stl::string str;
+	char c;
+	while ( file.get(c) && c != '\0' ) str += c;
+	return str;
+}

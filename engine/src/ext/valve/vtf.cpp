@@ -1,6 +1,7 @@
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
+#include <uf/ext/valve/vpk.h>
 #include <uf/ext/valve/common.h>
 
 namespace impl {
@@ -115,10 +116,11 @@ namespace impl {
 }
 
 bool ext::valve::loadVmt( uf::Serializer& dict, const uf::stl::string& filename ) {
-	std::ifstream file( filename );
-	if ( !file ) return false;
+	uf::stl::string content;
+	if ( !uf::io::readAsString(content, filename) ) return false;
 
 	uf::stl::string line;
+	std::istringstream file(content);
 	while ( std::getline(file, line) ) {
 		uf::stl::string comment = "";
 		size_t commentPos = line.find("//"); // strip comments
@@ -130,23 +132,22 @@ bool ext::valve::loadVmt( uf::Serializer& dict, const uf::stl::string& filename 
 		uf::stl::string key, value;
 		if ( impl::parseKeyValue(line, key, value) ) {
 			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+			std::transform(value.begin(), value.end(), value.begin(), ::tolower);
 			std::replace(value.begin(), value.end(), '\\', '/');
 
-			dict[key] = value;
+			if ( key == "include" ) {
+                ext::valve::loadVmt( dict, value );
+            } else {
+				dict[key] = value;
+            }
 		}
 	}
 	return true;
 }
 
 bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
-	std::ifstream file( filename, std::ios::binary | std::ios::ate );
-	if ( !file ) return false;
-
-	std::streamsize size = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	uf::stl::vector<uint8_t> buffer(size);
-	file.read((char*)buffer.data(), size);
+	uf::stl::vector<uint8_t> buffer;
+	if ( !uf::io::readAsBuffer(buffer, filename) ) return false;
 
 	const impl::VTFHeader* header = (const impl::VTFHeader*)(buffer.data());
 	if ( strncmp(header->signature, "VTF", 3) != 0 ) return false;
@@ -172,7 +173,7 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 	const uint8_t* data = buffer.data() + offset;
 	image.size = { header->width, header->height };
 	image.channels = 4;
-	image.bpp = 8;
+	image.bpp = 8 * 4;
 	image.pixels.resize( header->width * header->height * 4 );
 
 	int dataSize = 0;

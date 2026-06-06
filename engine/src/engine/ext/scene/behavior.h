@@ -74,7 +74,7 @@ namespace ext {
 			} fog;
 			struct {
 				struct {
-					uf::stl::string filename = "%root%/textures/skybox/%d.png";
+					uf::stl::string filename = "/textures/skybox/%d.png";
 				} box;
 			} sky;
 

@@ -27,28 +27,24 @@
 		#define WINVER 0x0600
 	#endif
 	
-	#define UF_IO_ROOT "./data/"
 #elif defined(linux) || defined(__linux)
 	// Linux
 	#define UF_ENV "Linux"
 	#define UF_ENV_LINUX 1
 	#define UF_ENV_HEADER "linux.h"
 	
-	#define UF_IO_ROOT "./data/"
 #elif defined(__APPLE__) || defined(MACOSX) || defined(macintosh) || defined(Macintosh)
 	// MacOS
 	#define UF_ENV "OSX"
 	#define UF_ENV_OSX 1
 	#define UF_ENV_HEADER "osx.h"
 	
-	#define UF_IO_ROOT "./data/"
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	// FreeBSD
 	#define UF_ENV "FreeBSD"
 	#define UF_ENV_FREEBSD 1
 	#define UF_ENV_HEADER "freebsd.h"
 	
-	#define UF_IO_ROOT "./data/"
 #elif defined(__sh__)
 	// Dreamcast
 	#define UF_ENV "Dreamcast"
@@ -60,7 +56,7 @@
 		#define _arch_dreamcast
 	#endif
 
-	#define UF_IO_ROOT "/cd/"
+	// #define UF_IO_ROOT "/cd/"
 #else
 	// Unsupported system
 	#define UF_ENV "Unknown"
@@ -116,6 +112,8 @@
 #else
 	#define ALIGN16
 #endif
+
+#define UF_IO_ROOT "data://"
 
 #include "macros.h"
 #include "simd.h"

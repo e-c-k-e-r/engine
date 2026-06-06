@@ -2,9 +2,7 @@
 #include <iostream>
 #if UF_USE_FREETYPE
 
-pod::FT_Glyph uf::glyph::initialize( const uf::stl::string& font ) {
-	return ext::freetype::initialize( font );
-}
+
 uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g, uint64_t c, size_t size ) {
 	ext::freetype::setPixelSizes( g, size );
 	if ( !ext::freetype::load( g, c ) ) return NULL;

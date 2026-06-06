@@ -25,7 +25,7 @@ namespace uf {
 			uf::stl::string filename = "";
 			uf::stl::string extension = "";
 			struct {
-				FILE* file = NULL;
+				void* context = NULL;
 				void* handle = NULL;
 				char* buffer = NULL;
 				

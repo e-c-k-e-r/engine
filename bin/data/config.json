@@ -332,7 +332,16 @@
 				"scale": 1.0
 			},
 			"ultralight": { "enabled": true, "scale": 1.5 },
-			"discord": { "enabled": false }
+			"discord": { "enabled": false },
+			"valve": {
+				"vpks": [
+					"Half-Life 2/hl2/hl2_pak_dir.vpk", 
+					"Half-Life 2/hl2/hl2_textures_dir.vpk", 
+					"Half-Life 2/hl2/hl2_sound_misc_dir.vpk", 
+					"Half-Life 2/hl2/hl2_misc_dir.vpk", 
+					"Counter-Strike Source/cstrike/cstrike_pak_dir.vpk"
+				]
+			}
 		},
 		"physics": {
 			"solvers": {

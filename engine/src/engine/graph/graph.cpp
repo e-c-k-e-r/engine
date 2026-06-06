@@ -834,7 +834,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			// lightmaps are considered stale if they're older than the graph's source
 			bool stale = false;
 			for ( auto& pair : filenames ) {
-				uf::stl::string filename = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
+				uf::stl::string filename = uf::io::resolveURI( pair.second, uf::io::directory( graph.name ) );
 				auto time = uf::io::mtime(filename);
 				if ( !uf::io::exists( filename ) ) continue;
 				if ( time < mtime ) {
@@ -852,7 +852,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
 			for ( auto& pair : filenames ) {
 				auto i = pair.first;
-				auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
+				auto f = uf::io::resolveURI( pair.second, uf::io::directory( graph.name ) );
 				if ( !uf::io::exists( f ) ) {
 					graphMetadataJson["lights"]["lightmap"] = false;
 					UF_MSG_ERROR( "lightmap does not exist: {} {}, disabling lightmaps", i, f )
@@ -863,7 +863,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
 			for ( auto& pair : filenames ) {
 				auto i = pair.first;
-				auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
+				auto f = uf::io::resolveURI( pair.second, uf::io::directory( graph.name ) );
 
 				auto textureID = graph.textures.size();
 				auto imageID = graph.images.size();
@@ -1087,6 +1087,29 @@ void uf::graph::process( pod::Graph& graph ) {
 				}
 			}
 		}
+
+		for ( auto& instance : storage.groupedInstances.map[name] ) {
+			if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
+				auto& keys = storage.materials.keys;
+				auto& indices = storage.materials.indices;
+				auto& needle = graph.materials[instance.materialID];
+				instance.materialID = indices[needle];
+			}
+			if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
+				auto& keys = storage.textures.keys;
+				auto& indices = storage.textures.indices;
+				auto& needle = graph.textures[instance.lightmapID];
+				instance.lightmapID = indices[needle];
+			}
+			if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
+				auto& skinName = graph.skins[instance.jointID];
+				instance.jointID = 0;
+				for ( auto key : storage.joints.keys ) {
+					if ( key == skinName ) break;
+					instance.jointID += storage.joints[key].size();
+				}
+			}
+		}
 	}
 /*
 	if ( graphMetadataJson["debug"]["print"]["lights"].as<bool>() ) {
@@ -1296,6 +1319,41 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			};
 		}
 
+		auto primitiveName = graph.primitives[node.mesh];
+		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+		auto& primitives = storage.primitives.map[primitiveName];
+		auto& grouped = storage.groupedInstances[primitiveName];
+
+		node.object = ::allocateObjectID( storage );
+		auto objectKeyName = std::to_string( node.object );
+
+		storage.entities[objectKeyName] = &entity;
+		storage.objects[objectKeyName] = pod::Instance::Object{
+			.model = model,
+			.previous = model,
+		};
+
+		pod::Instance::Bounds bounds = {};
+
+		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
+			pod::Instance newInstance = primitives[drawID].instance;
+			newInstance.objectID = node.object;
+			newInstance.jointID = graphMetadataJson["renderer"]["skinned"].as<bool>() ? 0 : -1;
+
+			bounds.min = uf::vector::min( bounds.min, newInstance.bounds.min );
+			bounds.max = uf::vector::max( bounds.max, newInstance.bounds.max );
+
+			grouped.emplace_back(newInstance);
+		}
+
+		bool isFirstInstance = ( grouped.size() == primitives.size() );
+	#if !UF_GRAPH_EXTENDED
+		if ( graphMetadataJson["renderer"]["render"].as<bool>() && isFirstInstance ) {
+			uf::graph::initializeGraphics( graph, entity, mesh, addresses );
+		}
+	#endif
+
+	#if 0
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
 		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 		auto& instanceAddresses = storage.instanceAddresses.map[graph.primitives[node.mesh]];
@@ -1328,6 +1386,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( graphMetadataJson["renderer"]["render"].as<bool>() ) {
 			uf::graph::initializeGraphics( graph, entity, mesh, addresses );
 		}
+	#endif
 	#endif
 		
 		{
@@ -1490,15 +1549,52 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 	if ( storage.stale ) {
 		for ( auto& key : storage.primitives.keys ) {
-			for ( auto& primitive : storage.primitives[key] ) {
-				drawCommands.emplace_back( primitive.drawCommand );
-				instances.emplace_back( primitive.instance );
-				lodMetadata.emplace_back( primitive.lod );
-			}
-		}
+			auto& submeshes = storage.primitives.map[key];
+			auto& grouped = storage.groupedInstances.map[key];
+			auto& submeshAddresses = storage.instanceAddresses.map[key];
 
-		for ( auto& key : storage.instanceAddresses.keys ) {
-			instanceAddresses.insert( instanceAddresses.end(), storage.instanceAddresses.map[key].begin(), storage.instanceAddresses.map[key].end() );
+			auto& mesh = storage.meshes.map[key];
+			pod::DrawCommand* meshIndirectCmds = nullptr;
+
+			if (mesh.indirect.count > 0) {
+				auto& attr = mesh.indirect.attributes.front();
+				meshIndirectCmds = (pod::DrawCommand*) mesh.buffers[attr.buffer].data();
+			}
+
+			size_t nodesCount = submeshes.empty() ? 0 : grouped.size() / submeshes.size();
+
+			for ( size_t drawID = 0; drawID < submeshes.size(); ++drawID ) {
+				auto& primitive = submeshes[drawID];
+
+				primitive.drawCommand.instanceID = instances.size();
+				primitive.drawCommand.instances = nodesCount;
+
+				if (meshIndirectCmds) {
+					meshIndirectCmds[drawID].instanceID = primitive.drawCommand.instanceID;
+					meshIndirectCmds[drawID].instances = primitive.drawCommand.instances;
+				}
+
+				drawCommands.emplace_back( primitive.drawCommand );
+				lodMetadata.emplace_back( primitive.lod );
+
+				bool hasAddresses = (drawID < submeshAddresses.size());
+
+				for (size_t i = 0; i < nodesCount; ++i) {
+					size_t strideIndex = (i * submeshes.size()) + drawID;
+					instances.emplace_back( grouped[strideIndex] );
+					instanceAddresses.emplace_back( hasAddresses ? submeshAddresses[drawID] : pod::Instance::Addresses{} );
+				}
+			}
+
+			if (meshIndirectCmds && !grouped.empty()) {
+				auto hostKeyName = std::to_string(grouped.front().objectID);
+				if (storage.entities.map.count(hostKeyName) > 0) {
+					auto* hostEntity = storage.entities.map[hostKeyName];
+					if (hostEntity && hostEntity->hasComponent<uf::renderer::Graphic>()) {
+						hostEntity->getComponent<uf::renderer::Graphic>().updateMesh(mesh);
+					}
+				}
+			}
 		}
 
 		for ( auto& key : storage.textures.keys ) textures.emplace_back( storage.textures.map[key] );

@@ -11,6 +11,8 @@
 #include FT_FREETYPE_H 
 
 #include <uf/utils/string/string.h>
+#include <uf/utils/memory/vector.h>
+#include <memory>
 
 namespace pod {
 	struct FT_Glyph {
@@ -24,7 +26,6 @@ namespace ext {
 		bool UF_API initialize();
 		void UF_API terminate();
 		
-		pod::FT_Glyph UF_API initialize( const uf::stl::string& );
 		bool UF_API initialize( pod::FT_Glyph&, const uf::stl::string& );
 		void UF_API destroy( pod::FT_Glyph& );
 		
