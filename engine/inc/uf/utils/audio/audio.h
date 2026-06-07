@@ -94,6 +94,8 @@ namespace uf {
 
 		const uf::stl::string& getFilename() const;
 		float getDuration() const;
+
+		bool hasLoops() const;
 	};
 	namespace audio {
 		extern uf::Audio null;

@@ -58,6 +58,7 @@ namespace {
 		if ( material.indexEmissive >= 0 ) json["iEmissive"] = material.indexEmissive;
 		if ( material.indexOcclusion >= 0 ) json["iOcclusion"] = material.indexOcclusion;
 		if ( material.indexMetallicRoughness >= 0 ) json["iMetallicRoughness"] = material.indexMetallicRoughness;
+		json["modeCull"] = material.modeCull;
 		json["modeAlpha"] = material.modeAlpha;
 		return json;
 	}
@@ -115,6 +116,7 @@ namespace {
 		json["materialID"] = instance.materialID;
 		json["primitiveID"] = instance.primitiveID;
 		json["meshID"] = instance.meshID;
+		json["lightmapID"] = instance.lightmapID;
 		json["auxID"] = instance.auxID;
 		json["objectID"] = instance.objectID;
 

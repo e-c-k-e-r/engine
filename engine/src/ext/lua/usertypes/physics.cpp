@@ -49,6 +49,10 @@ namespace binds {
 			return std::make_tuple( object, depth );
 		}
 
+		pod::AABB bounds( const pod::PhysicsBody& self ) {
+			return self.bounds;
+		}
+
 		pod::PhysicsBody& asAabb( pod::PhysicsBody& self, const pod::AABB& shape ) {
 			return uf::physics::initialize( self, shape );
 		}
@@ -140,10 +144,16 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::OBB,
 			return self = copy;
 		},
 	#if OBB_EXTENT_CENTER
+		[]( pod::OBB& self, const pod::AABB& copy ) {
+			return self = pod::OBB{ .extent = (copy.max - copy.min) * 0.5f, .center = (copy.max + copy.min) * 0.5f };
+		},
 		[]( pod::OBB& self, const pod::Vector3f& extent, const pod::Vector3f& center ) {
 			return self = pod::OBB{ .extent = extent, .center = center };
 		}
 	#else
+		[]( pod::OBB& self, const pod::AABB& copy ) {
+			return self = pod::OBB{ .center = (copy.max + copy.min) * 0.5f, .extent = (copy.max - copy.min) * 0.5f };
+		},
 		[]( pod::OBB& self, const pod::Vector3f& center, const pod::Vector3f& extent ) {
 			return self = pod::OBB{ .center = center, .extent = extent };
 		}
@@ -235,6 +245,8 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(::binds::body::getMass) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(::binds::body::setMass) ),
 	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( bounds, UF_LUA_C_FUN(::binds::body::bounds) ),
+
 	UF_LUA_REGISTER_USERTYPE_DEFINE( asAabb, UF_LUA_C_FUN(::binds::body::asAabb) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( asObb, UF_LUA_C_FUN(::binds::body::asObb) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( asSphere, UF_LUA_C_FUN(::binds::body::asSphere) ),

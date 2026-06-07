@@ -768,7 +768,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	// root entity should already be bound, but just in case
 	if ( !graph.root.entity ) {
 		graph.root.entity = new uf::Object;
-		UF_MSG_DEBUG("binding root: {}", (void*) graph.root.entity);
+	//	UF_MSG_DEBUG("binding root: {}", (void*) graph.root.entity);
 	}
 	
 	// copy lighting settings from graph
@@ -952,8 +952,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			image.clear();
 		#endif
 		}
-	}	
-
+	}
 	
 	// process nodes
 	UF_DEBUG_TIMER_MULTITRACE("Processing nodes");
@@ -962,6 +961,29 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		auto& node = graph.nodes[index];
 		if ( node.entity ) UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", node.name);
+	}
+
+	// spawn player if not already spawned
+	if ( auto* player = scene.findByName("Player"); !player ) {
+		int32_t spawnID = -1;
+		uf::stl::vector<int32_t> spawns;
+		for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
+			auto& node = graph.nodes[nodeID];
+			if ( node.name == "info_player_start" ) {
+				spawnID = nodeID;
+			} else if ( node.name.starts_with("info_player_") ) {
+				spawns.emplace_back(nodeID);
+			}
+		}
+		if ( spawnID == -1 && !spawns.empty() ) spawnID = uf::stl::random( spawns );
+		if ( spawnID != -1 ) {
+			auto& node = graph.nodes[spawnID];
+			auto& child = /*graph.root.entity->*/node.entity->loadChild( "./player.json", false ); // to-do: do not hardcode this
+			auto& childTransform = child.getComponent<pod::Transform<>>();
+
+			auto flatten = uf::transform::flatten( node.transform );
+			childTransform = flatten;
+		}
 	}
 
 	// patch materials/textures
@@ -1205,6 +1227,22 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	metadataJson["system"]["graph"]["name"] = node.name;
 	metadataJson["system"]["graph"]["index"] = index;
 
+	uf::Serializer loadJson;
+	// convert metadata["valve"] into internal values:
+	auto& metadataValve = node.metadata["valve"];
+	if ( ext::json::isObject( metadataValve ) ) {
+		// bind door script
+		if ( ext::json::isObject( metadataValve["door"] ) ) {
+			node.metadata["door"] = metadataValve["door"];
+			loadJson["imports"].emplace_back("/door.json");
+		}
+		// bind io connectivity
+		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
+			node.metadata["connections"] = metadataValve["connections"];
+			loadJson["imports"].emplace_back("/io.json");
+		}
+	}
+
 	if ( ext::json::isObject( tag ) ) {
 		if ( tag["action"].as<uf::stl::string>() == "load" ) {
 			if ( tag["filename"].is<uf::stl::string>() ) {
@@ -1213,6 +1251,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			} else if ( ext::json::isObject( tag["payload"] ) ) {
 				uf::Serializer json = tag["payload"];
 				json["root"] = graphMetadataJson["root"];
+				json.import( loadJson );
 				entity.load(json);
 			}
 		} else if ( tag["action"].as<uf::stl::string>() == "attach" ) {
@@ -1227,7 +1266,13 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( tag["static"].is<bool>() ) {
 			metadata.system.ignoreGraph = tag["static"].as<bool>();
 		}
+	} else if ( ext::json::isObject( loadJson ) ) {
+		loadJson["root"] = graphMetadataJson["root"];
+		entity.load( loadJson );
 	}
+
+	// import metadata
+	metadataJson.import( node.metadata );
 
 	// create as light
 	{

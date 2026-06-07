@@ -59,6 +59,10 @@ uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, 
 	if ( tokens.empty() ) tokens.emplace_back(str);
 	return tokens;
 }
+uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, char delim ) {
+	uf::stl::string d = ::fmt::format("{}", delim); // because it's such a pain apparently to convert a char to str
+	return uf::string::split( str, d );
+}
 /*
 uf::stl::string uf::string::join( const uf::stl::vector<uf::stl::string>& strings, const uf::stl::string& delim, bool trailing ) {
 	uf::stl::stringstream ss;

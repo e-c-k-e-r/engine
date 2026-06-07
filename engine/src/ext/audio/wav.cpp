@@ -41,18 +41,18 @@ namespace {
 
 	drwav_bool32 drwav_vfs_seek(void* pUserData, int offset, drwav_seek_origin origin) {
 		DrWavVfsContext* ctx = (DrWavVfsContext*)pUserData;
+		long long targetOffset = 0;
 
-		if ((int)origin == 0) {
-			ctx->currentOffset = (size_t)offset;
-		} else if ((int)origin == 1) {
-			if (offset < 0 && (size_t)(-offset) > ctx->currentOffset) {
-				ctx->currentOffset = 0;
-			} else {
-				ctx->currentOffset += offset;
-			}
+		if ( (int)origin == 0 ) {
+			targetOffset = offset;
+		} else if ( (int)origin == 1 ) {
+			targetOffset = (long long)ctx->currentOffset + offset;
 		}
 
-		if (ctx->currentOffset > ctx->totalSize) ctx->currentOffset = ctx->totalSize;
+		if (targetOffset < 0) targetOffset = 0;
+		if ((size_t)targetOffset > ctx->totalSize) targetOffset = ctx->totalSize;
+
+		ctx->currentOffset = (size_t)targetOffset;
 		return 1;
 	}
 
@@ -136,6 +136,23 @@ void ext::wav::open(uf::Audio::Metadata& metadata) {
 	metadata.info.frequency = wav->sampleRate;
 	metadata.info.duration = (double) wav->totalPCMFrameCount / wav->sampleRate;
 
+	for ( drwav_uint32 i = 0; i < wav->metadataCount; ++i ) {
+		if ( wav->pMetadata[i].type == drwav_metadata_type_smpl ) {
+			const drwav_smpl& smpl = wav->pMetadata[i].data.smpl;
+
+			if ( smpl.sampleLoopCount > 0 && smpl.pLoops != nullptr ) {
+				metadata.info.loop.has = true;
+				metadata.info.loop.start = smpl.pLoops[0].firstSampleOffset;
+				metadata.info.loop.end = smpl.pLoops[0].lastSampleOffset;
+
+				if ( metadata.info.loop.end == 0 ) {
+					metadata.info.loop.end = (uint32_t)wav->totalPCMFrameCount;
+				}
+			}
+			break;
+		}
+	}
+
 	// determine OpenAL format
 	if (wav->channels == 1 && wav->bitsPerSample == 8)
 		metadata.info.format = AL_FORMAT_MONO8;
@@ -168,6 +185,10 @@ void ext::wav::load(uf::Audio::Metadata& metadata) {
 	}
 
 	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei) bytes.size(), metadata.info.frequency);
+	if ( metadata.info.loop.has ) {
+		ALint loopPoints[2] = { (ALint) metadata.info.loop.start, (ALint) metadata.info.loop.end };
+		alBufferiv(metadata.al.buffer.getIndex(), 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints);
+	}
 	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
 
 	funs::close(&metadata);
@@ -186,7 +207,7 @@ void ext::wav::stream(uf::Audio::Metadata& metadata) {
 		if (bytesRead == 0) {
 			if (metadata.settings.loop) {
 				metadata.stream.consumed = 0;
-				if (funs::seek(&metadata, 0, SEEK_SET) != 0) {
+				if ( funs::seek(&metadata, metadata.info.loop.start, SEEK_SET) != 0 ) {
 					UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
 					break;
 				}
@@ -238,7 +259,7 @@ void ext::wav::update(uf::Audio::Metadata& metadata) {
 		if (bytesRead == 0) {
 			// no more data left to read, reset file stream if we're looping
 			if (!metadata.settings.loop) break;
-			if (funs::seek(&metadata, 0, SEEK_SET) != 0) {
+			if ( funs::seek(&metadata, metadata.info.loop.start, SEEK_SET) != 0 ) {
 				UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
 				break;
 			}

@@ -47,7 +47,14 @@ namespace uf {
 
 				uf::Timer<> timer;
 				float elapsed = 0;
+				
+				struct {
+					bool has = false;
+					uint32_t start = 0;
+					uint32_t end = 0;
+				} loop;
 			} info;
+
 			struct {
 				bool streamed = true;
 				bool loop = false;

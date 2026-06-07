@@ -275,7 +275,7 @@ bool uf::asset::has( const uf::asset::Payload& payload ) {
 }
 void uf::asset::remove( const uf::stl::string& url ) {
 	if ( !uf::asset::has( url ) ) return;
-	auto& userdata = uf::asset::map[url];
+	auto userdata = std::move(uf::asset::map[url]);
 #if UF_COMPONENT_POINTERED_USERDATA
 	if ( userdata.data ) uf::pointeredUserdata::destroy( userdata );
 #else
@@ -287,7 +287,7 @@ uf::asset::userdata_t& uf::asset::get( const uf::stl::string& url ) {
 	return uf::asset::map[url];
 }
 uf::asset::userdata_t uf::asset::release( const uf::stl::string& url ) {
-	auto userdata = uf::asset::get( url );
+	auto userdata = std::move(uf::asset::get( url ));
 	uf::asset::map.erase( url );
 	return userdata;
 }

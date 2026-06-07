@@ -1,0 +1,6 @@
+{
+	"assets": ["./scripts/ambient_generic.lua"],
+	"behaviors": [
+		"SoundEmitterBehavior"
+	]
+}

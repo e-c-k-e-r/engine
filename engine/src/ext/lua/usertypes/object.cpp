@@ -161,20 +161,42 @@ namespace binds {
 		if ( !functionPointer ) return false;
 		pod::Behavior::function_t& function = *functionPointer;
 
+		bool hasExisting = (bool)(function); // check if a function is already bound to this slot
+		auto prev = function; // copy the existing function
+
 	#if !UF_LUA_PCALLS
-		function = fun;
+		if ( hasExisting ) {
+			function = [prev, fun]( uf::Object& s ) {
+				prev(s);
+				fun(s);
+			};
+		} else {
+			function = fun;
+		}
 	#else
-		function = [fun]( uf::Object& s ) {
-			auto result = fun(s);
-			if ( !result.valid() ) {
-				sol::error err = result;
-				UF_MSG_ERROR("{}", err.what());
-			}
-		};
+		if ( hasExisting ) {
+			function = [prev, fun]( uf::Object& s ) {
+				prev(s); // call the previous script's tick
+				auto result = fun(s); // call the new script's tick
+				if ( !result.valid() ) {
+					sol::error err = result;
+					UF_MSG_ERROR("{}", err.what());
+				}
+			};
+		} else {
+			function = [fun]( uf::Object& s ) {
+				auto result = fun(s);
+				if ( !result.valid() ) {
+					sol::error err = result;
+					UF_MSG_ERROR("{}", err.what());
+				}
+			};
+		}
 	#endif
 		self.generateGraph();
 		return true;
 	}
+
 	uf::Object& findByUid( uf::Object& self, size_t index ) {
 		auto* pointer = self.findByUid( index );
 		if ( pointer ) return pointer->as<uf::Object>();

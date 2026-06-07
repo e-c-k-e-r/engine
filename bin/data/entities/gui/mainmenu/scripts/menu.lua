@@ -30,7 +30,7 @@ local timer = Timer.new()
 if not timer:running() then timer:start() end
 
 local playSound = function( key )
-	local url = "/ui/" .. key .. ".ogg"
+	local url = "/ui/" .. key .. ".wav"
 	soundEmitter:callHook("sound:Emit.%UID%", { filename = url })
 --	local assetLoader = scene:getComponent("Asset")
 --	assetLoader:cache(ent:formatHookName("asset:Load.%UID%"), string.resolveURI(url))

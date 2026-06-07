@@ -382,7 +382,8 @@ void uf::debug::drawTexts( float dt ) {
 		if ( rebuild ) uf::renderer::states::rebuild = true; // to-do: rebuild the defer mode only
 	}
 }
+// think this has issues in OpenGL
 void uf::debug::draw( float dt ) {
-//	uf::debug::drawLines( dt );
-//	uf::debug::drawTexts( dt );
+	uf::debug::drawLines( dt );
+	uf::debug::drawTexts( dt );
 }

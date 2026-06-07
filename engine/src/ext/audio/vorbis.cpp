@@ -47,17 +47,19 @@ namespace {
 
 		int seek( void* userdata, ogg_int64_t to, int type ) {
 			VorbisVfsContext* ctx = (VorbisVfsContext*) userdata;
+			int64_t targetOffset = 0;
 
 			switch ( type ) {
-				case SEEK_CUR: ctx->currentOffset += to; break;
-				case SEEK_END: ctx->currentOffset = ctx->totalSize + to; break;
-				case SEEK_SET: ctx->currentOffset = to; break;
+				case SEEK_CUR: targetOffset = (int64_t)ctx->currentOffset + to; break;
+				case SEEK_END: targetOffset = (int64_t)ctx->totalSize + to; break;
+				case SEEK_SET: targetOffset = to; break;
 				default: return -1;
 			}
 
-			if ((int64_t)ctx->currentOffset < 0) ctx->currentOffset = 0;
-			if (ctx->currentOffset > ctx->totalSize) ctx->currentOffset = ctx->totalSize;
+			if (targetOffset < 0) targetOffset = 0;
+			if ((size_t)targetOffset > ctx->totalSize) targetOffset = ctx->totalSize;
 
+			ctx->currentOffset = (size_t)targetOffset;
 			return 0;
 		}
 
@@ -130,6 +132,29 @@ void ext::vorbis::open(uf::Audio::Metadata& metadata) {
 	metadata.info.frequency = info->rate;
 	metadata.info.duration = ov_time_total(vorbisFile, -1);
 
+	metadata.info.loop.has = false;
+	metadata.info.loop.start = 0;
+	metadata.info.loop.end = (uint32_t)ov_pcm_total(vorbisFile, -1); // Default to full file
+
+	vorbis_comment* vc = ov_comment(vorbisFile, -1);
+	if ( vc != nullptr ) {
+		for ( auto i = 0; i < vc->comments; ++i ) {
+			uf::stl::string comment(vc->user_comments[i], vc->comment_lengths[i]);
+			uf::stl::string upperComment = uf::string::uppercase( comment );
+
+			// to-do: handle exceptions without exceptions
+			if ( upperComment.starts_with("LOOPSTART=" )) {
+				metadata.info.loop.start = std::stoul(comment.substr(10));
+				metadata.info.loop.has = true;
+			} else if ( upperComment.starts_with("LOOPLENGTH=" )) {
+				uint32_t length = std::stoul(comment.substr(11));
+				metadata.info.loop.end = metadata.info.loop.start + length;
+			} else if ( upperComment.starts_with("LOOPEND=") ) {
+				metadata.info.loop.end = std::stoul(comment.substr(8));
+			}
+		}
+	}
+
 	if ( !format(metadata, info->channels, 16) ) {
 		ov_clear(vorbisFile);
 		metadata.stream.context = nullptr;
@@ -154,6 +179,10 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	} while ( read > 0 );
 
 	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei) bytes.size(), metadata.info.frequency);
+	if ( metadata.info.loop.has ) {
+		ALint loopPoints[2] = { (ALint) metadata.info.loop.start, (ALint) metadata.info.loop.end };
+		alBufferiv(metadata.al.buffer.getIndex(), 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints);
+	}
 	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
 
 	ov_clear(vorbisFile);
@@ -175,7 +204,8 @@ void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
 			int result = OV_READ(vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
 			if (result <= 0) {
 				if (result == 0 && metadata.settings.loop) {
-					if (ov_raw_seek(vorbisFile, 0) != 0) {
+					uint32_t seekTarget = metadata.info.loop.has ? metadata.info.loop.start : 0;
+					if ( ov_pcm_seek(vorbisFile, seekTarget) != 0 ) {
 						UF_MSG_ERROR("Vorbis: failed to loop (seek to start): {}", metadata.filename);
 						break;
 					}
@@ -235,7 +265,9 @@ void ext::vorbis::update(uf::Audio::Metadata& metadata) {
 			int result = OV_READ(vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &bitStream);
 			if (result <= 0) {
 				if (result == 0 && metadata.settings.loop) {
-					if (ov_raw_seek(vorbisFile, 0) != 0) {
+					uint32_t seekTarget = metadata.info.loop.has ? metadata.info.loop.start : 0;
+
+					if ( ov_pcm_seek(vorbisFile, seekTarget) != 0 ) {
 						UF_MSG_ERROR("Vorbis: failed to loop (seek to start): {}", metadata.filename);
 						break;
 					}

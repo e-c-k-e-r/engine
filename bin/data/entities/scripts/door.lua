@@ -4,27 +4,69 @@ local controller = entities.controller()
 
 local timer = Timer.new()
 if not timer:running() then
-	timer:start();
+	timer:start()
 end
 
-local polarity = 1
 local state = 0
-local targetAlpha = 1.57
-local alpha = 0
-local target = Vector3f(0,0,0)
+local currentDistance = 0
+local polarity = 1
+
 local transform = ent:getComponent("Transform")
 local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
+local metadataDoor = metadata["door"] or {}
 
-local speed = metadata["speed"] or 1.0
-local normal = Vector3f(0,0,-1)
-if metadata["normal"] ~= nil then
-	local sign = -1
-	if metadata["angle"] < 0 then sign = 1 end
-	normal = Vector3f( metadata["normal"][1] * sign, metadata["normal"][2] * sign, metadata["normal"][3] * sign ):normalize()
+local speed = metadataDoor["speed"] or 100.0
+local wait = metadataDoor["wait"] or 4.0
+local isRotating = (metadataDoor["axis"] ~= nil)
+
+local targetDistance = 0
+local moveDir = Vector3f(0, 0, 0)
+local rotAxis = Vector3f(0, 1, 0)
+local flags = metadataDoor["spawnflags"] or 0
+
+local isToggle = (math.floor(flags / 32) % 2) ~= 0
+if isToggle then
+	wait = -1
 end
 
--- local soundEmitter = ent:loadChild("/sound.json",true)
+if isRotating then
+	local ax = metadataDoor["axis"]
+	rotAxis = Vector3f(ax[1], ax[2], ax[3]):normalize()
+
+	local dist = metadataDoor["distance"] or 90.0
+
+	local isReverse = (math.floor(flags / 2) % 2) ~= 0
+	if isReverse then
+		polarity = -1
+	end
+
+	polarity = polarity * -1
+
+	if dist < 0 then
+		polarity = polarity * -1
+		dist = math.abs(dist)
+	end
+
+	targetDistance = math.rad(dist)
+	speed = math.rad(speed)
+else
+	local dir = metadataDoor["direction"]
+	if dir then moveDir = Vector3f(dir[1], dir[2], dir[3]):normalize() end
+
+	local lip = metadataDoor["lip"] or 8.0
+
+	if physicsBody:initialized() then
+		local obb = OBB(physicsBody:bounds())
+		local size = obb.extent * 2.0
+
+		local travelSize = math.abs(moveDir:dot(size))
+		targetDistance = travelSize - lip
+	else
+		targetDistance = 96.0 - lip
+	end
+end
+
 local soundEmitter = ent
 
 local playSound = function( key, loop )
@@ -32,92 +74,141 @@ local playSound = function( key, loop )
 	local url = "/door/" .. key .. ".ogg"
 	soundEmitter:queueHook("sound:Emit.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"]),
-		spatial = true,
-		streamed = true,
-		volume = "sfx",
-		loop = loop
+		spatial = true, streamed = true, volume = "sfx", loop = loop
 	}, 0)
 end
-local stopSound = function( key )
-	local url = "/door/" .. key .. ".ogg"
-	soundEmitter:queueHook("sound:Stop.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"])
-	}, 0)
+
+local function toggleDoor( payload )
+	if state == 0 or state == 3 then
+		state = 1
+		playSound("default_move")
+
+	   if isRotating and payload.uid ~= nil then
+			local isOneWay = (math.floor(flags / 16) % 2) ~= 0
+
+			if not isOneWay then
+				local user = entities.get( payload.user )
+				if user and physicsBody:initialized() then
+					local userPos = user:getComponent("Transform").position
+
+					local obb = OBB(physicsBody:bounds())
+					local doorCenter = obb.center
+					local hingePos = transform.position
+
+					local doorBlade = doorCenter - hingePos
+					local doorNormal = rotAxis:cross(doorBlade):normalize()
+
+					local delta = userPos - doorCenter
+
+					if doorNormal:dot(delta) > 0 then
+						polarity = 1
+					else
+						polarity = -1
+					end
+
+					local baseDist = metadataDoor["distance"] or 90.0
+					if baseDist < 0 then
+						polarity = polarity * -1
+					end
+				end
+			end
+		end
+	elseif state == 2 then
+		state = 3
+		playSound("default_move")
+	end
 end
-local playSoundscape = function( key )
-	local url = "/soundscape/" .. key .. ".ogg"
-	soundEmitter:queueHook("sound:Emit.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"]),
-		spatial = false,
-		volume = "sfx",
-		loop = true,
-		streamed = true
-	}, 0)
-end
-local stopSoundscape = function( key )
-	local url = "/soundscape/" .. key .. ".ogg"
-	soundEmitter:queueHook("sound:Stop.%UID%", {
-		filename = string.resolveURI(url, metadata["system"]["root"])
-	}, 0)
-end
+
 -- on tick
 ent:bind( "tick", function(self)
-	rot = nil
+	local deltaMove = 0
+	local step = time.delta() * speed
+
 	if state == 1 then
-		alpha = alpha + time.delta() * speed
-		rot = Quaternion.axisAngle( Vector3f(0, 1, 0), time.delta() * speed * polarity )
+		deltaMove = step
+		currentDistance = currentDistance + step
 
-		if alpha > targetAlpha then
+		if currentDistance >= targetDistance then
+			deltaMove = deltaMove - (currentDistance - targetDistance)
+			currentDistance = targetDistance
 			state = 2
-			alpha = targetAlpha
+			timer:reset()
 			playSound("default_stop")
+
+			ent:queueHook("io:FireOutput.%UID%", { output = "OnOpen" }, 0)
 		end
+	elseif state == 3 then
+		deltaMove = -step
+		currentDistance = currentDistance - step
 
-	end
-	if state == 3 then
-		alpha = alpha - time.delta() * speed
-		rot = Quaternion.axisAngle( Vector3f(0, 1, 0), time.delta() * speed * -polarity )
-
-		if alpha < 0 then
+		if currentDistance <= 0 then
+			deltaMove = deltaMove - currentDistance
+			currentDistance = 0
 			state = 0
-			alpha = 0
 			playSound("default_stop")
+		end
+	elseif state == 2 and wait >= 0 then
+		if timer:elapsed() >= wait then
+			state = 3
+			playSound("default_move")
 		end
 	end
 
-	if state > 0 and rot ~= nil then
-		if physicsBody:initialized() then
-			physicsBody:applyRotation( rot )
+	if deltaMove ~= 0 then
+		local finalMove = deltaMove * polarity
+
+		if isRotating then
+			local rot = Quaternion.axisAngle(rotAxis, finalMove)
+			if physicsBody:initialized() then
+				physicsBody:applyRotation(rot)
+			else
+				transform:rotate(rot)
+			end
 		else
-			transform:rotate( rot )
+			local vec = moveDir * finalMove
+			if physicsBody:initialized() then
+				print("Moving by: ", finalMove, " Axis: ", moveDir.x, moveDir.y, moveDir.z)
+				physicsBody:setVelocity(moveDir * (finalMove / time.delta()))
+			else
+				transform.position = transform.position + vec
+			end
+		end
+	else
+		if not isRotating and physicsBody:initialized() then
+			physicsBody:setVelocity(Vector3f(0,0,0))
 		end
 	end
 end )
+
 -- on use
 ent:addHook( "entity:Use.%UID%", function( payload )
 	if payload.user == ent:uid() then return end
 
---	if timer:elapsed() <= 0.125 then return end
---	timer:reset()
+	local useOpens = (math.floor(flags / 256) % 2) ~= 0
 
-	print("Processing use: " .. ent:name() .. " | " .. payload["depth"] )
+	if useOpens then
+		toggleDoor( payload )
 
-	if state == 0 or state == 3 then
-		state = 1
-		playSound("default_move")
-		if payload.uid ~= nil then
-			local user = entities.get( payload.user )
-			local userTransform = user:getComponent("Transform")
-			local delta = transform.position - userTransform.position
-			local side = normal:dot(delta)
-			if side > 0 then
-				polarity = -1
-			elseif side < 0 then
-				polarity =  1
-			end
-		end
-	elseif state == 2 --[[or state == 1]] then
-		state = 3
-		playSound("default_move")
+		ent:queueHook("io:FireOutput.%UID%", { output = "OnUse" }, 0)
+	else
+		playSound("default_locked")
 	end
 end )
+
+ent:addHook("io:Input.%UID%", function( payload )
+	local input = payload.input
+	print(ent:name() .. " received I/O Input: " .. input)
+
+	local mockPayload = {
+		user = payload.caller,
+		uid = ent:uid()
+	}
+
+	if input == "Open" and (state == 0 or state == 3) then
+		toggleDoor(mockPayload)
+	elseif input == "Close" and (state == 2 or state == 1) then
+		toggleDoor(mockPayload)
+	elseif input == "Toggle" or input == "Use" then
+		toggleDoor(mockPayload)
+	end
+end)

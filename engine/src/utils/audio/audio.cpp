@@ -294,3 +294,7 @@ const uf::stl::string& uf::Audio::getFilename() const {
 float uf::Audio::getDuration() const {
 	return this->m_metadata ? this->m_metadata->info.duration : 0;
 }
+
+bool uf::Audio::hasLoops() const {
+	return this->m_metadata ? this->m_metadata->info.loop.has : false;
+}

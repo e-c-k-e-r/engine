@@ -45,13 +45,13 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
 		auto& graph = payload.asComponent ? this->getComponent<pod::Graph>() : uf::asset::get<pod::Graph>( payload );
 		if ( !payload.asComponent ) {
-			this->moveComponent<pod::Graph>( uf::asset::get( payload.filename ) );
-			uf::asset::remove( payload.filename );
+			auto userdata = uf::asset::release( payload.filename );
+			this->moveComponent<pod::Graph>( userdata );
 		}
 
 		// bind graph's root entity to self if different
 		if ( graph.root.entity && graph.root.entity != this ) {
-			UF_MSG_DEBUG("binding root transform to self");
+			//UF_MSG_DEBUG("binding root transform to self");
 			auto& transform = this->getComponent<pod::Transform<>>();
 			auto& root = *graph.root.entity;
 			root.getComponent<pod::Transform<>>().reference = &transform;

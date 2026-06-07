@@ -71,6 +71,8 @@ void uf::Object::queueDeletion() {
 	// mark for destruction
 	metadata.system.markedForDeletion = true;
 	uf::instantiator::queueDeletion( *this );
+	// dispatch deletion hooks
+	this->callHook("entity:Destroy.%UID%");
 }
 
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
@@ -253,7 +255,7 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 			
 			switch ( assetType ) {
 				case uf::asset::Type::LUA: {
-				//	payload.asComponent = true;
+					payload.asComponent = false;
 					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 				} break;
 				case uf::asset::Type::GRAPH: {

@@ -1949,11 +1949,11 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 	}
 #endif
 	if ( !hasPipeline( descriptor ) ) {
-		UF_MSG_DEBUG("{} has no valid pipeline: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
+	//	UF_MSG_DEBUG("{} has no valid pipeline: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
 		return;
 	}
 	if ( !hasDescriptorSet( descriptor ) ) {
-		UF_MSG_DEBUG("{} has no valid descriptor set: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
+	//	UF_MSG_DEBUG("{} has no valid descriptor set: renderMode={}, pipeline={}", (void*) this, descriptor.renderMode, descriptor.pipeline);
 		return;
 	}
 

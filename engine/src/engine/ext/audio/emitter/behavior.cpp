@@ -28,7 +28,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		for ( auto& audio : sounds ) {
 			if ( audio.getFilename() != filename ) continue;
 			audio.stop();
-			audio.destroy();
+		//	audio.destroy();
 		}
 	});
 	this->addHook( "sound:Emit.%UID%", [&]( pod::PCM& waveform ){
@@ -61,8 +61,11 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["gain"].is<double>() ) audio.setGain(json["gain"].as<float>());
 		if ( json["rolloffFactor"].is<double>() ) audio.setRolloffFactor(json["rolloffFactor"].as<float>());
 		if ( json["maxDistance"].is<double>() ) audio.setMaxDistance(json["maxDistance"].as<float>());
-		if ( json["loop"].is<bool>() ) audio.loop(json["loop"].as<bool>());
 		if ( json["spatial"].is<bool>() ) audio.setSpatial(json["spatial"].as<bool>());
+		if ( json["loop"].is<bool>() ) audio.loop(json["loop"].as<bool>());
+		if ( json["wants loop"].is<bool>() ) {
+			audio.loop(json["wants loop"].as<bool>(true) && audio.hasLoops());
+		}
 		
 		float volume = 1.0f; 
 		if ( json["volume"].is<double>() ) volume = json["volume"].as<float>();

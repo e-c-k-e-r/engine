@@ -22,20 +22,21 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::asset::isExpected( payload, uf::asset::Type::LUA ) ) return;
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
-		auto& script = uf::asset::get<pod::LuaScript>( payload );
-		if ( !payload.asComponent ) {
-		//	auto asset = uf::asset::release( payload.filename );
-		//	this->moveComponent<pod::LuaScript>( asset );
-			this->moveComponent<pod::LuaScript>( uf::asset::get( payload.filename ) );
-			uf::asset::remove( payload.filename );
-		}
-	/*
-		if ( !uf::asset::has(payload.filename) ) uf::asset::load( payload );
-		auto& script = uf::asset::get<pod::LuaScript>(payload.filename);
-	*/
-	//	auto& script = this->getComponent<pod::LuaScript>();
+
+		auto script = uf::asset::get<pod::LuaScript>( payload.filename );
 		script.env["ent"] = &this->as<uf::Object>();
 		ext::lua::run( script );
+	/*
+		// crashes when trying to destroy the moved component (despite it having no reason to get destroyed)
+		auto& script = payload.asComponent ? this->getComponent<pod::LuaScript>() : uf::asset::get<pod::LuaScript>( payload );
+		if ( !payload.asComponent ) {
+			auto userdata = uf::asset::release( payload.filename );
+			this->moveComponent<pod::LuaScript>( userdata );
+		}
+
+		script.env["ent"] = &this->as<uf::Object>();
+		ext::lua::run( script );
+	*/
 	});
 #endif
 }

@@ -24,6 +24,7 @@ namespace uf {
 		uf::stl::string UF_API rtrim( const uf::stl::string& );
 		uf::stl::string UF_API trim( const uf::stl::string& );
 		uf::stl::vector<uf::stl::string> UF_API split( const uf::stl::string&, const uf::stl::string& );
+		uf::stl::vector<uf::stl::string> UF_API split( const uf::stl::string&, char );
 		uf::stl::string UF_API si( double value, const uf::stl::string& unit, size_t precision = 3 );
 		bool UF_API contains( const uf::stl::string&, const uf::stl::string& );
 		uf::stl::vector<const char*> UF_API cStrings( const uf::stl::vector<uf::stl::string>& );

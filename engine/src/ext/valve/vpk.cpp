@@ -127,7 +127,7 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 		auto ptr = userdata->get();
 		if ( !ptr ) return 0;
 		auto it = ptr->files.find( uf::string::lowercase( p ) );
-		return it != ptr->files.end() ? it->second.metadata.entryLength : 0;
+		return it != ptr->files.end() ? (it->second.metadata.preloadBytes + it->second.metadata.entryLength) : 0;
 	};
 	mount.mtime = [](const uf::stl::string&) -> size_t { return 0; },
 	mount.read = [userdata](const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer) {
@@ -300,6 +300,15 @@ bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string
 		if ( file ) {
 			file.seekg(fileOffset + diskStart, std::ios::beg);
 			file.read((char*)(buffer.data() + bufferOffset), len);
+
+			size_t actuallyRead = static_cast<size_t>(file.gcount());
+
+			if (actuallyRead < len) {
+				buffer.resize(bufferOffset + actuallyRead);
+				if (actuallyRead == 0 && buffer.empty()) {
+					return false;
+				}
+			}
 		} else {
 			buffer.clear();
 			UF_MSG_ERROR("Failed to open VPK chunk for ranged read: {}", archivePath);
