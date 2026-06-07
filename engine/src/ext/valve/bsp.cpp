@@ -117,20 +117,45 @@ namespace impl {
 		uint16_t smoothingGroups;
 	};
 
+	#pragma pack(push, 1)
+
+	struct BspDispSubNeighbor {
+		uint16_t neighbor;
+		uint8_t neighborOrientation;
+		uint8_t span;
+		uint8_t neighborSpan;
+		uint8_t padding;
+	};
+
+	struct BspDispNeighbor {
+		BspDispSubNeighbor subNeighbors[2];
+	};
+
+	struct BspDispCornerNeighbors {
+		uint16_t neighbors[4];
+		uint8_t numNeighbors;
+		uint8_t padding;
+	};
+
 	struct BspDispInfo {
 		pod::Vector3f startPosition;
 		int32_t dispVertStart;
 		int32_t dispTriStart;
 		int32_t power;
 		int32_t minTess;
-		int32_t maxTess;
-		int32_t smoothingAngle;
+		float smoothingAngle;
 		int32_t contents;
 		uint16_t mapFace;
-		int16_t lightmapAlphaStart;
+		uint16_t padding;
+		int32_t lightmapAlphaStart;
 		int32_t lightmapSamplePositionStart;
-		uint8_t padding[130];
+
+		BspDispNeighbor edgeNeighbors[4];
+		BspDispCornerNeighbors cornerNeighbors[4];
+		uint32_t allowedVerts[10];
 	};
+
+	#pragma pack(pop)
 
 	struct BspDispVert {
 		pod::Vector3f vec;
@@ -259,8 +284,8 @@ namespace impl {
 			corners[i].uv.x = uf::vector::dot( v, texInfo.textureVecs[0] ) / texWidth;
 			corners[i].uv.y = uf::vector::dot( v, texInfo.textureVecs[1] ) / texHeight;
 
-			corners[i].st.x = (uf::vector::dot( v, texInfo.lightmapVecs[0] ) - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
-			corners[i].st.y = (uf::vector::dot( v, texInfo.lightmapVecs[1] ) - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
+			corners[i].st.x = (uf::vector::dot( v, texInfo.lightmapVecs[0] ) + 0.5f - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
+			corners[i].st.y = (uf::vector::dot( v, texInfo.lightmapVecs[1] ) + 0.5f - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
 		}
 
 		int startIndex = 0;
@@ -283,13 +308,36 @@ namespace impl {
 			pod::Vector2f uvE1  = uf::vector::lerp( corners[3].uv,  corners[2].uv,  ty );
 			pod::Vector2f stE0  = uf::vector::lerp( corners[0].st,  corners[1].st,  ty );
 			pod::Vector2f stE1  = uf::vector::lerp( corners[3].st,  corners[2].st,  ty );
+		/*
+			pod::Vector3f posE0 = uf::vector::lerp( corners[0].pos, corners[1].pos, ty );
+			pod::Vector3f posE1 = uf::vector::lerp( corners[3].pos, corners[2].pos, ty );
+			pod::Vector2f uvE0  = uf::vector::lerp( corners[0].uv,  corners[1].uv,  ty );
+			pod::Vector2f uvE1  = uf::vector::lerp( corners[3].uv,  corners[2].uv,  ty );
+			pod::Vector2f stE0  = uf::vector::lerp( corners[0].st,  corners[1].st,  ty );
+			pod::Vector2f stE1  = uf::vector::lerp( corners[3].st,  corners[2].st,  ty );
+		*/
 
 			for ( int x = 0; x < side; ++x ) {
 				float tx = (float)x / (side - 1);
 
 				pod::Vector3f basePos = uf::vector::lerp( posE0, posE1, tx );
-				pod::Vector2f finalUv = uf::vector::lerp( uvE0,  uvE1,  tx );
-				pod::Vector2f finalSt = uf::vector::lerp( stE0,  stE1,  tx );
+
+				pod::Vector4f vBase = basePos;
+				vBase.w = 1.0f;
+
+				pod::Vector2f finalUv;
+				finalUv.x = uf::vector::dot( vBase, texInfo.textureVecs[0] ) / texWidth;
+				finalUv.y = uf::vector::dot( vBase, texInfo.textureVecs[1] ) / texHeight;
+
+				pod::Vector2f finalSt;
+				finalSt.x = tx;
+				finalSt.y = ty;
+			/*
+				finalSt.x = (uf::vector::dot( vBase, texInfo.lightmapVecs[0] ) + 0.5f - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
+				finalSt.y = (uf::vector::dot( vBase, texInfo.lightmapVecs[1] ) + 0.5f - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
+				//finalSt.x = 1.0f - finalSt.x; // ?
+				finalSt.y = 1.0f - finalSt.y; // ?
+			*/
 
 				int dispIdx = info.dispVertStart + y * side + x;
 				const auto& dVert = context.dispverts[dispIdx];
@@ -321,14 +369,24 @@ namespace impl {
 			}
 		}
 
+		auto isVertAllowed = [&](int x, int y) -> bool {
+			int index = y * side + x;
+			int arrayIndex = index / 32;
+			int bitIndex = index % 32;
+			return ( info.allowedVerts[arrayIndex] & (1 << bitIndex) ) != 0;
+		};
+
 		for ( int y = 0; y < side - 1; ++y ) {
 			for ( int x = 0; x < side - 1; ++x ) {
+				if ( !isVertAllowed(x, y) || !isVertAllowed(x + 1, y) || !isVertAllowed(x, y + 1) || !isVertAllowed(x + 1, y + 1) ) {
+					continue;
+				}
+
 				uint32_t v0 = startVertexID + y * side + x;
 				uint32_t v1 = startVertexID + y * side + (x + 1);
 				uint32_t v2 = startVertexID + (y + 1) * side + x;
 				uint32_t v3 = startVertexID + (y + 1) * side + (x + 1);
 
-				// might need to flip winding order
 				meshlet.indices.emplace_back(v0); meshlet.indices.emplace_back(v2); meshlet.indices.emplace_back(v1);
 				meshlet.indices.emplace_back(v1); meshlet.indices.emplace_back(v2); meshlet.indices.emplace_back(v3);
 			}
@@ -418,6 +476,7 @@ namespace impl {
 			auto classname = metadata["classname"].as<uf::stl::string>("");
 			//UF_MSG_INFO("Entity found: {}", classname);
 			node.name = classname;
+			node.mesh = -1;
 			
 			// parse origin
 			auto origin = metadata["origin"].as<uf::stl::string>("");
@@ -445,8 +504,9 @@ namespace impl {
 			} else if ( model.length() > 4 && model.ends_with(".mdl") ) {
 				auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
 				if ( it == graph.meshes.end() ) {
+					auto meshID = graph.meshes.size();
 					if ( ext::valve::loadMdl(graph, model) ) {
-						node.mesh = (int32_t)(graph.meshes.size() - 1);
+						node.mesh = meshID;
 					}
 				} else {
 					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
@@ -554,7 +614,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 	const impl::BspHeader* header = (const impl::BspHeader*)(buffer.data());
 	if ( header->magic != 0x50534256 ) {
-		UF_MSG_ERROR("Invalid VBSP magic number: {}", filename);
+		UF_MSG_ERROR("Invalid VBSP magic number: {:X}", header->magic);
 		return;
 	}
 
@@ -856,6 +916,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
 	}
 
+	// disable exporting if loaded from a VPK
+	if ( filename.starts_with("valve://") ) graph.metadata["exporter"]["enabled"] = false;
 	graph.metadata["exporter"]["unwrap"] = false; // not necessary to unwrap
 
 	uf::graph::postprocess( graph );

@@ -1,11 +1,11 @@
 local ent = ent
 local metadata = ent:getComponent("Metadata")
-local metadataVale = metadata["valve"] or {}
+local metadataValve = metadata["valve"] or {}
 
-local soundFile = metadataVale["message"] or ""
-local flags = metadataVale["spawnflags"] or 0
+local soundFile = metadataValve["message"] or ""
+local flags = metadataValve["spawnflags"] or 0
 
-local volume = tonumber(metadataVale["health"]) or 10.0
+local volume = tonumber(metadataValve["health"]) or 10.0
 volume = volume / 10.0
 
 local playEverywhere = (math.floor(flags / 1) % 2) ~= 0

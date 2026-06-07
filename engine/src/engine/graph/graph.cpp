@@ -734,7 +734,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	// query materials if culling needs to be disabled
 	for ( auto& primitive : primitives ) {
 		auto materialID = primitive.instance.materialID;
-		if ( 0 < materialID && materialID <= graph.materials.size() ) {
+		if ( 0 <= materialID && materialID <= graph.materials.size() ) {
 			auto& materialName = graph.materials[materialID];
 			auto& material = storage.materials[materialName];
 			if ( material.modeCull == 0 ) {
@@ -1121,7 +1121,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 
-		for ( auto& instance : storage.groupedInstances.map[name] ) {
+		for ( auto& instance : storage.instances.map[name] ) {
 			if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
 				auto& keys = storage.materials.keys;
 				auto& indices = storage.materials.indices;
@@ -1228,18 +1228,49 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	metadataJson["system"]["graph"]["index"] = index;
 
 	uf::Serializer loadJson;
+	
 	// convert metadata["valve"] into internal values:
 	auto& metadataValve = node.metadata["valve"];
 	if ( ext::json::isObject( metadataValve ) ) {
 		// bind door script
 		if ( ext::json::isObject( metadataValve["door"] ) ) {
 			node.metadata["door"] = metadataValve["door"];
-			loadJson["imports"].emplace_back("/door.json");
+			loadJson["imports"].emplace_back("ent://door.json");
 		}
 		// bind io connectivity
 		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
 			node.metadata["connections"] = metadataValve["connections"];
-			loadJson["imports"].emplace_back("/io.json");
+			loadJson["assets"].emplace_back("ent://scripts/io.lua");
+		}
+
+		// assume all funcs are to have a physics body
+		if ( node.name.starts_with("func_") ) {
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				//node.metadata["physics"]["type"] = "bounding box";
+				node.metadata["physics"]["type"] = "mesh";
+				node.metadata["physics"]["category"] = "trigger";
+			}
+		}
+		
+		// check if trigger
+		if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
+			auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+			for ( auto& primitive : primitives ) {
+				auto materialID = primitive.instance.materialID;
+				if ( 0 <= materialID && materialID <= graph.materials.size() ) {
+					auto& materialName = graph.materials[materialID];
+					// attach trigger script + physics body
+					if ( materialName == "tools/toolstrigger" ) {
+						loadJson["assets"].emplace_back("ent://scripts/trigger.lua");
+						// signal to assign a physics body
+						if ( ext::json::isNull( node.metadata["physics"] ) ) {
+							node.metadata["physics"]["type"] = "bounding box";
+							node.metadata["physics"]["category"] = "trigger";
+						}
+						break;
+					}
+				}
+			}
 		}
 	}
 
@@ -1382,18 +1413,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		auto primitiveName = graph.primitives[node.mesh];
 		auto& primitives = storage.primitives.map[primitiveName];
 
-		node.object = ::allocateObjectID( storage );
-		auto objectKeyName = std::to_string( node.object );
-
-		storage.entities[objectKeyName] = &entity;
-		storage.objects[objectKeyName] = pod::Instance::Object{
-			.model = model,
-			.previous = model,
-		};
-
 		pod::Instance::Bounds bounds = {};
 
-		auto& grouped = storage.groupedInstances[primitiveName];
+		auto& grouped = storage.instances[primitiveName];
 		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
 			pod::Instance newInstance = primitives[drawID].instance;
 			newInstance.objectID = node.object;
@@ -1410,41 +1432,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( graphMetadataJson["renderer"]["render"].as<bool>() && isFirstInstance ) {
 			uf::graph::initializeGraphics( graph, entity, mesh, primitives );
 		}
-	#endif
-
-	#if 0
-		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
-		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-
-		pod::Instance::Bounds bounds = {};
-		size_t baseInstanceID = ::allocateInstanceID( storage, graph.primitives[node.mesh] );
-		// setup instances
-		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
-			auto& primitive = primitives[drawID];
-			auto& instance = primitive.instance;
-			size_t instanceID = baseInstanceID + drawID;
-
-			instance.objectID = node.object;
-			instance.jointID = graphMetadataJson["renderer"]["skinned"].as<bool>() ? 0 : -1;
-
-			primitive.drawCommand.instanceID = instanceID;
-
-			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
-			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
-
-			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
-				auto& attribute = mesh.indirect.attributes.front();
-				auto& buffer = mesh.buffers[attribute.buffer];
-				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-				auto& drawCommand = drawCommands[drawID];
-				drawCommand.instanceID = instanceID;
-			}
-		}
-	#if !UF_GRAPH_EXTENDED
-		if ( graphMetadataJson["renderer"]["render"].as<bool>() ) {
-			uf::graph::initializeGraphics( graph, entity, mesh, addresses );
-		}
-	#endif
 	#endif
 		
 		{
@@ -1608,7 +1595,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	if ( storage.stale ) {
 		for ( auto& key : storage.primitives.keys ) {
 			auto& primitives = storage.primitives.map[key];
-			auto& grouped = storage.groupedInstances.map[key];
+			auto& grouped = storage.instances.map[key];
 
 			auto& mesh = storage.meshes.map[key];
 			pod::DrawCommand* commands = nullptr;
@@ -1641,11 +1628,13 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 			}
 
 			if ( commands && !grouped.empty() ) {
-				auto hostKeyName = std::to_string(grouped.front().objectID);
-				if (storage.entities.map.count(hostKeyName) > 0) {
-					auto* hostEntity = storage.entities.map[hostKeyName];
-					if (hostEntity && hostEntity->hasComponent<uf::renderer::Graphic>()) {
-						hostEntity->getComponent<uf::renderer::Graphic>().updateMesh(mesh);
+				auto objectKeyName = std::to_string(grouped.front().objectID);
+				if ( storage.entities.map.count(objectKeyName) > 0 ) {
+					auto& entity = *storage.entities.map[objectKeyName];
+					if ( entity.hasComponent<uf::renderer::Graphic>() ) {
+						auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+						auto& attr = mesh.indirect.attributes.front();
+						graphic.updateBuffer( (const void*) attr.pointer, attr.length, graphic.metadata.buffers["indirect["+attr.descriptor.name+"]"] );
 					}
 				}
 			}
@@ -1754,11 +1743,8 @@ void uf::graph::aggregate( uf::Object& object, pod::Graph::Storage& storage ) {
 				drawCommands.emplace_back( primitive.drawCommand );
 				instances.emplace_back( primitive.instance );
 				lodMetadata.emplace_back( primitive.lod );
+				addresses.emplace_back( primitive.addresses );
 			}
-		}
-
-		for ( auto& key : storage.addresses.keys ) {
-			addresses.insert( addresses.end(), storage.addresses.map[key].begin(), storage.addresses.map[key].end() );
 		}
 	}
 
@@ -2281,8 +2267,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	storage.stale = true; // force rebuffering the draw commands
 
+	bool graphicOwner = graphMetadataJson["renderer"]["render"].as<bool>();
+	if ( graphicOwner ) {
+		auto objectKeyName = std::to_string(storage.instances.map[graph.primitives[node.mesh]].front().objectID);
+		graphicOwner = storage.entities[objectKeyName] == &entity;
+	}
 	// update graphic
-	if ( graphMetadataJson["renderer"]["render"].as<bool>() ) {
+	if ( graphicOwner ) {
 		bool exists = entity.hasComponent<uf::renderer::Graphic>();
 		if ( exists ) {
 			auto& graphic = entity.getComponent<uf::renderer::Graphic>();

@@ -216,7 +216,7 @@ void ext::wav::stream(uf::Audio::Metadata& metadata) {
 		}
 
 		if (bytesRead == 0) {
-			UF_MSG_WARNING("WAV: consumed file stream before buffers are filled: {} {}", (int)queuedBuffers, metadata.filename);
+			if ( queuedBuffers == 0 ) UF_MSG_WARNING("WAV: consumed file stream before {} buffers were filled: {}", (int) queuedBuffers, metadata.filename);
 			break;
 		}
 

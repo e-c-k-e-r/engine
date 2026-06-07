@@ -6,6 +6,41 @@
 
 namespace impl {
 #pragma pack(push, 1)
+	struct mstudiomesh_t {
+		int32_t material;
+		int32_t modelindex;
+		int32_t numvertices;
+		int32_t vertexoffset;
+		int32_t flexes;
+		int32_t flexindex;
+		int32_t materialtype;
+		int32_t materialparam;
+		int32_t meshid;
+		pod::Vector3f center;
+		int32_t vertexdata_ptr;
+		int32_t vertexdata_lod[8];
+		uint8_t pad[32];
+	};
+
+	struct mstudiomodel_t {
+		char name[64];
+		int32_t type;
+		float boundingradius;
+		int32_t nummeshes;
+		int32_t meshindex;
+		int32_t numvertices;
+		int32_t vertexindex;
+		int32_t tangentsindex;
+		uint8_t pad[56];
+	};
+
+	struct mstudiobodyparts_t {
+		int32_t sznameindex;
+		int32_t nummodels;
+		int32_t base;
+		int32_t modelindex;
+	};
+
 	struct vertexFileHeader_t {
 		int32_t magic;
 		int32_t version;
@@ -16,6 +51,12 @@ namespace impl {
 		int32_t fixupTableStart;
 		int32_t vertexDataStart;
 		int32_t tangentDataStart;
+	};
+
+	struct vertexFileFixup_t {
+		int32_t lod;
+		int32_t sourceVertexID;
+		int32_t numVertexes;
 	};
 
 	struct mstudioboneweight_t {
@@ -68,8 +109,7 @@ namespace impl {
 
 		// etc
 	};
-#pragma pack(pop)
-#pragma pack(push, 1)
+
 	struct vtxVertex_t {
 		uint8_t boneWeightIndex[3];
 		uint8_t numBones;
@@ -167,38 +207,53 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 	}
 
 	// extract material directories (cdtextures)
-    uf::stl::vector<uf::stl::string> cdmaterials(mdlHdr->numcdtextures);
-    for ( int i = 0; i < mdlHdr->numcdtextures; ++i ) {
-        int32_t cdOffset = *(int32_t*)(mdlBuffer.data() + mdlHdr->cdtextureindex + (i * 4));
-        uf::stl::string cdPath = (const char*)(mdlBuffer.data() + cdOffset);
+	uf::stl::vector<uf::stl::string> cdmaterials(mdlHdr->numcdtextures);
+	for ( int i = 0; i < mdlHdr->numcdtextures; ++i ) {
+		int32_t cdOffset = *(int32_t*)(mdlBuffer.data() + mdlHdr->cdtextureindex + (i * 4));
+		uf::stl::string cdPath = (const char*)(mdlBuffer.data() + cdOffset);
 
-        std::replace(cdPath.begin(), cdPath.end(), '\\', '/');
-        std::transform(cdPath.begin(), cdPath.end(), cdPath.begin(), ::tolower);
-        cdmaterials[i] = cdPath;
-    }
+		std::replace(cdPath.begin(), cdPath.end(), '\\', '/');
+		std::transform(cdPath.begin(), cdPath.end(), cdPath.begin(), ::tolower);
+		cdmaterials[i] = cdPath;
+	}
 
-    // extract material names from MDL and resolve their full relative paths
-    uf::stl::vector<uf::stl::string> materials(mdlHdr->numtextures);
-    for ( int i = 0; i < mdlHdr->numtextures; ++i ) {
-        int32_t texStructOffset = mdlHdr->textureindex + (i * 64);
-        int32_t nameOffset = *(int32_t*)(mdlBuffer.data() + texStructOffset);
-        uf::stl::string baseName = (const char*)(mdlBuffer.data() + texStructOffset + nameOffset);
-        std::transform(baseName.begin(), baseName.end(), baseName.begin(), ::tolower);
+	// extract material names from MDL and resolve their full relative paths
+	uf::stl::vector<uf::stl::string> materials(mdlHdr->numtextures);
+	for ( int i = 0; i < mdlHdr->numtextures; ++i ) {
+		int32_t texStructOffset = mdlHdr->textureindex + (i * 64);
+		int32_t nameOffset = *(int32_t*)(mdlBuffer.data() + texStructOffset);
+		uf::stl::string baseName = (const char*)(mdlBuffer.data() + texStructOffset + nameOffset);
+		std::transform(baseName.begin(), baseName.end(), baseName.begin(), ::tolower);
 
-        materials[i] = baseName;
+		materials[i] = baseName;
 
-        for ( const auto& cd : cdmaterials ) {
-            uf::stl::string attempt = cd + baseName;
-            if ( uf::vfs::exists("materials/" + attempt + ".vmt") ) {
-                materials[i] = attempt;
-                break;
-            }
-        }
-    }
+		for ( const auto& cd : cdmaterials ) {
+			uf::stl::string attempt = cd + baseName;
+			if ( uf::vfs::exists("materials/" + attempt + ".vmt") ) {
+				materials[i] = attempt;
+				break;
+			}
+		}
+	}
 
-	// extract LOD0 ertices from VVD
+	// extract LOD0 vertices from VVD
 	const impl::mstudiovertex_t* vvdVertices = (const impl::mstudiovertex_t*)(vvdBuffer.data() + vvdHdr->vertexDataStart);
-	int numLOD0Verts = vvdHdr->numLODVertexes[0];
+	uf::stl::vector<impl::mstudiovertex_t> lod0Vertices;
+	if ( vvdHdr->numFixups == 0 ) {
+		lod0Vertices.assign(vvdVertices, vvdVertices + vvdHdr->numLODVertexes[0]);
+	} else {
+		lod0Vertices.resize(vvdHdr->numLODVertexes[0]);
+		const impl::vertexFileFixup_t* fixups = (const impl::vertexFileFixup_t*)(vvdBuffer.data() + vvdHdr->fixupTableStart);
+		int targetIndex = 0;
+		for ( int i = 0; i < vvdHdr->numFixups; ++i ) {
+			if ( fixups[i].lod >= 0 ) {
+				std::memcpy(&lod0Vertices[targetIndex], &vvdVertices[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(impl::mstudiovertex_t));
+				targetIndex += fixups[i].numVertexes;
+			}
+		}
+	}
+	/*
+	*/
 
 	// read VTX file
 	uf::stl::string vtxPath = filename.substr(0, filename.find_last_of('.')) + ".dx90.vtx";
@@ -213,18 +268,22 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// traverse: BodyPart -> Model -> LOD0 -> Mesh -> StripGroup -> Indices
 	const impl::vtxBodyPart_t* bodyParts = (const impl::vtxBodyPart_t*)(vtxBuffer.data() + vtxHdr->bodyPartOffset);
+	const impl::mstudiobodyparts_t* mdlBodyParts = (const impl::mstudiobodyparts_t*)((uint8_t*)mdlHdr + mdlHdr->bodypartindex);
 
 	for ( int bp = 0; bp < vtxHdr->numBodyParts; ++bp ) {
 		const impl::vtxModel_t* models = (const impl::vtxModel_t*)((uint8_t*)&bodyParts[bp] + bodyParts[bp].modelOffset);
+		const impl::mstudiomodel_t* mdlModels = (const impl::mstudiomodel_t*)((uint8_t*)&mdlBodyParts[bp] + mdlBodyParts[bp].modelindex);
 
 		for ( int m = 0; m < bodyParts[bp].numModels; ++m ) {
 			const impl::vtxModelLOD_t* lods = (const impl::vtxModelLOD_t*)((uint8_t*)&models[m] + models[m].lodOffset);
 			const impl::vtxModelLOD_t& lod0 = lods[0];
 
 			const impl::vtxMesh_t* meshes = (const impl::vtxMesh_t*)((uint8_t*)&lod0 + lod0.meshOffset);
+			const impl::mstudiomesh_t* mdlMeshes = (const impl::mstudiomesh_t*)((uint8_t*)&mdlModels[m] + mdlModels[m].meshindex);
 
 			for ( int meshID = 0; meshID < lod0.numMeshes; ++meshID ) {
 				const impl::vtxMesh_t& mesh = meshes[meshID];
+				const impl::mstudiomesh_t& mdlMesh = mdlMeshes[meshID];
 
 				auto& meshlet = meshlets.emplace_back();
 				uf::stl::unordered_map<uint16_t, uint32_t> vertRemap;
@@ -245,7 +304,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 							vertRemap[originalVvdID] = meshlet.vertices.size();
 							auto& vert = meshlet.vertices.emplace_back();
 
-							const auto& srcVert = vvdVertices[originalVvdID];
+							const auto& srcVert = lod0Vertices[mdlMesh.vertexoffset + originalVvdID];
 
 							vert.position = impl::convertPos( srcVert.m_vecPosition );
 							vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal, 1.0f ) );
@@ -277,16 +336,13 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 				size_t materialID = 0;
 				uf::stl::string matName = "missing_texture";
-				if ( meshID < materials.size() ) matName = materials[meshID];
-				if ( storage.materials.map.count(matName) > 0 ) {
-					// to-do: add an indexOf
-					for ( ; materialID < graph.materials.size(); ++materialID ) {
-						if ( graph.materials[materialID] == matName ) break;
-					}
-
-				} else {
+				if ( mdlMesh.material < materials.size() ) matName = materials[mdlMesh.material];
+				auto it = std::find(graph.materials.begin(), graph.materials.end(), matName);
+				if ( it == graph.materials.end() ) {
 					materialID = graph.materials.size();
 					auto& material = impl::addMaterial( graph, matName );
+				} else {
+					materialID = (int32_t)std::distance(graph.materials.begin(), it);
 				}
 
 				meshlet.primitive.instance.materialID = materialID;
@@ -294,16 +350,19 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 		}
 	}
 
-	if ( !meshlets.empty() ) {
-		auto meshName = filename;
-		graph.meshes.emplace_back(meshName);
-		graph.primitives.emplace_back(meshName);
-
-		auto& mesh = storage.meshes[meshName];
-		auto& primitives = storage.primitives[meshName];
-
-		mesh.compile( meshlets, primitives );
+	if ( meshlets.empty() ) {
+		UF_MSG_DEBUG("Empty mesh={}", filename);
+		return false;
 	}
+
+	auto meshName = filename;
+	graph.meshes.emplace_back(meshName);
+	graph.primitives.emplace_back(meshName);
+
+	auto& mesh = storage.meshes[meshName];
+	auto& primitives = storage.primitives[meshName];
+
+	mesh.compile( meshlets, primitives );
 
 	return true;
 }

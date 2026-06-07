@@ -63,6 +63,7 @@ default/
 *.vtf
 *.ztmp
 
+maps/
 models/
 llm/
 tmp/

@@ -86,9 +86,8 @@ namespace pod {
 				GLOBAL,
 			};
 
-			uf::stl::KeyMap<uf::stl::vector<pod::Instance>> groupedInstances;
-			uf::stl::KeyMap<uf::stl::vector<pod::Instance::Addresses>> addresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
+			uf::stl::KeyMap<uf::stl::vector<pod::Instance>> instances;
 			uf::stl::KeyMap<uf::Mesh> meshes;
 
 			uf::stl::KeyMap<pod::ImageTexture> images;

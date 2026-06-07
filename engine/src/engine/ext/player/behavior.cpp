@@ -426,8 +426,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			metadata.system.noclipped = state;
 			if ( !state ) {
 				uf::physics::setGravity( physicsBody );
-				uf::physics::setColliderCategory( physicsBody, "DYNAMIC");
-				uf::physics::setColliderMask( physicsBody, "DYNAMIC");
+				uf::physics::setColliderCategory( physicsBody, "PLAYER");
+				uf::physics::setColliderMask( physicsBody, "PLAYER");
 			} else {
 				uf::physics::setGravity( physicsBody, pod::Vector3f{0,0,0});
 				uf::physics::setColliderCategory( physicsBody, "NONE");

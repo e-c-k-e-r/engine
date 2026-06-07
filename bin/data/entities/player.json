@@ -86,6 +86,8 @@
 			"type": "capsule",
 			"radius": 1,
 			"height": 2,
+			"category": "player",
+			"mask": "player",
 
 		//	"type": "bounding box",
 		//	"min": [ -1, -1, -1 ],

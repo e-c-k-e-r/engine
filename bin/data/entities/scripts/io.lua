@@ -38,7 +38,7 @@ ent:addHook("io:Input.%UID%", function(payload)
 		ent:callHook("io:FireOutput.%UID%", { output = "OnUser3" })
 	elseif input == "FireUser4" then
 		ent:callHook("io:FireOutput.%UID%", { output = "OnUser4" })
-    -- colors
+	-- colors
 	elseif input == "Alpha" then
 		local alphaVal = tonumber(param) / 255.0
 		if alphaVal then
@@ -73,8 +73,7 @@ ent:bind("tick", function(self)
 
 	for i = #pendingOutputs, 1, -1 do
 		local job = pendingOutputs[i]
-		if currentTime >= job.fireTime then
-
+        if currentTime >= job.fireTime then
 			local targetUIDs = _G.IOTargets[job.target]
 			if targetUIDs then
 				for _, targetUID in ipairs(targetUIDs) do
@@ -97,18 +96,19 @@ ent:bind("tick", function(self)
 end)
 
 ent:addHook("io:FireOutput.%UID%", function(payload)
-	local outputName = payload.output
+	local output = payload.output
 
 	for i = 1, #connections do
 		local conn = connections[i]
 
-		if conn.output == outputName then
+		if conn.output == output then
 			local limit = conn.times or -1
 
 			if limit == -1 or timesFired[i] < limit then
 				timesFired[i] = timesFired[i] + 1
 
 				local delay = conn.delay or 0.0
+				
 				table.insert(pendingOutputs, {
 					fireTime = timer:elapsed() + delay,
 					target = conn.target,
@@ -136,8 +136,8 @@ end)
 
 ent:addHook("entity:Use.%UID%", function(payload)
 	if payload.user == ent:uid() then return end
-
 	ent:callHook("io:FireOutput.%UID%", { output = "OnPlayerUse" })
 	ent:callHook("io:FireOutput.%UID%", { output = "OnUse" })
 	ent:callHook("io:FireOutput.%UID%", { output = "OnPressed" })
+    ent:callHook("io:FireOutput.%UID%", { output = "OnIn" })
 end)

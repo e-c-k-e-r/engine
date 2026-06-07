@@ -1,12 +1,11 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-		{ "filename": "./maps/mds_mcdonalds.bsp" }
-	//	{ "filename": "./maps/mds_mcdonalds/graph.json" }
+		{ "filename": "./maps/cs_office.bsp" }
+	//	{ "filename": "./maps/cs_office/graph.json" }
 	],
 	"metadata": {
 		"graph": {
-			// "bgm": "./audio/soundscape/sh2_ambience.wav",
 			// realistically shouldn't ever need to define additional tags for BSPs
 			"tags": {
 

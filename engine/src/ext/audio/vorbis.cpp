@@ -218,8 +218,8 @@ void ext::vorbis::stream(uf::Audio::Metadata& metadata) {
 			}
 			totalRead += result;
 		}
-		if (totalRead == 0) {
-			UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: {} {}", (int)queuedBuffers, metadata.filename);
+		if ( totalRead == 0 ) {
+			if ( queuedBuffers == 0 ) UF_MSG_WARNING("Vorbis: consumed file stream before {} buffers were filled: {}", (int)queuedBuffers, metadata.filename);
 			break;
 		}
 		AL_CHECK_RESULT(alBufferData(metadata.al.buffer.getIndex(queuedBuffers), metadata.info.format, buffer, totalRead, metadata.info.frequency));

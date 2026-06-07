@@ -9,6 +9,9 @@ void impl::solvePositions( uf::stl::vector<pod::Manifold>& manifolds, float dt, 
 		for ( auto& manifold : manifolds ) {
 			auto& a = *manifold.a;
 			auto& b = *manifold.b;
+
+			if ( (a.collider.category & pod::Collider::CATEGORY_TRIGGER) || (b.collider.category & pod::Collider::CATEGORY_TRIGGER) ) return;
+			
 			auto tA = impl::getTransform( a );
 			auto tB = impl::getTransform( b );
 

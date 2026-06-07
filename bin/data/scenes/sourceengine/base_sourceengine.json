@@ -27,17 +27,18 @@
 					"resolution": 2048
 				} },*/
 
+				"ambient_generic": { "action": "load", "payload": { "assets": ["ent://scripts/ambient_generic.lua"], "behaviors": ["SoundEmitterBehavior"] } },
+				
 				// automatically handled
 			//	"/^func_door/": { "action": "load", "payload": { "import": "/door.json" } },
 			//	"/^prop_door/": { "action": "load", "payload": { "import": "/door.json" } },
 
-				"/ambient_generic/": { "action": "load", "payload": { "import": "/ambient_generic.json" } },
 
 				// regexp matches
-				"/^prop_static/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^prop_dynamic/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_static/": { "action": "load", "payload": { "import": "ent://prop.json" } },
+				"/^prop_dynamic/": { "action": "load", "payload": { "import": "ent://prop.json" } },
+				"/^func_physbox/": { "action": "load", "payload": { "import": "ent://prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "ent://prop.json" } },
 
 				"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
 			}

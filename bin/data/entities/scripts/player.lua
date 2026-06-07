@@ -138,14 +138,14 @@ local function tickUse( transform, axes, inputs )
 		timers.use:reset()
 		local center = transform.position
 		local direction = axes.forward * useDistance
-		local prop, depth = physicsBody:rayCast(center, direction)
+		local hit, depth = physicsBody:rayCast(center, direction)
 
 		local payload = {
 			user = ent:uid(),
-			uid = prop and prop:uid() or 0,
+			uid = hit and hit:uid() or 0,
 			depth = depth,
 		}
-		if prop then prop:lazyCallHook("entity:Use.%UID%", payload) end
+		if hit then hit:lazyCallHook("entity:Use.%UID%", payload) end
 		ent:lazyCallHook("entity:Use.%UID%", payload)
 	end
 end
