@@ -16,6 +16,7 @@
 #include <uf/utils/image/atlas.h>
 #include <uf/utils/string/hash.h>
 #include <uf/utils/mesh/grid.h>
+#include <uf/utils/io/vfs.h>
 
 #include <gltf/tiny_gltf.h>
 #include <uf/ext/gltf/gltf.h>
@@ -130,10 +131,18 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	tinygltf::TinyGLTF loader;
 
 	uf::stl::string warn, err;
-	bool ret = extension == "glb" ? loader.LoadBinaryFromFile(&model, &err, &warn, filename) : loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+	//bool ret = extension == "glb" ? loader.LoadBinaryFromFile(&model, &err, &warn, filename) : loader.LoadASCIIFromFile(&model, &err, &warn, filename);
 
-	graph.name = filename;
-	graph.metadata = metadata;
+	bool ret = false;
+	if ( extension == "glb" ) {
+	//	uf::stl::vector<uint8_t> buffer;
+	//	if ( !uf::io::readAsBuffer( buffer, filename ) ) return;
+	//	ret = loader.LoadBinaryFromMemory(&model, &err, &warn, buffer.data(), buffer.size());
+		ret = loader.LoadBinaryFromFile(&model, &err, &warn, uf::vfs::resolveBase(filename));
+	} else {
+		// crunge
+		ret = loader.LoadASCIIFromFile(&model, &err, &warn, uf::vfs::resolveBase(filename));
+	}
 
 	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: {}", warn);
 	if ( !err.empty() ) UF_MSG_ERROR("glTF error: {}", err);
@@ -141,10 +150,11 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		return;
 	}
 
+	graph.name = filename;
+	graph.metadata = metadata;
+	
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
-	if ( key != "" ) {
-		key += ":";
-	}
+	if ( key != "" ) key += ":";
 
 	auto& storage = uf::graph::getStorage( graph );
 

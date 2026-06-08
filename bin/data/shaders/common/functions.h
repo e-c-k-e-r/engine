@@ -400,11 +400,7 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 			vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
 
 			#pragma unroll 3
-			for ( uint i = 0; i < 3; ++i ) {
-				vec3 n = points[i].normal;
-				// Gram-Schmidt orthogonalization
-				points[i].tangent = normalize(tangent_tri - n * dot(n, tangent_tri));
-			}
+			for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = tangent_tri;
 		}
 	}
 
@@ -456,6 +452,8 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	// bind tangent
 	if ( triangle.point.tangent != vec3(0) ) {
 		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
+		surface.tangent.world = normalize(surface.tangent.world - dot(surface.tangent.world, surface.normal.world) * surface.normal.world);
+
 		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
 		surface.tbn = mat3(surface.tangent.world, bitangent, surface.normal.world);
 	}

@@ -99,13 +99,23 @@ namespace uf {
 					
 					size_t primitiveID = partitioned.size();
 					auto& slice = partitioned.emplace_back();
-					slice.vertices.reserve( mlet.indices.size() );
-					slice.indices.reserve( mlet.indices.size() );
+
+					uf::stl::unordered_map<U, U> indexMap;
+					for ( U globalID : mlet.indices ) {
+						if ( indexMap.find(globalID) == indexMap.end() ) {
+							indexMap[globalID] = (U)(slice.vertices.size());
+							slice.vertices.emplace_back(meshlet.vertices[globalID]);
+						}
+						slice.indices.emplace_back( indexMap[globalID] );
+					}
 
 					if ( clip ) {
 						node.effectiveExtents.min = node.extents.min;
 						node.effectiveExtents.max = node.extents.max;
 						uf::shapes::clip<T,U>( slice.vertices, slice.indices, pod::AABB{ node.extents.min, node.extents.max } );
+						// blender outputs poopy tangents that don't get fixed here
+						// better to recalculate them before slicing anyways
+						// uf::mesh::tangents<T,U>( slice.vertices, slice.indices );
 					}
 
 					slice.primitive.instance = meshlet.primitive.instance;

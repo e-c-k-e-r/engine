@@ -5,6 +5,8 @@
 #include <uf/ext/valve/common.h>
 #include <uf/ext/zlib/zlib.h>
 
+#include <uf/utils/mesh/grid.h>
+
 namespace impl {
 	struct RGBE {
 		uint8_t r, g, b;
@@ -753,6 +755,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 		if ( meshlets.empty() ) continue;
 
+
 		auto meshName = ::fmt::format("model_{}", m);
 		context.modelToMesh[m] = graph.meshes.size();
 
@@ -762,7 +765,31 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto& mesh = storage.meshes[meshName];
 		auto& primitives = storage.primitives[meshName];
 
-		mesh.compile( meshlets, primitives );
+		// slice worldspawn
+		if ( false && m == 0 ) {
+		/*
+			if ( ext::json::isObject( meshgrid.metadata ) ) {
+				if ( meshgrid.metadata["size"].is<size_t>() ) {
+					size_t d = meshgrid.metadata["size"].as<size_t>();
+					meshgrid.grid.divisions = {d, d, d};
+				} else {
+					meshgrid.grid.divisions = uf::vector::decode( meshgrid.metadata["size"], meshgrid.grid.divisions );
+				}
+
+				meshgrid.eps = meshgrid.metadata["epsilon"].as(meshgrid.eps);
+				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
+				meshgrid.clip = meshgrid.metadata["clip"].as(meshgrid.clip);
+				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
+			}
+		*/
+			uf::meshgrid::Grid grid;
+			grid.divisions = {8, 8, 8};
+			auto mlets = uf::stl::values( meshlets );
+			auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
+			mesh.compile( partitioned, primitives );
+		} else {
+			mesh.compile( meshlets, primitives );
+		}
 	}
 
 	// read entities

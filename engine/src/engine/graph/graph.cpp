@@ -539,8 +539,8 @@ UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base, {
 		uf::vector::lerp( p1.uv, p2.uv, t ),
 		t < 0.5 ? p1.color : p2.color,
 		uf::vector::lerp( p1.st, p2.st, t ),
-		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.normal, p2.normal, t ),
+		uf::vector::lerp( p1.tangent, p2.tangent, t ),
 	};
 })
 
@@ -560,8 +560,8 @@ UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned, {
 		uf::vector::lerp( p1.uv, p2.uv, t ),
 		t < 0.5 ? p1.color : p2.color,
 		uf::vector::lerp( p1.st, p2.st, t ),
-		uf::vector::normalize( uf::vector::lerp( p1.normal, p2.normal, t ) ),
-		uf::vector::normalize( uf::vector::lerp( p1.tangent, p2.tangent, t ) ),
+		uf::vector::lerp( p1.normal, p2.normal, t ),
+		uf::vector::lerp( p1.tangent, p2.tangent, t ),
 		t < 0.5 ? p1.joints : p2.joints,
 		uf::vector::lerp( p1.weights, p2.weights, t ),
 	};
@@ -1627,6 +1627,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 				}
 			}
 
+		#if UF_USE_VULKAN
 			if ( commands && !grouped.empty() ) {
 				auto objectKeyName = std::to_string(grouped.front().objectID);
 				if ( storage.entities.map.count(objectKeyName) > 0 ) {
@@ -1638,6 +1639,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 					}
 				}
 			}
+		#endif
 		}
 
 		for ( auto& key : storage.textures.keys ) textures.emplace_back( storage.textures.map[key] );

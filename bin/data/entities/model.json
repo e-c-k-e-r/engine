@@ -62,7 +62,7 @@
 			"renderer": {
 				"front face": "auto",
 				"cull mode": "back",
-				"filter": "nearest",
+				"filter": "linear",
 
 				"atlas": false,
 				"invert": true,

@@ -1,13 +1,13 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "StartMenu",
+			"start": "SourceEngine",
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"lightmaps": true,
+				"lightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": true,
+					"enabled": false,
 					"update": 4,
 					"max": 16,
 					"samples": 2

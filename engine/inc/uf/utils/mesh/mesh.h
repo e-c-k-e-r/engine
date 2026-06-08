@@ -7,6 +7,7 @@
 #include <uf/utils/string/hash.h>
 
 #include <functional>
+#include <type_traits>
 #include <uf/utils/memory/unordered_map.h>
 
 #if UF_USE_VULKAN
@@ -603,54 +604,26 @@ namespace uf {
 	};
 
 	namespace mesh {
+		template <typename T, typename = void> struct has_tangent : std::false_type {};
+		template <typename T> struct has_tangent<T, std::void_t<decltype(std::declval<T>().tangent)>> : std::true_type {};
+
+		template <typename T, typename = void> struct has_normal : std::false_type {};
+		template <typename T> struct has_normal<T, std::void_t<decltype(std::declval<T>().normal)>> : std::true_type {};
+
 		size_t UF_API fetchIndex( const void* pointer, size_t stride, size_t index );
 		pod::Vector3f UF_API fetchVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
 		pod::Triangle UF_API fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
 		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t triID );
 
-		template<typename T>
-		T fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
-			#define CAST_VERTEX(type) {\
-				const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
-				for ( auto i = 0; i < T::size; ++i ) res[i] = vertices[i];\
-				return res;\
-			}
-			#define DEQUANTIZE_VERTEX(type) {\
-				const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
-				for ( auto i = 0; i < T::size; ++i ) res[i] = uf::quant::dequantize(vertices[i]);\
-				return res;\
-			}
+		template<typename T> size_t windingOrder( uf::stl::vector<T>& vertices );
+		template<typename T, typename U> size_t windingOrder( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices );
+		template<typename T> void normals( uf::stl::vector<T>& vertices );
+		template<typename T, typename U = uint32_t> void normals( uf::stl::vector<T>& vertices, const uf::stl::vector<U>& indices );
+		// specifically refuses to work properly
+		template<typename T> void tangents( uf::stl::vector<T>& vertices );
+		template<typename T, typename U = uint32_t> void tangents( uf::stl::vector<T>& vertices, const uf::stl::vector<U>& indices );
 
-			// direct copy
-			if ( uf::renderer::typeToEnum<typename T::type_t>() == attributeView.type() && T::size == attributeView.components() ) {
-				return uf::vector::copy<typename T::type_t, T::size>( (typename T::type_t*) attributeView.data( view.vertex.first + index ) );
-			}
-
-			// implicit copy
-			T res;
-			switch ( attributeView.type() ) {
-				// dequantize
-				case uf::renderer::enums::Type::USHORT:
-				case uf::renderer::enums::Type::SHORT: {
-					DEQUANTIZE_VERTEX(uint16_t);
-				} break;
-				case uf::renderer::enums::Type::FLOAT: {
-					CAST_VERTEX(float);
-				} break;
-			#if UF_USE_FLOAT16
-				case uf::renderer::enums::Type::HALF: {
-					CAST_VERTEX(std::float16_t);
-				} break;
-			#endif
-			#if UF_USE_BFLOAT16
-				case uf::renderer::enums::Type::BFLOAT: {
-					CAST_VERTEX(std::bfloat16_t);
-				} break;
-			#endif
-				default: UF_EXCEPTION("unsupported attribute type: {}", attributeView.attribute.descriptor.type); break;
-			}
-		}
-
+		template<typename T> T fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index );
 		template<typename T>
 		T& getVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
 			UF_ASSERT( uf::renderer::typeToEnum<typename T::type_t>() == attributeView.type() && T::size == attributeView.components() );
@@ -709,6 +682,250 @@ namespace uf {
 			return uf::mesh::setIndex( view, view["indices"_hash], index, value );
 		}
 	}
+}
+
+template<typename T>
+T uf::mesh::fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::AttributeView& attributeView, size_t index ) {
+	#define CAST_VERTEX(type) {\
+		const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
+		for ( auto i = 0; i < T::size; ++i ) res[i] = vertices[i];\
+		return res;\
+	}
+	#define DEQUANTIZE_VERTEX(type) {\
+		const type* vertices = (type*) attributeView.data(view.vertex.first + index);\
+		for ( auto i = 0; i < T::size; ++i ) res[i] = uf::quant::dequantize(vertices[i]);\
+		return res;\
+	}
+
+	// direct copy
+	if ( uf::renderer::typeToEnum<typename T::type_t>() == attributeView.type() && T::size == attributeView.components() ) {
+		return uf::vector::copy<typename T::type_t, T::size>( (typename T::type_t*) attributeView.data( view.vertex.first + index ) );
+	}
+
+	// implicit copy
+	T res;
+	switch ( attributeView.type() ) {
+		// dequantize
+		case uf::renderer::enums::Type::USHORT:
+		case uf::renderer::enums::Type::SHORT: {
+			DEQUANTIZE_VERTEX(uint16_t);
+		} break;
+		case uf::renderer::enums::Type::FLOAT: {
+			CAST_VERTEX(float);
+		} break;
+	#if UF_USE_FLOAT16
+		case uf::renderer::enums::Type::HALF: {
+			CAST_VERTEX(std::float16_t);
+		} break;
+	#endif
+	#if UF_USE_BFLOAT16
+		case uf::renderer::enums::Type::BFLOAT: {
+			CAST_VERTEX(std::bfloat16_t);
+		} break;
+	#endif
+		default: UF_EXCEPTION("unsupported attribute type: {}", attributeView.attribute.descriptor.type); break;
+	}
+}
+
+template<typename T>
+size_t uf::mesh::windingOrder( uf::stl::vector<T>& vertices ) {
+	if constexpr ( !uf::mesh::has_normal<T>::value ) return 0;
+
+	size_t corrected = 0;
+	for ( size_t i = 0; i < vertices.size() / 3; ++i ) {
+		pod::Vector3f position[3] = {
+			vertices[i * 3 + 0].position,
+			vertices[i * 3 + 1].position,
+			vertices[i * 3 + 2].position,
+		};
+		pod::Vector3f normal = uf::vector::normalize( uf::vector::cross((position[0] - position[1]), (position[1] - position[2])) );
+
+		if ( uf::vector::dot( vertices[i * 3 + 0].normal, normal ) < 0.0f ) {
+			std::swap( vertices[i * 3 + 0], vertices[i * 3 + 2] );
+			++corrected;
+		}
+	}
+	return corrected;
+}
+
+template<typename T, typename U>
+size_t uf::mesh::windingOrder( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices ) {
+	if constexpr ( !uf::mesh::has_normal<T>::value ) return 0;
+	if ( indices.empty() ) return uf::mesh::windingOrder( vertices );
+
+	size_t corrected = 0;
+	for ( size_t i = 0; i < indices.size() / 3; ++i ) {
+		size_t idx[3] = {
+			indices[i * 3 + 0],
+			indices[i * 3 + 1],
+			indices[i * 3 + 2],
+		};
+		pod::Vector3f position[3] = {
+			vertices[idx[0]].position,
+			vertices[idx[1]].position,
+			vertices[idx[2]].position,
+		};
+		pod::Vector3f normal = uf::vector::normalize( uf::vector::cross((position[0] - position[1]), (position[1] - position[2])) );
+
+		if ( uf::vector::dot( vertices[idx[0]].normal, normal ) < 0.0f ) {
+			indices[i * 3 + 0] = idx[2];
+			indices[i * 3 + 2] = idx[0];
+			++corrected;
+		}
+	}
+	return corrected;
+}
+
+template<typename T>
+void uf::mesh::tangents( uf::stl::vector<T>& vertices ) {
+	if constexpr ( !uf::mesh::has_tangent<T>::value ) return;
+
+	for ( size_t i = 0; i < vertices.size(); i += 3 ) {
+		size_t idx[3] = { i + 0, i + 1, i + 2 };
+
+		auto p0 = vertices[idx[0]].position;
+		auto p1 = vertices[idx[1]].position;
+		auto p2 = vertices[idx[2]].position;
+
+		auto uv0 = vertices[idx[0]].uv;
+		auto uv1 = vertices[idx[1]].uv;
+		auto uv2 = vertices[idx[2]].uv;
+
+		auto p10 = p1 - p0;
+		auto p20 = p2 - p0;
+
+		auto uv10 = uv1 - uv0;
+		auto uv20 = uv2 - uv0;
+
+		auto det = (uv10.x * uv20.y - uv10.y * uv20.x);
+		float r = 1.0f / det;
+		auto t = (p10 * uv20.y - p20 * uv10.y) * r;
+		auto b = (p20 * uv10.x - p10 * uv20.x) * r;
+
+		for ( auto j = 0; j < 3; ++j ) {
+			auto& n = vertices[idx[j]].normal;
+			auto& tangent = vertices[idx[j]].tangent;
+			tangent = uf::vector::normalize(t - n * uf::vector::dot(n, t));
+			if ( uf::vector::dot( uf::vector::cross(n, tangent), b) < 0.0f ) tangent = -tangent;
+		}
+	/*
+		pod::Vector3f position[3] = {
+			vertices[idx[0]].position, vertices[idx[1]].position, vertices[idx[2]].position
+		};
+		pod::Vector2f uv[3] = {
+			vertices[idx[0]].uv, vertices[idx[1]].uv, vertices[idx[2]].uv
+		};
+
+		pod::Vector3f dPosition[2] = { position[1] - position[0], position[2] - position[0] };
+		pod::Vector2f dUV[2] = { uv[1] - uv[0], uv[2] - uv[0] };
+
+		float det = (dUV[0].x * dUV[1].y - dUV[0].y * dUV[1].x);
+		if ( det == 0.0f ) continue;
+		float r = 1.0f / det;
+
+		auto t = (dPosition[0] * dUV[1].y - dPosition[1] * dUV[0].y) * r;
+		auto b = (dPosition[1] * dUV[0].x - dPosition[0] * dUV[1].x) * r;
+
+		for ( auto j = 0; j < 3; ++j ) {
+			auto& normal = vertices[idx[j]].normal;
+			auto& tangent = vertices[idx[j]].tangent;
+			tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
+			if ( uf::vector::dot(uf::vector::cross(normal, tangent), b) < 0.0f ) tangent = -tangent;
+		}
+	*/
+	}
+}
+
+template<typename T, typename U>
+void uf::mesh::tangents( uf::stl::vector<T>& vertices, const uf::stl::vector<U>& indices ) {
+	if constexpr ( !uf::mesh::has_tangent<T>::value ) return;
+	if ( indices.empty() ) return tangents( vertices );
+
+	for ( size_t i = 0; i < indices.size(); i += 3 ) {
+		size_t idx[3] = { indices[i + 0], indices[i + 1], indices[i + 2] };
+
+		auto p0 = vertices[idx[0]].position;
+		auto p1 = vertices[idx[1]].position;
+		auto p2 = vertices[idx[2]].position;
+
+		auto uv0 = vertices[idx[0]].uv;
+		auto uv1 = vertices[idx[1]].uv;
+		auto uv2 = vertices[idx[2]].uv;
+
+		auto p10 = p1 - p0;
+		auto p20 = p2 - p0;
+
+		auto uv10 = uv1 - uv0;
+		auto uv20 = uv2 - uv0;
+
+		auto det = (uv10.x * uv20.y - uv10.y * uv20.x);
+		float r = 1.0f / det;
+		auto t = (p10 * uv20.y - p20 * uv10.y) * r;
+		auto b = (p20 * uv10.x - p10 * uv20.x) * r;
+
+		for ( auto j = 0; j < 3; ++j ) {
+			auto& n = vertices[idx[j]].normal;
+			auto& tangent = vertices[idx[j]].tangent;
+			tangent = uf::vector::normalize(t - n * uf::vector::dot(n, t));
+			if ( uf::vector::dot( uf::vector::cross(n, tangent), b) < 0.0f ) tangent = -tangent;
+		}
+	/*
+		pod::Vector3f position[3] = { vertices[idx[0]].position, vertices[idx[1]].position, vertices[idx[2]].position };
+		pod::Vector2f uv[3] = { vertices[idx[0]].uv, vertices[idx[1]].uv, vertices[idx[2]].uv };
+		pod::Vector3f dPosition[2] = { position[1] - position[0], position[2] - position[0] };
+		pod::Vector2f dUV[2] = { uv[1] - uv[0], uv[2] - uv[0] };
+
+		float det = (dUV[0].x * dUV[1].y - dUV[0].y * dUV[1].x);
+		if ( det == 0.0f ) continue;
+		float r = 1.0f / det;
+
+		auto t = (dPosition[0] * dUV[1].y - dPosition[1] * dUV[0].y) * r;
+		auto b = (dPosition[1] * dUV[0].x - dPosition[0] * dUV[1].x) * r;
+
+		for ( auto j = 0; j < 3; ++j ) {
+			auto& normal = vertices[idx[j]].normal;
+			auto& tangent = vertices[idx[j]].tangent;
+			tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
+			if ( uf::vector::dot(uf::vector::cross(normal, tangent), b) < 0.0f ) tangent = -tangent;
+		}
+	*/
+	}
+}
+
+template<typename T>
+void uf::mesh::normals( uf::stl::vector<T>& vertices ) {
+	if constexpr ( !uf::mesh::has_normal<T>::value ) return;
+
+	for ( size_t i = 0; i < vertices.size(); i += 3 ) {
+		auto& v0 = vertices[i + 0];
+		auto& v1 = vertices[i + 1];
+		auto& v2 = vertices[i + 2];
+
+		pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(v1.position - v0.position, v2.position - v0.position));
+		v0.normal = normal;
+		v1.normal = normal;
+		v2.normal = normal;
+	}
+}
+
+template<typename T, typename U>
+void uf::mesh::normals( uf::stl::vector<T>& vertices, const uf::stl::vector<U>& indices ) {
+	if constexpr ( !uf::mesh::has_normal<T>::value ) return;
+	if ( indices.empty() ) return normals( vertices );
+
+	for ( auto& v : vertices ) v.normal = {};
+	for ( size_t i = 0; i < indices.size(); i += 3 ) {
+		auto& v0 = vertices[indices[i + 0]];
+		auto& v1 = vertices[indices[i + 1]];
+		auto& v2 = vertices[indices[i + 2]];
+
+		pod::Vector3f normal = uf::vector::cross(v1.position - v0.position, v2.position - v0.position);
+		v0.normal += normal;
+		v1.normal += normal;
+		v2.normal += normal;
+	}
+
+	for ( auto& v : vertices ) v.normal = uf::vector::normalize( v.normal );
 }
 
 template<typename T> uf::stl::vector<pod::Primitive> uf::Mesh::compile( const uf::stl::vector<T>& meshlets ) {

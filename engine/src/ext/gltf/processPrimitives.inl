@@ -6,11 +6,17 @@ struct {
 	} windingOrder;
 	struct {
 		bool should = true;
+	} normals;
+	struct {
+		bool should = true;
 	} tangents;
 } sanitizer;
 
 if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) || graph.metadata["renderer"]["invert"].as<bool>(true) ) {
 	sanitizer.windingOrder.should = true;
+}
+if ( graph.metadata["sanitizer"]["normals"].as<bool>(false) ) {
+	sanitizer.normals.should = true;
 }
 if ( graph.metadata["sanitizer"]["tangents"].as<bool>(false) ) {
 	sanitizer.tangents.should = true;
@@ -93,28 +99,27 @@ for ( auto& p : m.primitives ) {
 	}
 
 	for ( size_t i = 0; i < meshlet.vertices.size(); ++i ) {
-	#if 0
-		#define ITERATE_ATTRIBUTE( name, member )\
-			memcpy( &vertex.member[0], &attributes[name].buffer[i * attributes[name].components], attributes[name].stride );
-	#else
-		#define ITERATE_ATTRIBUTE( name, member, floatScale )\
-			if ( !attributes[name].int8s.empty() ) { \
-				for ( size_t j = 0; j < attributes[name].components; ++j )\
-					vertex.member[j] = attributes[name].int8s[i * attributes[name].components + j];\
-			} else if ( !attributes[name].int16s.empty() ) { \
-				for ( size_t j = 0; j < attributes[name].components; ++j )\
-					vertex.member[j] = attributes[name].int16s[i * attributes[name].components + j];\
-			} else if ( !attributes[name].int32s.empty() ) { \
-				for ( size_t j = 0; j < attributes[name].components; ++j )\
-					vertex.member[j] = attributes[name].int32s[i * attributes[name].components + j];\
-			} else if ( !attributes[name].floats.empty() ) { \
-				for ( size_t j = 0; j < attributes[name].components; ++j )\
-					vertex.member[j] = attributes[name].floats[i * attributes[name].components + j] * floatScale;\
-			} else {\
-				/*for some reason setting this breaks VXGI reflections*/\
-				/*vertex.member = {};*/\
-			}
-	#endif
+	#define ITERATE_ATTRIBUTE( name, member, floatScale )\
+		if ( !attributes[name].int8s.empty() ) { \
+			size_t limit = std::min<size_t>(attributes[name].components, vertex.member.size); \
+			for ( size_t j = 0; j < limit; ++j )\
+				vertex.member[j] = attributes[name].int8s[i * attributes[name].components + j];\
+		} else if ( !attributes[name].int16s.empty() ) { \
+			size_t limit = std::min<size_t>(attributes[name].components, vertex.member.size); \
+			for ( size_t j = 0; j < limit; ++j )\
+				vertex.member[j] = attributes[name].int16s[i * attributes[name].components + j];\
+		} else if ( !attributes[name].int32s.empty() ) { \
+			size_t limit = std::min<size_t>(attributes[name].components, vertex.member.size); \
+			for ( size_t j = 0; j < limit; ++j )\
+				vertex.member[j] = attributes[name].int32s[i * attributes[name].components + j];\
+		} else if ( !attributes[name].floats.empty() ) { \
+			size_t limit = std::min<size_t>(attributes[name].components, vertex.member.size); \
+			for ( size_t j = 0; j < limit; ++j )\
+				vertex.member[j] = attributes[name].floats[i * attributes[name].components + j] * floatScale;\
+		} else {\
+			/*for some reason setting this breaks VXGI reflections*/\
+			/*vertex.member = {};*/\
+		}
 
 		auto& vertex = meshlet.vertices[i];
 		ITERATE_ATTRIBUTE("POSITION", position, 1);
@@ -182,55 +187,16 @@ for ( auto& p : m.primitives ) {
 	meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 
 	/* detect winding order */ if ( sanitizer.windingOrder.should ) {
-		if ( !meshlet.indices.empty() ) {
-			for ( size_t i = 0; i < meshlet.indices.size() / 3; ++i ) {
-				size_t indices[3] = {
-					meshlet.indices[i * 3 + 0],
-					meshlet.indices[i * 3 + 1],
-					meshlet.indices[i * 3 + 2],
-				};
-				pod::Vector3f triPosition[3] = {
-					meshlet.vertices[indices[0]].position,
-					meshlet.vertices[indices[1]].position,
-					meshlet.vertices[indices[2]].position,
-				};
-				pod::Vector3f normal = meshlet.vertices[indices[0]].normal;
-				pod::Vector3f geomNormal = uf::vector::normalize( uf::vector::cross((triPosition[0] - triPosition[1]), (triPosition[1] - triPosition[2])));
-
-				// negative dot = mismatched winding order
-				if ( uf::vector::dot( normal, geomNormal ) < 0.0f ) {
-					meshlet.indices[i * 3 + 0] = indices[2];
-					meshlet.indices[i * 3 + 2] = indices[0];
-					++sanitizer.windingOrder.corrected;
-				}
-				++sanitizer.windingOrder.total;
-			}
-		} else {
-			for ( size_t i = 0; i < meshlet.vertices.size() / 3; ++i ) {
-				size_t indices[3] = {
-					i * 3 + 0,
-					i * 3 + 1,
-					i * 3 + 2,
-				};
-				pod::Vector3f triPosition[3] = {
-					meshlet.vertices[indices[0]].position,
-					meshlet.vertices[indices[1]].position,
-					meshlet.vertices[indices[2]].position,
-				};
-				pod::Vector3f normal = meshlet.vertices[indices[0]].normal;
-				pod::Vector3f geomNormal = uf::vector::normalize( uf::vector::cross((triPosition[0] - triPosition[1]), (triPosition[1] - triPosition[2])));
-
-				// negative dot = mismatched winding order
-				if ( uf::vector::dot( normal, geomNormal ) < 0.0f ) {
-					meshlet.indices[i * 3 + 0] = indices[2];
-					meshlet.indices[i * 3 + 2] = indices[0];
-					++sanitizer.windingOrder.corrected;
-				}
-				++sanitizer.windingOrder.total;
-			}
-		}
+		sanitizer.windingOrder.corrected += uf::mesh::windingOrder( meshlet.vertices, meshlet.indices );
+		sanitizer.windingOrder.total += meshlet.indices.empty() ? meshlet.vertices.size() : meshlet.indices.size();
+	}
+	/* calculate normals */ if ( sanitizer.normals.should ) {
+		uf::mesh::normals( meshlet.vertices, meshlet.indices );
 	}
 	/* calculate tangents */ if ( sanitizer.tangents.should ) {
+	#if 1
+		uf::mesh::tangents( meshlet.vertices, meshlet.indices );
+	#else
 		if ( !meshlet.indices.empty() ) {
 			for ( size_t i = 0; i < meshlet.indices.size() / 3; ++i ) {
 				size_t indices[3] = {
@@ -312,6 +278,7 @@ for ( auto& p : m.primitives ) {
 				}
 			}
 		}
+	#endif
 	}
 }
 
@@ -328,7 +295,10 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: {}: {} -> {} | Partitions: {} -> {}", m.name, meshlets.size(), partitioned.size(), 
 		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z), meshgrid.grid.nodes.size()
 	);
-	meshlets = std::move( partitioned );
+	for ( auto& meshlet : partitioned ) {
+		uf::mesh::tangents( meshlet.vertices, meshlet.indices );
+	}
+	mesh.compile( partitioned, primitives );
+} else {
+	mesh.compile( meshlets, primitives );
 }
-
-mesh.compile( meshlets, primitives );
