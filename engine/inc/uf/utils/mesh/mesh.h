@@ -206,10 +206,10 @@ namespace uf {
 			}
 			// support legacy code
 			bool has( const uf::stl::string_view name ) const {
-				return has( uf::string::fnv1a( name ) );
+				return has( uf::algo::fnv1a( name ) );
 			}
 			const AttributeView& operator[]( const uf::stl::string_view name ) const {
-				return operator[]( uf::string::fnv1a( name ) );
+				return operator[]( uf::algo::fnv1a( name ) );
 			}
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;

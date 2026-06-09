@@ -15,34 +15,25 @@ namespace uf {
 namespace pod {
 	struct UF_API Behavior {
 		typedef TYPE_INDEX_T type_t;
-	//	typedef uf::stl::string type_t;
+
 		struct Traits {
 			bool ticks = true;
 			bool renders = true;
 			uf::stl::string thread = "";
 		};
+		
 		struct Metadata {
-		public:
-		#if 0
-			virtual void serialize( uf::Object&, uf::Serializer& );
-			virtual void deserialize( uf::Object&, uf::Serializer& );
-
-			inline void serialize( uf::Object& self );
-			inline void deserialize( uf::Object& self );
-		#endif
+			// intentionally left blank
 		};
-	//	struct Header {
-		//	type_t type = ""; 
-			type_t type = TYPE(void);
-			Traits traits{};
-	//	} header;
+
+		type_t type = TYPE(void);
+		Traits traits{};
+
 		typedef std::function<void(uf::Object&)> function_t;
-	//	struct Functions {
-			function_t initialize = function_t();
-			function_t tick = function_t();
-			function_t render = function_t();
-			function_t destroy = function_t();
-	//	} functions;
+		function_t initialize = function_t();
+		function_t tick = function_t();
+		function_t render = function_t();
+		function_t destroy = function_t();
 	};
 }
 
@@ -50,11 +41,11 @@ namespace uf {
 	class UF_API Behaviors : public uf::Component {
 	protected:
 		typedef uf::stl::vector<pod::Behavior> container_t;
-	//	typedef uf::stl::vector<pod::Behavior::Header> container_t;
+
 		container_t m_behaviors;
 		struct Graph {
 			typedef pod::Behavior::function_t value_t;
-		//	typedef uint_fast8_t value_t;
+
 			uf::stl::vector<value_t> initialize;
 			uf::stl::vector<value_t> render;
 			uf::stl::vector<value_t> destroy;
@@ -80,35 +71,6 @@ namespace uf {
 		void removeBehavior( const pod::Behavior& );
 		
 		void generateGraph();
-	#if 0
-		template<typename T>
-		bool hasBehavior() {
-			for ( auto& behavior : this->m_behaviors ) {
-				if ( behavior.type == getType<T>() ) return true;
-			}
-			return false;
-		}
-		template<typename T>
-		static pod::Behavior::type_t getType() {
-			return T::type; // TYPE(T);
-		}
-		template<typename T>
-		void addBehavior() {
-			this->addBehavior(pod::Behavior{
-				.type = getType<T>(),
-				.initialize = T::initialize,
-				.tick = T::tick,
-				.render = T::render,
-				.destroy = T::destroy,
-			});
-		}
-		template<typename T>
-		void removeBehavior() {
-			this->removeBehavior(pod::Behavior{
-				.type = getType<T>()
-			});
-		}
-	#endif
 	};
 
 }

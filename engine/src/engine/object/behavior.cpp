@@ -16,9 +16,7 @@ UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, thread = "") // segfaults @  engine/src/ext/lua/lua.cpp:298 `auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );`
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
-#if UF_ENTITY_OBJECT_UNIFIED
 	if ( !this->isValid() ) this->setUid();
-#endif
 
 	auto& scene = uf::scene::getCurrentScene();
 //	auto& assetLoader = scene.getComponent<uf::asset>();
@@ -66,7 +64,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	//	else metadataJson.merge(json, true);
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
-		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
+		auto callback = this->formatHookName("asset:FinishedLoad.%UID%");
 	/*
 		switch ( payload.type ) {
 			case uf::asset::Type::AUDIO:
@@ -267,11 +265,9 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		}
 	}
 
-#if UF_ENTITY_OBJECT_UNIFIED
 	for ( uf::Entity* kv : this->getChildren() ) kv->destroy();
 	if ( this->hasParent() ) this->getParent().removeChild(*this);
 	this->unsetUid();
-#endif
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();

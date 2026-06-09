@@ -41,6 +41,12 @@ namespace binds {
 	}
 	*/
 
+	/*
+	size_t formatHookName(uf::Object& self, const uf::stl::string n ){
+		return self.formatHookName(n);
+	}
+	*/
+
 	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
 		return self.formatHookName(n);
 	}

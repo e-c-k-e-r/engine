@@ -69,7 +69,7 @@ namespace impl {
 	}
 }
 
-pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority ) {
+namespace {
 	struct VpkMountState {
 		uf::stl::string path;
 		uf::stl::string name;
@@ -88,6 +88,34 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 		}
 	};
 
+	bool exists( pod::Mount& mount, const uf::stl::string& path ) {
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		return archive && archive->files.count( uf::string::lowercase( path ) ) > 0;
+	};
+	size_t size( pod::Mount& mount, const uf::stl::string& path ) {
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		if ( !archive ) return 0;
+		auto it = archive->files.find( uf::string::lowercase( path ) );
+		return it != archive->files.end() ? (it->second.metadata.preloadBytes + it->second.metadata.entryLength) : 0;
+	};
+	size_t mtime( pod::Mount& mount, const uf::stl::string& ) {
+		return 0;
+	};
+	bool read( pod::Mount& mount, const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer) {
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		return archive && ext::valve::readVpk(*archive, uf::string::lowercase( path ), buffer);
+	};
+	bool readRange( pod::Mount& mount, const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer) {
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		return archive && ext::valve::readVpkRange(*archive, uf::string::lowercase( path ), start, len, buffer);
+	};
+}
+
+pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority ) {
 	uf::stl::string prefix;
 	uf::stl::string path;
 	uf::io::splitUri( uri, prefix, path );
@@ -97,9 +125,13 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	mount.path = path;
 	mount.priority = priority;
 	mount.userdata = uf::pointeredUserdata::create<VpkMountState>();
-	auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
-	auto* userdata = &state;
+	mount.exists = ::exists;
+	mount.size = ::size;
+	mount.mtime = ::mtime;
+	mount.read = ::read;
+	mount.readRange = ::readRange;
 	
+	auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
 	auto libraries = impl::getSteamLibraries();
 	for ( const auto& lib : libraries ) {
 		uf::stl::string fullPath = lib + "/" + path;
@@ -118,26 +150,6 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	}
 	state.name = ::fmt::format("vpk://{}", path);
 
-		
-	mount.exists = [userdata](const uf::stl::string& p) {
-		auto ptr = userdata->get();
-		return ptr && ptr->files.count( uf::string::lowercase( p ) ) > 0;
-	};
-	mount.size = [userdata](const uf::stl::string& p) -> size_t {
-		auto ptr = userdata->get();
-		if ( !ptr ) return 0;
-		auto it = ptr->files.find( uf::string::lowercase( p ) );
-		return it != ptr->files.end() ? (it->second.metadata.preloadBytes + it->second.metadata.entryLength) : 0;
-	};
-	mount.mtime = [](const uf::stl::string&) -> size_t { return 0; },
-	mount.read = [userdata](const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer) {
-		auto ptr = userdata->get();
-		return ptr && ext::valve::readVpk(*ptr, uf::string::lowercase( p ), buffer);
-	};
-	mount.readRange = [userdata](const uf::stl::string& p, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer) {
-		auto ptr = userdata->get();
-		return ptr && ext::valve::readVpkRange(*ptr, uf::string::lowercase( p ), start, len, buffer);
-	};
 	return mount;
 }
 bool ext::valve::loadVpk( pod::VpkArchive& vpk, const uf::stl::string& path ) {

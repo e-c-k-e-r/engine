@@ -4,6 +4,98 @@
 #include <algorithm>
 #include <sys/stat.h>
 
+namespace {
+	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::stl::string path = mount.path + file;
+		#if UF_ENV_DREAMCAST
+			FILE* file = fopen(path.c_str(), "r");
+			if ( file ) {
+				fclose(file);
+				return true;
+			}
+			return false;
+		#else
+			static struct stat buffer;
+			return stat(path.c_str(), &buffer) == 0;
+		#endif
+	}
+	size_t vfs_size( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::stl::string path = mount.path + file;
+		std::ifstream is(path, std::ios::binary | std::ios::in | std::ios::ate);
+		if ( !is.is_open() ) return 0;
+		is.seekg(0, std::ios::end);
+		return is.tellg();
+	}
+	size_t vfs_mtime( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::stl::string path = mount.path + file;
+		static struct stat buffer;
+		if ( stat(path.c_str(), &buffer) != 0 ) return 0;
+		return buffer.st_mtime;
+	}
+	bool vfs_read( pod::Mount& mount, const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string path = mount.path + file;
+		std::ifstream is(path, std::ios::binary | std::ios::ate);
+		if (!is.is_open()) return false;
+
+		size_t len = is.tellg();
+		is.seekg(0, std::ios::beg);
+
+		buffer.resize(len);
+		is.read((char*)buffer.data(), len);
+		return true;
+	}
+
+	size_t vfs_write( pod::Mount& mount, const uf::stl::string& file, const void* buffer, size_t size ) {
+		uf::stl::string path = mount.path + file;
+		std::ofstream output(path, std::ios::binary);
+		if (!output.is_open()) return 0;
+		output.write((const char*)buffer, size);
+		output.close();
+		return size;
+	}
+
+	bool vfs_mkdir( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::stl::string path = mount.path + file;
+		#if UF_ENV_DREAMCAST || UF_ENV_LINUX
+			return false;
+		#else
+			int status = ::mkdir(path.c_str());
+			return status != -1;
+		#endif
+	}
+
+	bool vfs_readRange( pod::Mount& mount, const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string path = mount.path + file;
+		std::ifstream is(path, std::ios::binary);
+		if (!is.is_open()) return false;
+
+		is.seekg(start, std::ios::beg);
+		buffer.resize(len);
+		is.read((char*)buffer.data(), len);
+		buffer.resize(static_cast<size_t>(is.gcount())); // to-do: adjust if EOF hit early
+		return true;
+	}
+
+	bool vfs_readRanges( pod::Mount& mount, const uf::stl::string& file, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string path = mount.path + file;
+		std::ifstream is(path, std::ios::binary);
+		if (!is.is_open()) return false;
+
+		size_t totalBytes = 0;
+		for (const auto& r : ranges) totalBytes += r.len;
+		buffer.resize(totalBytes);
+
+		size_t currentOffset = 0;
+		for (const auto& r : ranges) {
+			is.seekg(r.start, std::ios::beg);
+			is.read((char*)(buffer.data() + currentOffset), r.len);
+			currentOffset += static_cast<size_t>(is.gcount());
+		}
+		buffer.resize(currentOffset);
+		return true;
+	}
+}
+
 pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 	uf::stl::string prefix;
 	uf::stl::string path;
@@ -14,91 +106,14 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 		.prefix = prefix,
 		.path = path,
 		.priority = priority,
-		.exists = [path](const uf::stl::string& file) -> bool {
-			uf::stl::string fullPath = path + file;
-			#if UF_ENV_DREAMCAST
-				FILE* file = fopen(fullPath.c_str(), "r");
-				if (file) {
-					fclose(file);
-					return true;
-				}
-				return false;
-			#else
-				static struct stat buffer;
-				return stat(fullPath.c_str(), &buffer) == 0;
-			#endif
-		},
-		.size = [path](const uf::stl::string& file) -> size_t {
-			uf::stl::string fullPath = path + file;
-			std::ifstream is(fullPath, std::ios::binary | std::ios::in | std::ios::ate);
-			if ( !is.is_open() ) return 0;
-			is.seekg(0, std::ios::end);
-			return is.tellg();
-		},
-		.mtime = [path](const uf::stl::string& file) -> size_t {
-			uf::stl::string fullPath = path + file;
-			static struct stat buffer;
-			if ( stat(fullPath.c_str(), &buffer) != 0 ) return 0;
-			return buffer.st_mtime;
-		},
-		.read = [path](const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer) -> bool {
-			uf::stl::string fullPath = path + file;
-			std::ifstream is(fullPath, std::ios::binary | std::ios::ate);
-			if (!is.is_open()) return false;
-
-			size_t len = is.tellg();
-			is.seekg(0, std::ios::beg);
-
-			buffer.resize(len);
-			is.read((char*)buffer.data(), len);
-			return true;
-		},
-		.write = [path](const uf::stl::string& file, const void* buffer, size_t size) -> size_t {
-			uf::stl::string fullPath = path + file;
-			std::ofstream output(fullPath, std::ios::binary);
-			if (!output.is_open()) return 0;
-			output.write((const char*)buffer, size);
-			output.close();
-			return size;
-		},
-		.mkdir = [path](const uf::stl::string& file) -> bool {
-			uf::stl::string fullPath = path + file;
-			#if UF_ENV_DREAMCAST || UF_ENV_LINUX
-				return false;
-			#else
-				int status = ::mkdir(fullPath.c_str());
-				return status != -1;
-			#endif
-		},
-		.readRange = [path](const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer) -> bool {
-			uf::stl::string fullPath = path + file;
-			std::ifstream is(fullPath, std::ios::binary);
-			if (!is.is_open()) return false;
-
-			is.seekg(start, std::ios::beg);
-			buffer.resize(len);
-			is.read((char*)buffer.data(), len);
-			buffer.resize(static_cast<size_t>(is.gcount())); // to-do: adjust if EOF hit early
-			return true;
-		},
-		.readRanges = [path](const uf::stl::string& file, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer) -> bool {
-			uf::stl::string fullPath = path + file;
-			std::ifstream is(fullPath, std::ios::binary);
-			if (!is.is_open()) return false;
-
-			size_t totalBytes = 0;
-			for (const auto& r : ranges) totalBytes += r.len;
-			buffer.resize(totalBytes);
-
-			size_t currentOffset = 0;
-			for (const auto& r : ranges) {
-				is.seekg(r.start, std::ios::beg);
-				is.read((char*)(buffer.data() + currentOffset), r.len);
-				currentOffset += static_cast<size_t>(is.gcount());
-			}
-			buffer.resize(currentOffset);
-			return true;
-		}
+		.exists = ::vfs_exists,
+		.size = ::vfs_size,
+		.mtime = ::vfs_mtime,
+		.read = ::vfs_read,
+		.write = ::vfs_write,
+		.mkdir = ::vfs_mkdir,
+		.readRange = ::vfs_readRange,
+		.readRanges = ::vfs_readRanges
 	};
 }
 
@@ -118,7 +133,7 @@ size_t uf::vfs::mount( const pod::Mount& mount ) {
 	}
 
 	// add mount
-	mounts.emplace_back(mount);
+	mounts.emplace_back( mount );
 
 	// resort
 	std::sort( mounts.begin(), mounts.end(), [](const pod::Mount& a, const pod::Mount& b) {
@@ -135,11 +150,13 @@ bool uf::vfs::unmount( size_t hash ) {
 		return hash == hash2;
 	});
 
-	if ( it != mounts.end() ) {
-		mounts.erase( it, mounts.end() );
-		return true;
+	if ( it == mounts.end() ) return false;
+
+	if ( it->userdata.len ) {
+		uf::pointeredUserdata::destroy( it->userdata );
 	}
-	return false;
+	mounts.erase( it, mounts.end() );
+	return true;
 }
 bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& base ) {
 	uf::stl::string cleanBase = base;
@@ -155,21 +172,24 @@ bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& bas
 		return m.prefix == prefix && m.path == cleanBase;
 	});
 
-	if ( it != mounts.end() ) {
-		mounts.erase( it, mounts.end() );
-		return true;
+	if ( it == mounts.end() ) return false;
+	
+	if ( it->userdata.len ) {
+		uf::pointeredUserdata::destroy( it->userdata );
 	}
-	return false;
+
+	mounts.erase( it, mounts.end() );
+	return true;
 }
 
 bool uf::vfs::exists( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists(relative) ) return true;
+			if ( mount.exists( mount, relative ) ) return true;
 		}
 	}
 	return false;
@@ -179,10 +199,10 @@ bool uf::vfs::mkdir( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.mkdir(relative) ) return true;
+			if ( mount.mkdir( mount, relative ) ) return true;
 		}
 	}
 	return false;
@@ -192,10 +212,10 @@ size_t uf::vfs::size( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists(relative) ) return mount.size(relative);
+			if ( mount.exists( mount, relative ) ) return mount.size( mount, relative );
 		}
 	}
 	return 0;
@@ -205,10 +225,10 @@ size_t uf::vfs::mtime( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists(relative) ) return mount.mtime(relative);
+			if ( mount.exists( mount, relative ) ) return mount.mtime( mount, relative );
 		}
 	}
 	return 0;
@@ -218,11 +238,11 @@ bool uf::vfs::read( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffe
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			bool res = mount.exists( relative );
-			if ( mount.exists(relative) ) return mount.read(relative, buffer);
+			bool res = mount.exists( mount, relative );
+			if ( mount.exists( mount, relative ) ) return mount.read( mount, relative, buffer );
 		}
 	}
 	return false;
@@ -232,10 +252,10 @@ size_t uf::vfs::write( const uf::stl::string& path, const void* buffer, size_t s
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.write ) return mount.write(relative, buffer, size);
+			if ( mount.write ) return mount.write( mount, relative, buffer, size );
 		}
 	}
 	return 0;
@@ -248,15 +268,15 @@ size_t uf::vfs::write( const uf::stl::string& path, uf::stl::vector<uint8_t>& bu
 bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( !mount.exists(relative) ) continue;
-			if ( mount.readRange ) return mount.readRange(relative, start, len, buffer);
+			if ( !mount.exists( mount, relative ) ) continue;
+			if ( mount.readRange ) return mount.readRange( mount, relative, start, len, buffer );
 			if ( !mount.read ) continue;
 			
 			uf::stl::vector<uint8_t> fullBuffer;
-			if ( !mount.read(relative, fullBuffer) ) continue;
+			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
 			
 			if ( start < fullBuffer.size() ) {
 				size_t actualLen = std::min(len, fullBuffer.size() - start);
@@ -273,15 +293,15 @@ bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, 
 bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( !mount.exists(relative) ) continue;
-			if ( mount.readRanges ) return mount.readRanges(relative, ranges, buffer);
+			if ( !mount.exists( mount, relative ) ) continue;
+			if ( mount.readRanges ) return mount.readRanges( mount, relative, ranges, buffer );
 			if ( !mount.read ) continue;
 			
 			uf::stl::vector<uint8_t> fullBuffer;
-			if ( !mount.read(relative, fullBuffer) ) continue;
+			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
 
 			size_t totalBytes = 0;
 			for ( const auto& r : ranges ) {
@@ -309,7 +329,7 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 
-	for ( const auto& mount : mounts ) {
+	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
 			uf::stl::string resolved = mount.path + relative;

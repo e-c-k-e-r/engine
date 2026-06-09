@@ -215,17 +215,17 @@ bool uf::image::save( const pod::Image& image, const uf::stl::string& filename, 
 	
 	uf::stl::vector<uint8_t> buffer;
 
-    if ( extension == "png" ) {
-        stbi_write_png_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, w * image.channels);
-    } else if ( extension == "jpg" || extension == "jpeg" ) {
-        stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // 90 is quality
-    } else {
-        UF_MSG_ERROR("Unsupported image save format: {}", extension);
-        return false;
-    }
+	if ( extension == "png" ) {
+		stbi_write_png_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, w * image.channels);
+	} else if ( extension == "jpg" || extension == "jpeg" ) {
+		stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // 90 is quality
+	} else {
+		UF_MSG_ERROR("Unsupported image save format: {}", extension);
+		return false;
+	}
 
-    if ( buffer.empty() ) return false;
-    return uf::vfs::write( filename, buffer.data(), buffer.size() ) > 0;
+	if ( buffer.empty() ) return false;
+	return uf::vfs::write( filename, buffer.data(), buffer.size() ) > 0;
 }
 void uf::image::save( const pod::Image& image, std::ostream& stream ) {
 

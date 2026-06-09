@@ -238,16 +238,26 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// extract LOD0 vertices from VVD
 	const impl::mstudiovertex_t* vvdVertices = (const impl::mstudiovertex_t*)(vvdBuffer.data() + vvdHdr->vertexDataStart);
+	const pod::Vector4f* vvdTangents = nullptr;
+	if ( vvdHdr->tangentDataStart != 0 ) vvdTangents = (const pod::Vector4f*)(vvdBuffer.data() + vvdHdr->tangentDataStart);
+
 	uf::stl::vector<impl::mstudiovertex_t> lod0Vertices;
+	uf::stl::vector<pod::Vector4f> lod0Tangents;
+
 	if ( vvdHdr->numFixups == 0 ) {
 		lod0Vertices.assign(vvdVertices, vvdVertices + vvdHdr->numLODVertexes[0]);
+		if (vvdTangents) lod0Tangents.assign(vvdTangents, vvdTangents + vvdHdr->numLODVertexes[0]);
+
 	} else {
 		lod0Vertices.resize(vvdHdr->numLODVertexes[0]);
+		if (vvdTangents) lod0Tangents.resize(vvdHdr->numLODVertexes[0]);
+
 		const impl::vertexFileFixup_t* fixups = (const impl::vertexFileFixup_t*)(vvdBuffer.data() + vvdHdr->fixupTableStart);
 		int targetIndex = 0;
 		for ( int i = 0; i < vvdHdr->numFixups; ++i ) {
 			if ( fixups[i].lod >= 0 ) {
 				std::memcpy(&lod0Vertices[targetIndex], &vvdVertices[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(impl::mstudiovertex_t));
+				if ( vvdTangents ) std::memcpy(&lod0Tangents[targetIndex], &vvdTangents[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(pod::Vector4f));
 				targetIndex += fixups[i].numVertexes;
 			}
 		}
@@ -295,42 +305,79 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 					const uint16_t* indices = (const uint16_t*)((uint8_t*)&stripGroup + stripGroup.indexOffset);
 					const impl::vtxVertex_t* vtxVerts = (const impl::vtxVertex_t*)((uint8_t*)&stripGroup + stripGroup.vertOffset);
 
-					for ( int i = 0; i < stripGroup.numIndices; ++i ) {
-						uint16_t localVertIndex = indices[i];
-						const impl::vtxVertex_t& vtxVert = vtxVerts[localVertIndex];
-						uint16_t originalVvdID = vtxVert.origMeshVertID;
+					for ( int i = 0; i < stripGroup.numIndices; i += 3 ) {
+						uint32_t tri[3];
+						for ( int j = 0; j < 3; ++j ) {
+							uint16_t localVertIndex = indices[i + j];
+							const impl::vtxVertex_t& vtxVert = vtxVerts[localVertIndex];
+							uint16_t originalVvdID = vtxVert.origMeshVertID;
 
-						if ( vertRemap.find(originalVvdID) == vertRemap.end() ) {
-							vertRemap[originalVvdID] = meshlet.vertices.size();
-							auto& vert = meshlet.vertices.emplace_back();
+							if ( vertRemap.find(originalVvdID) == vertRemap.end() ) {
+								vertRemap[originalVvdID] = meshlet.vertices.size();
+								auto& vert = meshlet.vertices.emplace_back();
 
-							const auto& srcVert = lod0Vertices[mdlMesh.vertexoffset + originalVvdID];
+								const auto& srcVert = lod0Vertices[mdlMesh.vertexoffset + originalVvdID];
 
-							vert.position = impl::convertPos( srcVert.m_vecPosition );
-							vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal, 1.0f ) );
-							vert.uv = srcVert.m_vecTexCoord;
-							vert.color = {1.0f, 1.0f, 1.0f, 1.0f};
-							vert.joints.x = srcVert.m_BoneWeights.numbones > 0 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[0]) : 0;
-							vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
-							vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
-							vert.joints.w = 0;
+								vert.position = impl::convertPos( srcVert.m_vecPosition );
+								vert.normal = uf::vector::normalize( impl::convertPos( srcVert.m_vecNormal, 1.0f ) );
+								if ( !lod0Tangents.empty() ) {
+									vert.tangent = uf::vector::normalize( impl::convertPos( lod0Tangents[mdlMesh.vertexoffset + originalVvdID], 1.0f ) );
+								} else {
+									vert.tangent = {};
+								}
 
-							vert.weights.x = srcVert.m_BoneWeights.numbones > 0 ? srcVert.m_BoneWeights.weight[0] : 1.0f;
-							vert.weights.y = srcVert.m_BoneWeights.numbones > 1 ? srcVert.m_BoneWeights.weight[1] : 0.0f;
-							vert.weights.z = srcVert.m_BoneWeights.numbones > 2 ? srcVert.m_BoneWeights.weight[2] : 0.0f;
-							vert.weights.w = 0.0f;
+								vert.uv = srcVert.m_vecTexCoord;
+								vert.color = {1.0f, 1.0f, 1.0f, 1.0f};
+								vert.joints.x = srcVert.m_BoneWeights.numbones > 0 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[0]) : 0;
+								vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
+								vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
+								vert.joints.w = 0;
 
-							// Bounds calculation
-							auto& bounds = meshlet.primitive.instance.bounds;
-							if ( vertRemap.size() == 1 ) {
-								bounds.min = bounds.max = vert.position;
-							} else {
-								bounds.min = uf::vector::min( bounds.min, vert.position );
-								bounds.max = uf::vector::max( bounds.max, vert.position );
+								vert.weights.x = srcVert.m_BoneWeights.numbones > 0 ? srcVert.m_BoneWeights.weight[0] : 1.0f;
+								vert.weights.y = srcVert.m_BoneWeights.numbones > 1 ? srcVert.m_BoneWeights.weight[1] : 0.0f;
+								vert.weights.z = srcVert.m_BoneWeights.numbones > 2 ? srcVert.m_BoneWeights.weight[2] : 0.0f;
+								vert.weights.w = 0.0f;
+
+								// Bounds calculation
+								auto& bounds = meshlet.primitive.instance.bounds;
+								if ( vertRemap.size() == 1 ) {
+									bounds.min = bounds.max = vert.position;
+								} else {
+									bounds.min = uf::vector::min( bounds.min, vert.position );
+									bounds.max = uf::vector::max( bounds.max, vert.position );
+								}
 							}
+
+							meshlet.indices.push_back(tri[j] = vertRemap[originalVvdID]);
 						}
 
-						meshlet.indices.push_back(vertRemap[originalVvdID]);
+						if ( lod0Tangents.empty() ) {
+							auto& v0 = meshlet.vertices[tri[0]];
+							auto& v1 = meshlet.vertices[tri[1]];
+							auto& v2 = meshlet.vertices[tri[2]];
+
+							pod::Vector3f edge1 = v1.position - v0.position;
+							pod::Vector3f edge2 = v2.position - v0.position;
+							pod::Vector2f duv1 = v1.uv - v0.uv;
+							pod::Vector2f duv2 = v2.uv - v0.uv;
+
+							float f = 1.0f / (duv1.x * duv2.y - duv2.x * duv1.y);
+							pod::Vector3f tangent = {
+								f * (duv2.y * edge1.x - duv1.y * edge2.x),
+								f * (duv2.y * edge1.y - duv1.y * edge2.y),
+								f * (duv2.y * edge1.z - duv1.y * edge2.z)
+							};
+
+							v0.tangent += tangent;
+							v1.tangent += tangent;
+							v2.tangent += tangent;
+						}
+					}
+				}
+
+				if ( lod0Tangents.empty() ) {
+					for ( auto& vert : meshlet.vertices ) {
+						vert.tangent = uf::vector::normalize(vert.tangent - vert.normal * uf::vector::dot(vert.normal, vert.tangent));
 					}
 				}
 
@@ -339,8 +386,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 				if ( mdlMesh.material < materials.size() ) matName = materials[mdlMesh.material];
 				auto it = std::find(graph.materials.begin(), graph.materials.end(), matName);
 				if ( it == graph.materials.end() ) {
-					materialID = graph.materials.size();
-					auto& material = impl::addMaterial( graph, matName );
+					materialID = impl::addMaterial( graph, matName );
 				} else {
 					materialID = (int32_t)std::distance(graph.materials.begin(), it);
 				}

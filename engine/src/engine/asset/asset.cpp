@@ -42,7 +42,7 @@ namespace {
 	struct Job {
 		typedef uf::stl::vector<Job> container_t;
 
-		uf::stl::string callback;
+		uf::asset::callback_t callback;
 		uf::stl::string type;
 		uf::asset::Payload payload;
 	};
@@ -63,9 +63,9 @@ void uf::asset::processQueue() {
 	mutex.unlock();
 
 	for ( auto& job : jobs ) tasks.queue([=]{
-		uf::stl::string callback = job.callback;
-		uf::stl::string type = job.type;
-		uf::asset::Payload payload = job.payload;
+		auto callback = job.callback;
+		auto type = job.type;
+		auto payload = job.payload;
 
 		if ( payload.filename == "" || callback == "" ) return;
 
@@ -78,13 +78,13 @@ void uf::asset::processQueue() {
 
 	uf::thread::execute( tasks );
 }
-void uf::asset::cache( const uf::stl::string& callback, const uf::asset::Payload& payload ) {
+void uf::asset::cache( const uf::asset::callback_t& callback, const uf::asset::Payload& payload ) {
 	mutex.lock();
 	auto& jobs = uf::asset::jobs;
 	jobs.emplace_back(Job{ callback, "cache", payload });
 	mutex.unlock();
 }
-void uf::asset::load( const uf::stl::string& callback, const uf::asset::Payload& payload ) {
+void uf::asset::load( const uf::asset::callback_t& callback, const uf::asset::Payload& payload ) {
 	mutex.lock();
 	auto& jobs = uf::asset::jobs;
 	jobs.emplace_back(Job{ callback, "load", payload });

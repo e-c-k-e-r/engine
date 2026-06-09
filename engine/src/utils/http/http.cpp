@@ -6,6 +6,46 @@
 #endif
 #include <iostream>
 
+namespace {
+	bool exists( pod::Mount& mount, const uf::stl::string& p ) {
+		uf::stl::string url = mount.prefix + p;
+		uf::Http http = uf::http::head(url);
+		return ( http.code >= 200 && http.code < 300 );
+	}
+	size_t size( pod::Mount& mount, const uf::stl::string& p ) {
+		uf::stl::string url = mount.prefix + p;
+		uf::Http http = uf::http::head(url);
+		return http.contentLength;
+	}
+	size_t mtime( pod::Mount& mount, const uf::stl::string& p ) {
+		uf::stl::string url = mount.prefix + p;
+		uf::Http http = uf::http::head(url);
+		return http.mtime;
+	}
+	bool read( pod::Mount& mount, const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string url = mount.prefix + p;
+
+		uf::Http http = uf::http::get(url);
+		if ( http.code < 200 || http.code >= 300 ) {
+			UF_MSG_ERROR("HTTP Error {} on GET {}", http.code, url);
+			return false;
+		}
+
+		buffer.assign(http.response.begin(), http.response.end());
+		return true;
+	}
+	size_t write( pod::Mount& mount, const uf::stl::string& p, const void* buffer, size_t size ) {
+		uf::stl::string url = mount.prefix + p;
+		uf::Http http = uf::http::post(url, buffer, size);
+
+		if ( http.code < 200 || http.code >= 300 ) {
+			UF_MSG_ERROR("HTTP Error {} on POST {}", http.code, url);
+			return 0;
+		}
+		return size;
+	}
+}
+
 namespace impl {
 	pod::Mount createHttpMount( const uf::stl::string& uri, int priority ) {
 		uf::stl::string prefix;
@@ -16,43 +56,11 @@ namespace impl {
 			.prefix = prefix,
 			.path = path,
 			.priority = priority,
-			.exists = [prefix](const uf::stl::string& p) -> bool {
-				uf::stl::string url = prefix + p;
-				uf::Http http = uf::http::head(url);
-				return ( http.code >= 200 && http.code < 300 );
-			},
-			.size = [prefix](const uf::stl::string& p) -> size_t {
-				uf::stl::string url = prefix + p;
-				uf::Http http = uf::http::head(url);
-				return http.contentLength;
-			},
-			.mtime = [prefix](const uf::stl::string& p) -> size_t {
-				uf::stl::string url = prefix + p;
-				uf::Http http = uf::http::head(url);
-				return http.mtime;
-			},
-			.read = [prefix](const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer) -> bool {
-				uf::stl::string url = prefix + p;
-
-				uf::Http http = uf::http::get(url);
-				if ( http.code < 200 || http.code >= 300 ) {
-					UF_MSG_ERROR("HTTP Error {} on GET {}", http.code, url);
-					return false;
-				}
-
-				buffer.assign(http.response.begin(), http.response.end());
-				return true;
-			},
-			.write = [prefix](const uf::stl::string& p, const void* buffer, size_t size) -> size_t {
-				uf::stl::string url = prefix + p;
-				uf::Http http = uf::http::post(url, buffer, size);
-
-				if ( http.code < 200 || http.code >= 300 ) {
-					UF_MSG_ERROR("HTTP Error {} on POST {}", http.code, url);
-					return 0;
-				}
-				return size;
-			},
+			.exists = ::exists,
+			.size = ::size,
+			.mtime = ::mtime,
+			.read = ::read,
+			.write = ::write,
 		};
 	}
 }

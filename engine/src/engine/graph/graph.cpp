@@ -1,6 +1,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/math/hash.h>
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/string/base64.h>
@@ -29,24 +30,6 @@
 // to-do: fix LOD1+ breaking
 
 namespace {
-	// todo: shove it into the "std"lib
-	inline uint64_t fnv1aHash(const uf::stl::vector<bool>& bits) {
-		uint64_t hash = 1469598103934665603ULL;
-		for (bool b : bits) {
-			hash ^= static_cast<uint64_t>(b);
-			hash *= 1099511628211ULL;
-		}
-		return hash;
-	}
-	inline uint64_t fnv1aHash(const uf::stl::vector<int8_t>& values) {
-		uint64_t hash = 1469598103934665603ULL;
-		for (bool v : values) {
-			hash ^= static_cast<uint64_t>(static_cast<uint8_t>(v));
-			hash *= 1099511628211ULL;
-		}
-		return hash;
-	}
-
 	size_t allocateObjectID( pod::Graph::Storage& storage ) {
 		return storage.entities.keys.size();
 	}
@@ -1993,7 +1976,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		}
 
 		// bail if no update is detected
-		auto drawCommandHash = ::fnv1aHash(queuedLODs);
+		auto drawCommandHash = uf::algo::fnv1a(queuedLODs);
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
 		if ( drawCommandHash == graph.settings.stream.hash ) {
 			return;

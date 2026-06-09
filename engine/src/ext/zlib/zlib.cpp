@@ -280,13 +280,42 @@ bool ext::zlib::directory( const uf::stl::vector<uint8_t>& buffer, uf::stl::unor
 	return true;
 }
 
-
-pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority ) {
+//
+namespace {
 	struct ZipMountState {
 		uf::stl::vector<uint8_t> buffer;
 		uf::stl::unordered_map<uf::stl::string, pod::ZipEntry> entries;
 	};
 
+	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ){
+		auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
+		return state.entries.find(file) != state.entries.end();
+	};
+	size_t vfs_size( pod::Mount& mount, const uf::stl::string& file ){
+		auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
+		auto it = state.entries.find(file);
+		return (it != state.entries.end()) ? it->second.uncompressedSize : 0;
+	};
+	bool vfs_read( pod::Mount& mount, const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer ){
+		auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
+		auto it = state.entries.find( file );
+		if ( it == state.entries.end() ) return false;
+
+		const auto& entry = it->second;
+		const uint8_t* fileData = state.buffer.data() + entry.offset;
+
+		if ( entry.compressionMethod == 0 ) {
+			buffer.assign(fileData, fileData + entry.uncompressedSize);
+			return true;
+		}
+		if ( entry.compressionMethod == 8 ) {
+			return ext::zlib::decompressFromMemory(buffer, fileData, entry.compressedSize, entry.uncompressedSize);
+		}
+		return false;
+	};
+}
+
+pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority ) {
 	uf::stl::string prefix;
 	uf::stl::string path;
 	uf::io::splitUri( uri, prefix, path );
@@ -295,37 +324,14 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vecto
 	mount.prefix = prefix;
 	mount.path = path;
 	mount.priority = priority;
-	
 	mount.userdata = uf::pointeredUserdata::create<ZipMountState>();
+	mount.exists = ::vfs_exists;
+	mount.size = ::vfs_size;
+	mount.read = ::vfs_read;
+	
 	auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
-	auto* userdata = &state;
-	state.buffer = buffer;
-
+	state.buffer = buffer; // should be a move?
 	ext::zlib::directory( state.buffer, state.entries );
-
-	mount.exists = [userdata](const uf::stl::string& file) -> bool {
-		return userdata->entries.find(file) != userdata->entries.end();
-	};
-	mount.size = [userdata](const uf::stl::string& file) -> size_t {
-		auto it = userdata->entries.find(file);
-		return (it != userdata->entries.end()) ? it->second.uncompressedSize : 0;
-	};
-	mount.read = [userdata](const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer) -> bool {
-		auto it = userdata->entries.find(file);
-		if (it == userdata->entries.end()) return false;
-
-		const auto& entry = it->second;
-		const uint8_t* fileData = userdata->buffer.data() + entry.offset;
-
-		if (entry.compressionMethod == 0) {
-			buffer.assign(fileData, fileData + entry.uncompressedSize);
-			return true;
-		}
-		if (entry.compressionMethod == 8) {
-			return ext::zlib::decompressFromMemory(buffer, fileData, entry.compressedSize, entry.uncompressedSize);
-		}
-		return false;
-	};
 
 	return mount;
 }

@@ -2,15 +2,16 @@
 
 #include <uf/config.h>
 
-#include <uf/utils/userdata/userdata.h> 	// uf::Userdata
+#include <uf/utils/userdata/userdata.h>
 
-#include <uf/utils/memory/string.h> 							// uf::stl::string
-#include <functional> 						// std::function
-#include <uf/utils/memory/vector.h> 							// uf::vector
-#include <uf/utils/memory/unordered_map.h> 					// uf::unordered_map
-
+#include <uf/utils/memory/string.h>
+#include <uf/utils/memory/vector.h>
+#include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/utils/string/hash.h>
+
+#include <functional>
 #include <type_traits>
 
 #include "payloads.h"
@@ -38,10 +39,11 @@ namespace pod {
 namespace uf {
 	class UF_API Hooks {
 	public:
-		typedef uf::stl::vector<pod::Hook> hooks_t;
-		typedef uf::stl::unordered_map<uf::stl::string, hooks_t> container_t;
-
+		//typedef uf::hashed_string name_t;
 		typedef uf::stl::string name_t;
+		typedef uf::stl::vector<pod::Hook> hooks_t;
+		typedef uf::stl::unordered_map<name_t, hooks_t> container_t;
+
 		typedef pod::Hook::userdata_t argument_t;
 		typedef uf::stl::vector<pod::Hook::userdata_t> return_t;
 	protected:
@@ -54,19 +56,12 @@ namespace uf {
 
 		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, const pod::Hook::Type& = {UF_USERDATA_CTTI(void), 0} );
 		size_t addHook( const name_t& name, const std::function<void()>& callback );
-		template<typename Arg>
-		size_t addHook( const uf::Hooks::name_t& name, const std::function<void(Arg)>& callback );
-		template<typename R, typename Arg>
-		size_t addHook( const uf::Hooks::name_t& name, const std::function<R(Arg)>& callback );
-		template<typename Function>
-		size_t addHook( const uf::Hooks::name_t& name, const Function& lambda );
-		
-	//	return_t call( const name_t& name );
-	//	return_t call( const name_t& name, const argument_t& payload );
 		return_t call( const name_t& name, const argument_t& payload = {} );
-
-		template<typename T>
-		return_t call( const name_t& name, const T& payload );
+		
+		template<typename Arg> size_t addHook( const name_t& name, const std::function<void(Arg)>& callback );
+		template<typename R, typename Arg> size_t addHook( const name_t& name, const std::function<R(Arg)>& callback );
+		template<typename Function> size_t addHook( const name_t& name, const Function& lambda );
+		template<typename T> return_t call( const name_t& name, const T& payload );
 	};
 	
 	extern UF_API uf::Hooks hooks;

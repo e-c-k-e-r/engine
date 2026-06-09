@@ -20,17 +20,7 @@ uf::Timer<long long> uf::Object::timer(false);
 bool uf::Object::assertionLoad = true;
 bool uf::Object::deferLazyCalls = true;
 
-#if UF_ENTITY_OBJECT_UNIFIED
-	uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
-#else
-	UF_OBJECT_REGISTER_BEGIN(uf::Object)
-		UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
-		UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
-	UF_OBJECT_REGISTER_END()
-	uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
-#endif
-
-
+uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
 namespace impl {
 	struct ImportJob {
 		uf::stl::string filename;
@@ -75,12 +65,7 @@ void uf::Object::queueDeletion() {
 	this->callHook("entity:Destroy.%UID%");
 }
 
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
-	return uf::hooks.call( this->formatHookName( name ) );
-}
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
-	return uf::hooks.call( this->formatHookName( name ), payload );
-}
+
 uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name ) {
 	if ( uf::Object::deferLazyCalls ) {
 		this->queueHook( name, 0.0f );
@@ -96,13 +81,7 @@ uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name, const
 	return this->callHook( name, payload );
 }
 
-void uf::Object::queueHook( const uf::stl::string& name, double timeout ) {
-	return queueHook( name, (float) timeout );
-}
 void uf::Object::queueHook( const uf::stl::string& name, float timeout ) {
-//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-//	double start = uf::Object::timer.elapsed().asDouble();
-
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
@@ -110,13 +89,8 @@ void uf::Object::queueHook( const uf::stl::string& name, float timeout ) {
 		.type = 0,
 	});
 }
-void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, double timeout ) {
-	return queueHook( name, payload, (float) timeout );
-}
-void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, float timeout ) {
-//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-//	double start = uf::Object::timer.elapsed().asDouble();
 
+void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, float timeout ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
@@ -125,6 +99,47 @@ void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value&
 	});
 	queue.json = payload;
 }
+/*
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view n, size_t uid, bool fetch ) {
+	if ( fetch ) {
+		uf::Object* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
+		if ( object ) return object->formatHookName( n );
+	}
+
+	size_t uidPos = n.find("%UID%");
+	if ( uidPos == uf::stl::string_view::npos ) {
+		return n;
+	}
+
+	uf::stl::string_view base = n.substr(0, uidPos);
+	uf::stl::string_view suffix = n.substr(uidPos + 5);
+
+	size_t seed = uf::hashed_string( base );
+	uf::hash( seed, uid );
+
+	if ( !suffix.empty() ) {
+		uf::hash( seed, suffix );
+	}
+
+	return seed;
+}
+
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view n ) {
+	if ( n.find("%UID%") == uf::stl::string_view::npos && n.find("%P-UID%") == uf::stl::string_view::npos ) {
+		return n;
+	}
+
+	size_t uid = this->getUid();
+	size_t parent = this->hasParent() ? this->getParent().getUid() : uid;
+
+	uf::stl::string name(n);
+	name = uf::string::replace(name, "%UID%", std::to_string(uid));
+	name = uf::string::replace(name, "%P-UID%", std::to_string(parent));
+
+	return name;
+}
+*/
+
 uf::stl::string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
 	if ( fetch ) {
 		uf::Object* object = (uf::Object*) uf::Entity::globalFindByUid( uid );

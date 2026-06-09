@@ -136,10 +136,10 @@ bool ext::valve::loadVmt( uf::Serializer& dict, const uf::stl::string& filename 
 			std::replace(value.begin(), value.end(), '\\', '/');
 
 			if ( key == "include" ) {
-                ext::valve::loadVmt( dict, value );
-            } else {
+				ext::valve::loadVmt( dict, value );
+			} else {
 				dict[key] = impl::processValue( value );
-            }
+			}
 		}
 	}
 	return true;

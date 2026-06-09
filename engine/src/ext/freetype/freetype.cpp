@@ -79,15 +79,15 @@ void ext::freetype::terminate() {
 bool ext::freetype::initialize( pod::FT_Glyph& g, const uf::stl::string& filename ) {
 	// yucky yuck
 	if ( impl::ftCache.find(filename) == impl::ftCache.end() ) {
-        uf::stl::vector<uint8_t> buffer;
-        if ( !uf::io::readAsBuffer( buffer, filename ) ) {
-            UF_MSG_ERROR("FreeType failed to read file: {}", filename);
-            return false;
-        }
-        impl::ftCache[filename] = std::move(buffer);
-    }
+		uf::stl::vector<uint8_t> buffer;
+		if ( !uf::io::readAsBuffer( buffer, filename ) ) {
+			UF_MSG_ERROR("FreeType failed to read file: {}", filename);
+			return false;
+		}
+		impl::ftCache[filename] = std::move(buffer);
+	}
 
-    const auto& buffer = impl::ftCache[filename];
+	const auto& buffer = impl::ftCache[filename];
 	if ( auto error = FT_New_Memory_Face( impl::ft_library, buffer.data(), (FT_Long) buffer.size(), 0, &g.face ) ) {
 		UF_MSG_ERROR("FreeType failed to load font memory '{}': {}", filename, impl::error( error ));
 		return false;

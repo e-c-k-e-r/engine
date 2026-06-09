@@ -16,15 +16,15 @@ namespace pod {
 		int priority = 0;
 		pod::PointeredUserdata userdata;
 
-		std::function<bool(const uf::stl::string&)> exists;
-		std::function<size_t(const uf::stl::string&)> size;
-		std::function<size_t(const uf::stl::string&)> mtime;
-		std::function<bool(const uf::stl::string&, uf::stl::vector<uint8_t>&)> read;
-		std::function<size_t(const uf::stl::string&, const void*, size_t)> write;
-		std::function<bool(const uf::stl::string&)> mkdir;
+		std::function<bool(pod::Mount&, const uf::stl::string&)> exists;
+		std::function<size_t(pod::Mount&, const uf::stl::string&)> size;
+		std::function<size_t(pod::Mount&, const uf::stl::string&)> mtime;
+		std::function<bool(pod::Mount&, const uf::stl::string&, uf::stl::vector<uint8_t>&)> read;
+		std::function<size_t(pod::Mount&, const uf::stl::string&, const void*, size_t)> write;
+		std::function<bool(pod::Mount&, const uf::stl::string&)> mkdir;
 
-		std::function<bool(const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
-		std::function<bool(const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
+		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
+		std::function<bool(pod::Mount&, const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
 	};
 }
 

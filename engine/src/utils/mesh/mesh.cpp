@@ -294,11 +294,11 @@ uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wante
 	if ( wanted.size() ) {
 		for ( auto& attr : vertex.attributes ) {
 			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
 		}
 	} else {
 		for ( auto& attr : vertex.attributes ) {
-			view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
 		}
 	}
 
@@ -317,10 +317,10 @@ uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::stri
 	if ( wanted.size() ) {
 		for (auto& attr : vertex.attributes) {
 			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
 		}
 	} else {
-		for ( auto& attr : vertex.attributes ) view.attributes[uf::string::fnv1a(attr.descriptor.name)] = { attr };
+		for ( auto& attr : vertex.attributes ) view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
 	}
 
 	if ( !index.attributes.empty() ) {

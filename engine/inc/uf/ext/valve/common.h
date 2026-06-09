@@ -24,5 +24,5 @@ namespace impl {
 	ext::json::Value processValue( const uf::stl::string& v );
 	uf::stl::string readString( std::ifstream& file );
 	bool parseKeyValue( const uf::stl::string& line, uf::stl::string& key, uf::stl::string& value );
-	pod::Material& addMaterial( pod::Graph& graph, const uf::stl::string& name );
+	size_t addMaterial( pod::Graph& graph, const uf::stl::string& name );
 }

@@ -662,9 +662,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			}
 		}
 
-		size_t materialID = graph.materials.size();
-		auto& material = impl::addMaterial( graph, matName );
-		context.texdataToMaterial[texDataID] = materialID;
+		context.texdataToMaterial[texDataID] = impl::addMaterial( graph, matName );
 	}
 
 	// read lightmaps

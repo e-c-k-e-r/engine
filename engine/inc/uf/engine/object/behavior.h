@@ -17,7 +17,7 @@ namespace uf {
 		UF_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			struct Queued {
-				uf::stl::string name = "";
+				uf::Hooks::name_t name = "";
 				double timeout = 0;
 				int_fast8_t type = 0;
 
@@ -25,7 +25,7 @@ namespace uf {
 				ext::json::Value json{};
 			};
 			struct {
-				uf::stl::unordered_map<uf::stl::string, uf::stl::vector<size_t>> bound;
+				uf::stl::unordered_map<uf::Hooks::name_t, uf::stl::vector<size_t>> bound;
 				uf::stl::vector<Queued> queue;
 			} hooks;
 			struct {

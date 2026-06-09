@@ -12,10 +12,12 @@
 
 namespace uf {
 	namespace asset {
+		typedef uf::Hooks::name_t callback_t;
+
 		struct UF_API Job {
 			typedef uf::stl::vector<Job> container_t;
 
-			uf::stl::string callback = "";
+			uf::asset::callback_t callback = "";
 			uf::stl::string type = "";
 			uf::asset::Payload payload = {};
 		};
@@ -41,8 +43,8 @@ namespace uf {
 		// URL or file path
 		void UF_API processQueue();
 
-		void UF_API cache( const uf::stl::string&, const uf::asset::Payload& );
-		void UF_API load( const uf::stl::string&, const uf::asset::Payload& );
+		void UF_API cache( const uf::asset::callback_t&, const uf::asset::Payload& );
+		void UF_API load( const uf::asset::callback_t&, const uf::asset::Payload& );
 
 		uf::stl::string UF_API cache( uf::asset::Payload& );
 		uf::stl::string UF_API load( uf::asset::Payload& );
