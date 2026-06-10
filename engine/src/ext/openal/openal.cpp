@@ -97,7 +97,7 @@ uf::stl::string ext::al::getError( ALCenum error ) {
 		case AL_INVALID_OPERATION: return "AL_INVALID_OPERATION"; // the requested operation is not valid
 		case AL_OUT_OF_MEMORY: return "AL_OUT_OF_MEMORY"; // the requested operation resulted in OpenAL running out ofmemory 
 	}
-	return "AL_UNKNOWN(" + std::to_string(error) + ")";
+	return ::fmt::format("AL_UNKNOWN({})", error);
 }
 uf::audio::Metadata* ext::al::create( const uf::stl::string& filename, bool streamed, uint8_t buffers ) {
 #if UF_MEMORYPOOL_INVALID_MALLOC

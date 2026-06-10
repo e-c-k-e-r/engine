@@ -85,10 +85,12 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		*/
 		};
 	});
+
+	// I don't think this ever gets called
 	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){
 		if ( !payload.object ) return;
 
-		uf::asset::load("asset:Load." + std::to_string(payload.object.uid), payload);
+		uf::asset::load(this->formatHookName("asset:Load.%UID%", payload.object.uid), payload);
 	});
 	this->addHook( "shader:Update.%UID%", [&](ext::json::Value& json){
 		metadata.shader.mode = json["mode"].as<uint32_t>();
@@ -335,11 +337,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			for ( uf::Scene* scene : uf::scene::scenes ) {
 				if ( !scene ) continue;
-			#if UF_USE_FMT
 				uf::iostream << ::fmt::format("Scene: {}\n", uf::string::toString( *scene ));
-			#else
-				uf::iostream << "Scene: " << uf::string::toString( *scene ) << "\n";
-			#endif
 				scene->process([]( uf::Entity* entity, int depth ) {
 					uf::stl::string indent = ""; for ( auto i = 1; i < depth; ++i ) indent += "\t";
 					uf::stl::string location = "";
@@ -349,11 +347,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						location = uf::string::toString( t.position ) + " " + uf::string::toString( t.orientation );
 					}
 
-				#if UF_USE_FMT
 					uf::iostream << ::fmt::format("{} {} {}\n", indent, uf::string::toString( *entity ), location );
-				#else
-					uf::iostream << indent << " " << uf::string::toString( *entity ) << " " << location << "\n";
-				#endif
 				}, 1);
 			}
 		}
@@ -1174,7 +1168,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	while ( textures3D.size() < metadata.max.textures3D ) textures3D.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 
 	static uf::stl::unordered_map<uf::stl::string, UniformDescriptor> previousUniformsMap;
-	auto& previousUniforms = previousUniformsMap[shaderType+":"+shaderPipeline+":"+std::to_string((size_t) &graphic)];
+	auto& previousUniforms = previousUniformsMap[::fmt::format("{}:{}:{}", shaderType, shaderPipeline, (size_t)&graphic)];
 
 	// update uniform information
 	// hopefully write combining kicks in

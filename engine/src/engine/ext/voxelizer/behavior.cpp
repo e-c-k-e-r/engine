@@ -119,7 +119,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		if ( metadata.fragmentSize.y == 0 ) metadata.fragmentSize.y = metadata.voxelSize.y;
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
+		metadata.renderModeName = ::fmt::format("VXGI:{}", this->getUid());
 		renderMode.metadata.name = metadata.renderModeName;
 		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 

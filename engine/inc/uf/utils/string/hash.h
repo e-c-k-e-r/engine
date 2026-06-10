@@ -18,6 +18,9 @@ namespace uf {
 	}
 
 	struct hashed_string {
+		typedef uf::stl::string string_t;
+		typedef size_t hash_t;
+
 		size_t hash;
 
 		constexpr hashed_string() : hash(0) {}

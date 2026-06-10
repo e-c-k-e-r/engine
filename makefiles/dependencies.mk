@@ -107,7 +107,7 @@ endif
 
 ifneq (,$(findstring simd,$(REQ_DEPS)))
 	ifeq (,$(findstring dreamcast,$(ARCH)))
-		FLAGS += -DUF_USE_SIMD -DUF_ALIGN_FOR_SIMD -DUF_MATRIX_ALIGNED
+		FLAGS += -DUF_USE_SIMD
 	endif
 endif
 

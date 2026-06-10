@@ -202,7 +202,7 @@ bool ext::texconv::convert(  const pod::TextureOptions& opts  ) {
 	int padding = expectedSize - ( (int) after - (int) before );
 	if ( padding > 0 ){
 		writeZeroes( out, padding );
-		UF_MSG_INFO( "Added {} padding bytes", std::to_string( padding ) );
+		UF_MSG_INFO( "Added {} padding bytes", padding );
 	}
 	out.close();
 	UF_MSG_INFO( "Wrote texture {}", opts.output );

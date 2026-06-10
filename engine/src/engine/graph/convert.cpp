@@ -16,6 +16,12 @@
 #endif
 
 namespace {
+	uf::stl::string keyID( size_t id ) {
+		return ::fmt::format("{}", id);
+	}
+}
+
+namespace {
 	size_t process( uf::Object& object, pod::Graph& graph, pod::Node& parent ) {
 		auto& storage = uf::graph::getStorage( graph );
 
@@ -23,7 +29,7 @@ namespace {
 		size_t meshID = graph.meshes.size();
 		size_t objectID = storage.entities.keys.size();
 
-		uf::stl::string keyName = graph.name + "[" + std::to_string(objectID) + "]";
+		uf::stl::string keyName = ::fmt::format("{}[{}]", graph.name, objectID);
 
 		auto& node = graph.nodes.emplace_back();
 		node.name = object.getName();
@@ -34,12 +40,12 @@ namespace {
 		node.mesh = -1;
 		node.skin = -1;
 
-		storage.entities[std::to_string(objectID)] = &object;
+		storage.entities[::keyID(objectID)] = &object;
 
 		pod::Instance::Object instanceObject;
 		instanceObject.model = uf::transform::model( object.getComponent<pod::Transform<>>() );
 		instanceObject.previous = instanceObject.model;
-		storage.objects[std::to_string(objectID)] = instanceObject;
+		storage.objects[::keyID(objectID)] = instanceObject;
 
 		if ( object.hasComponent<uf::renderer::Graphic>() ) {
 			auto& graphic = object.getComponent<uf::renderer::Graphic>();
@@ -51,7 +57,7 @@ namespace {
 				size_t textureID = graph.textures.size();
 				size_t texture2DID = graph.images.size();
 
-				uf::stl::string subName = keyName + "[" + std::to_string(sub++) + "]";
+				uf::stl::string subName = ::fmt::format("{}[{}]", keyName, sub++);
 				auto& material = storage.materials[graph.materials.emplace_back(subName)];
 				auto& texture = storage.textures[graph.textures.emplace_back(subName)];
 				auto& texture2D = storage.images[graph.images.emplace_back(subName)].handle;

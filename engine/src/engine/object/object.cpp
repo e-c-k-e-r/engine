@@ -65,110 +65,30 @@ void uf::Object::queueDeletion() {
 	this->callHook("entity:Destroy.%UID%");
 }
 
-
-uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name ) {
-	if ( uf::Object::deferLazyCalls ) {
-		this->queueHook( name, 0.0f );
-		return {};
-	}
-	return this->callHook( name );
-}
-uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
-	if ( uf::Object::deferLazyCalls ) {
-		this->queueHook( name, payload, 0.0f );
-		return {};
-	}
-	return this->callHook( name, payload );
-}
-
-void uf::Object::queueHook( const uf::stl::string& name, float timeout ) {
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
-		.name = name,
-		.timeout = uf::time::current + timeout,
-		.type = 0,
-	});
-}
-
-void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, float timeout ) {
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
-		.name = name,
-		.timeout = uf::time::current + timeout,
-		.type = -1,
-	});
-	queue.json = payload;
-}
-/*
-uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view n, size_t uid, bool fetch ) {
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
 	if ( fetch ) {
-		uf::Object* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
+		auto* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
 		if ( object ) return object->formatHookName( n );
 	}
 
-	size_t uidPos = n.find("%UID%");
-	if ( uidPos == uf::stl::string_view::npos ) {
-		return n;
-	}
+	size_t hash = {};
+	uf::hash( hash, n );
+	if ( n.ends_with("%UID%") ) uf::hash( hash, uid );
 
-	uf::stl::string_view base = n.substr(0, uidPos);
-	uf::stl::string_view suffix = n.substr(uidPos + 5);
-
-	size_t seed = uf::hashed_string( base );
-	uf::hash( seed, uid );
-
-	if ( !suffix.empty() ) {
-		uf::hash( seed, suffix );
-	}
-
-	return seed;
+	return hash;
 }
 
-uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view n ) {
-	if ( n.find("%UID%") == uf::stl::string_view::npos && n.find("%P-UID%") == uf::stl::string_view::npos ) {
-		return n;
-	}
 
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string& n ) {
 	size_t uid = this->getUid();
 	size_t parent = this->hasParent() ? this->getParent().getUid() : uid;
 
-	uf::stl::string name(n);
-	name = uf::string::replace(name, "%UID%", std::to_string(uid));
-	name = uf::string::replace(name, "%P-UID%", std::to_string(parent));
+	size_t hash = {};
+	uf::hash( hash, n );
+	if ( n.ends_with("%P-UID%") ) uf::hash( hash, parent );
+	else if ( n.ends_with("%UID%") ) uf::hash( hash, uid );
 
-	return name;
-}
-*/
-
-uf::stl::string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
-	if ( fetch ) {
-		uf::Object* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
-		if ( object ) return object->formatHookName( n );
-	}
-	uf::stl::unordered_map<uf::stl::string, uf::stl::string> formats = {
-		{"%UID%", std::to_string(uid)},
-	};
-	uf::stl::string name = n;
-	for ( auto& pair : formats ) {
-		name = uf::string::replace( name, pair.first, pair.second );
-	}
-	return name;
-}
-uf::stl::string uf::Object::formatHookName( const uf::stl::string& n ) {
-	size_t uid = this->getUid();
-	size_t parent = uid;
-	if ( this->hasParent() ) {
-		parent = this->getParent().getUid();
-	}
-	uf::stl::unordered_map<uf::stl::string, uf::stl::string> formats = {
-		{"%UID%", std::to_string(uid)},
-		{"%P-UID%", std::to_string(parent)},
-	};
-	uf::stl::string name = n;
-	for ( auto& pair : formats ) {
-		name = uf::string::replace( name, pair.first, pair.second );
-	}
-	return name;
+	return hash;
 }
 
 bool uf::Object::load( const uf::stl::string& f, bool inheritRoot ) {

@@ -41,15 +41,10 @@ namespace binds {
 	}
 	*/
 
-	/*
-	size_t formatHookName(uf::Object& self, const uf::stl::string n ){
+	uf::hashed_string formatHookName(uf::Object& self, const uf::stl::string n ){
 		return self.formatHookName(n);
 	}
-	*/
 
-	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
-		return self.formatHookName(n);
-	}
 	/*
 	sol::object getComponentFromEnum( uf::Object& self, binds::enums::Components type ) {
 	#define UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( E, T )\

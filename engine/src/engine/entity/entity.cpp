@@ -174,9 +174,5 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 }
 
 uf::stl::string uf::string::toString( const uf::Entity& entity ) {
-#if UF_USE_FMT
 	return ::fmt::format("({}): {}", entity.getUid(), entity.getName());
-#else
-	return "(" + std::to_string(entity.getUid()) + ") :" + entity.getName();
-#endif
 }

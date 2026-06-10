@@ -328,11 +328,19 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 			else unprocessed.emplace_back(q);
 		}
 		for ( auto& q : executeQueue ) {
-			if ( q.type == 1 ) {
-				this->callHook( q.name, q.userdata );
+			if ( q.hash ) {
+				if ( q.type == 1 ) {
+					this->callHook( q.hash, q.userdata );
+				}
+				else if ( q.type == -1 ) this->callHook( q.hash, q.json );
+				else this->callHook( q.hash );
+			} else {
+				if ( q.type == 1 ) {
+					this->callHook( q.name, q.userdata );
+				}
+				else if ( q.type == -1 ) this->callHook( q.name, q.json );
+				else this->callHook( q.name );
 			}
-			else if ( q.type == -1 ) this->callHook( q.name, q.json );
-			else this->callHook( q.name );
 		}
 		queue = std::move(unprocessed);
 	}

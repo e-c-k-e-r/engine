@@ -36,11 +36,16 @@ namespace pod {
 	};
 }
 
+#define UF_HOOKS_HASH_KEYS 1
+
 namespace uf {
 	class UF_API Hooks {
 	public:
-		//typedef uf::hashed_string name_t;
+	#if UF_HOOKS_HASH_KEYS
+		typedef uf::hashed_string name_t;
+	#else
 		typedef uf::stl::string name_t;
+	#endif
 		typedef uf::stl::vector<pod::Hook> hooks_t;
 		typedef uf::stl::unordered_map<name_t, hooks_t> container_t;
 

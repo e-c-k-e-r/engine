@@ -366,17 +366,9 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 				const void* dataPtr = &buffer.data[accessor.byteOffset + view.byteOffset];
 
-			#if UF_MATRIX_ALIGNED	
-				skin.inverseBindMatrices.resize(accessor.count);
-				const float* buf = static_cast<const float*>(dataPtr);
-				for ( size_t i = 0; i < accessor.count; ++i ) {
-					memcpy( &skin.inverseBindMatrices[i], (const void*) &buf[i*16], sizeof(float) * 16 );
-				}
-			#else
 				skin.inverseBindMatrices.reserve(accessor.count);
 				const pod::Matrix4f* buf = static_cast<const pod::Matrix4f*>(dataPtr);
 				for ( size_t i = 0; i < accessor.count; ++i ) skin.inverseBindMatrices.emplace_back( buf[i] );
-			#endif
 			}
 
 			skin.joints.reserve( s.joints.size() );

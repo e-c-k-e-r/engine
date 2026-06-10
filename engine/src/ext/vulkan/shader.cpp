@@ -79,7 +79,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 		}
 		if ( ext::json::isArray(value) ) {
 			ext::json::forEach(value, [&]( size_t i, const ext::json::Value& element ){
-				variableName.emplace_back("["+std::to_string(i)+"]");
+				variableName.emplace_back(::fmt::format("[{}]", i));
 				parse(element);
 			});
 			#if UF_SHADER_TRACK_NAMES
@@ -255,7 +255,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 			else if ( ext::json::isArray(input) ) {
 				ext::json::forEach( input, [&]( size_t i, const ext::json::Value& value){
 				#if UF_SHADER_TRACK_NAMES
-					variableName.emplace_back("["+std::to_string(i)+"]");
+					variableName.emplace_back(::fmt::format("[{}]", i));
 					SKIP_ADD = true;
 				#endif
 					parseDefinition(input[i], definition);
@@ -366,9 +366,8 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				if ( name == "" ) name = comp.get_name(type.parent_type);
 				if ( name == "" ) name = comp.get_fallback_name(type_id);
 				if ( type.vecsize > 1 ) {
-					name = "<"+name+">";
-					if ( type.columns > 1 ) name = "Matrix"+std::to_string(type.vecsize)+"x"+std::to_string(type.columns)+name;
-					else name = "Vector"+std::to_string(type.vecsize)+name;
+					if ( type.columns > 1 ) name = ::fmt::format( "Matrix{}x{}<{}>", type.vecsize, type.columns, name );
+					else name = ::fmt::format("Vector{}<{}>", type.vecsize, name )
 				}
 				{
 					ext::json::Value source = value;
@@ -385,7 +384,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						for ( size_t i = 0; i < arraySize; ++i ) {
 							value.emplace_back(source);
 						}
-						name += "[" + std::to_string(arraySize) + "]";
+						name += ::fmt::format("[{}]", arraySize);
 						size *= arraySize;
 					}
 				}
@@ -465,7 +464,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						case spv::Dim::DimBuffer: tname = "Buffer"; break;
 						case spv::Dim::DimSubpassData: tname = "SubpassData"; break;
 					}
-					uf::stl::string key = std::to_string(binding);
+					uf::stl::string key = ::fmt::format("{}", binding);
 				#if UF_SHADER_PARSE_AS_JSON
 					metadata.json["definitions"]["textures"][key]["name"] = name;
 					metadata.json["definitions"]["textures"][key]["index"] = index;

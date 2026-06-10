@@ -322,7 +322,7 @@ namespace {
 			CASE_KEY_RETURN('9', "Num9");
 			CASE_KEY_RETURN('0', "Num0");
 		}
-		return std::to_string((int) key);
+		return ::fmt::format("{}", key);
 	}
 	uf::stl::string GetKeyName( WPARAM key, LPARAM flags = 0 ) {
 		return uf::string::uppercase( _GetKeyName( key, flags ) );

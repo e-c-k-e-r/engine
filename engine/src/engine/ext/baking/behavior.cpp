@@ -54,7 +54,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "entity:PostInitialization.%UID%", [&](){
 		metadata.output = this->resolveURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
-		metadata.renderModeName = "B:" + std::to_string((int) this->getUid());
+		metadata.renderModeName = ::fmt::format("B:{}", this->getUid());
 
 		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as( metadata.trigger.mode );
 		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as( metadata.trigger.value );

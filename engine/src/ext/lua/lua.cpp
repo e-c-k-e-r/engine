@@ -155,7 +155,6 @@ namespace binds {
 	}
 	namespace io {
 		void print( sol::variadic_args va ) {
-		#if UF_USE_FMT
 			size_t count = va.size();
 			for ( auto value : va ) {
 				uf::stl::string str = ext::lua::state["tostring"]( value );
@@ -164,16 +163,6 @@ namespace binds {
 			}
 			::fmt::print("\n");
 			std::cout.flush();
-		#else
-			size_t count = va.size();
-			for ( auto value : va ) {
-				uf::stl::string str = ext::lua::state["tostring"]( value );
-				std::cout << str;
-				if ( --count != 0 ) std::cout << "\t";
-			}
-			std::cout <<"\n";
-			std::cout.flush();
-		#endif
 		};
 	}
 	namespace math {

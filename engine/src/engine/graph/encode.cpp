@@ -210,7 +210,7 @@ namespace {
 
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
-			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compression == "none" ? "bin" : settings.compression );
+			const uf::stl::string filename = ::fmt::format("{}.buffer.{}.{}", settings.filename, i, settings.compression == "none" ? "bin" : settings.compression );
 			uf::io::write( filename, mesh.buffers[i] );
 			json["buffers"].emplace_back(uf::io::filename( filename ));
 		}
@@ -292,14 +292,14 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				auto& name = graph.meshes[i];
 				auto& mesh = /*graph.storage*/storage.meshes.map.at(name);
 				if ( !s.encodeBuffers ) {
-					s.filename = directory+"/mesh."+std::to_string(i)+".json";
+					s.filename = ::fmt::format("{}/mesh.{}.json", directory, i );
 					encode(mesh, s, graph).writeToFile(s.filename);
 					uf::Serializer json;
 					json["name"] = name;
 					json["filename"] = uf::io::filename(s.filename);
 					serializer["meshes"].emplace_back( json );
 				} else {
-					s.filename = directory+"/mesh."+std::to_string(i);
+					s.filename = ::fmt::format("{}/mesh.{}", directory, i );
 					auto json = encode(mesh, s, graph);
 					json["name"] = name;
 					serializer["meshes"].emplace_back(json);
@@ -335,7 +335,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
 				auto& name = graph.images[i];
 				auto& image = /*graph.storage*/storage.images.map.at(name).data;
-				uf::stl::string f = "image."+std::to_string(i)+".png";
+				uf::stl::string f = ::fmt::format("{}/image.{}.png", directory, i );
 				image.save(directory + "/" + f);
 
 				// export DC's .dtex
@@ -343,7 +343,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				// to-do: properly scale per my script
 				auto converted = image.scale( {32, 32}, "nearest" );
 				auto dtex = ext::texconv::convert( converted );
-				ext::texconv::save( dtex, directory + "/image."+std::to_string(i) );
+				ext::texconv::save( dtex, ::fmt::format("{}/image.{}", directory, i ) );
 			#endif
 
 				uf::Serializer json;
@@ -407,9 +407,9 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		if ( !settings.combined ) {
 			for ( auto i = 0; i < graph.animations.size(); ++i ) {
 				auto& name = graph.animations[i];
-				uf::stl::string f = "animation."+std::to_string(i)+".json";
+				uf::stl::string f =::fmt::format("animation.{}.json", i);
 				auto& animation = /*graph.storage*/storage.animations.map.at(name);
-				encode(animation, settings, graph).writeToFile(directory+"/"+f);
+				encode(animation, settings, graph).writeToFile(::fmt::format("{}/{}", directory, f));
 				serializer["animations"].emplace_back(f);
 			}
 		} else {

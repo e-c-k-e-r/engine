@@ -30,6 +30,9 @@
 // to-do: fix LOD1+ breaking
 
 namespace {
+	uf::stl::string keyedID( size_t id ) {
+		return ::fmt::format("{}", id);
+	}
 	size_t allocateObjectID( pod::Graph::Storage& storage ) {
 		return storage.entities.keys.size();
 	}
@@ -812,7 +815,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		for ( auto& name : graph.primitives ) {
 			auto& primitives = storage.primitives[name];
 			for ( auto& primitive : primitives ) {
-				filenames[primitive.instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", std::to_string(primitive.instance.auxID));
+				filenames[primitive.instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", ::keyedID(primitive.instance.auxID));
 
 				lightmapCount = std::max( lightmapCount, primitive.instance.auxID + 1 );
 			}
@@ -1215,19 +1218,19 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// convert metadata["valve"] into internal values:
 	auto& metadataValve = node.metadata["valve"];
 	if ( ext::json::isObject( metadataValve ) ) {
-		// bind door script
-		if ( ext::json::isObject( metadataValve["door"] ) ) {
-			node.metadata["door"] = metadataValve["door"];
-			loadJson["imports"].emplace_back("ent://door.json");
-		}
 		// bind io connectivity
 		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
 			node.metadata["connections"] = metadataValve["connections"];
 			loadJson["assets"].emplace_back("ent://scripts/io.lua");
 		}
 
-		// assume all funcs are to have a physics body
-		if ( node.name.starts_with("func_") ) {
+		// bind door script
+		if ( ext::json::isObject( metadataValve["door"] ) ) {
+			node.metadata["door"] = metadataValve["door"];
+			loadJson["imports"].emplace_back("ent://door.json");
+		}
+		// assume all other funcs are to have a physics body
+		else if ( node.name.starts_with("func_") ) {
 			if ( ext::json::isNull( node.metadata["physics"] ) ) {
 				//node.metadata["physics"]["type"] = "bounding box";
 				node.metadata["physics"]["type"] = "mesh";
@@ -1383,7 +1386,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		{
 			node.object = ::allocateObjectID( storage );
-			auto objectKeyName = std::to_string( node.object );
+			auto objectKeyName = ::keyedID( node.object );
 
 			storage.entities[objectKeyName] = &entity;	
 			storage.objects[objectKeyName] = pod::Instance::Object{
@@ -1612,7 +1615,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 		#if UF_USE_VULKAN
 			if ( commands && !grouped.empty() ) {
-				auto objectKeyName = std::to_string(grouped.front().objectID);
+				auto objectKeyName = ::keyedID(grouped.front().objectID);
 				if ( storage.entities.map.count(objectKeyName) > 0 ) {
 					auto& entity = *storage.entities.map[objectKeyName];
 					if ( entity.hasComponent<uf::renderer::Graphic>() ) {
@@ -2254,7 +2257,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	bool graphicOwner = graphMetadataJson["renderer"]["render"].as<bool>();
 	if ( graphicOwner ) {
-		auto objectKeyName = std::to_string(storage.instances.map[graph.primitives[node.mesh]].front().objectID);
+		auto objectKeyName = ::keyedID(storage.instances.map[graph.primitives[node.mesh]].front().objectID);
 		graphicOwner = storage.entities[objectKeyName] == &entity;
 	}
 	// update graphic

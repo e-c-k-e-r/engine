@@ -110,53 +110,32 @@ namespace uf {
 		template<typename T> T loadChild( const uf::Serializer&, bool = true );
 		template<typename T> T loadChild( const uf::stl::string&, bool = true );
 
-	/*
-		uf::hashed_string formatHookName( const uf::stl::string_view n, size_t uid, bool fetch );
-		uf::hashed_string formatHookName( const uf::stl::string_view n );
-	*/
-		uf::stl::string formatHookName( const uf::stl::string& n, size_t uid, bool fetch );
-		uf::stl::string formatHookName( const uf::stl::string& n );
-
-		template<typename T> size_t addHook( const uf::stl::string& name, T function );
-		uf::Hooks::return_t lazyCallHook( const uf::stl::string& );
-		uf::Hooks::return_t lazyCallHook( const uf::stl::string&, const pod::Hook::userdata_t& );
-		template<typename T> uf::Hooks::return_t lazyCallHook( const uf::stl::string& name, const T& payload );
-		void queueHook( const uf::stl::string&, float = 0 );
-		void queueHook( const uf::stl::string&, const ext::json::Value& json, float = 0 );
-		template<typename T> void queueHook( const uf::stl::string&, const T&, float = 0 );
+		uf::hashed_string formatHookName( const uf::stl::string& n );
+		static uf::hashed_string formatHookName( const uf::stl::string& n, size_t uid, bool fetch = false );
 		
-		inline uf::Hooks::return_t callHook( const uf::stl::string& name ) {
-			return uf::hooks.call( this->formatHookName( name ) );
-		}
-		inline uf::Hooks::return_t callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
-			return uf::hooks.call( this->formatHookName( name ), payload );
-		}
-		template<typename T> inline uf::Hooks::return_t callHook( const uf::stl::string& name, const T& p ) {
-			return uf::hooks.call( this->formatHookName( name ), p );
+		inline size_t resolveHookKey(size_t hash) const { return hash; }
+		inline size_t resolveHookKey(const uf::stl::string& name) { return this->formatHookName(name); }
+	
+		template<typename T> size_t addHook( const size_t& name, T function );
+		template<typename T> inline size_t addHook( const uf::stl::string& name, T function ) {
+			return this->addHook( this->formatHookName( name ), function );
 		}
 
-	/*
-		inline void queueHook( const size_t& name, float timeout = 0 ) {
-				return this->queueHook( name, timeout);
-		}
-		inline void queueHook( const size_t& name, const ext::json::Value& json, float timeout = 0 ) {
-				return this->queueHook( name, timeout);
-		}
-		template<typename T> inline void queueHook( const size_t& name, const T& payload, float timeout = 0 ) {
-			return this->queueHook( name, timeout);
-		}
-
-		inline uf::Hooks::return_t callHook( const size_t& name ) {
-			return uf::hooks.call( name );
-		}
-		inline uf::Hooks::return_t callHook( const size_t& name, const pod::Hook::userdata_t& payload ) {
-			return uf::hooks.call( name, payload );
-		}
-		template<typename T> inline uf::Hooks::return_t callHook( const size_t& name, const T& p ) {
-			return uf::hooks.call( name, p );
-		}
-	*/
+		template<typename K> inline void queueHook( const K& name, float timeout = 0 );
+		template<typename K, typename V> inline void queueHook( const K& name, const V&, float = 0 );
 		
+		template<typename K, typename... Args> uf::Hooks::return_t lazyCallHook(const K& name, Args&&... args) {
+			if ( uf::Object::deferLazyCalls ) {
+				this->queueHook(name, std::forward<Args>(args)..., 0.0f);
+				return {};
+			}
+			return this->callHook( name, std::forward<Args>(args)... );
+		}
+
+		template<typename K, typename... Args> inline uf::Hooks::return_t callHook( const K& name, Args&&... args ) {
+			return uf::hooks.call( this->resolveHookKey(name), std::forward<Args>(args)... );
+		}
+
 		uf::stl::string resolveURI( const uf::stl::string& filename, const uf::stl::string& root = "" );
 		uf::asset::Payload resolveToPayload( const uf::stl::string& filename, const uf::stl::string& mime = "" );
 
