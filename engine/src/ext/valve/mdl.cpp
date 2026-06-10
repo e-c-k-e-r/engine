@@ -106,6 +106,31 @@ namespace impl {
 		int32_t skinindex;
 		int32_t numbodyparts;
 		int32_t bodypartindex;
+		int32_t numlocalattachments;
+        int32_t localattachmentindex;
+        int32_t numlocalnodes;
+        int32_t localnodeindex;
+        int32_t localnodenameindex;
+        int32_t numflexdesc;
+        int32_t flexdescindex;
+        int32_t numflexcontrollers;
+        int32_t flexcontrollerindex;
+        int32_t numflexrules;
+        int32_t flexruleindex;
+        int32_t numikchains;
+        int32_t ikchainindex;
+        int32_t nummouths;
+        int32_t mouthindex;
+        int32_t numlocalposeparameters;
+        int32_t localposeparamindex;
+        int32_t surfacepropindex;
+        int32_t keyvalueindex;
+        int32_t keyvaluesize;
+        int32_t numlocalikautoplaylocks;
+        int32_t localikautoplaylockindex;
+
+        float mass;
+        int32_t contents;
 
 		// etc
 	};
@@ -191,6 +216,9 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 		UF_MSG_ERROR("Invalid MDL magic: {}", filename);
 		return false;
 	}
+
+	// Read metadata
+	graph.metadata["valve"]["models"][filename]["mass"] = mdlHdr->mass;
 
 	// Read VVD file
 	uf::stl::string vvdPath = filename.substr(0, filename.find_last_of('.')) + ".vvd";

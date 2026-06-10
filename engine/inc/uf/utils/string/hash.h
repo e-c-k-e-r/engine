@@ -22,13 +22,12 @@ namespace uf {
 		typedef size_t hash_t;
 
 		size_t hash;
+		uf::stl::string string;
 
-		constexpr hashed_string() : hash(0) {}
-		constexpr hashed_string(size_t h) : hash(h) {}
-		constexpr hashed_string(const char* s) : hash(uf::algo::fnv1a(s)) {}
-
-		inline hashed_string(const uf::stl::string_view s) : hash(uf::algo::fnv1a(s)) {}
-		inline hashed_string(const uf::stl::string& s) : hash(uf::algo::fnv1a(s)) {}
+		constexpr hashed_string() : hash(0), string("NULL") {}
+		constexpr hashed_string(size_t h) : hash(h), string("NULL") {}
+		constexpr hashed_string(const char* s) : hash(uf::algo::fnv1a(s)), string(s) {}
+		inline hashed_string(const uf::stl::string& s) : hash(uf::algo::fnv1a(s)), string(s) {}
 
 		constexpr operator size_t() const { return hash; }
 

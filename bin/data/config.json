@@ -1,10 +1,10 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SourceEngine",
+			"start": "StartMenu",
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"lightmaps": false,
+				"lightmaps": true,
 				"max": 32,
 				"shadows": {
 					"enabled": false,
@@ -87,7 +87,7 @@
 					]
 				},
 				"framebuffer": {
-					"msaa": 1,
+					"msaa": 8,
 					"size": 1
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
@@ -109,7 +109,7 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": true,
+					"default command buffer immediate": false,
 					"n-buffered uniform": false,
 					"multithreaded recording": true
 				},
@@ -359,7 +359,7 @@
 			},
 			"debug draw": {
 				"static": false,
-				"dynamic": false,
+				"dynamic": true,
 				"trigger": false,
 				"contacts": false,
 				"constraints": true,

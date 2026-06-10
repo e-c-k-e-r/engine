@@ -1229,6 +1229,27 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			node.metadata["door"] = metadataValve["door"];
 			loadJson["imports"].emplace_back("ent://door.json");
 		}
+		// bind prop
+		else if ( ( node.name.starts_with("prop_") || node.name == "func_physbox" ) && ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) ) {
+			auto& meshName = graph.meshes[node.mesh];
+
+			// get flags
+			int spawnflags = metadataValve["spawnflags"].as<int>(0);
+			bool motionDisabled = (spawnflags & 8) != 0;
+			bool preventPickup = (spawnflags & 512) != 0;
+
+			// get mass
+			float baseMass = graph.metadata["valve"]["models"][meshName]["mass"].as<float>(1.0f);
+			float massScale = metadataValve["massScale"].as<float>(1.0f);
+			// flag as static
+			if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
+			float mass = baseMass * massScale;
+
+			node.metadata["physics"]["type"] = "mesh";
+			node.metadata["physics"]["mass"] = mass;
+
+			node.metadata["holdable"] = (mass <= 35.0f) && !motionDisabled && !preventPickup;
+		}
 		// assume all other funcs are to have a physics body
 		else if ( node.name.starts_with("func_") ) {
 			if ( ext::json::isNull( node.metadata["physics"] ) ) {
@@ -1237,7 +1258,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				node.metadata["physics"]["category"] = "trigger";
 			}
 		}
-		
+
 		// check if trigger
 		if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 			auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];

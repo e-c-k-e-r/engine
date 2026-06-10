@@ -329,16 +329,20 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		}
 		for ( auto& q : executeQueue ) {
 			if ( q.hash ) {
+			#if UF_UF_HOOKS_HASH_KEYS
 				if ( q.type == 1 ) {
-					this->callHook( q.hash, q.userdata );
+					this->callHook( q.hash, static_cast<const pod::Hook::userdata_t&>(q.userdata) );
 				}
-				else if ( q.type == -1 ) this->callHook( q.hash, q.json );
+				else if ( q.type == -1 ) this->callHook( q.hash, static_cast<const ext::json::Value&>(q.json) );
 				else this->callHook( q.hash );
+			#else
+				UF_EXCEPTION("unimplemented");
+			#endif
 			} else {
 				if ( q.type == 1 ) {
-					this->callHook( q.name, q.userdata );
+					this->callHook( q.name, static_cast<const pod::Hook::userdata_t&>(q.userdata) );
 				}
-				else if ( q.type == -1 ) this->callHook( q.name, q.json );
+				else if ( q.type == -1 ) this->callHook( q.name, static_cast<const ext::json::Value&>(q.json) );
 				else this->callHook( q.name );
 			}
 		}

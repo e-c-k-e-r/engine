@@ -17,7 +17,7 @@ pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image ) 
 	return uf::atlas::add( atlas, image, uf::image::hash( image ) );
 }
 
-void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
+void uf::atlas::generate( pod::Atlas& atlas, size_t padding ) {
 	if ( atlas.tiles.empty() ) return;
 
 	uf::stl::vector<stbrp_rect> rects;
@@ -34,15 +34,15 @@ void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
 
 		stbrp_rect rect;
 		rect.id = static_cast<int>(rects.size());
-		rect.w = dim.x;
-		rect.h = dim.y;
+		rect.w = dim.x + padding * 2;
+		rect.h = dim.y + padding * 2;
 		rects.push_back(rect);
 		hashes.push_back(hash);
 
 		area += dim.x * dim.y;
 	}
 
-	size_t side = std::sqrt( area ) * std::max(1.0f, padding);
+	size_t side = std::sqrt( area );
 	pod::Vector2ui size = { std::bit_ceil(side), std::bit_ceil(side) };
 
 	bool all_packed = false;
@@ -71,8 +71,8 @@ void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
 		auto hash = hashes[rect.id];
 		auto& tile = atlas.tiles[hash];
 
-		tile.coord = { rect.x, rect.y };
-		tile.size  = { rect.w, rect.h };
+		tile.coord = { rect.x + padding	, rect.y + padding	 };
+		tile.size  = { rect.w - padding * 2, rect.h - padding * 2 };
 
 		auto& image = tile.image;
 		auto& srcBuffer = image.pixels;
@@ -94,10 +94,44 @@ void uf::atlas::generate( pod::Atlas& atlas, float padding ) {
 					}
 				}
 			}
+
+			if ( padding > 0 ) {
+				// top and bottom
+				for ( size_t py = 1; py <= padding; ++py ) {
+					size_t topDstY = tile.coord.y - py;
+					size_t topSrcY = tile.coord.y;
+					size_t botDstY = tile.coord.y + tile.size.y - 1 + py;
+					size_t botSrcY = tile.coord.y + tile.size.y - 1;
+
+					size_t rowBytes = tile.size.x * channels * sizeof(decltype(dstBuffer[0]));
+					memcpy( &dstBuffer[topDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[topSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
+					memcpy( &dstBuffer[botDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[botSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
+				}
+
+				// left and right
+				size_t yStart = tile.coord.y - padding;
+				size_t yCount = tile.size.y + padding * 2;
+				for ( size_t y = 0; y < yCount; ++y ) {
+					size_t currentY = yStart + y;
+					size_t rowStart = currentY * size.x * channels;
+
+					for ( size_t px = 1; px <= padding; ++px ) {
+						size_t leftDstX = tile.coord.x - px;
+						size_t leftSrcX = tile.coord.x;
+						size_t rightDstX = tile.coord.x + tile.size.x - 1 + px;
+						size_t rightSrcX = tile.coord.x + tile.size.x - 1;
+
+						for ( size_t c = 0; c < channels; ++c ) {
+							dstBuffer[rowStart + leftDstX * channels + c]  = dstBuffer[rowStart + leftSrcX * channels + c];
+							dstBuffer[rowStart + rightDstX * channels + c] = dstBuffer[rowStart + rightSrcX * channels + c];
+						}
+					}
+				}
+			}
 		}
 	}
 }
-void uf::atlas::generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, float padding  ) {
+void uf::atlas::generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, size_t padding  ) {
 	for ( auto& image : images ) uf::atlas::add( atlas, image );
 	uf::atlas::generate( atlas, padding );
 }
@@ -118,11 +152,12 @@ pod::Vector2f uf::atlas::mapUv( const pod::Atlas& atlas, const pod::Vector2f& uv
 	if ( it != atlas.tiles.end() ) {
 		auto& tile = it->second;
 		auto& size = atlas.image.size;
-		pod::Vector2ui coord = {
-			uv.x * tile.size.x + tile.coord.x,
-			uv.y * tile.size.y + tile.coord.y
+
+		pod::Vector2f coord = {
+			uv.x * (float) tile.size.x + (float) tile.coord.x,
+			uv.y * (float) tile.size.y + (float) tile.coord.y
 		};
-		return pod::Vector2f{ (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };
+		return pod::Vector2f{ coord.x / (float)size.x, coord.y / (float)size.y };
 	}
 	return uv;
 }

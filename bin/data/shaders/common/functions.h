@@ -192,6 +192,13 @@ bool validTextureIndex( uint start, int offset ) {
 uint textureIndex( uint start, int offset ) {
 	return start + offset;
 }
+vec4 sampleTexture( uint id, vec2 uv, vec2 ddx, vec2 ddy ) {
+	const Texture t = textures[id];
+	vec2 scale = t.lerp.zw - t.lerp.xy;
+	vec2 final_uv = mix( t.lerp.xy, t.lerp.zw, uv );
+
+	return textureGrad( samplerTextures[nonuniformEXT(t.index)], final_uv, ddx * scale, ddy * scale );
+}
 vec4 sampleTexture( uint id, vec2 uv ) {
 	const Texture t = textures[id];
 	return texture( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ) );
@@ -205,7 +212,14 @@ vec4 sampleTexture( uint id, vec2 uv, float mip ) {
 #endif
 }
 vec4 sampleTexture( uint id, vec3 uvm ) { return sampleTexture( id, uvm.xy, uvm.z ); }
-vec4 sampleTexture( uint id ) { return sampleTexture( id, surface.uv.xy, surface.uv.z ); }
+vec4 sampleTexture( uint id ) {
+#if QUERY_MIPMAP
+	return sampleTexture( id, uv );
+#else
+	return sampleTexture( id, surface.uv.xy, surface.dUvDx, surface.dUvDy );
+#endif
+}
+// vec4 sampleTexture( uint id ) { return sampleTexture( id, surface.uv.xy, surface.uv.z ); }
 vec4 sampleTexture( uint id, float mip ) { return sampleTexture( id, surface.uv.xy, mip ); }
 #endif
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
@@ -323,7 +337,7 @@ void populateSurfaceMaterial() {
 	// Light mapping
 	if ( ( bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
 		surface.material.lightmapped = true; // light.a > 0.001;
-		vec4 light = decodeRGBE( sampleTexture( surface.instance.lightmapID, surface.st.xy ) );
+		vec4 light = decodeRGBE( sampleTexture( surface.instance.lightmapID, surface.st.xy, 0.0 ) );
 
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
 		const vec3 Lo = normalize(-surface.position.eye);
@@ -355,53 +369,45 @@ uvec4 uvec2_16x4( uvec2 i ) {
 }
 
 #if BUFFER_REFERENCE
+
 void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
-	if ( false && isValidAddress(addresses.vertex) ) {
-	//	Vertices vertices = Vertices(nonuniformEXT(addresses.vertex));
-	//	#pragma unroll 3
-	//	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
+	if ( isValidAddress(addresses.position) ) {
+		VPos buf = VPos(nonuniformEXT(addresses.position));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].position = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+	}
+	if ( isValidAddress(addresses.uv) ) {
+		VUv buf = VUv(nonuniformEXT(addresses.uv));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].uv = buf.v[indices[_]];
+	}
+	if ( isValidAddress(addresses.st) ) {
+		VSt buf = VSt(nonuniformEXT(addresses.st));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].st = buf.v[indices[_]];
+	}
+	if ( isValidAddress(addresses.normal) ) {
+		VNormal buf = VNormal(nonuniformEXT(addresses.normal));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+	}
+	if ( isValidAddress(addresses.tangent) ) {
+		VTangent buf = VTangent(nonuniformEXT(addresses.tangent));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
 	} else {
-		if ( isValidAddress(addresses.position) ) {
-			VPos buf = VPos(nonuniformEXT(addresses.position));
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) points[_].position = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
-			//for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position[_] = buf.v[/*triangle.*/indices[_]*3+_];
-		}
-		if ( isValidAddress(addresses.uv) ) {
-			VUv buf = VUv(nonuniformEXT(addresses.uv));
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv/*[_]*/ = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( isValidAddress(addresses.st) ) {
-			VSt buf = VSt(nonuniformEXT(addresses.st));
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st/*[_]*/ = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( isValidAddress(addresses.normal) ) {
-			VNormal buf = VNormal(nonuniformEXT(addresses.normal));
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
-			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal[_] = buf.v[/*triangle.*/indices[_]*3+_];
-		}
-		if ( isValidAddress(addresses.tangent) ) {
-			VTangent buf = VTangent(nonuniformEXT(addresses.tangent));
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
-			// for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent[_] = buf.v[/*triangle.*/indices[_]*3+_];
-		} else {
-			vec3 edge1 = points[1].position - points[0].position;
-			vec3 edge2 = points[2].position - points[0].position;
-			vec2 deltaUV1 = points[1].uv - points[0].uv;
-			vec2 deltaUV2 = points[2].uv - points[0].uv;
+		vec3 edge1 = points[1].position - points[0].position;
+		vec3 edge2 = points[2].position - points[0].position;
+		vec2 deltaUV1 = points[1].uv - points[0].uv;
+		vec2 deltaUV2 = points[2].uv - points[0].uv;
 
-			float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
-			vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
+		float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+		vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
 
-			#pragma unroll 3
-			for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = tangent_tri;
-		}
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = tangent_tri;
 	}
 
 #if BARYCENTRIC_CALCULATE
@@ -463,6 +469,115 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 		surface.uv.z = 0;
 		surface.st.xy = triangle.point.st;
 		surface.st.z = 0;
+	}
+
+	// bind UV derivatives
+	{
+		surface.dUvDx = vec2(0.0);
+		surface.dUvDy = vec2(0.0);
+
+	#if BARYCENTRIC && MULTISAMPLING
+		ivec2 size = textureSize(samplerId).xy;
+		int sampleIdx = msaa.currentID;
+	#elif BARYCENTRIC
+		ivec2 size = textureSize(samplerId, 0).xy;
+		int sampleIdx = 0;
+	#else
+		ivec2 size = imageSize(outImage).xy;
+		int sampleIdx = 0;
+	#endif
+
+#if BARYCENTRIC
+		ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+		int layer = int(gl_GlobalInvocationID.z);
+
+		uvec2 centerID = uvec2(texelFetch(samplerId, ivec3(coord, layer), sampleIdx).xy);
+
+	#if BARYCENTRIC_CALCULATE
+		#if USE_CAMERA_VIEWPORT
+			mat4 iProj = inverse( camera.viewport[surface.pass].projection );
+			mat4 iView = inverse( camera.viewport[surface.pass].view );
+		#else
+			mat4 iProj = ubo.eyes[surface.pass].iProjection;
+			mat4 iView = ubo.eyes[surface.pass].iView;
+		#endif
+		mat4 invModel = inverse(surface.object.model);
+
+		vec3 pA = points[0].position;
+		vec3 v0 = points[1].position - pA;
+		vec3 v1 = points[2].position - pA;
+		float d00 = dot(v0, v0);
+		float d01 = dot(v0, v1);
+		float d11 = dot(v1, v1);
+		float denom = d00 * d11 - d01 * d01;
+	#endif
+
+		ivec2 offsetX[2] = ivec2[]( ivec2(1, 0), ivec2(-1, 0) );
+		ivec2 offsetY[2] = ivec2[]( ivec2(0, 1), ivec2(0, -1) );
+
+	#if !BARYCENTRIC_CALCULATE
+	#define FETCH_NEIGHBOR_UV(OFFSETS, OUT_GRAD) \
+		for (int i = 0; i < 2; ++i) { \
+			ivec2 off = OFFSETS[i]; \
+			ivec2 nCoord = coord + off; \
+			if ( nCoord.x >= 0 && nCoord.y >= 0 && nCoord.x < size.x && nCoord.y < size.y ) { \
+				if ( uvec2(texelFetch(samplerId, ivec3(nCoord, layer), sampleIdx).xy) == centerID ) { \
+					vec3 bN = decodeBarycentrics(texelFetch(samplerBary, ivec3(nCoord, layer), sampleIdx).xy); \
+					vec2 uvN = points[0].uv * bN.x + points[1].uv * bN.y + points[2].uv * bN.z; \
+					OUT_GRAD = (uvN - surface.uv.xy) * float(off.x + off.y); \
+					break; \
+				} \
+			} \
+		}
+	#else
+	#define FETCH_NEIGHBOR_UV( OFFSETS, OUT_GRAD ) \
+		for (int i = 0; i < 2; ++i) { \
+			ivec2 off = OFFSETS[i]; \
+			ivec2 nCoord = coord + off; \
+			if ( nCoord.x >= 0 && nCoord.y >= 0 && nCoord.x < size.x && nCoord.y < size.y ) { \
+				if ( uvec2(texelFetch(samplerId, ivec3(nCoord, layer), sampleIdx).xy) == centerID ) { \
+					float dN = texelFetch(samplerDepth, ivec3(nCoord, layer), sampleIdx).r; \
+					vec2 inUvN = (vec2(nCoord) / vec2(size)) * 2.0f - 1.0f; \
+					vec4 eyeN = iProj * vec4(inUvN, dN, 1.0); \
+					vec3 pN = vec3(invModel * vec4(vec3(iView * (eyeN / eyeN.w)), 1.0)); \
+					vec3 v2N = pN - pA; \
+					float vN = (d11 * dot(v2N, v0) - d01 * dot(v2N, v1)) / denom; \
+					float wN = (d00 * dot(v2N, v1) - d01 * dot(v2N, v0)) / denom; \
+					vec2 uvN = points[0].uv * (1.0f - vN - wN) + points[1].uv * vN + points[2].uv * wN; \
+					OUT_GRAD = (uvN - surface.uv.xy) * float(off.x + off.y); \
+					break; \
+				} \
+			} \
+		}
+	#endif
+
+		FETCH_NEIGHBOR_UV( offsetX, surface.dUvDx );
+		FETCH_NEIGHBOR_UV( offsetY, surface.dUvDy );
+
+		#undef FETCH_NEIGHBOR_UV
+#endif
+		if ( surface.dUvDx == vec2(0.0) && surface.dUvDy == vec2(0.0) ) {
+		#if USE_CAMERA_VIEWPORT
+			mat4 proj = camera.viewport[surface.pass].projection;
+		#else
+			mat4 proj = ubo.eyes[surface.pass].projection;
+		#endif
+
+			float pixelSize = abs(surface.position.eye.z) * 2.0 / (proj[1][1] * float(size.y));
+
+			vec3 e0 = points[1].position - points[0].position;
+			vec3 e1 = points[2].position - points[0].position;
+			float geomArea = length(cross(e0, e1));
+
+			vec2 dUv1 = points[1].uv - points[0].uv;
+			vec2 dUv2 = points[2].uv - points[0].uv;
+			float uvArea = abs(dUv1.x * dUv2.y - dUv2.x * dUv1.y);
+			float uvPerMeter = sqrt(uvArea / max(geomArea, 0.00001));
+			float fallback = pixelSize * uvPerMeter;
+
+			surface.dUvDx = vec2(fallback, 0.0);
+			surface.dUvDy = vec2(0.0, fallback);
+		}
 	}
 	
 	populateSurfaceMaterial();

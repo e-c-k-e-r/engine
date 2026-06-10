@@ -175,6 +175,8 @@ struct Surface {
 	mat3 tbn;
 	vec3 barycentric;
 	vec2 motion;
+	vec2 dUvDx;
+	vec2 dUvDy;
 	
 	Ray ray;
 	

@@ -509,6 +509,17 @@ namespace impl {
 					auto meshID = graph.meshes.size();
 					if ( ext::valve::loadMdl(graph, model) ) {
 						node.mesh = meshID;
+					} else {
+						uf::stl::string model = "models/error.mdl";
+						auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
+
+						if ( it != graph.meshes.end() ) {
+							node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
+						} else if ( ext::valve::loadMdl( graph, model ) ) {
+							node.mesh = (int32_t)(graph.meshes.size() - 1);
+						} else {
+							node.mesh = -1;
+						}
 					}
 				} else {
 					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
@@ -689,7 +700,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	
 	{	
 		UF_MSG_DEBUG("Generating new lightmap atlas...");
-		uf::atlas::generate( context.lightmapAtlas, 0.0f );
+		uf::atlas::generate( context.lightmapAtlas, 1 );
 		//UF_MSG_DEBUG("Generated lightmap atlas.");
 
 		auto& imageKey = graph.images.emplace_back("lightmap_atlas");

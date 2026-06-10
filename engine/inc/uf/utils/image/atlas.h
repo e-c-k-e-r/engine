@@ -24,8 +24,8 @@ namespace uf {
 		pod::Atlas::hash_t UF_API add( pod::Atlas& atlas, const pod::Image& image, const pod::Atlas::hash_t& hash );
 		pod::Atlas::hash_t UF_API add( pod::Atlas& atlas, const pod::Image& image );
 
-		void UF_API generate( pod::Atlas& atlas, float padding = 1 );
-		void UF_API generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, float padding = 1 );
+		void UF_API generate( pod::Atlas& atlas, size_t padding = 0 );
+		void UF_API generate( pod::Atlas& atlas, const uf::stl::vector<pod::Image>& images, size_t padding = 0 );
 		void UF_API clear( pod::Atlas& atlas, bool full = true );
 		bool UF_API has( const pod::Atlas& atlas, const pod::Atlas::hash_t& hash );
 

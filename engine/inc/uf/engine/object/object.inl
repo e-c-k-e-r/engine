@@ -17,6 +17,7 @@ T uf::Object::loadChild( const uf::stl::string& filename, bool initialize ) {
 	return this->loadChild(filename, initialize);
 }
 
+#if UF_HOOKS_HASH_KEYS
 template<typename T>
 size_t uf::Object::addHook( const size_t& name, T callback ) {
 	size_t id = uf::hooks.addHook( name, callback );
@@ -24,13 +25,23 @@ size_t uf::Object::addHook( const size_t& name, T callback ) {
 	metadata.hooks.bound[name].emplace_back(id);
 	return id;
 }
+#else
+template<typename T>
+size_t uf::Object::addHook( const uf::stl::string& n, T callback ) {
+	auto name = this->formatHookName( n );
+	size_t id = uf::hooks.addHook( name, callback );
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	metadata.hooks.bound[name].emplace_back(id);
+	return id;
+}
+#endif
 
 template<typename K> inline void uf::Object::queueHook( const K& name, float d ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.timeout = uf::time::current + d,
 	});
-	if constexpr ( std::is_same<K, size_t>::value ) {
+	if constexpr ( std::is_same_v<std::decay_t<K>, size_t> ) {
 		queue.hash = name;
 	} else {
 		queue.name = name;
@@ -43,12 +54,12 @@ void uf::Object::queueHook( const K& name, const V& p, float d ) {
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.timeout = uf::time::current + d,
 	});
-	if constexpr ( std::is_same<K, size_t>::value ) {
+	if constexpr ( std::is_same_v<std::decay_t<K>, size_t> ) {
 		queue.hash = name;
 	} else {
 		queue.name = name;
 	}
-	if constexpr ( std::is_same<V, ext::json::Value>::value ) {
+	if constexpr ( std::is_same_v<std::decay_t<V>, ext::json::Value> ) {
 		queue.type = -1;
 		queue.json = p;
 	} else {

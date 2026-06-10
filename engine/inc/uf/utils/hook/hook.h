@@ -36,7 +36,7 @@ namespace pod {
 	};
 }
 
-#define UF_HOOKS_HASH_KEYS 1
+#define UF_HOOKS_HASH_KEYS 0
 
 namespace uf {
 	class UF_API Hooks {

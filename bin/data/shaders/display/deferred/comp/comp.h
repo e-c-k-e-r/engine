@@ -145,11 +145,13 @@ layout (binding = 21, set = 0) uniform sampler3D samplerNoise;
 bool USE_SKYBOX_ON_DIVERGENCE = false;
 
 void postProcess() {
+#if !MULTISAMPLING
 	if ( USE_SKYBOX_ON_DIVERGENCE ) {
 		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
 		}
 	}
+#endif
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
@@ -331,11 +333,12 @@ void indirectLighting() {
 
 #if MULTISAMPLING
 void resolveSurfaceFragment() {
+	msaa.fragment = vec4(0.0);
+
 	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
 		msaa.currentID = i;
 		msaa.IDs[i] = uvec3(IMAGE_LOAD(samplerId)).xy;
 
-		// check if ID is already used
 		bool unique = true;
 		for ( int j = msaa.currentID - 1; j >= 0; --j ) {
 			if ( msaa.IDs[j] == msaa.IDs[i] ) {
@@ -347,16 +350,24 @@ void resolveSurfaceFragment() {
 
 		if ( unique ) {
 			populateSurface();
-		#if VXGI || RT
-			indirectLighting();
-		#endif
-			directLighting();
+
+			if ( msaa.IDs[i].x == 0 || msaa.IDs[i].y == 0 ) {
+				if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+					surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
+					surface.fragment.a = 1.0;
+				}
+			} else {
+			#if VXGI || RT
+				indirectLighting();
+			#endif
+				directLighting();
+			}
 		}
 
 		msaa.fragment += surface.fragment;
 		msaa.fragments[msaa.currentID] = surface.fragment;
 	}
-	
-	surface.fragment = msaa.fragment / ubo.settings.mode.msaa;
+
+	surface.fragment = msaa.fragment / float(ubo.settings.mode.msaa);
 }
 #endif

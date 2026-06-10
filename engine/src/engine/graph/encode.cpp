@@ -210,7 +210,7 @@ namespace {
 
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
-			const uf::stl::string filename = ::fmt::format("{}.buffer.{}.{}", settings.filename, i, settings.compression == "none" ? "bin" : settings.compression );
+			const uf::stl::string filename = ::fmt::format("{}.buffer.{}.{}", settings.filename, i, ( settings.compression == "none" ? "bin" : settings.compression ) );
 			uf::io::write( filename, mesh.buffers[i] );
 			json["buffers"].emplace_back(uf::io::filename( filename ));
 		}
@@ -335,15 +335,15 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
 				auto& name = graph.images[i];
 				auto& image = /*graph.storage*/storage.images.map.at(name).data;
-				uf::stl::string f = ::fmt::format("{}/image.{}.png", directory, i );
-				image.save(directory + "/" + f);
+				uf::stl::string f = ::fmt::format("image.{}.png", i );
+				image.save(::fmt::format("{}/{}", directory, f));
 
 				// export DC's .dtex
 			#if UF_USE_DC_TEXCONV
 				// to-do: properly scale per my script
 				auto converted = image.scale( {32, 32}, "nearest" );
 				auto dtex = ext::texconv::convert( converted );
-				ext::texconv::save( dtex, ::fmt::format("{}/image.{}", directory, i ) );
+				ext::texconv::save( dtex, ::fmt::format("{}/image.{}", directory, i) );
 			#endif
 
 				uf::Serializer json;
@@ -407,9 +407,9 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		if ( !settings.combined ) {
 			for ( auto i = 0; i < graph.animations.size(); ++i ) {
 				auto& name = graph.animations[i];
-				uf::stl::string f =::fmt::format("animation.{}.json", i);
+				uf::stl::string f = ::fmt::format( "animation.{}.json", i );
 				auto& animation = /*graph.storage*/storage.animations.map.at(name);
-				encode(animation, settings, graph).writeToFile(::fmt::format("{}/{}", directory, f));
+				encode(animation, settings, graph).writeToFile(directory+"/"+f);
 				serializer["animations"].emplace_back(f);
 			}
 		} else {
