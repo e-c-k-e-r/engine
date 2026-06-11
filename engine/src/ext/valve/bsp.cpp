@@ -933,16 +933,17 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		if ( vmt["$phong"].as<int>(0) == 1 ) material.factorRoughness = std::min(material.factorRoughness, 0.5f);
 
 		if ( vmt["$translucent"].as<int>(0) == 1 ) {
-			material.modeAlpha = 1; // BLEND
+			material.modeAlpha = pod::Material::AlphaMode::BLEND;
 		} else if ( vmt["$alphatest"].as<int>(0) == 1 ) {
-			material.modeAlpha = 2; // MASK
+			material.modeAlpha = pod::Material::AlphaMode::MASK;
 			material.factorAlphaCutoff = vmt["$alphatestreference"].as<float>(0.5f);
 		}
-		if ( vmt["$nocull"].as<int>(0) == 1 ) material.modeCull = 0;
+		if ( vmt["$nocull"].as<int>(0) == 1 ) material.modeCull = pod::Material::CullMode::NONE;
 
-		// VMTs usually define emissive masks in the albedo's alpha channel or a separate mask
-		// set it to a white glow for now until I can patch the shader
-		if ( vmt["$selfillum"].as<int>(0) == 1 ) material.colorEmissive = { 1.0f, 1.0f, 1.0f, 1.0f };
+		if ( vmt["$selfillum"].as<int>(0) == 1 ) {
+			material.colorEmissive = { 1.0f, 1.0f, 1.0f, 1.0f };
+			material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
+		}
 		if ( !vmt["$basetexture"].is<uf::stl::string>() ) goto PEETAH;
 
 		vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());

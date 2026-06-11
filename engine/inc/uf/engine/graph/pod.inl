@@ -1,5 +1,21 @@
+
+#undef OPAQUE
+
 namespace pod {
 	struct UF_API Material {
+		struct AlphaMode {
+			static constexpr int32_t NONE = -1;
+			static constexpr int32_t OPAQUE = 0;
+			static constexpr int32_t BLEND = 1;
+			static constexpr int32_t MASK = 2;
+			static constexpr int32_t EMISSIVE = 3;
+		};
+
+		struct CullMode {
+			static constexpr int32_t DEFAULT = -1;
+			static constexpr int32_t NONE = 0;
+		};
+
 		pod::Vector4f colorBase = { 0, 0, 0, 0 };
 		pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
 		

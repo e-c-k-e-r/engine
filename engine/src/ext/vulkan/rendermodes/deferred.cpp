@@ -118,7 +118,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	size_t msaa = ext::vulkan::settings::msaa;
 
 	struct {
-		size_t id, bary, depth, uv, normal;
+		size_t id, bary, depth, depth_resolved, uv, normal;
 		size_t color, scratch, motion, output;
 	} attachments = {};
 
@@ -172,7 +172,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		/*.blend =*/ false,
+		/*.blend =*/ true,
 		/*.samples =*/ 1,
 	});
 	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
@@ -192,6 +192,20 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.samples = */1,
 	});
 
+	if ( msaa > 1 ) {
+		attachments.depth_resolved = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			.format = ext::vulkan::settings::formats::depth,
+			.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			.blend = false,
+			.samples = 1,
+			.mips = 1,
+		});
+	} else {
+		attachments.depth_resolved = attachments.depth;
+	}
+	
+
 	metadata.attachments["id"] = attachments.id;
 
 #if BARYCENTRIC
@@ -204,6 +218,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 #endif
 	
 	metadata.attachments["depth"] = attachments.depth;
+	metadata.attachments["depth_resolved"] = attachments.depth_resolved;
 	metadata.attachments["color"] = attachments.color;
 	metadata.attachments["scratch"] = attachments.scratch;
 	metadata.attachments["motion"] = attachments.motion;
@@ -266,7 +281,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		} attachmentsPlus = {};
 
 		attachmentsPlus.color = forwardRenderTarget.aliasAttachment(this->getAttachment("color"));
-		attachmentsPlus.depth = forwardRenderTarget.aliasAttachment(this->getAttachment("depth"));
+		attachmentsPlus.depth = forwardRenderTarget.aliasAttachment(this->getAttachment("depth_resolved"));
 
 		metadata.attachments["color+"] = attachmentsPlus.color;
 		metadata.attachments["depth+"] = attachmentsPlus.depth;
@@ -387,6 +402,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("motion", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("depth_resolved", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
 		
 		if ( settings::pipelines::bloom ) {
@@ -429,7 +445,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute", "dof-down");
 
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("depth_resolved", this);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
@@ -446,7 +462,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute", "dof-up");
 
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("depth_resolved", this);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			{
@@ -463,7 +479,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
 
-			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("depth_resolved", this);
 
 			// atomic counter buffer
 			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
@@ -650,7 +666,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		forwardRenderTarget.scale = renderTarget.scale;
 		forwardRenderTarget.attachments.clear();
 		forwardRenderTarget.aliasAttachment(this->getAttachment("color"));
-		forwardRenderTarget.aliasAttachment(this->getAttachment("depth"));
+		forwardRenderTarget.aliasAttachment(this->getAttachment("depth_resolved"));
 		forwardRenderTarget.initialize( *forwardRenderTarget.device );
 	}
 
@@ -934,35 +950,35 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			// forward+
 			{
 				{
-				    device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "forward:setImageLayout" );
+					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "forward:setImageLayout" );
 
-				    // Transition Color
-				    VkImageSubresourceRange colorRange = {};
-				    colorRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				    colorRange.baseMipLevel = 0;
-				    colorRange.levelCount = 1;
-				    colorRange.baseArrayLayer = 0;
-				    colorRange.layerCount = metadata.eyes; // Or this->views
+					// Transition Color
+					VkImageSubresourceRange colorRange = {};
+					colorRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+					colorRange.baseMipLevel = 0;
+					colorRange.levelCount = 1;
+					colorRange.baseArrayLayer = 0;
+					colorRange.layerCount = metadata.eyes;
 
-				    uf::renderer::Texture::setImageLayout(
-				        commandBuffer,
-				        forwardRenderTarget.attachments[0].image,
-				        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				        colorRange
-				    );
+					uf::renderer::Texture::setImageLayout(
+						commandBuffer,
+						forwardRenderTarget.attachments[0].image,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						colorRange
+					);
 
-				    // Transition Depth
-				    VkImageSubresourceRange depthRange = colorRange;
-				    depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // Depth aspect!
+					// Transition Depth
+					VkImageSubresourceRange depthRange = colorRange;
+					depthRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-				    uf::renderer::Texture::setImageLayout(
-				        commandBuffer,
-				        forwardRenderTarget.attachments[1].image,
-				        VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-				        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				        depthRange
-				    );
+					uf::renderer::Texture::setImageLayout(
+						commandBuffer,
+						forwardRenderTarget.attachments[1].image,
+						VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+						VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+						depthRange
+					);
 				}
 
 				renderPassBeginInfo.clearValueCount = 0;

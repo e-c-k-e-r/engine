@@ -98,7 +98,8 @@ namespace {
 
 		// standard pipeline
 		{
-			uf::stl::string vertexShaderFilename = graphMetadataJson["shaders"]["vertex"].as<uf::stl::string>("/graph/base/vert.spv"); {
+			uf::stl::string dir = "/graph/base/";
+			uf::stl::string vertexShaderFilename = graphMetadataJson["shaders"]["vertex"].as<uf::stl::string>(::fmt::format("{}/{}", dir, "vert.spv" )); {
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ graphMetadataJson["renderer"]["skinned"].as<bool>(), "skinned.vert" },
 					{ !graphMetadataJson["renderer"]["separate"].as<bool>(), "instanced.vert" },
@@ -109,7 +110,11 @@ namespace {
 			uf::stl::string geometryShaderFilename = graphMetadataJson["shaders"]["geometry"].as<uf::stl::string>(""); if ( geometryShaderFilename != "" ) {
 				geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
 			}
-			uf::stl::string fragmentShaderFilename = graphMetadataJson["shaders"]["fragment"].as<uf::stl::string>("/graph/base/frag.spv"); {
+			
+			if ( graphic.descriptor.renderTarget == 1 ) {
+				dir = "/base/graph/";
+			}
+			uf::stl::string fragmentShaderFilename = graphMetadataJson["shaders"]["fragment"].as<uf::stl::string>(::fmt::format("{}/{}", dir, "frag.spv")); {
 				fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 			}
 
@@ -136,12 +141,20 @@ namespace {
 			{
 				auto& shader = graphic.material.getShader("fragment");
 			#if UF_USE_VULKAN
-				uint32_t maxTextures = storage.textures.map.size();
+				size_t maxTextures = storage.textures.map.size();
+				size_t maxCubemaps = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+				uint32_t maxCascades = sceneTextures.voxels.id.size();
+
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures },
+					{ "CUBEMAPS", maxCubemaps },
+					{ "CASCADES", maxCascades },
 				});
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures },
+					{ "samplerCubemaps", maxCubemaps },
+					{ "voxelOutput", maxCascades },
 				});
 			#endif
 			}
@@ -385,6 +398,8 @@ namespace {
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
+				shader.aliasBuffer( "object", storage.buffers.object );
+				shader.aliasBuffer( "camera", storage.buffers.camera );
 			}
 		}
 
@@ -718,14 +733,20 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 	
 	// query materials if culling needs to be disabled
-	for ( auto& primitive : primitives ) {
-		auto materialID = primitive.instance.materialID;
-		if ( 0 <= materialID && materialID <= graph.materials.size() ) {
-			auto& materialName = graph.materials[materialID];
-			auto& material = storage.materials[materialName];
-			if ( material.modeCull == 0 ) {
-				tag["renderer"]["cull mode"] = "none";
-				break;
+	if ( entity.getName() != "worldspawn" ) {
+		for ( auto& primitive : primitives ) {
+			auto materialID = primitive.instance.materialID;
+			if ( 0 <= materialID && materialID <= graph.materials.size() ) {
+				auto& materialName = graph.materials[materialID];
+				auto& material = storage.materials[materialName];
+				if ( material.modeCull == pod::Material::CullMode::NONE ) {
+					tag["renderer"]["cull mode"] = "none";
+				}
+			#if UF_USE_VULKAN
+				if ( material.modeAlpha == pod::Material::AlphaMode::BLEND ) {
+					graphic.descriptor.renderTarget = 1;
+				}
+			#endif
 			}
 		}
 	}
@@ -1032,9 +1053,10 @@ void uf::graph::process( pod::Graph& graph ) {
 			
 			if ( tag["material"]["modeAlpha"].is<uf::stl::string>() ) {
 				const auto mode = uf::string::lowercase( tag["material"]["modeAlpha"].as<uf::stl::string>() );
-				if ( mode == "opaque" ) material.modeAlpha = 0;
-				else if ( mode == "blend" ) material.modeAlpha = 1;
-				else if ( mode == "mask" ) material.modeAlpha = 2;
+				if ( mode == "opaque" ) material.modeAlpha = pod::Material::AlphaMode::OPAQUE;
+				else if ( mode == "blend" ) material.modeAlpha = pod::Material::AlphaMode::BLEND;
+				else if ( mode == "mask" ) material.modeAlpha = pod::Material::AlphaMode::MASK;
+				else if ( mode == "emissive" ) material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
 				else UF_MSG_WARNING("Invalid AlphaMode enum string specified: {}", mode);
 			} else {
 				material.modeAlpha = tag["material"]["modeAlpha"].as(material.modeAlpha);

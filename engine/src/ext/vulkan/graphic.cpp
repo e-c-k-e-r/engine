@@ -339,6 +339,10 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			samples,
 			0
 		);
+		// cringe
+		if ( samples > 1 && descriptor.renderTarget == 1 ) {
+			multisampleState.alphaToCoverageEnable = VK_TRUE;
+		}
 		if ( samples > 1 && device.features.sampleRateShading ) {
 			multisampleState.sampleShadingEnable = VK_TRUE;
 			multisampleState.minSampleShading = 0.25f;

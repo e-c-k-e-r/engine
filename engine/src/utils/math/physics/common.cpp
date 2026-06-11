@@ -1,14 +1,12 @@
 #include <uf/utils/math/physics/common.h>
 
 // create ID from pointers
-uint64_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
-	uint64_t lhs = reinterpret_cast<uint64_t>(&a);
-	uint64_t rhs = reinterpret_cast<uint64_t>(&b);
-	if (lhs > rhs) std::swap(lhs, rhs);
-	size_t seed = 0;
-	seed ^= std::hash<uint64_t>{}(lhs) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-	seed ^= std::hash<uint64_t>{}(rhs) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-	return seed;
+size_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
+    uintptr_t lhs = reinterpret_cast<uintptr_t>(&a);
+    uintptr_t rhs = reinterpret_cast<uintptr_t>(&b);
+    if ( lhs > rhs ) std::swap(lhs, rhs);
+    size_t hash = uf::algo::fnv1a(lhs);
+    return uf::algo::fnv1a(rhs, hash);
 }
 
 // marks a body as asleep

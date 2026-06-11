@@ -35,10 +35,15 @@ namespace {
 				}
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+			bool isDepth = descriptor.name.starts_with("depth");
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.levelCount = 1;
-			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-			uf::renderer::Texture::setImageLayout( commandBuffer, image, layout, descriptor.layout, subresourceRange );
+			subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+			VkImageLayout oldLayout = layout;
+			if ( isDepth && layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+				oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			}
+			uf::renderer::Texture::setImageLayout( commandBuffer, image, oldLayout, descriptor.layout, subresourceRange );
 			if ( mips > 1 ) {
 				subresourceRange.baseMipLevel = 1;
 				subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
@@ -82,10 +87,15 @@ namespace {
 				}
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+			bool isDepth = descriptor.name.starts_with("depth");
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.levelCount = 1;
-			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-			uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, layout, subresourceRange );
+			subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+			VkImageLayout newLayout = layout;
+			if ( isDepth && layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+				newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			}
+			uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, newLayout, subresourceRange );
 			if ( mips > 1 ) {
 				subresourceRange.baseMipLevel = 1;
 				subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;

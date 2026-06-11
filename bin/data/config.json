@@ -87,7 +87,7 @@
 					]
 				},
 				"framebuffer": {
-					"msaa": 8,
+					"msaa": 2,
 					"size": 1
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]

@@ -5,7 +5,7 @@
 
 // to-do: organize this mess
 namespace impl {
-	uint64_t makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b );
+	size_t makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b );
 	void wakeBody( pod::PhysicsBody& body );
 	void sleepBody( pod::PhysicsBody& body );
 	void updateActivity( pod::PhysicsBody& body, float dt );

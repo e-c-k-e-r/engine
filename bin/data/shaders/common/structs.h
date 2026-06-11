@@ -177,6 +177,8 @@ struct Surface {
 	vec2 motion;
 	vec2 dUvDx;
 	vec2 dUvDy;
+	vec2 dStDx;
+	vec2 dStDy;
 	
 	Ray ray;
 	
@@ -192,6 +194,7 @@ struct Surface {
 #if MULTISAMPLING
 struct MSAA {
 	int currentID;
+	float depth;
 	uvec2 IDs[MAX_MSAA_SAMPLES];
 	vec4 fragment;
 	vec4 fragments[MAX_MSAA_SAMPLES];

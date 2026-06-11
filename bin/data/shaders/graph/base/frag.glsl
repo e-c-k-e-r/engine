@@ -102,6 +102,9 @@ void main() {
 	} else if ( material.modeAlpha == 2 ) {
 		if ( A.a < abs(material.factorAlphaCutoff) ) discard;
 		A.a = 1;
+	// alpha mode EMISSIVE
+	} else if ( material.modeAlpha == 3 ) {
+		A.a = 1;
 	}
 	if ( A.a < 0.0001 ) discard;
 

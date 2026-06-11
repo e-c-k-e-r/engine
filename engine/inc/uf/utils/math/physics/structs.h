@@ -221,20 +221,6 @@ namespace pod {
 	struct BVH {
 		typedef uint32_t index_t;
 		typedef std::pair<index_t,index_t> pair_t;
-		
-		struct PairHash {
-			size_t operator()( const pair_t& p ) const noexcept {
-				uint64_t a = (uint64_t) std::min(p.first, p.second);
-				uint64_t b = (uint64_t) std::max(p.first, p.second);
-				return (a << 32) ^ b;
-			}
-		};
-		struct PairEq {
-			bool operator()( const pair_t& a, const pair_t& b ) const noexcept {
-				return (a.first == b.first && a.second == b.second) || (a.first == b.second && a.second == b.first);
-			}
-		};
-
 		typedef uf::stl::vector<pair_t> pairs_t;
 		
 		struct Node {

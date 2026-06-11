@@ -174,7 +174,7 @@ vec3 decodeSrgb(vec3 rgb) {
 	const vec3 c = step(vec3(0.04045), rgb);
 	return mix(a, b, c);
 }
-#if !SPD && (DEFERRED || FRAGMENT || COMPUTE || RT)
+#if !SPD && (DEFERRED || FRAGMENT || COMPUTE || RT || FORWARD)
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_TEXTURES;
 }
@@ -304,6 +304,10 @@ void populateSurfaceMaterial() {
 	// MASK
 	} else if ( material.modeAlpha == 2 ) {
 
+	// EMISSIVE
+	} else if ( material.modeAlpha == 3 ) {
+		surface.light.rgb *= surface.material.albedo.rgb * surface.material.albedo.a;
+		surface.material.albedo.a = 1.0;
 	}
 
 	// Emissive mapping
@@ -348,7 +352,8 @@ void populateSurfaceMaterial() {
 		surface.light.rgb += (kD * surface.material.albedo.rgb * light.rgb) * surface.material.occlusion;
 	}
 }
-
+#endif
+#if DEFERRED_SAMPLING
 bool isValidAddress( uint64_t address ) {
 #if UINT64_ENABLED
 	return bool(address);

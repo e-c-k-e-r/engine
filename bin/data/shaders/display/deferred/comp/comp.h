@@ -53,6 +53,9 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 layout(binding = 7, set = 0, rgba16f) uniform writeonly image2DArray imageColor;
 layout(binding = 8, set = 0, rgba16f) uniform writeonly image2DArray imageBright;
 layout(binding = 9, set = 0, rg16f) uniform writeonly image2DArray imageMotion;
+#if MULTISAMPLING
+layout(binding = 10, set = 0, r32f) uniform writeonly image2DArray imageDepthResolved;
+#endif
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -61,46 +64,46 @@ layout( push_constant ) uniform PushBlock {
 
 #include "../../../common/structs.h"
 
-layout (binding = 10, set = 0) uniform Camera {
+layout (binding = 11, set = 0) uniform Camera {
 	Viewport viewport[2];
 } camera;
 
-layout (binding = 11, set = 0) uniform UBO {
+layout (binding = 12, set = 0) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
 
-layout (std140, binding = 12, set = 0) readonly buffer DrawCommands {
+layout (std140, binding = 13, set = 0) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 13, set = 0) readonly buffer Instances {
+layout (std140, binding = 14, set = 0) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 14, set = 0) readonly buffer InstanceAddresseses {
+layout (std140, binding = 15, set = 0) readonly buffer InstanceAddresseses {
 	InstanceAddresses addresses[];
 };
-layout (std140, binding = 15, set = 0) readonly buffer Objects {
+layout (std140, binding = 16, set = 0) readonly buffer Objects {
 	Object objects[];
 };
-layout (std140, binding = 16, set = 0) readonly buffer Materials {
+layout (std140, binding = 17, set = 0) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 17, set = 0) readonly buffer Textures {
+layout (std140, binding = 18, set = 0) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 18, set = 0) readonly buffer Lights {
+layout (std140, binding = 19, set = 0) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 19, set = 1) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 20, set = 1) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 21, set = 0) uniform sampler3D samplerNoise;
+layout (binding = 20, set = 1) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 21, set = 1) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 22, set = 0) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 22, set = 0) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 23, set = 0) uniform sampler3D voxelOutput[CASCADES];
 #endif
 #if RT
-	layout (binding = 23, set = 0) uniform accelerationStructureEXT tlas;
+	layout (binding = 24, set = 0) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -334,10 +337,16 @@ void indirectLighting() {
 #if MULTISAMPLING
 void resolveSurfaceFragment() {
 	msaa.fragment = vec4(0.0);
+	msaa.depth = texelFetch(samplerDepth, ivec3(gl_GlobalInvocationID.xyz), 0).r;
 
 	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
 		msaa.currentID = i;
 		msaa.IDs[i] = uvec3(IMAGE_LOAD(samplerId)).xy;
+
+		if ( i > 0 ) {
+			float depth = texelFetch(samplerDepth, ivec3(gl_GlobalInvocationID.xyz), i).r;
+			msaa.depth = max(msaa.depth, depth);
+		}
 
 		bool unique = true;
 		for ( int j = msaa.currentID - 1; j >= 0; --j ) {
@@ -369,5 +378,7 @@ void resolveSurfaceFragment() {
 	}
 
 	surface.fragment = msaa.fragment / float(ubo.settings.mode.msaa);
+
+	IMAGE_STORE( imageDepthResolved, vec4(msaa.depth, 0, 0, 0) );
 }
 #endif
