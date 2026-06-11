@@ -65,62 +65,6 @@ void uf::Object::queueDeletion() {
 	this->callHook("entity:Destroy.%UID%");
 }
 
-#if UF_HOOKS_HASH_KEYS
-uf::hashed_string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
-	if ( fetch ) {
-		auto* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
-		if ( object ) return object->formatHookName( n );
-	}
-
-	size_t hash = {};
-	uf::hash( hash, n );
-	if ( n.ends_with("%UID%") ) uf::hash( hash, uid );
-
-	uf::hashed_string res = hash;
-	res.string = n;
-	return res;
-}
-
-
-uf::hashed_string uf::Object::formatHookName( const uf::stl::string& n ) {
-	size_t uid = this->getUid();
-	size_t parent = this->hasParent() ? this->getParent().getUid() : uid;
-
-	size_t hash = {};
-	uf::hash( hash, n );
-	if ( n.ends_with("%P-UID%") ) uf::hash( hash, parent );
-	else if ( n.ends_with("%UID%") ) uf::hash( hash, uid );
-
-	uf::hashed_string res = hash;
-	res.string = n;
-	return res;
-}
-#else
-uf::stl::string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
-	if ( fetch ) {
-		auto* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
-		if ( object ) return object->formatHookName( n );
-	}
-
-	uf::stl::string res = n;
-	if ( n.ends_with("%UID%") ) res = uf::string::replace( res, "%UID%", ::fmt::format( "{}", uid ) );
-
-	return res;
-}
-
-
-uf::stl::string uf::Object::formatHookName( const uf::stl::string& n ) {
-	size_t uid = this->getUid();
-	size_t parent = this->hasParent() ? this->getParent().getUid() : uid;
-
-	uf::stl::string res = n;
-	if ( n.ends_with("%P-UID%") ) res = uf::string::replace( res, "%P-UID%", ::fmt::format( "{}", parent ) );
-	else if ( n.ends_with("%UID%") ) res = uf::string::replace( res, "%UID%", ::fmt::format( "{}", uid ) );
-
-	return res;
-}
-#endif
-
 bool uf::Object::load( const uf::stl::string& f, bool inheritRoot ) {
 	uf::Serializer json;
 	uf::stl::string root = "";

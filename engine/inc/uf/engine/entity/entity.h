@@ -110,10 +110,9 @@ namespace uf {
 		template<typename T> T loadChild( const uf::Serializer&, bool = true );
 		template<typename T> T loadChild( const uf::stl::string&, bool = true );
 
-	#if UF_HOOKS_HASH_KEYS
-		uf::hashed_string formatHookName( const uf::stl::string& n );
-		static uf::hashed_string formatHookName( const uf::stl::string& n, size_t uid, bool fetch = false );
-		
+		inline uf::hashed_string formatHookName( const uf::stl::string_view& n );
+		static inline uf::hashed_string formatHookName( const uf::stl::string_view& n, size_t uid, bool fetch = false );
+
 		inline size_t resolveHookKey( size_t hash ) const { return hash; }
 		inline size_t resolveHookKey( const uf::stl::string& name ) { return this->formatHookName(name); }
 	
@@ -125,7 +124,7 @@ namespace uf {
 		template<typename K> inline void queueHook( const K& name, float timeout = 0 );
 		template<typename K, typename V> inline void queueHook( const K& name, const V&, float = 0 );
 		
-		template<typename K, typename... Args> uf::Hooks::return_t lazyCallHook(const K& name, Args&&... args) {
+		template<typename K, typename... Args> inline uf::Hooks::return_t lazyCallHook(const K& name, Args&&... args) {
 			if ( uf::Object::deferLazyCalls ) {
 				this->queueHook(name, std::forward<Args>(args)..., 0.0f);
 				return {};
@@ -136,27 +135,6 @@ namespace uf {
 		template<typename K, typename... Args> inline uf::Hooks::return_t callHook( const K& name, Args&&... args ) {
 			return uf::hooks.call( this->resolveHookKey(name), std::forward<Args>(args)... );
 		}
-	#else
-		uf::stl::string formatHookName( const uf::stl::string& n );
-		static uf::stl::string formatHookName( const uf::stl::string& n, size_t uid, bool fetch = false );
-
-		template<typename T> size_t addHook( const uf::stl::string& name, T function );
-
-		template<typename K> inline void queueHook( const K& name, float timeout = 0 );
-		template<typename K, typename V> inline void queueHook( const K& name, const V&, float = 0 );
-		
-		template<typename K, typename... Args> uf::Hooks::return_t lazyCallHook(const K& name, Args&&... args) {
-			if ( uf::Object::deferLazyCalls ) {
-				this->queueHook(name, std::forward<Args>(args)..., 0.0f);
-				return {};
-			}
-			return this->callHook( name, std::forward<Args>(args)... );
-		}
-
-		template<typename K, typename... Args> inline uf::Hooks::return_t callHook( const K& name, Args&&... args ) {
-			return uf::hooks.call( this->formatHookName( name ), std::forward<Args>(args)... );
-		}
-	#endif
 
 		uf::stl::string resolveURI( const uf::stl::string& filename, const uf::stl::string& root = "" );
 		uf::asset::Payload resolveToPayload( const uf::stl::string& filename, const uf::stl::string& mime = "" );

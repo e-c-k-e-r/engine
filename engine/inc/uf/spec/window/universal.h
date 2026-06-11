@@ -18,7 +18,7 @@ namespace spec {
 			typedef pod::Vector2i 							vector_t;
 
 			struct Event {
-				uf::stl::string name;
+				uf::Hooks::name_t name; // ugh
 				pod::Hook::userdata_t payload;
 			};
 		protected:

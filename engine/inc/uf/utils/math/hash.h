@@ -19,23 +19,19 @@ namespace uf {
 		using FNV = FNV1a<sizeof(size_t)>;
 
 		constexpr size_t fnv1a(const char* str, size_t hash = FNV::basis) {
-			return *str ? fnv1a(str + 1, (hash ^ static_cast<size_t>(*str)) * FNV::prime) : hash;
+			return *str ? fnv1a(str + 1, (hash ^ static_cast<size_t>(static_cast<uint8_t>(*str))) * FNV::prime) : hash;
 		}
 
-		constexpr size_t fnv1a(const uf::stl::string_view str) {
-			size_t hash = FNV::basis;
+		constexpr size_t fnv1a(const uf::stl::string_view str, size_t hash = FNV::basis) {
 			for (char c : str) hash = (hash ^ static_cast<size_t>(c)) * FNV::prime;
 			return hash;
 		}
-	/*
-		inline size_t fnv1a(const uf::stl::string& str) {
-			return fnv1a(uf::stl::string_view(str));
+		inline size_t fnv1a(const uf::stl::string& str, size_t hash = FNV::basis) {
+			return fnv1a(uf::stl::string_view(str), hash);
 		}
-	*/
 
-		template<typename T, std::enable_if_t<std::is_trivially_copyable_v<T>, int> = 0>
-		inline size_t fnv1a(const T& v) {
-			size_t hash = FNV::basis;
+		template<typename T, std::enable_if_t<std::is_trivially_copyable_v<T> && !std::is_array_v<T> && !std::is_pointer_v<T>, int> = 0>
+		inline size_t fnv1a(const T& v, size_t hash = FNV::basis) {
 			const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&v);
 			for (size_t i = 0; i < sizeof(T); ++i) {
 				hash = (hash ^ static_cast<size_t>(bytes[i])) * FNV::prime;
@@ -43,10 +39,13 @@ namespace uf {
 			return hash;
 		}
 
-		template<typename T>
-		inline size_t fnv1a(const uf::stl::vector<T>& values) {
-			size_t hash = FNV::basis;
+		template<size_t N>
+		constexpr size_t fnv1a(const char (&str)[N], size_t hash = FNV::basis) {
+			return fnv1a(uf::stl::string_view(str, N - 1), hash);
+		}
 
+		template<typename T>
+		inline size_t fnv1a(const uf::stl::vector<T>& values, size_t hash = FNV::basis) {
 			if constexpr (std::is_same_v<T, bool>) {
 				for (bool b : values) {
 					hash = (hash ^ static_cast<size_t>(b)) * FNV::prime;

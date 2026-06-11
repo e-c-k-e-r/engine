@@ -17,7 +17,39 @@ T uf::Object::loadChild( const uf::stl::string& filename, bool initialize ) {
 	return this->loadChild(filename, initialize);
 }
 
-#if UF_HOOKS_HASH_KEYS
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view& n ) {
+	constexpr uf::stl::string_view PARENT_UID_SUFFIX = "%P-UID%";
+	constexpr uf::stl::string_view UID_SUFFIX = "%UID%";
+
+	if ( n.ends_with(PARENT_UID_SUFFIX) ) {
+		size_t uid = this->hasParent() ? this->getParent().getUid() : this->getUid();
+		uf::hashed_string hash{uf::stl::string_view(n).substr(0, n.size() - PARENT_UID_SUFFIX.size())};
+		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+	}
+	if ( n.ends_with(UID_SUFFIX) ) {
+		size_t uid = this->getUid();
+		uf::hashed_string hash{uf::stl::string_view(n).substr(0, n.size() - UID_SUFFIX.size())};
+		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+	}
+
+	return n;
+}
+uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view& n, size_t uid, bool fetch ) {
+	if ( fetch ) {
+		auto* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
+		if ( object ) return object->formatHookName( n );
+	}
+
+	constexpr uf::stl::string_view UID_SUFFIX = "%UID%";
+
+	if ( n.ends_with(UID_SUFFIX) ) {
+		uf::hashed_string hash = uf::stl::string_view(n).substr(0, n.size() - UID_SUFFIX.size());
+		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+	}
+
+	return n;
+}
+
 template<typename T>
 size_t uf::Object::addHook( const size_t& name, T callback ) {
 	size_t id = uf::hooks.addHook( name, callback );
@@ -25,16 +57,6 @@ size_t uf::Object::addHook( const size_t& name, T callback ) {
 	metadata.hooks.bound[name].emplace_back(id);
 	return id;
 }
-#else
-template<typename T>
-size_t uf::Object::addHook( const uf::stl::string& n, T callback ) {
-	auto name = this->formatHookName( n );
-	size_t id = uf::hooks.addHook( name, callback );
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	metadata.hooks.bound[name].emplace_back(id);
-	return id;
-}
-#endif
 
 template<typename K> inline void uf::Object::queueHook( const K& name, float d ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();

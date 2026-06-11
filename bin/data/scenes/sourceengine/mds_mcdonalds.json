@@ -1,8 +1,8 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-		{ "filename": "./maps/mds_mcdonalds.bsp" }
-	//	{ "filename": "./maps/mds_mcdonalds/graph.json" }
+	//	{ "filename": "./maps/mds_mcdonalds.bsp" }
+		{ "filename": "./maps/mds_mcdonalds/graph.json" }
 	],
 	"metadata": {
 		"graph": {

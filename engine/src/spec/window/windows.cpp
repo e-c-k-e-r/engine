@@ -865,7 +865,7 @@ void spec::win32::Window::processEvents() {
 		};
 	#if UF_HOOK_USE_JSON			
 		ext::json::Value json;	
-		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
+		json["type"] 							= ::fmt::format("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
 		json["invoker"] 						= event.invoker;
 		json["key"]["code"] 					= "";
 		json["key"]["raw"] 						= 0;
@@ -881,15 +881,16 @@ void spec::win32::Window::processEvents() {
 			event.key.code 	= code;
 			event.key.raw  	= key;
 
+		auto eventName = ::fmt::format("{}.{}", event.type, code);
 		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
-			this->pushEvent(event.type + "." + code, event);
+			this->pushEvent(eventName, event);
 		#endif
 		#if UF_HOOK_USE_JSON			
 			json["key"]["code"] = code;
 			json["key"]["raw"] = key;
 			this->pushEvent(event.type, json);
-			this->pushEvent(event.type + "." + code, json);
+			this->pushEvent(eventName, json);
 		#endif
 		}
 	}
@@ -1144,13 +1145,14 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 						}
 					}
 				};
+				auto eventName = ::fmt::format("{}.{}", event.type, event.key.code);
 				#if UF_HOOK_USE_USERDATA
 					this->pushEvent(event.type, event);
-					this->pushEvent(event.type + "." + event.key.code, event);
+					this->pushEvent(eventName, event);
 				#endif
 				#if UF_HOOK_USE_JSON
 					ext::json::Value json;
-					json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
+					json["type"] 							= ::fmt::format("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
 					json["invoker"] 						= event.invoker;
 					json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
 					json["key"]["async"] 					= event.key.async;
@@ -1163,7 +1165,7 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 					json["key"]["raw"] 						= event.key.raw;
 					json["key"]["lparam"] 					= lParam;
 					this->pushEvent(event.type, json);
-					this->pushEvent(event.type + "." + event.key.code, json);
+					this->pushEvent(eventName, json);
 				#endif
 			}
 		} break;
