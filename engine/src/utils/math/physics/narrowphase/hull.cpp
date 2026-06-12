@@ -18,6 +18,7 @@ namespace impl {
 		bool hit = false;
 		// do collision per hull
 		for ( auto hullID : candidates ) {
+			size_t previousCount = manifold.points.size();
 			auto hullView = impl::physicsBodyHullView( hull, hullID );
 
 			pod::Simplex simplex;
@@ -25,6 +26,7 @@ namespace impl {
 			auto result = impl::epa( hullView, body, simplex );
 			if ( !impl::generateClippingManifold( hullView, body, result, manifold ) ) continue;
 			hit = true;
+			for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = hullID;
 		}
 		return hit;
 	}
@@ -69,6 +71,7 @@ bool impl::hullHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	bool hit = false;
 
 	for (auto [ viewIdA, viewIdB ] : pairs ) {
+		size_t previousCount = manifold.points.size();
 		auto viewA = impl::physicsBodyHullView( a, viewIdA );
 		auto viewB = impl::physicsBodyHullView( b, viewIdB );
 
@@ -78,6 +81,10 @@ bool impl::hullHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 		auto result = impl::epa( viewA, viewB, simplex );
 		if ( !impl::generateClippingManifold( viewA, viewB, result, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) {
+			manifold.points[i].featureA = viewIdA;
+			manifold.points[i].featureB = viewIdB;
+		}
 	}
 	return hit;
 }

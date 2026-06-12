@@ -1142,7 +1142,7 @@ void ext::vulkan::Device::initialize() {
 		uf::stl::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
 		// Get queue family indices for the requested queue family types
 		// Note that the indices may overlap depending on the implementation
-		std::vector<std::vector<float>> queuePriorities;
+		uf::stl::vector<uf::stl::vector<float>> queuePriorities;
 
 		// Graphics queue
 		if ( requestedQueueTypes & VK_QUEUE_GRAPHICS_BIT ) {
@@ -1181,7 +1181,7 @@ void ext::vulkan::Device::initialize() {
 			uint32_t maxSupported = queueFamilyProperties[familyIndex].queueCount;
 			uint32_t actualCount = std::min( requestedCount, maxSupported );
 
-			queuePriorities.emplace_back(std::vector<float>(actualCount, 1.0f));
+			queuePriorities.emplace_back(uf::stl::vector<float>(actualCount, 1.0f));
 
 			VkDeviceQueueCreateInfo queueInfo{};
 			queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;

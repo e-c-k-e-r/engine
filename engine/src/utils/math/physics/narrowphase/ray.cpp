@@ -261,6 +261,7 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 		rayHit.contact.point = p;
 		rayHit.contact.normal = n;
 		rayHit.contact.penetration = t;
+		rayHit.contact.featureA = triID;
 	}
 
 	return rayHit.hit;
@@ -295,6 +296,7 @@ bool impl::rayHull( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 		rayHit.contact.point = impl::apply( transform, ray.origin + ray.direction * t );
 		rayHit.contact.normal = uf::quaternion::rotate( transform.orientation, normal );
 		rayHit.contact.penetration = t;
+		rayHit.contact.featureA = hullID;
 	}
 
 	return rayHit.hit;

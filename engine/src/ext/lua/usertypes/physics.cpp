@@ -5,6 +5,8 @@
 namespace binds {
 	namespace body {
 		bool initialized( pod::PhysicsBody& self ) { return !!self.world; }
+		uf::Object* getObject( pod::PhysicsBody& self ) { return self.object; }
+		pod::Collider& getCollider( pod::PhysicsBody& self ) { return self.collider; }
 		pod::Vector3f& getVelocity( pod::PhysicsBody& self ) { return self.velocity; }
 		pod::Vector3f& getAngularVelocity( pod::PhysicsBody& self ) { return self.angularVelocity; }
 
@@ -79,6 +81,32 @@ namespace binds {
 			return uf::physics::unconstrain( body );
 		}
 	}
+	namespace collider {
+		const pod::AABB& asAabb( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::AABB );
+			return self.aabb;
+		}
+		const pod::OBB& asObb( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::OBB );
+			return self.obb;
+		}
+		const pod::Sphere& asSphere( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::SPHERE );
+			return self.sphere;
+		}
+		const pod::Plane& asPlane( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::PLANE );
+			return self.plane;
+		}
+		const pod::Capsule& asCapsule( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::CAPSULE );
+			return self.capsule;
+		}
+		const uf::Mesh& asMesh( pod::Collider& self ) {
+			UF_ASSERT( self.type == pod::ShapeType::MESH );
+			return *self.mesh.mesh;
+		}
+	}
 	namespace constraint {
 		void setLimits( pod::Constraint& self, float lower, float upper ) {
 			return uf::physics::setConstraintLimits( self, lower, upper );
@@ -112,13 +140,38 @@ namespace binds {
 
 #include <uf/ext/lua/component.h>
 
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::CollisionEvent,
+UF_LUA_REGISTER_ENUM(pod::ShapeType,
+	"AABB",        pod::ShapeType::AABB,
+	"OBB",         pod::ShapeType::OBB,
+	"SPHERE",      pod::ShapeType::SPHERE,
+	"PLANE",       pod::ShapeType::PLANE,
+	"CAPSULE",     pod::ShapeType::CAPSULE,
+	"TRIANGLE",    pod::ShapeType::TRIANGLE,
+	"MESH",        pod::ShapeType::MESH,
+	"CONVEX_HULL", pod::ShapeType::CONVEX_HULL
+)
+
+UF_LUA_REGISTER_USERTYPE(pod::Collider,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Collider::type),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Collider::category),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Collider::mask),
+
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asAabb, UF_LUA_C_FUN(::binds::collider::asAabb) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asObb, UF_LUA_C_FUN(::binds::collider::asObb) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asSphere, UF_LUA_C_FUN(::binds::collider::asSphere) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asPlane, UF_LUA_C_FUN(::binds::collider::asPlane) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asCapsule, UF_LUA_C_FUN(::binds::collider::asCapsule) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( asMesh, UF_LUA_C_FUN(::binds::collider::asMesh) )
+)
+UF_LUA_REGISTER_USERTYPE(pod::CollisionEvent,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::state),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::a),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::b),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::point),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::normal),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::impulse)
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::impulse),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::featureA),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::CollisionEvent::featureB)
 )
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::AABB,
 	sol::call_constructor, sol::initializers( 
@@ -162,7 +215,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::OBB,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::extent),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::OBB::center)
 )
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Sphere,
+UF_LUA_REGISTER_USERTYPE(pod::Sphere,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Sphere& self ) {
 			return self = {};
@@ -176,7 +229,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Sphere,
 	),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Sphere::radius)
 )
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Capsule,
+UF_LUA_REGISTER_USERTYPE(pod::Capsule,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Capsule& self ) {
 			return self = {};
@@ -192,7 +245,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Capsule,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::radius),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Capsule::up)
 )
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Plane,
+UF_LUA_REGISTER_USERTYPE(pod::Plane,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Plane& self ) {
 			return self = {};
@@ -207,7 +260,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Plane,
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Plane::normal),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Plane::offset)
 )
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Ray,
+UF_LUA_REGISTER_USERTYPE(pod::Ray,
 	sol::call_constructor, sol::initializers( 
 		[]( pod::Ray& self ) {
 			return self = {};
@@ -225,6 +278,8 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Ray,
 
 UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( initialized, UF_LUA_C_FUN(::binds::body::initialized) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getObject, UF_LUA_C_FUN(::binds::body::getObject) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getCollider, UF_LUA_C_FUN(::binds::body::getCollider) ),
 	
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getVelocity, UF_LUA_C_FUN(::binds::body::getVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(::binds::body::setVelocity) ),
@@ -258,7 +313,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::PhysicsBody,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( unconstrain, UF_LUA_C_FUN(::binds::body::unconstrain) )
 )
 
-UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::Constraint,
+UF_LUA_REGISTER_USERTYPE(pod::Constraint,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setLimits, UF_LUA_C_FUN(::binds::constraint::setLimits) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( asBallSocket, UF_LUA_C_FUN(::binds::constraint::asBallSocket) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( asConeTwist, UF_LUA_C_FUN(::binds::constraint::asConeTwist) ),

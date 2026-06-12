@@ -294,16 +294,16 @@ uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wante
 	if ( wanted.size() ) {
 		for ( auto& attr : vertex.attributes ) {
 			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[attr.descriptor.name] = { attr };
 		}
 	} else {
 		for ( auto& attr : vertex.attributes ) {
-			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[attr.descriptor.name] = { attr };
 		}
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"_hash] = { index.attributes[lod] };
+		view.attributes["index"] = { index.attributes[lod] };
 	}
 
 	return view;
@@ -317,14 +317,14 @@ uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::stri
 	if ( wanted.size() ) {
 		for (auto& attr : vertex.attributes) {
 			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
+			view.attributes[attr.descriptor.name] = { attr };
 		}
 	} else {
-		for ( auto& attr : vertex.attributes ) view.attributes[uf::algo::fnv1a(attr.descriptor.name)] = { attr };
+		for ( auto& attr : vertex.attributes ) view.attributes[attr.descriptor.name] = { attr };
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"_hash] = { index.attributes[lod] };
+		view.attributes["index"] = { index.attributes[lod] };
 	}
 
 	return view;
@@ -612,6 +612,16 @@ pod::Triangle uf::mesh::fetchTriangle( const uf::Mesh::View& view, const uf::Mes
 }
 
 pod::TriangleWithNormal uf::mesh::fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
+	const auto* view = uf::mesh::fetchView( mesh, triID );
+	UF_ASSERT( view );
+	
+	pod::TriangleWithNormal tri = { uf::mesh::fetchTriangle( *view, triID ) };
+	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
+
+	return tri;
+}
+
+const uf::Mesh::View* uf::mesh::fetchView( const uf::Mesh& mesh, size_t& triID ) {
 	const auto& views = mesh.buffer_views;
 	UF_ASSERT(!views.empty());
 
@@ -627,10 +637,15 @@ pod::TriangleWithNormal uf::mesh::fetchTriangle( const uf::Mesh& mesh, size_t tr
 		}
 		triBase += trisInView;
 	}
-	UF_ASSERT( view );
-	
-	pod::TriangleWithNormal tri = { uf::mesh::fetchTriangle( *view, triID ) };
-	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 
-	return tri;
+	return view;
+}
+const pod::DrawCommand& uf::mesh::fetchDrawCommand( const uf::Mesh& mesh, const uf::Mesh::View& view ) {
+	UF_ASSERT( 0 <= view.indirectIndex && view.indirectIndex < mesh.indirect.count );
+	return ((const pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data())[view.indirectIndex];
+}
+const pod::DrawCommand& uf::mesh::fetchDrawCommand( const uf::Mesh& mesh, size_t triID ) {
+	const auto* view = uf::mesh::fetchView( mesh, triID );
+	UF_ASSERT( view );
+	return uf::mesh::fetchDrawCommand( mesh, *view );
 }

@@ -60,5 +60,14 @@ namespace {\
 #define UF_LUA_REGISTER_USERTYPE_MEMBER(member) UF_NS_GET_LAST(member), &member
 #define UF_LUA_REGISTER_USERTYPE_MEMBER_FUN(member) UF_NS_GET_LAST(member), UF_LUA_C_FUN(member)
 
+#define UF_LUA_REGISTER_ENUM(type, ...) \
+namespace {\
+	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
+		ext::lua::onInitialization( []{\
+			ext::lua::state.new_enum(UF_NS_GET_LAST(type), __VA_ARGS__);\
+		});\
+	});\
+}
+
 #define UF_LUA_C_FUN(x) &x
 #define UF_LUA_WRAP_FUN(x) UF_LUA_C_FUN(x)

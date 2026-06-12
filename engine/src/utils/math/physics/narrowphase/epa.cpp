@@ -151,8 +151,8 @@ void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& di
 				if ( 0 <= selectedViewIdx && selectedViewIdx != viewIdx ) continue;
 
 				const auto& view = mesh.buffer_views[viewIdx];
-				auto& indices = view["index"_hash];
-				auto& positions = view["position"_hash];
+				auto& indices = view["index"];
+				auto& positions = view["position"];
 				for ( size_t i = 0; i < view.index.count / 3; ++i ) {
 					pod::Triangle tri = uf::mesh::fetchTriangle( view, indices, positions, i );
 					pod::Vector3f normal = impl::triangleNormal( tri );

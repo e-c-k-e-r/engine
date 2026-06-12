@@ -357,19 +357,37 @@ void impl::solveManifold( uf::stl::vector<pod::Manifold>& manifolds, float dt ) 
 }
 
 void impl::dispatchManifold( pod::Manifold& manifold, pod::CollisionEvent::events_t& events, pod::CollisionEvent::map_t& active, const pod::CollisionEvent::map_t& previous ) {
-	auto pairKey = impl::makePairKey( *manifold.a, *manifold.b );
-	// find largest impulse
-	float maxImpulse = 0.0f;
-	for ( const auto& c : manifold.points ) maxImpulse = std::max( maxImpulse, c.accumulatedNormalImpulse );
 	// mark as an active collision
+	auto pairKey = impl::makePairKey( *manifold.a, *manifold.b );
 	active[pairKey] = { manifold.a, manifold.b };
+	// find largest impulse
+	size_t primaryID = 0;
+	float maxImpulse = -1.0f;
+	for ( auto i = 0; i < manifold.points.size(); ++i ) {
+		auto& c = manifold.points[i];
+		if ( c.accumulatedNormalImpulse <= maxImpulse ) continue;
+		primaryID = i;
+		maxImpulse = c.accumulatedNormalImpulse;
+	}
+	if ( maxImpulse <= EPS ) {
+		float maxPen = -FLT_MAX;
+		for ( int i = 0; i < manifold.points.size(); ++i ) {
+			auto& c = manifold.points[i];
+			if ( c.penetration <= maxPen ) continue;
+			maxPen = c.penetration;
+			primaryID = i;
+		}
+	}
+	auto& contact = manifold.points[primaryID];
 	// dispatch
 	events.emplace_back(pod::CollisionEvent{
 		.state = previous.count( pairKey ) == 0 ? pod::CollisionState::ENTER : pod::CollisionState::SUSTAIN,
 		.a = manifold.a,
 		.b = manifold.b,
-		.point = manifold.points[0].point,
-		.normal = manifold.points[0].normal,
+		.point = contact.point,
+		.normal = contact.normal,
 		.impulse = maxImpulse,
+		.featureA = contact.featureA,
+		.featureB = contact.featureB,
 	});
 }

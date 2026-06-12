@@ -20,9 +20,11 @@ bool impl::meshAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	bool hit = false;
 	// do collision per triangle
 	for ( auto triID : candidates ) {
+		size_t previousCount = manifold.points.size();
 		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
 		if ( !impl::triangleAabb( tri, aabb, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = triID;
 	}
 	return hit;
 }
@@ -43,9 +45,11 @@ bool impl::meshObb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::M
 	bool hit = false;
 	// do collision per triangle
 	for ( auto triID : candidates ) {
+		size_t previousCount = manifold.points.size();
 		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
 		if ( !impl::triangleObb( tri, obb, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = triID;
 	}
 	return hit;
 }
@@ -66,9 +70,11 @@ bool impl::meshSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod
 	bool hit = false;
 	// do collision per triangle
 	for ( auto triID : candidates ) {
+		size_t previousCount = manifold.points.size();
 		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
 		if ( !impl::triangleSphere( tri, sphere, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = triID;
 	}
 
 	return hit;
@@ -91,9 +97,11 @@ bool impl::meshPlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 	bool hit = false;
 	// do collision per triangle
 	for ( auto triID : candidates ) {
+		size_t previousCount = manifold.points.size();
 		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
 		if ( !impl::trianglePlane( tri, plane, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = triID;
 	}
 
 	return hit;
@@ -115,9 +123,11 @@ bool impl::meshCapsule( const pod::PhysicsBody& a, const pod::PhysicsBody& b, po
 	bool hit = false;
 	// do collision per triangle
 	for ( auto triID : candidates ) {
+		size_t previousCount = manifold.points.size();
 		auto tri = impl::fetchTriangle( meshData, triID, mesh ); // transform triangle to world space
 		if ( !impl::triangleCapsule( tri, capsule, manifold ) ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) manifold.points[i].featureA = triID;
 	}
 
 	return hit;
@@ -144,12 +154,17 @@ bool impl::meshMesh( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	bool hit = false;
 	// do collision per triangle
 	for (auto [idA, idB] : pairs ) {
+		size_t previousCount = manifold.points.size();
 		auto triA = impl::fetchTriangle( meshA, idA, a ); // transform triangles to world space
 		auto triB = impl::fetchTriangle( meshB, idB, b );
 
 		bool collides = impl::triangleTriangle( triA, triB, manifold );
 		if ( !collides ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) {
+			manifold.points[i].featureA = idA;
+			manifold.points[i].featureB = idB;
+		}
 	}
 	return hit;
 }
@@ -177,6 +192,7 @@ bool impl::meshHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 	bool hit = false;
 	// do collision per hull and triangle
 	for (auto [ triID, hullID ] : pairs ) {
+		size_t previousCount = manifold.points.size();
 		auto triView = impl::physicsBodyTriView( mesh, triID );
 		auto hullView = impl::physicsBodyHullView( hull, hullID );
 
@@ -184,6 +200,10 @@ bool impl::meshHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 
 		if ( !collides ) continue;
 		hit = true;
+		for ( size_t i = previousCount; i < manifold.points.size(); ++i ) {
+			manifold.points[i].featureA = triID;
+			manifold.points[i].featureB = hullID;
+		}
 	}
 	return hit;
 }

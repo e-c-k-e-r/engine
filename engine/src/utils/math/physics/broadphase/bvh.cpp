@@ -223,8 +223,8 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 
 	// populate initial indices and bounds
 	for ( auto& view : views ) {
-		auto& indices   = view["index"_hash];
-		auto& positions = view["position"_hash];
+		auto& indices   = view["index"];
+		auto& positions = view["position"];
 
 		auto tris = view.index.count / 3;
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
@@ -441,8 +441,8 @@ void impl::refitBVH( pod::BVH& bvh, const uf::Mesh& mesh ) {
 
 	// populate initial indices and bounds
 	for ( auto& view : views ) {
-		auto& indices   = view["index"_hash];
-		auto& positions = view["position"_hash];
+		auto& indices   = view["index"];
+		auto& positions = view["position"];
 
 		auto tris = view.index.count / 3;
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {

@@ -107,8 +107,8 @@ namespace ext {
 
 			struct {
 				struct CommandBuffer {
-					std::vector<VkCommandBuffer> commandBuffers;
-					std::vector<VkFence> fences;
+					uf::stl::vector<VkCommandBuffer> commandBuffers;
+					uf::stl::vector<VkFence> fences;
 				};
 
 				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<std::thread::id, CommandBuffer>> commandBuffers;

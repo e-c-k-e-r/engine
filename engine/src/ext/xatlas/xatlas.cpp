@@ -68,9 +68,9 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 			entry.commandID = viewIdx;
 
 			auto& decl = entry.decl;
-			auto posView = view["position"_hash];
-			auto uvView  = view["uv"_hash];
-			auto idxView = view["index"_hash];
+			auto posView = view["position"];
+			auto uvView  = view["uv"];
+			auto idxView = view["index"];
 
 			UF_ASSERT( posView.valid() && uvView.valid() );
 

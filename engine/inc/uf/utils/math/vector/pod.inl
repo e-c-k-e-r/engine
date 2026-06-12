@@ -62,13 +62,12 @@ bool uf::vector::equals( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::equals( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] == right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::notEquals( const T& left, const T& right ) {
@@ -76,13 +75,12 @@ bool uf::vector::notEquals( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::notEquals( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] != right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::less( const T& left, const T& right ) {
@@ -90,13 +88,12 @@ bool uf::vector::less( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::less( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] < right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::lessEquals( const T& left, const T& right ) {
@@ -104,13 +101,12 @@ bool uf::vector::lessEquals( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::lessEquals( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] <= right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::greater( const T& left, const T& right ) {
@@ -118,13 +114,12 @@ bool uf::vector::greater( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::greater( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] > right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::greaterEquals( const T& left, const T& right ) {
@@ -132,13 +127,12 @@ bool uf::vector::greaterEquals( const T& left, const T& right ) {
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::all( uf::simd::greaterEquals( left, right ) );
 	}
-#else
+#endif
 	bool result = true;
 	FOR_EACH(T::size, {
 		if ( !(left[i] >= right[i]) ) result = false;
 	});
 	return result;
-#endif
 }
 template<typename T>
 bool uf::vector::isValid( const T& v ) {

@@ -107,6 +107,9 @@ namespace pod {
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
 			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
 
+			// flattened variants
+			uf::stl::vector<pod::Primitive> flattenedPrimitives;
+
 			struct Buffer {
 				uf::renderer::Buffer camera;
 				uf::renderer::Buffer drawCommands;
@@ -207,6 +210,13 @@ namespace uf {
 		void UF_API reload( pod::Graph& graph );
 		void UF_API reload( pod::Graph& graph, pod::Node& node );
 		void UF_API reload();
+
+		// access helpers
+		// to-do: the other storage values (although I don't foresee ever needing more)
+		uf::stl::string UF_API getMaterialName( pod::Graph& graph, size_t id );
+		pod::Material UF_API getMaterial( pod::Graph& graph, size_t id );
+		pod::Primitive UF_API getPrimitive( pod::Graph& graph, size_t id );
+		pod::Instance UF_API getInstance( pod::Graph& graph, size_t id );
 	}
 }
 

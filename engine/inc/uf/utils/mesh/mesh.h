@@ -194,22 +194,15 @@ namespace uf {
 			uf::Mesh::Input index;
 			int32_t indirectIndex = -1;
 			
-			uf::stl::unordered_map<uint32_t, uf::Mesh::AttributeView> attributes;
+			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
 
 
-			bool has( uint32_t hash ) const {
-				return attributes.count( hash ) > 0;
+			bool has( const uf::stl::string& name ) const {
+				return attributes.count( name ) > 0;
 			}
-			const AttributeView& operator[]( uint32_t hash ) const {
-				if ( auto it = attributes.find( hash ); it != attributes.end() ) return it->second;
-				UF_EXCEPTION("invalid view hash: {}", hash);
-			}
-			// support legacy code
-			bool has( const uf::stl::string_view name ) const {
-				return has( uf::algo::fnv1a( name ) );
-			}
-			const AttributeView& operator[]( const uf::stl::string_view name ) const {
-				return operator[]( uf::algo::fnv1a( name ) );
+			const AttributeView& operator[]( const uf::stl::string& name ) const {
+				if ( auto it = attributes.find( name ); it != attributes.end() ) return it->second;
+				UF_EXCEPTION("invalid view name: {}", name);
 			}
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;
@@ -615,6 +608,10 @@ namespace uf {
 		pod::Triangle UF_API fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
 		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t triID );
 
+		const pod::DrawCommand& UF_API fetchDrawCommand( const uf::Mesh& mesh, const uf::Mesh::View& view );
+		const pod::DrawCommand& UF_API fetchDrawCommand( const uf::Mesh& mesh, size_t triID );
+		const uf::Mesh::View* UF_API fetchView( const uf::Mesh& mesh, size_t& triID );
+
 		template<typename T> size_t windingOrder( uf::stl::vector<T>& vertices );
 		template<typename T, typename U> size_t windingOrder( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices );
 		template<typename T> void normals( uf::stl::vector<T>& vertices );
@@ -637,7 +634,7 @@ namespace uf {
 			return uf::mesh::getIndex<U>( indices.data(view.index.first), index );
 		}
 		template<typename U> inline U& getIndex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::getIndex<U>( view, view["indices"_hash], index );
+			return uf::mesh::getIndex<U>( view, view["indices"], index );
 		}
 		template<typename U> inline U& getIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
 			return uf::mesh::getIndex<U>( view, view[indices], index );
@@ -657,13 +654,13 @@ namespace uf {
 			return uf::mesh::fetchIndex( indices.data(view.index.first), indices.stride(), index );
 		}
 		static inline size_t fetchIndex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchIndex( view, view["indices"_hash], index );
+			return uf::mesh::fetchIndex( view, view["indices"], index );
 		}
 		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
 			return uf::mesh::fetchIndex( view, view[indices], index );
 		}
 		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchVertex( view, view["positions"_hash], index );
+			return uf::mesh::fetchVertex( view, view["positions"], index );
 		}
 		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, const uf::stl::string& positions, size_t index ) {
 			return uf::mesh::fetchVertex( view, view[positions], index );
@@ -672,14 +669,14 @@ namespace uf {
 			return uf::mesh::fetchTriangle( view, view[indices], view[positions], triID );
 		}
 		static inline pod::Triangle fetchTriangle( const uf::Mesh::View& view, size_t triID ) {
-			return uf::mesh::fetchTriangle( view, view["index"_hash], view["position"_hash], triID );
+			return uf::mesh::fetchTriangle( view, view["index"], view["position"], triID );
 		}
 
 		static inline void setIndex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, size_t index, size_t value ) {
 			return uf::mesh::setIndex( const_cast<void*>(indices.data(view.index.first)), indices.stride(), index, value );
 		}
 		static inline void setIndex( const uf::Mesh::View& view, size_t index, size_t value ) {
-			return uf::mesh::setIndex( view, view["indices"_hash], index, value );
+			return uf::mesh::setIndex( view, view["indices"], index, value );
 		}
 	}
 }

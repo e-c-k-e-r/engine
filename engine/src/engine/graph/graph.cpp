@@ -782,6 +782,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& graphMetadataJson = graph.metadata;
+	auto& graphMetadataValve = graphMetadataJson["valve"];
 	auto& storage = uf::graph::getStorage( graph );
 
 	// merge light settings with global settings
@@ -997,6 +998,15 @@ void uf::graph::process( pod::Graph& graph ) {
 	UF_DEBUG_TIMER_MULTITRACE("Patching textures/materials");
 	for ( auto& name : graph.materials ) {
 		auto& material = storage.materials[name];
+
+		// 
+		if ( ext::json::isObject( graphMetadataValve ) ) {
+			// nodraw
+			if ( name.starts_with("tools/") ) {
+				material.colorBase.w = 0.0f;
+			}
+		}
+
 		auto tag = ext::json::find( name, graphMetadataJson["tags"] );
 		if ( ext::json::isObject( tag ) ) {
 			material.colorBase = uf::vector::decode( tag["material"]["base"], material.colorBase);
@@ -1264,7 +1274,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			float baseMass = graph.metadata["valve"]["models"][meshName]["mass"].as<float>(1.0f);
 			float massScale = metadataValve["massScale"].as<float>(1.0f);
 			// flag as static
-			if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
+			// if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
+			massScale = 0;
 			float mass = baseMass * massScale;
 
 			node.metadata["physics"]["type"] = "mesh";
@@ -1622,6 +1633,8 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 	rebuild = storage.buffers.object.update( (const void*) objects.data(), objects.size() * sizeof(pod::Instance::Object) ) || rebuild;
 
 	if ( storage.stale ) {
+		storage.flattenedPrimitives.clear();
+
 		for ( auto& key : storage.primitives.keys ) {
 			auto& primitives = storage.primitives.map[key];
 			auto& grouped = storage.instances.map[key];
@@ -1651,7 +1664,9 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 				for ( size_t i = 0; i < count; ++i ) {
 					size_t strideIndex = (i * primitives.size()) + drawID;
-					instances.emplace_back( grouped[strideIndex] );
+
+					auto& p = storage.flattenedPrimitives.emplace_back( primitive );
+					p.instance = instances.emplace_back( grouped[strideIndex] );
 					addresses.emplace_back( primitive.addresses );
 				}
 			}
@@ -2398,4 +2413,24 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 #endif
 
 	uf::graph::updateAnimation( graph, delta );
+}
+
+uf::stl::string uf::graph::getMaterialName( pod::Graph& graph, size_t materialID ) {
+	auto& storage = uf::graph::getStorage( graph );
+	if ( !(0 <= materialID && materialID < storage.materials.keys.size() ) ) return "";
+	return storage.materials.keys[materialID];
+}
+pod::Material uf::graph::getMaterial( pod::Graph& graph, size_t materialID ) {
+	auto key = uf::graph::getMaterialName( graph, materialID );
+	return storage.materials.map[key];
+}
+
+pod::Primitive uf::graph::getPrimitive( pod::Graph& graph, size_t primitiveID ) {
+	auto& storage = uf::graph::getStorage( graph );
+	if ( !(0 <= primitiveID && primitiveID < storage.flattenedPrimitives.size() ) ) return {};
+	return storage.flattenedPrimitives[primitiveID];
+}
+pod::Instance uf::graph::getInstance( pod::Graph& graph, size_t instanceID ) {
+	auto primitive = uf::graph::getPrimitive( graph, instanceID );
+	return primitive.instance;
 }

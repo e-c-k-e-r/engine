@@ -310,9 +310,9 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 
 	// iterate through mesh to fetch attributes
 	for ( const auto& view : mesh.buffer_views ) {
-		auto posView	= view["position"_hash];
-		auto jointsView = view["joints"_hash];
-		auto weightView = view["weights"_hash];
+		auto posView	= view["position"];
+		auto jointsView = view["joints"];
+		auto weightView = view["weights"];
 
 		for ( auto i = 0; i < view.vertex.count; ++i ) {
 			auto pos = uf::mesh::fetchVertex( view, posView, i );

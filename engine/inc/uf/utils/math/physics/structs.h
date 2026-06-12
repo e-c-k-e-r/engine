@@ -179,6 +179,9 @@ namespace pod {
 		float accumulatedNormalImpulse = 0.0f;
 		float accumulatedTangentImpulse = 0.0f;
 		float accumulatedPseudoImpulse = 0.0f;
+	
+		uint32_t featureA = (uint32_t)(-1);
+		uint32_t featureB = (uint32_t)(-1);
 	};
 
 	struct Manifold {
@@ -374,9 +377,13 @@ namespace pod {
 		pod::CollisionState state = {};
 		pod::PhysicsBody* a = NULL;
 		pod::PhysicsBody* b = NULL;
+
 		pod::Vector3f point = {};
 		pod::Vector3f normal = {};
 		float impulse = 0;
+
+		uint32_t featureA = (uint32_t)(-1);
+		uint32_t featureB = (uint32_t)(-1);
 	};
 }
 	

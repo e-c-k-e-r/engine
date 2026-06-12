@@ -135,6 +135,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto axes = uf::transform::axes( transform );
 	
 	auto& scene = uf::scene::getCurrentScene();
+	auto& graph = scene.getComponent<pod::Graph>();
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -166,16 +167,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	} keys;
 
 
-	struct {
-		bool deltaCrouch = false;
-		bool walking = false;
-		bool floored = true;
-		bool noclipped = false;
-		uf::stl::string menu = "";
-		uf::stl::string targetAnimation = "";
-
-		pod::Matrix4f previous;
-	} stats;
+	ext::PlayerBehavior::Metadata::States stats;
 
 	struct {
 		float move = 4;
@@ -447,6 +439,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		physicsBody.velocity *= { speed.friction, 1, speed.friction };
 
 		stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
+		stats.running = keys.running;
 		
 		if ( stats.walking ) {
 			float factor = stats.floored ? 1.0f : speed.air;
@@ -587,21 +580,27 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		UF_MSG_DEBUG("count={}", events.size());
 	}
 #endif
+
+	metadata.states = stats;
+	metadata.states.crouching = metadata.system.crouching;
+
 #if UF_USE_OPENAL
-	if ( stats.floored && !stats.noclipped ) {
+	if ( false && stats.floored && !stats.noclipped ) {
 		if ( stats.walking ) {
 			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
-			int cycle = rand() % metadata.audio.footstep.list.size();
-			uf::stl::string filename = metadata.audio.footstep.list[cycle];
-			uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
-
+		#if 0
 			bool playing = false;
 			for ( uint i = 0; i < metadata.audio.footstep.list.size(); ++i ) {
 				if ( !emitter.has(metadata.audio.footstep.list[i]) ) continue;
 				uf::Audio& audio = emitter.get( metadata.audio.footstep.list[i] );
 				if ( audio.playing() ) playing = true;
 			}
+
 			if ( !playing ) {
+				int cycle = rand() % metadata.audio.footstep.list.size();
+				uf::stl::string filename = metadata.audio.footstep.list[cycle];
+				uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
+
 				// [0, 1]
 				float modulation = (rand() % 100) / 100.0;
 				// [0, 0.1]
@@ -616,10 +615,84 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				footstep.setTime( 0 );
 				footstep.play();
 			}
+		#else
+			metadata.audio.footstep.timer -= uf::physics::time::delta;
+			if ( metadata.audio.footstep.timer <= 0.0f ) {
+				// player/footsteps
+				uf::stl::vector<uf::stl::string> surfaces = {
+					"chainlink",
+					"concrete",
+					"dirt",
+					"duct",
+					"grass",
+					"gravel",
+					"ladder",
+					"metal",
+					"metalgrate",
+					"mud",
+					"sand",
+					"slosh",
+					"tile",
+					"wade",
+					"wood",
+					"woodpanel",
+				};
+				uf::stl::string filename = "concrete";
+				
+				auto events = uf::physics::getCollisionEvents( physicsBody );
+				for ( const auto& event : events ) {
+					if ( event.normal.y > -0.7f ) continue;
+					auto triID = MIN( event.featureA, event.featureB );
+					auto* other = event.a != &physicsBody ? event.a : event.b;
+					if ( triID == (uint32_t)(-1) ) continue;
+					if ( other->collider.type != pod::ShapeType::MESH ) continue;
+					// to-do: sugar it up with a helper function
+					auto& mesh = *other->collider.mesh.mesh;
+					auto drawCommand = uf::mesh::fetchDrawCommand( mesh, triID );
+					auto instance = uf::graph::getInstance( graph, drawCommand.instanceID );
+					auto materialName = uf::graph::getMaterialName( graph, instance.materialID );
+					
+					for ( auto& key : surfaces ) {
+						if ( !uf::string::contains( materialName, key ) ) continue;
+						filename = key;
+						break;
+					}
+					break;
+				}
+
+				filename = ::fmt::format("valve://sound/player/footsteps/{}{}.wav", filename, (rand() % 3) + 1 );
+				uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
+
+				float pitch = 0.95f + ((rand() % 11) / 100.0f);
+				float volume = metadata.audio.footstep.volume;
+
+				if ( metadata.system.crouching ) {
+				    volume *= 0.5f;
+				} else if ( keys.running ) {
+				    volume *= 1.0f;
+				}
+
+				footstep.setPitch( pitch );
+				footstep.setVolume( volume );
+				footstep.setPosition( transform.position );
+
+				footstep.setTime( 0 );
+				footstep.play();
+
+				if ( keys.running ) {
+					metadata.audio.footstep.timer = 0.3f;
+				} else if ( metadata.system.crouching ) {
+					metadata.audio.footstep.timer = 0.6f;
+				} else {
+					metadata.audio.footstep.timer = 0.45f;
+				}
+			}
+		#endif
 			// set animation to walk
 			stats.targetAnimation = "walk";
 		} else if ( !keys.jump ) {
-			stats.targetAnimation = "idle_wank";
+			stats.targetAnimation = "idle";
+			metadata.audio.footstep.timer = 0;
 		}
 	}
 #endif
@@ -766,4 +839,22 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 
 	/*this->*/use.length = serializer["use"]["length"].as(/*this->*/use.length);
 }
+
+// yikes
+#include <uf/ext/lua/component.h>
+UF_LUA_REGISTER_USERTYPE(ext::PlayerBehavior::Metadata::States,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::walking),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::running),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::crouching),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::floored),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::noclipped),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::deltaCrouch),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::menu),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::targetAnimation),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::States::previous)
+)
+
+UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(ext::PlayerBehavior::Metadata,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(ext::PlayerBehavior::Metadata::states)
+)
 #undef this

@@ -1,11 +1,12 @@
 local ent = ent
 local scene = entities.currentScene()
+local graph = scene:getComponent("Graph")
 local metadataJson = ent:getComponent("Metadata")
 local transform = ent:getComponent("Transform")
 local physicsBody = ent:getComponent("PhysicsBody")
 local camera = ent:getComponent("Camera")
 local cameraTransform = camera:getTransform()
-
+local metadata = ent:getComponent("PlayerBehavior::Metadata")
 local fixedCamera = metadataJson["camera"]["settings"]["fixed"]
 
 -- setup all timers
@@ -54,22 +55,27 @@ light.metadata.power = 0
 --light.entity:setComponent("Metadata", { light = { power = 0 } })
 
 -- sound emitter
-local playSound = function( key, loop )
+local playSound = function( path, loop )
 	if not loop then loop = false end
-	local url = "/ui/" .. key .. ".ogg"
+	local uri = string.resolveURI(path)
 	ent:callHook("sound:Emit.%UID%", {
-		filename = string.resolveURI(url, metadataJson["system"]["root"]),
+		filename = uri,
 		spatial = true,
 		streamed = true,
 		volume = "sfx",
 		loop = loop
 	}, 0)
 end
-local stopSound = function( key )
-	local url = "/ui/" .. key .. ".ogg"
+local stopSound = function( path )
 	ent:callHook("sound:Stop.%UID%", {
-		filename = string.resolveURI(url, metadataJson["system"]["root"])
+		filename = string.resolveURI(path, metadataJson["system"]["root"])
 	}, 0)
+end
+local playUiSound = function( key, loop )
+	return playSound("/ui/" .. key .. ".ogg", loop)
+end
+local stopUiSound = function( key )
+	return stopSound("/ui/" .. key .. ".ogg", loop)
 end
 
 local useDistance = 6
@@ -91,7 +97,7 @@ local function tickFlashlight( transform, axes, inputs )
 		timers.flashlight:reset()
 		light.enabled = (light.metadata.power ~= light.power)
 		light.metadata.power = light.enabled and light.power or 0
-		playSound("flashlight")
+		playUiSound("flashlight")
 	end
 end
 
@@ -129,7 +135,7 @@ local function onUse( payload )
 		heldObject.momentum = Vector3f(0,0,0)
 	end
 
-	playSound(validUse and "select" or "deny")
+	playUiSound(validUse and "select" or "deny")
 end
 
 local function tickUse( transform, axes, inputs )
@@ -169,7 +175,7 @@ local function tickGravGun( transform, axes, inputs )
 				if timers.physcannon:elapsed() > 1.0 then
 					timers.physcannon:reset()
 
-					playSound("phys_tooHeavy")
+					playUiSound("phys_tooHeavy")
 				end
 			end
 		end
@@ -196,7 +202,7 @@ local function tickGravGun( transform, axes, inputs )
 			heldObjectPhysicsBody:enableGravity(true)
 			heldObjectPhysicsBody:applyImpulse( axes.forward * heldObjectPhysicsBody:getMass() * 50 )
 
-			playSound("phys_launch"..math.random(1,4))
+			playUiSound("phys_launch"..math.random(1,4))
 		else
 			-- update rotation
 			if heldObject.rotate then
@@ -227,6 +233,125 @@ local function tickGravGun( transform, axes, inputs )
 		end
 	end
 end
+
+local footstepTimer = 0.0
+local surfaceTypes = {
+	"chainlink",
+	"concrete",
+	"dirt",
+	"duct",
+	"grass",
+	"gravel",
+	"hardboot_generic",
+	"ladder",
+	"metal",
+	"metalgrate",
+	"mud",
+	"sand",
+	"slosh",
+	"snow",
+	"softshoe_generic",
+	"tile",
+	"wade",
+	"wood",
+	"woodpanel"
+}
+
+local playFootstepSound = function( surface, isCrouching )
+	local variant = math.random(1, 4)
+	local path = "valve://sound/player/footsteps/" .. surface .. tostring(variant) .. ".wav"
+	local pitch = 0.95 + (math.random() * 0.10)
+	local vol = 1.0
+	
+	if isCrouching then vol = 0.5 end
+
+	ent:callHook("sound:Emit.%UID%", {
+		filename = string.resolveURI(path, metadataJson["system"]["root"]),
+		spatial = true,
+		streamed = false,
+		volume = vol,
+		pitch = pitch,
+		loop = false
+	}, 0)
+end
+
+local tickFootsteps = function()
+	local isWalking = metadata.states.walking
+	local isRunning = metadata.states.running
+	local isCrouching = metadata.states.crouching
+	local isFloored = metadata.states.floored
+	local isNoclipped = metadata.states.noclipped
+
+	if not isFloored or isNoclipped then return end
+
+	if not isWalking then
+		footstepTimer = 0.0
+		return
+	end
+
+	footstepTimer = footstepTimer - time.delta()
+	if footstepTimer > 0.0 then return end
+
+	local surface = "concrete"
+	local collisionEvents = physicsBody:getCollisionEvents()
+	for i, event in ipairs( collisionEvents ) do
+		if event.normal.y <= -0.7 then
+			local tri = event.featureA or event.featureB
+			local other = event.a == ent and event.a or event.b
+			local collider = other:getCollider()
+
+			if tri ~= nil and collider.type == ShapeType.MESH then
+				local mesh = collider:asMesh()
+				local drawCommand = mesh:fetchDrawCommand( tri )
+				local instance = graph:getInstance( drawCommand.instanceID )
+				local materialName = string.lower( graph:getMaterialName( instance.materialID ) )
+				for _, key in ipairs(surfaceTypes) do
+					if string.find(materialName, key) then
+						surface = key
+						break
+					end
+				end
+
+				break
+			end
+		end
+	end
+
+	playFootstepSound( surface, isCrouching )
+
+
+	if isRunning then
+		footstepTimer = 0.3
+	elseif isCrouching then
+		footstepTimer = 0.6
+	else
+		footstepTimer = 0.45
+	end
+end
+
+--[[
+local tickCollisionEvents = function()
+	local collisionEvents = physicsBody:getCollisionEvents()
+	for i, event in ipairs(collisionEvents) do
+	--	print( event.state, event.a, event.b, event.point, event.normal, event.impulse, event.featureA )
+		local tri = event.featureA or event.featureB
+		local other = event.a == ent and event.a or event.b
+		local collider = other:getCollider()
+		-- technically will always return a triangle ID if there's a mesh collider
+		if tri ~= nil and collider.type == ShapeType.MESH then
+			local mesh = collider:asMesh()
+			local drawCommand = mesh:fetchDrawCommand( tri )
+			local instance = graph:getInstance( drawCommand.instanceID )
+			local material = graph:getMaterial( instance.materialID )
+			local materialName = graph:getMaterialName( instance.materialID )
+			if not materialName:find("tools/") and event.normal.y < -0.7 then
+				local soundKey = getSurfaceSound(materialName)
+				playSound("valve://sound/" .. soundKey .. ".wav", false)
+			end
+		end
+	end
+end
+]]
 
 -- on tick
 ent:bind( "tick", function(self)
@@ -263,13 +388,8 @@ ent:bind( "tick", function(self)
 	-- update HOLP
 	tickGravGun( flattenedTransform, axes, inputs )
 
-	-- get collision events
---[[
-	local collisionEvents = physicsBody:getCollisionEvents()
-	for i, event in ipairs(collisionEvents) do
-		print( event.state, event.a, event.b, event.point, event.normal, event.impulse )
-	end
-]]
+	-- play footsteps
+	tickFootsteps()
 end )
 
 -- on use

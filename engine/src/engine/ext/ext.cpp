@@ -392,6 +392,11 @@ void UF_API uf::initialize() {
 		UF_MSG_DEBUG("Setting JSON implicit preference: {}.{}", ext::json::PREFERRED_ENCODING, ext::json::PREFERRED_COMPRESSION);
 	}
 
+	{
+		uf::stl::string name = "window:Mouse.CursorVisibility";
+		UF_MSG_DEBUG( "c_str={}, str={}", uf::algo::fnv1a("window:Mouse.CursorVisibility"), uf::algo::fnv1a(name) );
+	}
+
 	/* Arguments */ {
 		bool modified = false;
 		auto& arguments = uf::config["arguments"];

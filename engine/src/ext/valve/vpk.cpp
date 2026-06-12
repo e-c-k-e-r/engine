@@ -210,6 +210,7 @@ bool ext::valve::loadVpk( pod::VpkArchive& vpk, const uf::stl::string& path ) {
 
 				// read data
 				auto& entry = vpk.files[fullPath];
+				//UF_MSG_DEBUG("path={}, entry={}", path, fullPath);
 				if ( !readBytes(&entry.metadata, sizeof(pod::VpkData)) ) return false;
 
 				if ( entry.metadata.preloadBytes > 0 ) {

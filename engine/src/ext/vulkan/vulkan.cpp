@@ -213,7 +213,7 @@ uf::stl::string ext::vulkan::retrieveCheckpoint( VkQueue queue ) {
 	uint32_t size = 0;
 	vkGetQueueCheckpointDataNV(queue, &size, 0);
 
-	std::vector<VkCheckpointDataNV> checkpoints(size, { VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV });
+	uf::stl::vector<VkCheckpointDataNV> checkpoints(size, { VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV });
 	vkGetQueueCheckpointDataNV(queue, &size, checkpoints.data());
 
 	uf::stl::vector<uf::stl::string> strings;

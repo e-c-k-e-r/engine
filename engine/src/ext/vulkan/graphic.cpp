@@ -211,7 +211,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			const uint32_t sbtSize = groupCount * handleSizeAligned;
 			const VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
-			std::vector<uint8_t> shaderHandleStorage(sbtSize);
+			uf::stl::vector<uint8_t> shaderHandleStorage(sbtSize);
 			VK_CHECK_RESULT(vkGetRayTracingShaderGroupHandlesKHR(device, pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()));
 
 			requestedAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;

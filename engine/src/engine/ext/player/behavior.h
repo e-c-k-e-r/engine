@@ -57,12 +57,25 @@ namespace ext {
 			struct {
 				struct {
 					uf::stl::vector<uf::stl::string> list;
-					float volume;
+					float volume = 1;
+					float timer = 0;
 				} footstep;
 			} audio;
 			struct {
 				float length = 4.0f;
 			} use;
+			struct States {
+				bool walking = false;
+				bool running = false;
+				bool crouching = false;
+				bool floored = true;
+				bool noclipped = false;
+				bool deltaCrouch = false;
+				uf::stl::string menu = "";
+				uf::stl::string targetAnimation = "";
+
+				pod::Matrix4f previous;
+			} states;
 		);
 	}
 }

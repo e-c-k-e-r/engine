@@ -622,7 +622,7 @@ pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, const uf::Mes
 	return bounds;
 }
 pod::AABB impl::computeConvexHullAABB( const uf::Mesh::View& view, pod::AABB bounds ) {
-	return impl::computeConvexHullAABB( view, view["position"_hash], bounds );
+	return impl::computeConvexHullAABB( view, view["position"], bounds );
 }
 // combines two AABBs
 pod::AABB impl::mergeAabb( const pod::AABB& a, const pod::AABB& b ) {
@@ -741,7 +741,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 				return impl::transformAabbToWorld( body.collider.mesh.bvh->bounds[0], transform );
 			const auto& meshData = *body.collider.mesh.mesh;
 			pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
-			for ( const auto& view : meshData.buffer_views ) impl::computeConvexHullAABB( view, view["position"_hash], bounds );
+			for ( const auto& view : meshData.buffer_views ) impl::computeConvexHullAABB( view, view["position"], bounds );
 			return impl::transformAabbToWorld( bounds, transform );
 		}
 		default: {

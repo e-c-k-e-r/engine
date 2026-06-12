@@ -47,6 +47,8 @@ namespace {
 			targetOffset = offset;
 		} else if ( (int)origin == 1 ) {
 			targetOffset = (long long)ctx->currentOffset + offset;
+		} else if ( (int)origin == 2 ) {
+			targetOffset = (long long)ctx->totalSize + offset;
 		}
 
 		if (targetOffset < 0) targetOffset = 0;
@@ -177,7 +179,7 @@ void ext::wav::load(uf::Audio::Metadata& metadata) {
 	if (metadata.settings.streamed) return ext::wav::stream(metadata);
 	// read all PCM data
 	size_t totalBytes = (size_t) metadata.info.size;
-	std::vector<uint8_t> bytes(totalBytes);
+	uf::stl::vector<uint8_t> bytes(totalBytes);
 
 	size_t bytesRead = funs::read(bytes.data(), 1, totalBytes, &metadata);
 	if (bytesRead < totalBytes) {
