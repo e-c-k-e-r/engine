@@ -53,9 +53,7 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 layout(binding = 7, set = 0, rgba16f) uniform writeonly image2DArray imageColor;
 layout(binding = 8, set = 0, rgba16f) uniform writeonly image2DArray imageBright;
 layout(binding = 9, set = 0, rg16f) uniform writeonly image2DArray imageMotion;
-#if MULTISAMPLING
 layout(binding = 10, set = 0, r32f) uniform writeonly image2DArray imageDepthResolved;
-#endif
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
