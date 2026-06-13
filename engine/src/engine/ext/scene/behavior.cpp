@@ -560,7 +560,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			LightInfo& info = entities.emplace_back(LightInfo{
 				.entity = entity,
 				.position = flatten.position,
-				.range = 0,
+				.range = MAX(metadata.radius.x, metadata.radius.y),
 				.color = metadata.color,
 				.intensity = metadata.power,
 				.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
@@ -1265,9 +1265,11 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 	// trigger an update when we have differing bound texture sizes
 	bool shouldUpdate = metadata.shader.invalidated || graphic.material.textures.size() != previousTextures.size();
+/*
 	for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
 		if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 	}
+*/
 /*
 	if ( shouldUpdate ) {
 	//	graphic.updatePipelines();

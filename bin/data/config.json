@@ -2,7 +2,6 @@
 	"engine": {
 		"scenes": {
 			"start": "StartMenu",
-			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"lightmaps": false,
 				"max": 32,
@@ -10,7 +9,7 @@
 					"enabled": true,
 					"update": 4,
 					"max": 16,
-					"samples": 2
+					"samples": 1
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -109,19 +108,19 @@
 				"invariant": {
 					"default stage buffers": true,
 					"default defer buffer destroy": true,
-					"default command buffer immediate": false,
-					"n-buffered uniform": false,
-					"multithreaded recording": true
+					"default command buffer immediate": true,
+					"n-buffered uniform": true,
+					"multithreaded recording": false
 				},
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
-					"vsync": true, // vsync on vulkan side rather than engine-side
+					"vsync": false, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true, // to-do: fix issues
+					"vxgi": false, // to-do: fix issues
 					"culling": false,
-					"bloom": true,
-					"dof": true,
+					"bloom": false,
+					"dof": false,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false

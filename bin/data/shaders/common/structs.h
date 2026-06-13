@@ -188,6 +188,7 @@ struct Surface {
 
 	vec4 light;
 	vec4 fragment;
+	vec2 fragCoord;
 } surface;
 
 // MSAA info

@@ -15,8 +15,6 @@
 #define VK_DEBUG_VALIDATION_MESSAGE(...)\
 	//VK_VALIDATION_MESSAGE(__VA_ARGS__);
 
-#define IS_DYNAMIC(name) true // name == "UBO"
-
 #define UF_SHADER_PARSE_AS_JSON 0
 #if UF_SHADER_PARSE_AS_JSON
 ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& definition ) {
@@ -519,11 +517,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						.size = bufferSize,
 					};
 
-					if ( descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ) {
-						if ( IS_DYNAMIC(name) ) {
-							UF_MSG_DEBUG("Registered dynamic UBO: {}", name);
-						}
-						metadata.dynamicRanges.emplace_back( IS_DYNAMIC(name) ? bufferSize : 0 );
+					if ( IS_DYNAMIC(name) ) {
+						descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+						metadata.dynamicRanges.emplace_back( bufferSize );
 					}
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
@@ -580,7 +576,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		LOOP_RESOURCES( storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		LOOP_RESOURCES( separate_samplers, VK_DESCRIPTOR_TYPE_SAMPLER );
 		LOOP_RESOURCES( subpass_inputs, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
-		LOOP_RESOURCES( uniform_buffers, VK_UBO_USE_N_BUFFERS ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 		LOOP_RESOURCES( acceleration_structures, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR );
 		#undef LOOP_RESOURCES

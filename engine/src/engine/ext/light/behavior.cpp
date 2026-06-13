@@ -93,7 +93,6 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		} else {
 			size = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 		}
-		if ( radius.y < radius.x ) radius.y = 2048;
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
 		camera.update();
 		
@@ -218,7 +217,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		if ( /*renderMode.execute*/ renderMode.metadata.limiter.execute && !metadata.renderer.external ) {
 			auto& camera = this->getComponent<uf::Camera>();
 			auto& pod = camera.data();
-			pod.viewport.views = 6;
+			pod.views = 6;
 			// omni light
 			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
 				auto transform = camera.getTransform();

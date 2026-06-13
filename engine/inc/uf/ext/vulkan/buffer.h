@@ -17,6 +17,7 @@ namespace ext {
 				0
 			};
 			VkDeviceSize alignment = 0;
+			VkDeviceSize stride = 0;
 			void* mapped = nullptr;
 			mutable size_t address = {};
 			mutable bool written = false; // could technically be deduced with the address being set

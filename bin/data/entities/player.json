@@ -113,7 +113,7 @@
 			"settings": {
 				"fixed": false,
 				"fov" : 90.0,
-				"clip" : [ 0.1, 64.0 ],
+				"clip" : [ 0.1, 0 ],
 				"size" :  [ 0, 0 ]
 			}
 		},

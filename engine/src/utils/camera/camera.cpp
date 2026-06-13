@@ -20,7 +20,7 @@ pod::Vector3f uf::camera::eye( const pod::Camera& camera, int i ) {
 	return position;
 }
 void uf::camera::view( pod::Camera& camera, const pod::Matrix4f& mat, int i ) {
-	if ( i < 0 ) i = uf::camera::maxViews; // camera.viewport.views;
+	if ( i < 0 ) i = uf::camera::maxViews; // camera.views;
 	if ( i >= uf::camera::maxViews ) {
 		for ( i = 0; i < uf::camera::maxViews; ++i ) {
 			camera.viewport.matrices[i].view = mat;
@@ -30,7 +30,7 @@ void uf::camera::view( pod::Camera& camera, const pod::Matrix4f& mat, int i ) {
 	camera.viewport.matrices[i].view = mat;
 }
 void uf::camera::projection( pod::Camera& camera, const pod::Matrix4f& mat, int i ) {
-	if ( i < 0 ) i = uf::camera::maxViews; // camera.viewport.views;
+	if ( i < 0 ) i = uf::camera::maxViews; // camera.views;
 	if ( i >= uf::camera::maxViews ) {
 		for ( i = 0; i < uf::camera::maxViews; ++i ) camera.viewport.matrices[i].projection = mat;
 		return;
@@ -78,15 +78,15 @@ const pod::Matrix4& uf::Camera::getProjection( size_t i ) const { return this->v
 
 void uf::Camera::setStereoscopic( bool b ) { this->stereoscopic = b; }
 pod::Vector3f uf::Camera::getEye( size_t i ) const {
-	if ( i < 0 ) i = uf::camera::maxViews; // this->viewport.views;
+	if ( i < 0 ) i = uf::camera::maxViews; // this->views;
 	return uf::camera::eye( *this, i );
 }
 void uf::Camera::setView( const pod::Matrix4& mat, int i ) {
-	if ( i < 0 ) i = uf::camera::maxViews; // this->viewport.views;
+	if ( i < 0 ) i = uf::camera::maxViews; // this->views;
 	uf::camera::view( *this, mat, i );
 }
 void uf::Camera::setProjection( const pod::Matrix4& mat, int i ) {
-	if ( i < 0 ) i = uf::camera::maxViews; // this->viewport.views;
+	if ( i < 0 ) i = uf::camera::maxViews; // this->views;
 	uf::camera::projection( *this, mat, i );
 }
 void uf::Camera::update() {

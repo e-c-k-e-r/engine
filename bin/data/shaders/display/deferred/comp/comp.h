@@ -63,7 +63,7 @@ layout( push_constant ) uniform PushBlock {
 #include "../../../common/structs.h"
 
 layout (binding = 11, set = 0) uniform Camera {
-	Viewport viewport[2];
+	Viewport viewport[6];
 } camera;
 
 layout (binding = 12, set = 0) uniform UBO {
@@ -165,7 +165,6 @@ void postProcess() {
 
 	if ( ubo.settings.mode.type > 0x0000 ) {
 		uvec2 renderSize = imageSize(imageColor).xy;
-		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 		if ( true ) {
 		//	if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.barycentric.rgb, 1);
 			if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.material.albedo.rgb, 1);
@@ -189,6 +188,7 @@ void populateSurface() {
 	const uvec2 renderSize = imageSize(imageColor).xy;
 	if ( gl_GlobalInvocationID.x >= renderSize.x || gl_GlobalInvocationID.y >= renderSize.y /*|| gl_GlobalInvocationID.z > PushConstant.pass*/ ) return;
 
+	surface.fragCoord = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 	surface.pass = gl_GlobalInvocationID.z;
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
@@ -200,7 +200,6 @@ void populateSurface() {
 
 	float depth = 0.0;
 	{
-		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 
 	#if USE_CAMERA_VIEWPORT
 		const mat4 iProjection = inverse( camera.viewport[surface.pass].projection );
@@ -211,8 +210,8 @@ void populateSurface() {
 		const mat4 iProjection = ubo.eyes[surface.pass].iProjection;
 		const mat4 iProjectionView = /*iProjection * iView;*/ inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
 	#endif
-		const vec4 near4 = iProjectionView * (vec4(inUv, -1.0, 1.0));
-		const vec4 far4 = iProjectionView * (vec4(inUv, 1.0, 1.0));
+		const vec4 near4 = iProjectionView * (vec4(surface.fragCoord, -1.0, 1.0));
+		const vec4 far4 = iProjectionView * (vec4(surface.fragCoord, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
@@ -221,7 +220,7 @@ void populateSurface() {
 
 		depth = IMAGE_LOAD(samplerDepth).r;
 
-		vec4 eye = iProjection * vec4(inUv, depth, 1.0);
+		vec4 eye = iProjection * vec4(surface.fragCoord, depth, 1.0);
 		eye /= eye.w;
 
 		surface.position.eye = eye.xyz;

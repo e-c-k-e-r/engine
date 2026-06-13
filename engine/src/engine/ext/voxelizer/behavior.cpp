@@ -208,7 +208,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
 			for ( auto& t : sceneTextures.voxels.outputMipmaps ) shader.textures.emplace_back().aliasTexture(t);
 
-			metadata.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			metadata.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT );
 			shader.aliasBuffer("atomicCounter", metadata.atomicCounter);	
 		}
 	#endif

@@ -486,86 +486,27 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t ) {
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T zfar ) {
-	if (uf::matrix::reverseInfiniteProjection) {
-		T f = static_cast<T>(1) / tan(static_cast<T>(0.5) * fov);
-	#if UF_USE_OPENGL
-		pod::Matrix4t<T> m = uf::matrix::identity<T>();
-		m(0,0) = f / raidou;
-		m(1,1) = f;
-		m(2,2) = 0;
-		m(2,3) = znear;
-		m(3,2) = 1;
-		m(3,3) = 0;
-		return m;
-	#elif UF_USE_VULKAN
-		pod::Matrix4t<T> m = uf::matrix::identity<T>();
-		m(0,0) = f / raidou;
-		m(1,1) = -f; // Vulkan flips Y
-		m(2,2) = 0;
-		m(2,3) = znear;
-		m(3,2) = 1;
-		m(3,3) = 0;
-		return m;
-	#endif
-	} else {
-		T range = znear - zfar;
-		T f = tan(static_cast<T>(0.5) * fov);
+    pod::Matrix4t<T> m = uf::matrix::identity<T>();
 
-		T Sx = static_cast<T>(1) / (f * raidou);
-		T Sy = static_cast<T>(1) / f;
-		T Sz = (zfar + znear) / range;
-		T Pz = (static_cast<T>(2) * zfar * znear) / range;
-
-	#if UF_USE_VULKAN
-		Sy = -Sy; // Vulkan NDC has inverted Y
-	#endif
-
-		pod::Matrix4t<T> m = uf::matrix::identity<T>();
-		m(0,0) = Sx;
-		m(1,1) = Sy;
-		m(2,2) = Sz;
-		m(2,3) = Pz;
-		m(3,2) = -1;
-		m(3,3) = 0;
-		return m;
-	}
-#if 0
-	if ( uf::matrix::reverseInfiniteProjection ) {
-		T f = static_cast<T>(1) / tan( static_cast<T>(0.5) * fov );
-	#if UF_USE_OPENGL
-		return pod::Matrix4t<T>({
-			f / raidou, 0, 0, 0,
-			0, f, 0, 0,
-			0, 0, 0, 1,
-			0, 0, znear, 0
-		});
-	#elif UF_USE_VULKAN
-		return pod::Matrix4t<T>({
-			f / raidou, 0, 0, 0,
-			0, -f, 0, 0,
-			0, 0, 0, 1,
-			0, 0, znear, 0
-		});
-	#endif
-	} else {
-		T range = znear - zfar;
-		T f = tan( static_cast<T>(0.5) * fov );
-
-		T Sx = static_cast<T>(1) / (f * raidou);
-		T Sy = static_cast<T>(1) / f;
-		T Sz = (-znear - zfar) / range;
-		T Pz = static_cast<T>(2) * zfar * znear / range;
-	#if UF_USE_VULKAN
-		Sy = -Sy;
-	#endif
-		return pod::Matrix4t<T>({
-			Sx, 	 0, 	 0, 	  0,
-			 0, 	Sy, 	 0, 	  0,
-			 0, 	 0, 	Sz, 	  1,
-			 0, 	 0, 	Pz, 	  0
-		});
-	}
+	T f = static_cast<T>(1) / tan(static_cast<T>(0.5) * fov);
+    m(0,0) = f / raidou;
+    m(1,1) = f;
+#if UF_USE_VULKAN
+    m(1,1) = -f;
 #endif
+    m(3,2) = 1;
+    m(3,3) = 0;
+
+    if ( zfar <= 0 ) {
+        m(2,2) = 0;
+        m(2,3) = znear;
+    } else {
+        T range = zfar - znear;
+        m(2,2) = zfar / range;
+        m(2,3) = -(zfar * znear) / range;
+    }
+
+    return m;
 }
 template<typename T> T& uf::matrix::copy( T& destination, const T& source ) {
 	FOR_EACH(T::rows * T::columns, {

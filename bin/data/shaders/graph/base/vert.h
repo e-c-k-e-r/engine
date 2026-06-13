@@ -22,7 +22,7 @@ layout( push_constant ) uniform PushBlock {
 } PushConstant;
 
 layout (binding = 0) uniform Camera {
-	Viewport viewport[PASSES];
+	Viewport viewport[6];
 } camera;
 
 layout (std140, binding = 1) readonly buffer DrawCommands {

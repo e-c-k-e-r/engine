@@ -56,13 +56,10 @@ float omniShadowMap( const Light light, float def ) {
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
 	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
-	if ( positionClip.z < -1 || positionClip.z >= 1 ) return 0.0;
-
-	const float eyeDepthScale = 1.0;
-	const float sampledDepthScale = light.view[1][1]; // light view matricies will incorporate scaling factors for some retarded reason, so we need to rescale it by grabbing from here, hopefully it remains coherent between all light matrices to ever exist in engine
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
 
 	const float bias = light.depthBias;
-	const float eyeDepth = abs(positionClip.z / positionClip.w) * eyeDepthScale;
+	const float eyeDepth = abs(positionClip.z / positionClip.w);
 
 	const vec3 sampleOffsetDirections[20] = {
 		vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
@@ -77,13 +74,13 @@ float omniShadowMap( const Light light, float def ) {
 	// cubemap point light
 	if ( light.typeMap == 1 ) {
 		if ( samples < 1 ) {
-			sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D).r * sampledDepthScale;
+			sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D).r ;
 		} else {
 			for ( int i = 0; i < samples; ++i ) {
 				const int idx = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
 				vec2 poisson = poissonDisk[idx] / 700.0;
 				vec3 P = vec3( poisson.xy, (poisson.x + poisson.y) * 0.5 );
-				sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D + P ).r * sampledDepthScale;
+				sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D + P ).r ;
 				if ( eyeDepth < sampled - bias ) factor -= 1.0 / samples;
 			}
 			return factor;
@@ -92,11 +89,11 @@ float omniShadowMap( const Light light, float def ) {
 	} else if ( light.typeMap == 2 ) {
 		const vec2 uv = positionClip.xy * 0.5 + 0.5;
 		if ( samples < 1 ) {
-			sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv).r * sampledDepthScale;
+			sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv).r ;
 		} else {
 			for ( int i = 0; i < samples; ++i ) {
 				const int idx = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
-				sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv + poissonDisk[idx] / 700.0 ).r * sampledDepthScale;
+				sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv + poissonDisk[idx] / 700.0 ).r ;
 				if ( eyeDepth < sampled - bias ) factor -= 1.0 / samples;
 			}
 			return factor;

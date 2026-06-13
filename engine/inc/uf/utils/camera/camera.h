@@ -21,8 +21,8 @@ namespace pod {
 				pod::Matrix4f view;
 				pod::Matrix4f projection;
 			} matrices[uf::camera::maxViews];
-			size_t views = 1;
 		} viewport;
+		size_t views = 1;
 		bool stereoscopic = false;
 	};
 }

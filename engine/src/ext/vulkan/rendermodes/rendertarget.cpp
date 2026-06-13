@@ -25,8 +25,15 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.depth.write = false;
 	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
-	//	descriptor.depth.test = false;
-	//	descriptor.depth.write = false;
+		if ( metadata.json["reverse depth"].as<bool>(uf::matrix::reverseInfiniteProjection) ) {
+			descriptor.depth.operation = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
+			descriptor.depth.min = 1.0f;
+			descriptor.depth.max = 0.0f;
+		} else {
+			descriptor.depth.operation = ext::vulkan::enums::Compare::LESS;
+			descriptor.depth.min = 0.0f;
+			descriptor.depth.max = 1.0f;
+		}
 	}
 	return descriptor;
 }
@@ -321,16 +328,18 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
 	uf::stl::vector<VkClearValue> clearValues;
+	float depthClear = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+	for ( auto graphic : graphics ) {
+		auto descriptor = bindGraphicDescriptor(graphic->descriptor);
+		depthClear = descriptor.depth.max;
+		break;
+	}
 	for ( auto& attachment : renderTarget.attachments ) {
 		auto& clearValue = clearValues.emplace_back();
 		if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
 			clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 		} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-			if ( uf::matrix::reverseInfiniteProjection ) {
-				clearValue.depthStencil = { 0.0f, 0 };
-			} else {
-				clearValue.depthStencil = { 1.0f, 0 };
-			}
+			clearValue.depthStencil = { depthClear, 0 };
 		}
 	}
 

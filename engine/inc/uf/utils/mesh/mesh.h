@@ -453,6 +453,8 @@ namespace ext {
 				bool test = true;
 				bool write = true;
 				uf::renderer::enums::Compare::type_t operation = uf::renderer::enums::Compare::GREATER_OR_EQUAL;
+				float min = 1.0f;
+				float max = 0.0f;
 				struct {
 					bool enable = false;
 					float constant = 0;

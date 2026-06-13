@@ -13,6 +13,7 @@ namespace ext {
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector3f color = {1,1,1};
+			pod::Vector2f radius = { 0.001f, 32.0f };
 			float power = 0.0f;
 			float bias = 0.0f;
 			bool shadows = false;

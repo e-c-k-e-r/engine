@@ -323,15 +323,8 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			descriptor.depth.write,
 			descriptor.depth.operation
 		);
-		if ( uf::matrix::reverseInfiniteProjection ) {
-			depthStencilState.depthCompareOp = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
-			depthStencilState.minDepthBounds = 1.0f;
-			depthStencilState.maxDepthBounds = 0.0f;
-		} else {
-			depthStencilState.depthCompareOp = ext::vulkan::enums::Compare::LESS;
-			depthStencilState.minDepthBounds = 0.0f;
-			depthStencilState.maxDepthBounds = 1.0f;
-		}
+		depthStencilState.minDepthBounds = descriptor.depth.min;
+		depthStencilState.maxDepthBounds = descriptor.depth.max;
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
 		);
@@ -532,6 +525,7 @@ void ext::vulkan::DescriptorSets::record( const Graphic& graphic, const GraphicD
 
 	// create dynamic offset ranges
 	STATIC_THREAD_LOCAL(uf::stl::vector<uint32_t>, dynamicOffsets);
+	static thread_local std::map<uint32_t, uint32_t> bindingStrides; bindingStrides.clear();
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 
@@ -556,14 +550,19 @@ void ext::vulkan::DescriptorSets::record( const Graphic& graphic, const GraphicD
 			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_GRAPHICS ) bound = true;
 			else continue;
 		}
-		
-		if ( VK_UBO_USE_N_BUFFERS )
-			dynamicOffsets.insert( dynamicOffsets.end(), shader->metadata.dynamicRanges.begin(), shader->metadata.dynamicRanges.end() );
+
+		if ( VK_UBO_USE_N_BUFFERS ) {
+			for ( const auto& [name, uniform] : shader->metadata.definitions.uniforms ) {
+				if ( IS_DYNAMIC(name) ) {
+					bindingStrides[uniform.binding] = uniform.size;
+				}
+			}		
+		}		
 	}
 
-	for ( auto& dynamicOffset : dynamicOffsets ) {
-		dynamicOffset *= offset;
-	}
+	for ( const auto& [binding, stride] : bindingStrides ) {
+        dynamicOffsets.emplace_back( stride * offset );
+    }
 
 	// no matching bind point for shaders, skip
 	if ( !bound ) {
@@ -2152,7 +2151,7 @@ void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 		else if ( metadata["cull mode"].as<uf::stl::string>() == "none" ) cullMode = VK_CULL_MODE_NONE;
 		else if ( metadata["cull mode"].as<uf::stl::string>() == "both" ) cullMode = VK_CULL_MODE_FRONT_AND_BACK;
 	}
-
+	// to-do: probably parse depth op/min/max
 	if ( ext::json::isObject(metadata["depth bias"]) ) {
 		depth.bias.enable = VK_TRUE;
 		depth.bias.constant = metadata["depth bias"]["constant"].as<float>();

@@ -15,6 +15,7 @@ void ext::vulkan::Buffer::swap( ext::vulkan::Buffer& buffer ) {
 	std::swap(this->memory, buffer.memory);
 	std::swap(this->descriptor, buffer.descriptor);
 	std::swap(this->alignment, buffer.alignment);
+	std::swap(this->stride, buffer.stride);
 	std::swap(this->address, buffer.address);
 	std::swap(this->mapped, buffer.mapped);
 	std::swap(this->usage, buffer.usage);
@@ -37,6 +38,7 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 	this->memory = buffer.memory;
 	this->descriptor = buffer.descriptor;
 	this->alignment = buffer.alignment;
+	this->stride = buffer.alignment;
 	this->address = buffer.address;
 	this->mapped = buffer.mapped;
 	this->usage = buffer.usage;
@@ -91,7 +93,7 @@ size_t ext::vulkan::Buffer::getLength( ) const {
 	return allocationInfo.size;
 }
 size_t ext::vulkan::Buffer::getOffset( size_t i ) const {
-	return this->getLength() / this->count * i;
+	return this->stride * i;
 }
 
 ext::vulkan::Buffer::~Buffer() {
@@ -117,6 +119,7 @@ void ext::vulkan::Buffer::destroy(bool defer) {
 	this->memory = {};
 	this->descriptor = {};
 //	this->alignment = {};
+	this->stride = {};
 	this->address = {};
 	this->mapped = {};
 //	this->usage = {};
@@ -132,11 +135,12 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 	if ( this->staged ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
 
 	// assume all UBOs are dynamic
-	auto totalLength = length;
+	auto totalLength = (this->stride = length);
 	if ( VK_UBO_USE_N_BUFFERS && usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
 		this->count = ext::vulkan::swapchain.buffers;
 		this->alignment = device->properties.limits.minUniformBufferOffsetAlignment;
-		totalLength = ALIGNED_SIZE( length, this->alignment ) * this->count;
+		this->stride = ALIGNED_SIZE( length, this->alignment );
+		totalLength = this->stride * this->count;
 	}
 	VK_CHECK_RESULT(device->createBuffer( nullptr, totalLength, usage, memoryProperties, *this ));
 

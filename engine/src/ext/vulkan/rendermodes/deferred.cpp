@@ -415,7 +415,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
-			::postprocesses::bloom.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			::postprocesses::bloom.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
 			shader.aliasBuffer("atomicCounterBloom", ::postprocesses::bloom.atomicCounter);	
 		}
 
@@ -449,7 +449,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
-			::postprocesses::dof.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			::postprocesses::dof.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
 			shader.aliasBuffer("atomicCounterBloom", ::postprocesses::dof.atomicCounter);
 		}
 
@@ -482,7 +482,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("depth_resolved", this);
 
 			// atomic counter buffer
-			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE );
+			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
 			shader.aliasBuffer("atomicCounterDepth", ::postprocesses::depthPyramid.atomicCounter);
 		}
 	}
@@ -759,6 +759,15 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 ext::vulkan::GraphicDescriptor ext::vulkan::DeferredRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
 	if ( descriptor.renderMode != "" ) descriptor.invalidated = true;
+	if ( metadata.json["reverse depth"].as<bool>(uf::matrix::reverseInfiniteProjection) ) {
+		descriptor.depth.operation = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
+		descriptor.depth.min = 1.0f;
+		descriptor.depth.max = 0.0f;
+	} else {
+		descriptor.depth.operation = ext::vulkan::enums::Compare::LESS;
+		descriptor.depth.min = 0.0f;
+		descriptor.depth.max = 1.0f;
+	}
 	return descriptor;
 }
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
@@ -783,7 +792,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
 	auto& commands = getCommands();
-//	auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
+
+	float depthClear = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+	for ( auto graphic : graphics ) {
+		auto descriptor = bindGraphicDescriptor(graphic->descriptor);
+		depthClear = descriptor.depth.max;
+		break;
+	}
 	uf::stl::vector<VkClearValue> clearValues;
 	for ( auto& attachment : renderTarget.attachments ) {
 		pod::Vector4f clearColor = uf::vector::decode( sceneMetadataJson["system"]["renderer"]["clear values"][(int) clearValues.size()], pod::Vector4f{0, 0, 0, 0} );
@@ -794,11 +809,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			clearValue.color.float32[2] = clearColor[2];
 			clearValue.color.float32[3] = clearColor[3];
 		} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-			if ( uf::matrix::reverseInfiniteProjection ) {
-				clearValue.depthStencil = { 0.0f, 0 };
-			} else {
-				clearValue.depthStencil = { 1.0f, 0 };
-			}
+			clearValue.depthStencil = { depthClear, 0 };
 		}
 	}
 	bool shouldRecord = true; // ( settings::pipelines::rt && !uf::config["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
@@ -998,7 +1009,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 							if ( graphic->descriptor.renderMode != this->getName() ) continue;
 							if ( graphic->descriptor.renderTarget != 1 /*"forward"*/ ) continue;
 							//if ( graphic->descriptor.pipeline != "forward" ) continue;
-							ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor; // bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+							//descriptor.renderTarget = 1;
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
 							graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
 						}

@@ -8,6 +8,9 @@
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 
+#define IS_DYNAMIC(name) true
+ // name.ends_with("_d")
+
 namespace ext {
 	namespace vulkan {
 		#if UF_GRAPHIC_POINTERED_USERDATA

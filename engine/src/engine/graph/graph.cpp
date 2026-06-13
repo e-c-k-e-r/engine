@@ -723,11 +723,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		if ( mode == "cw" ) graphic.descriptor.frontFace = uf::renderer::enums::Face::CW;
 		else if ( mode == "ccw" ) graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
 		else if ( mode == "auto" ) {
-			if ( uf::matrix::reverseInfiniteProjection ) {
-				graphic.descriptor.frontFace = graphMetadataJson["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
-			} else {
-				graphic.descriptor.frontFace = graphMetadataJson["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
-			}
+			graphic.descriptor.frontFace = graphMetadataJson["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
 		}
 		else UF_MSG_WARNING("Invalid Face enum string specified: {}", mode);
 	}
@@ -1358,12 +1354,21 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		#else
 			metadata.system.ignoreGraph = graphMetadataJson["debug"]["static"].as<bool>();
 		#endif
-			float powerScale = graphMetadataJson["lights"]["scale"].as<float>(1);
+			const float LIGHT_POWER_CUTOFF = 0.005f;
+			float power = l.intensity * graphMetadataJson["lights"]["scale"].as<float>(1);
+			float range = l.range;
+			if ( range <= 0.0f ) {
+				if ( power > LIGHT_POWER_CUTOFF ) {
+					range = std::sqrt( (power / LIGHT_POWER_CUTOFF) - 1.0f );
+				} else {
+					range = 0.001f;
+				}
+			}
 			
 			uf::Serializer metadataLight;
-			metadataLight["radius"][0] = 0.001;
-			metadataLight["radius"][1] = l.range;
-			metadataLight["power"] = l.intensity * powerScale;
+			metadataLight["radius"][0] = range;
+			metadataLight["radius"][1] = 0.001;
+			metadataLight["power"] = power;
 
 			metadataLight["color"][0] = l.color.x;
 			metadataLight["color"][1] = l.color.y;
@@ -1375,10 +1380,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( uf::string::matched( node.name, R"(/\bspot\b/)" ) ) {
 				metadataLight["type"] = "spot";
 			}
-
+		/*
 			if ( ext::json::isArray( graphMetadataJson["lights"]["radius"] ) ) {
 				metadataLight["radius"] = graphMetadataJson["lights"]["radius"];
 			}
+		*/
 			if ( graphMetadataJson["lights"]["bias"].is<float>() ) {
 				metadataLight["bias"] = graphMetadataJson["lights"]["bias"].as<float>();
 			}
