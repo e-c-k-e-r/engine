@@ -18,26 +18,23 @@ uf::stl::string impl::readString( std::ifstream& file ) {
 	return str;
 }
 
-size_t impl::addMaterial( pod::Graph& graph, const uf::stl::string& name ) {
+size_t impl::addMaterial( pod::Graph& graph, const uf::stl::string& name, int32_t& textureID ) {
 	auto& storage = uf::graph::getStorage( graph );
 
+	textureID = graph.textures.size();
 	size_t imageID = graph.images.size();
-	auto imgKeyName = graph.images.emplace_back(name);
-	auto& image = storage.images[imgKeyName].data;
-
-	size_t textureID = graph.textures.size();
-	auto texKeyName = graph.textures.emplace_back(name);
-	storage.textures[texKeyName].index = imageID;
-
 	size_t materialID = graph.materials.size();
-	auto matKeyName = graph.materials.emplace_back(name);
-	auto& material = storage.materials[matKeyName];
-	material.indexAlbedo = textureID;
+
+	graph.images.emplace_back(name);
+	graph.textures.emplace_back(name);
+	graph.materials.emplace_back(name);
+	storage.textures[name].index = imageID;
+	auto& material = storage.materials[name];
 	material.colorBase = {1.0f, 1.0f, 1.0f, 1.0f};
 	material.factorMetallic = 0.0f;
 	material.factorRoughness = 1.0f;
 	material.factorOcclusion = 1.0f;
-
+	
 	return materialID;
 }
 

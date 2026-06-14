@@ -34,8 +34,6 @@ namespace pod {
 		uf::stl::vector<uf::stl::string> images; //
 		uf::stl::vector<uf::stl::string> materials; //
 		uf::stl::vector<uf::stl::string> textures; //
-
-		uf::stl::vector<uf::stl::string> texture2Ds; //
 		uf::stl::vector<uf::stl::string> samplers; //
 
 		// Lighting information
@@ -104,6 +102,8 @@ namespace pod {
 			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
 			uf::stl::KeyMap<uf::Entity*> entities;
 			
+			uf::stl::vector<uf::renderer::TextureCube> cubemaps;
+
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
 			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
 

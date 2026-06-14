@@ -54,9 +54,9 @@ float omniShadowMap( const Light light, float def ) {
 	vec4 positionClip = light.projection * views[index] * vec4(surface.position.world - light.position, 1.0);
 	positionClip.xy /= positionClip.w;
 
-	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
-	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
-	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 1.0f;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 1.0f;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 1.0f;
 
 	const float bias = light.depthBias;
 	const float eyeDepth = abs(positionClip.z / positionClip.w);
@@ -77,7 +77,7 @@ float omniShadowMap( const Light light, float def ) {
 			sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D).r ;
 		} else {
 			for ( int i = 0; i < samples; ++i ) {
-				const int idx = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
+				const int idx = int( float(samples) * interleavedGradientNoise(surface.fragCoord.xy + i)) % samples;
 				vec2 poisson = poissonDisk[idx] / 700.0;
 				vec3 P = vec3( poisson.xy, (poisson.x + poisson.y) * 0.5 );
 				sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D + P ).r ;
@@ -92,7 +92,7 @@ float omniShadowMap( const Light light, float def ) {
 			sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv).r ;
 		} else {
 			for ( int i = 0; i < samples; ++i ) {
-				const int idx = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
+				const int idx = int( float(samples) * interleavedGradientNoise(surface.fragCoord.xy + i)) % samples;
 				sampled = texture(samplerTextures[nonuniformEXT(light.indexMap + index)], uv + poissonDisk[idx] / 700.0 ).r ;
 				if ( eyeDepth < sampled - bias ) factor -= 1.0 / samples;
 			}
@@ -118,16 +118,16 @@ float shadowFactor( const Light light, float def ) {
 	vec4 positionClip = light.projection * light.view * vec4(surface.position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
-	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
-	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def; //0.0;
-	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def; //0.0;
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def;
 
 	float factor = 1.0;
 
 	// spot light
 	if ( abs(light.type) == 2 || abs(light.type) == 3 ) {
 		const float dist = length( positionClip.xy );
-		if ( dist > 0.5 ) return def; //0.0;
+		if ( dist > 0.5 ) return def;
 		
 		// spot light with attenuation
 		if ( abs(light.type) == 3 ) {
@@ -142,7 +142,7 @@ float shadowFactor( const Light light, float def ) {
 	const float invResolution = 1.0 / textureSize( samplerTextures[nonuniformEXT(light.indexMap)], 0 ).x;
 	if ( samples < 1 ) return eyeDepth < texture(samplerTextures[nonuniformEXT(light.indexMap)], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
-		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
+		const int index = int( float(samples) * interleavedGradientNoise(surface.fragCoord.xy + i)) % samples;
 		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.indexMap)], uv + poissonDisk[index] * invResolution ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}

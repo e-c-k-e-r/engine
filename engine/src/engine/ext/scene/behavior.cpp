@@ -541,6 +541,21 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		storage.shadow2Ds.clear(); storage.shadow2Ds.reserve(metadata.light.max);
 		storage.shadowCubes.clear(); storage.shadowCubes.reserve(metadata.light.max);
 
+		uint32_t texture2dOffset = 0;
+		uint32_t textureCubeOffset = 0;
+
+		for ( size_t i = 0; i < storage.images.keys.size(); ++i ) {
+			auto& key = storage.images.keys[i];
+			auto& image = storage.images.map[key].handle;
+
+			if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ) {
+				textureCubeOffset++;
+			} else {
+				texture2dOffset++;
+			}
+		}
+		//UF_MSG_DEBUG("texture2D={}, textureCube={}", texture2dOffset, textureCubeOffset);
+
 		// traverse scene graph
 		for ( auto entity : graph ) {
 			// ignore this scene, our controller, and anything that isn't actually a light
@@ -631,7 +646,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					// split cubemap (shouldn't actually get used)
 					if ( metadata.shadow.typeMap == MODE_SEPARATE_2DS ) {
 						UF_MSG_WARNING("deprecated feature used: separate Texture2Ds for shadow maps");
-						boundIndexMap = storage.shadow2Ds.size();
+						boundIndexMap = texture2dOffset + storage.shadow2Ds.size();
 						boundTypeMap = MODE_SEPARATE_2DS;
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if (!(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
@@ -642,7 +657,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						}
 					// cubemap
 					} else if ( metadata.shadow.typeMap == MODE_CUBEMAP ) {
-						boundIndexMap = storage.shadowCubes.size();
+						boundIndexMap = textureCubeOffset + storage.shadowCubes.size();
 						boundTypeMap = MODE_CUBEMAP;
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if (!(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
@@ -652,7 +667,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					}
 				} else {
 					// separate 2D maps
-					boundIndexMap = storage.shadow2Ds.size();
+					boundIndexMap = texture2dOffset + storage.shadow2Ds.size();
 					for ( auto& attachment : renderMode.renderTarget.attachments ) {
 						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) continue;
 						if (attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) continue;
@@ -1133,13 +1148,23 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	texturesCube.reserve( metadata.max.texturesCube );
 
 	// bind scene textures
-	for ( auto& key : storage.images.keys ) textures2D.emplace_back().aliasTexture( storage.images.map[key].handle );
+	for ( auto& key : storage.images.keys ) {
+		auto& texture = storage.images.map[key].handle;
+		if ( texture.viewType != uf::renderer::enums::Image::VIEW_TYPE_2D ) continue;
+		textures2D.emplace_back().aliasTexture( texture );
+	}
 	
 	size_t indexSkybox = 0;
 	size_t indexNoise = 0;
 
 	// bind only if this is the deferred rendermode
 	if ( shaderPipeline == "deferred" ) {
+		// bind cubemaps
+		for ( auto& key : storage.images.keys ) {
+			auto& texture = storage.images.map[key].handle;
+			if ( texture.viewType != uf::renderer::enums::Image::VIEW_TYPE_CUBE ) continue;
+			texturesCube.emplace_back().aliasTexture(texture);
+		}
 		// bind shadow maps
 		for ( auto& texture : storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
 		for ( auto& texture : storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);

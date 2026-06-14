@@ -3,13 +3,5 @@
 	"assets": [	
 	//	{ "filename": "./maps/cs_office.bsp" }
 		{ "filename": "./maps/cs_office/graph.json" }
-	],
-	"metadata": {
-		"graph": {
-			// realistically shouldn't ever need to define additional tags for BSPs
-			"tags": {
-
-			}
-		}	
-	}
+	]
 }

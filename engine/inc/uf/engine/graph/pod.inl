@@ -30,7 +30,7 @@ namespace pod {
 		int32_t indexOcclusion = -1;
 
 		int32_t indexMetallicRoughness = -1;
-		int32_t padding1 = -1;
+		int32_t indexCubemap = -1;
 		int32_t modeCull = -1;
 		int32_t modeAlpha = -1;
 	};

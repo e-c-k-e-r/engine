@@ -58,6 +58,7 @@ namespace {
 		if ( material.indexEmissive >= 0 ) json["iEmissive"] = material.indexEmissive;
 		if ( material.indexOcclusion >= 0 ) json["iOcclusion"] = material.indexOcclusion;
 		if ( material.indexMetallicRoughness >= 0 ) json["iMetallicRoughness"] = material.indexMetallicRoughness;
+		if ( material.indexCubemap >= 0 ) json["iCubemap"] = material.indexCubemap;
 		json["modeCull"] = material.modeCull;
 		json["modeAlpha"] = material.modeAlpha;
 		return json;
@@ -117,8 +118,9 @@ namespace {
 		json["primitiveID"] = instance.primitiveID;
 		json["meshID"] = instance.meshID;
 		json["lightmapID"] = instance.lightmapID;
-		json["auxID"] = instance.auxID;
+		json["cubemapID"] = instance.cubemapID;
 		json["objectID"] = instance.objectID;
+		json["auxID"] = instance.auxID;
 
 		json["bounds"]["min"] = uf::vector::encode( instance.bounds.min, settings );
 		json["bounds"]["max"] = uf::vector::encode( instance.bounds.max, settings );

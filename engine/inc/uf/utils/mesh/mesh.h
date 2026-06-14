@@ -96,8 +96,8 @@ namespace pod {
 
 		alignas(4)  int32_t jointID = -1; // offset for skins(?)
 		alignas(4)  int32_t lightmapID = -1; // index for lightmap to use
-		alignas(4) uint32_t imageID = 0; // unused?
-		alignas(4) uint32_t auxID = 0; // also the lightmap ID?
+		alignas(4)  int32_t cubemapID = -1; // index for cubemap to use
+		alignas(4) uint32_t auxID = 0; // index for which grid this belonged to (which is then used to deduce lightmap ID)
 
 		// AABB for this primitive
 		// should be for the specific draw call itself, rather than the mesh(let) entirely

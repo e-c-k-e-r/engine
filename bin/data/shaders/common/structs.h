@@ -66,7 +66,7 @@ struct Material {
 	int indexOcclusion;
 	
 	int indexMetallicRoughness;
-	int padding1;
+	int indexCubemap;
 	int modeCull;
 	int modeAlpha;
 };
@@ -118,7 +118,7 @@ struct Instance {
 
 	 int jointID;
 	 int lightmapID;
-	uint imageID;
+	 int cubemapID;
 	uint auxID;
 
 	Bounds bounds;

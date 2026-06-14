@@ -165,6 +165,11 @@ namespace impl {
 		float alpha;
 	};
 
+	struct BspCubemap {
+		pod::Vector3i origin;
+		int32_t size;
+	};
+
 	struct BspTexInfo {
 		pod::Vector4f textureVecs[2];
 		pod::Vector4f lightmapVecs[2];
@@ -214,7 +219,7 @@ namespace impl {
 		uf::stl::vector<impl::BspDispVert> dispverts;
 		// disptris
 		uf::stl::vector<uint8_t> pakfile;
-		// cubemaps
+		uf::stl::vector<impl::BspCubemap> cubemaps;
 		// overlay
 		uf::stl::vector<uint8_t> lighting;
 		// ambient lighting
@@ -225,6 +230,7 @@ namespace impl {
 
 		uf::stl::vector<int32_t> modelToMesh;
 		uf::stl::vector<int32_t> texdataToMaterial;
+		uf::stl::vector<int32_t> cubemapIDs;
 		pod::Atlas lightmapAtlas;
 	};
 
@@ -251,6 +257,28 @@ namespace impl {
 
 		return io;
 	}
+
+	int32_t findClosestCubemap( const impl::BspContext& context, const pod::Vector3f& position ) {
+		if ( context.cubemapIDs.empty() ) return -1;
+
+		int32_t bestID = context.cubemapIDs[0];
+		float minDistance = std::numeric_limits<float>::max();
+
+		for ( size_t i = 0; i < context.cubemaps.size(); ++i ) {
+			pod::Vector3f cubePos = impl::convertPos(pod::Vector3f{
+				context.cubemaps[i].origin.x,
+				context.cubemaps[i].origin.y,
+				context.cubemaps[i].origin.z
+			});
+
+			float distSq = uf::vector::distanceSquared( position, cubePos );
+			if ( distSq < minDistance ) {
+				minDistance = distSq;
+				bestID = context.cubemapIDs[i];
+			}
+		}
+		return bestID;
+	};
 
 	pod::Atlas::hash_t faceHash( size_t i ) {
 		return ::fmt::format("face_{}", i);
@@ -436,33 +464,46 @@ namespace impl {
 	};
 
 	template<typename T>
-	uf::stl::vector<T> extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
-		uf::stl::vector<T> data;
-		if ( lump.length == 0 || lump.offset >= buffer.size() ) return data;
+	void extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump, uf::stl::vector<T>& data ) {
+		if ( lump.length == 0 || lump.offset >= buffer.size() ) return;
 
 		size_t count = lump.length / sizeof(T);
 		data.resize(count);
 		std::copy(buffer.data() + lump.offset, buffer.data() + lump.offset + lump.length, (uint8_t*)(data.data()) );
+	}
+	template<typename T>
+	uf::stl::vector<T> extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
+		uf::stl::vector<T> data;
+		impl::extractLump<T>( buffer, lump, data );
 		return data;
 	}
 
 	template<>
-	uf::stl::vector<impl::BspGameLump> extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
-		uf::stl::vector<impl::BspGameLump> data;
-		if ( lump.length == 0 || lump.offset >= buffer.size() ) return data;
+	void extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump, uf::stl::vector<impl::BspGameLump>& data ) {
+		if ( lump.length == 0 || lump.offset >= buffer.size() ) return;
 
 		const uint8_t* glData = buffer.data() + lump.offset;
 		int32_t lumpCount = *(const int32_t*)glData;
 
 		data.resize(lumpCount);
 		std::copy(glData + 4, glData + 4 + (lumpCount * sizeof(impl::BspGameLump)), (uint8_t*)(data.data()));
+	}
 
+	template<>
+	uf::stl::vector<impl::BspGameLump> extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
+		uf::stl::vector<impl::BspGameLump> data;
+		impl::extractLump( buffer, lump, data );
 		return data;
 	}
 
-	uf::stl::string extractLumpString( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
+	void extractLumpString( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump, uf::stl::string& str ) {
 		auto data = impl::extractLump<char>( buffer, lump );
-		return uf::stl::string( data.data(), data.size() );
+		str = uf::stl::string( data.data(), data.size() );
+	}
+	uf::stl::string extractLumpString( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump ) {
+		uf::stl::string str;
+		impl::extractLumpString( buffer, lump, str );
+		return str;
 	}
 
 	void processNodes( pod::Graph& graph, const impl::BspContext& context, float scale = impl::sourceToMeters ) {
@@ -638,27 +679,53 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	graph.root.index = -1;
 
 	impl::BspContext context;
-	context.vertices = impl::extractLump<impl::BspVertex>(buffer, header->lumps[impl::BspLump::LUMP_VERTICES]);
-	context.edges = impl::extractLump<impl::BspEdge>(buffer, header->lumps[impl::BspLump::LUMP_EDGES]);
-	context.surfedges = impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_SURFEDGES]);
-	context.faces = impl::extractLump<impl::BspFace>(buffer, header->lumps[impl::BspLump::LUMP_FACES]);
-	context.texinfos = impl::extractLump<impl::BspTexInfo>(buffer, header->lumps[impl::BspLump::LUMP_TEXINFO]);
-	context.texdatas = impl::extractLump<impl::BspTexData>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA]);
-	context.stringTable = impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_TABLE]);
-	context.stringData = impl::extractLumpString(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_DATA]);
-	context.models = impl::extractLump<impl::BspModel>(buffer, header->lumps[impl::BspLump::LUMP_MODELS]);
-	context.entities = impl::extractLump<int8_t>(buffer, header->lumps[impl::BspLump::LUMP_ENTITIES]);
-	context.gameLumps = impl::extractLump<impl::BspGameLump>(buffer, header->lumps[impl::BspLump::LUMP_GAME_LUMP]);
-	context.dispinfos = impl::extractLump<impl::BspDispInfo>(buffer, header->lumps[impl::BspLump::LUMP_DISPINFO]);
-	context.dispverts = impl::extractLump<impl::BspDispVert>(buffer, header->lumps[impl::BspLump::LUMP_DISP_VERTS]);
-	context.pakfile = impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_PAKFILE]);
-	context.lighting = impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_LIGHTING]);
+	impl::extractLump<impl::BspVertex>(buffer, header->lumps[impl::BspLump::LUMP_VERTICES], context.vertices);
+	impl::extractLump<impl::BspEdge>(buffer, header->lumps[impl::BspLump::LUMP_EDGES], context.edges);
+	impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_SURFEDGES], context.surfedges);
+	impl::extractLump<impl::BspFace>(buffer, header->lumps[impl::BspLump::LUMP_FACES], context.faces);
+	impl::extractLump<impl::BspTexInfo>(buffer, header->lumps[impl::BspLump::LUMP_TEXINFO], context.texinfos);
+	impl::extractLump<impl::BspTexData>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA], context.texdatas);
+	impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_TABLE], context.stringTable);
+	impl::extractLumpString(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_DATA], context.stringData);
+	impl::extractLump<impl::BspModel>(buffer, header->lumps[impl::BspLump::LUMP_MODELS], context.models);
+	impl::extractLump<int8_t>(buffer, header->lumps[impl::BspLump::LUMP_ENTITIES], context.entities);
+	impl::extractLump<impl::BspGameLump>(buffer, header->lumps[impl::BspLump::LUMP_GAME_LUMP], context.gameLumps);
+	impl::extractLump<impl::BspDispInfo>(buffer, header->lumps[impl::BspLump::LUMP_DISPINFO], context.dispinfos);
+	impl::extractLump<impl::BspDispVert>(buffer, header->lumps[impl::BspLump::LUMP_DISP_VERTS], context.dispverts);
+	impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_PAKFILE], context.pakfile);
+	impl::extractLump<impl::BspCubemap>(buffer, header->lumps[impl::BspLump::LUMP_CUBEMAPS], context.cubemaps);
+	impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_LIGHTING], context.lighting);
 
 	context.modelToMesh.assign( context.models.size(), -1 );
 	context.texdataToMaterial.assign( context.texdatas.size(), -1 );
 
 	// mount pakfile
 	size_t pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(::fmt::format("pakfile://{}", filename), context.pakfile, 1000 ) );	
+
+	// deduce mapname
+	uf::stl::string mapName = filename; {
+		auto slashPos = mapName.find_last_of("/\\");
+		if (slashPos != uf::stl::string::npos) mapName = mapName.substr(slashPos + 1);
+		auto dotPos = mapName.find_last_of('.');
+		if (dotPos != uf::stl::string::npos) mapName = mapName.substr(0, dotPos);
+	}
+
+	// load baked cubemaps
+	for ( const auto& cube : context.cubemaps ) {
+		auto matName = ::fmt::format("maps/{}/c{}_{}_{}", mapName, cube.origin.x, cube.origin.y, cube.origin.z);
+		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+		graph.metadata["cubemaps"].emplace_back( matName );
+
+		int32_t textureID = -1;
+		impl::addMaterial( graph, matName, textureID );
+
+		auto& image = storage.images[matName].data;
+		auto& texture = storage.images[matName].handle;
+		if ( ext::valve::loadVtf( image, vtfPath ) ) {
+			UF_MSG_DEBUG("Loaded cubemap={}", vtfPath);
+			context.cubemapIDs.emplace_back( storage.materials[matName].indexCubemap = textureID );
+		}
+	}
 
 	// read materials
 	for ( int32_t texDataID = 0; texDataID < context.texdatas.size(); ++texDataID ) {
@@ -673,7 +740,9 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			}
 		}
 
-		context.texdataToMaterial[texDataID] = impl::addMaterial( graph, matName );
+		int32_t textureID = -1;
+		context.texdataToMaterial[texDataID] = impl::addMaterial( graph, matName, textureID );
+		storage.materials[matName].indexAlbedo = textureID;
 	}
 
 	// read lightmaps
@@ -726,6 +795,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			if ( texDataID < 0 || texDataID >= context.texdatas.size() ) continue;
 
 			size_t materialID = context.texdataToMaterial[texDataID];
+			auto& matName = graph.materials[materialID];
 
 			// read brush
 			auto& meshlet = meshlets[materialID];
@@ -733,6 +803,14 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			
 			if ( 0 <= face.lightofs ) {
 				meshlet.primitive.instance.lightmapID = atlasTextureID;
+			}
+
+			if ( !context.cubemapIDs.empty() ) {
+				int32_t pivotSurfEdge = context.surfedges[face.firstedge];
+				uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
+				pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
+
+				meshlet.primitive.instance.cubemapID = impl::findClosestCubemap( context, p0 );
 			}
 			
 			if ( face.dispinfo != -1 ) {
@@ -923,32 +1001,96 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
 		auto& image = storage.images[matName].data;
 		auto& material = storage.materials[matName];
-		
+
+		if ( !image.getPixels().empty() ) continue;		
 		if ( !ext::valve::loadVmt( vmt, vmtPath ) ) goto PEETAH;
 
 		material.factorMetallic = vmt["$metalness"].as<float>(0.0f);
 		material.factorRoughness = vmt["$roughness"].as<float>(1.0f);
 
-		if ( vmt["$envmap"].as<uf::stl::string>() != "" ) material.factorRoughness = 0.3f;
-		if ( vmt["$phong"].as<int>(0) == 1 ) material.factorRoughness = std::min(material.factorRoughness, 0.5f);
-
+		if ( vmt["$phong"].as<int>(0) == 1 ) {
+			material.factorRoughness = std::min(material.factorRoughness, 0.5f);
+		}
 		if ( vmt["$translucent"].as<int>(0) == 1 ) {
 			material.modeAlpha = pod::Material::AlphaMode::BLEND;
-		} else if ( vmt["$alphatest"].as<int>(0) == 1 ) {
+		}
+		if ( vmt["$alphatest"].as<int>(0) == 1 ) {
 			material.modeAlpha = pod::Material::AlphaMode::MASK;
 			material.factorAlphaCutoff = vmt["$alphatestreference"].as<float>(0.5f);
 		}
-		if ( vmt["$nocull"].as<int>(0) == 1 ) material.modeCull = pod::Material::CullMode::NONE;
+		if ( vmt["$nocull"].as<int>(0) == 1 ) {
+			material.modeCull = pod::Material::CullMode::NONE;
+		}
 
 		if ( vmt["$selfillum"].as<int>(0) == 1 ) {
 			material.colorEmissive = { 1.0f, 1.0f, 1.0f, 1.0f };
 			material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
 		}
-		if ( !vmt["$basetexture"].is<uf::stl::string>() ) goto PEETAH;
+		// cubemap
+		if ( vmt["$envmap"].as<uf::stl::string>() != "" ) {
+			auto matName = uf::string::lowercase(vmt["$envmap"].as<uf::stl::string>());
+			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
 
-		vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
-		if ( !ext::valve::loadVtf( image, vtfPath ) ) goto PEETAH;
-		continue;
+			// retrieve
+			if ( matName == "env_cubemap" ) {
+				// is handled on an instance level
+			} else if ( storage.images.map.count(matName) > 0 ) {
+				material.indexCubemap = storage.textures[matName].index;
+			} else {
+				int32_t textureID = -1;
+				impl::addMaterial( graph, matName, textureID );
+				graph.metadata["cubemaps"].emplace_back( matName );
+				
+				auto& image = storage.images[matName].data;
+				auto& texture = storage.images[matName].handle;
+				texture.viewType = uf::renderer::enums::Image::VIEW_TYPE_CUBE;
+				
+				if ( ext::valve::loadVtf( image, vtfPath ) ) {
+					UF_MSG_DEBUG("Loaded cubemap={}", matName);
+					material.indexCubemap = textureID;
+				}
+			}
+		}
+		// normal map
+		if ( vmt["$bumpmap"].is<uf::stl::string>() ) {
+			auto matName = uf::string::lowercase(vmt["$bumpmap"].as<uf::stl::string>());
+			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+
+			// retrieve
+			if ( storage.images.map.count(matName) > 0 ) {
+				material.indexNormal = storage.textures[matName].index;
+			} else {
+				int32_t textureID = -1;
+				impl::addMaterial( graph, matName, textureID );
+				
+				auto& image = storage.images[matName].data;
+				if ( ext::valve::loadVtf( image, vtfPath ) ) material.indexNormal = textureID;
+			}
+		}
+		// metallic/roughness/occlusion map
+		if ( vmt["$mrao"].is<uf::stl::string>() ) {
+			auto matName = uf::string::lowercase(vmt["$mrao"].as<uf::stl::string>());
+			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+
+			// retrieve
+			if ( storage.images.map.count(matName) > 0 ) {
+				material.indexMetallicRoughness = storage.textures[matName].index;
+			} else {
+				int32_t textureID = -1;
+				impl::addMaterial( graph, matName, textureID );
+				
+				auto& image = storage.images[matName].data;
+				if ( ext::valve::loadVtf( image, vtfPath ) ) material.indexMetallicRoughness = textureID;
+			}
+		}
+		// albedo map
+		if ( vmt["$basetexture"].is<uf::stl::string>() ) {
+			vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
+			if ( ext::valve::loadVtf( image, vtfPath ) ) {
+				continue;
+			}
+		}
+
 	PEETAH:
 		image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
 	}

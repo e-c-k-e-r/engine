@@ -412,11 +412,12 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 				size_t materialID = 0;
 				uf::stl::string matName = "missing_texture";
 				if ( mdlMesh.material < materials.size() ) matName = materials[mdlMesh.material];
-				auto it = std::find(graph.materials.begin(), graph.materials.end(), matName);
-				if ( it == graph.materials.end() ) {
-					materialID = impl::addMaterial( graph, matName );
+				if ( auto it = std::find(graph.materials.begin(), graph.materials.end(), matName); it != graph.materials.end() ) {
+					materialID = (int32_t)(std::distance(graph.materials.begin(), it));
 				} else {
-					materialID = (int32_t)std::distance(graph.materials.begin(), it);
+					int32_t textureID = -1;
+					materialID = impl::addMaterial( graph, matName, textureID );
+					storage.materials[matName].indexAlbedo = textureID;
 				}
 
 				meshlet.primitive.instance.materialID = materialID;

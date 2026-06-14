@@ -30,6 +30,12 @@
 // to-do: fix LOD1+ breaking
 
 namespace {
+	struct TextureDescriptor {
+		bool srgb = false;
+		size_t layers = 1;
+		size_t references = 0;
+	};
+
 	uf::stl::string keyedID( size_t id ) {
 		return ::fmt::format("{}", id);
 	}
@@ -55,28 +61,11 @@ namespace {
 
 		auto& storage = uf::graph::getStorage( graph );
 
-		for ( auto& key : storage.images.keys ) graphic.material.textures.emplace_back().aliasTexture( storage.images.map[key].handle );
-
-		// bind scene's voxel texture
-	#if 0 && UF_USE_VULKAN
-		if ( uf::renderer::settings::pipelines::vxgi ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-			for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.output ) graphic.material.textures.emplace_back().aliasTexture(t);
-		/*
-			auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
-			shader.textures.clear();
-
-			for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normal ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radiance ) shader.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.output ) shader.textures.emplace_back().aliasTexture(t);
-		*/
+		for ( auto& key : storage.images.keys ) {
+			auto& texture = storage.images.map[key].handle;
+			if ( texture.viewType != uf::renderer::enums::Image::VIEW_TYPE_2D ) continue;
+			graphic.material.textures.emplace_back().aliasTexture( texture );
 		}
-	#endif
 	}
 
 	void bindShaders( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh ) {
@@ -91,8 +80,10 @@ namespace {
 		uf::stl::string root = uf::io::directory( graph.name );
 		size_t texture2Ds = 0;
 		size_t texture3Ds = 0;
+		size_t textureCubes = 0;
 		for ( auto& texture : graphic.material.textures ) {
 			if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 1 ) ++texture2Ds;
+			else if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 6 ) ++textureCubes;
 			else if ( texture.width > 1 && texture.height > 1 && texture.depth > 1 && texture.layers == 1 ) ++texture3Ds;
 		}
 
@@ -814,8 +805,8 @@ void uf::graph::process( pod::Graph& graph ) {
 		} );
 	}
 
-	//
-	uf::stl::unordered_map<uf::stl::string, bool> isSrgb;
+	// stores temporary metadata for textures (that can be deduced at runtime)
+	uf::stl::unordered_map<uf::stl::string, TextureDescriptor> textureDescriptors;
 
 	// process lightmap
 	UF_DEBUG_TIMER_MULTITRACE("Parsing lightmaps");
@@ -823,7 +814,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	if ( storage.textures.map.count("lightmap_atlas") > 0 ) {
 		graphMetadataJson["lights"]["lightmap"] = true;
 		graphMetadataJson["baking"]["enabled"] = false;
-		isSrgb["lightmap_atlas"] = false;
+		textureDescriptors["lightmap_atlas"].srgb = false;
 	} else {
 		constexpr const char* UF_GRAPH_DEFAULT_LIGHTMAP = "./lightmap.%i.png";
 		uf::stl::unordered_map<size_t, uf::stl::string> filenames;
@@ -899,7 +890,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				graphMetadataJson["lights"]["lightmaps"][i] = f;
 				graphMetadataJson["baking"]["enabled"] = false;
 
-				isSrgb[f] = false;
+				textureDescriptors[f].srgb = false;
 			}
 		}
 				
@@ -912,16 +903,27 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	}
 
+	// process cubemaps
+	ext::json::forEach( graph.metadata["cubemaps"], [&]( const ext::json::Value& value ) {
+		auto name = value.as<uf::stl::string>();
+		textureDescriptors[name].layers = 6;
+	});
+
 	// figure out what texture is what exactly
 	UF_DEBUG_TIMER_MULTITRACE("Determining format of textures");
 	for ( auto& key : graph.materials ) {
 		auto& material = storage.materials[key];
-		auto ID = material.indexAlbedo;
 
-		if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+		if ( 0 <= material.indexCubemap && material.indexCubemap < graph.textures.size() ) {
+			auto texName = graph.textures[material.indexCubemap];
+			textureDescriptors[texName].layers = 6;
+			textureDescriptors[texName].srgb = true;
+		}
 
-		auto texName = graph.textures[ID];
-		isSrgb[texName] = true;
+		if ( (0 <= material.indexAlbedo && material.indexAlbedo < graph.textures.size() ) ) {
+			auto texName = graph.textures[material.indexAlbedo];
+			textureDescriptors[texName].srgb = true;
+		}
 	}
 
 	UF_DEBUG_TIMER_MULTITRACE("Processing images...");
@@ -949,7 +951,10 @@ void uf::graph::process( pod::Graph& graph ) {
 
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
-			texture.srgb = isSrgb[key];
+			texture.layers = textureDescriptors[key].layers;
+			texture.srgb = textureDescriptors[key].srgb;
+
+			image.size.y /= texture.layers;
 
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
@@ -1072,6 +1077,25 @@ void uf::graph::process( pod::Graph& graph ) {
 
 	// remap textures->images IDs
 	UF_DEBUG_TIMER_MULTITRACE("Remapping texture -> image IDs");
+
+	// separate texture2Ds and textureCubes from images
+	uf::stl::vector<int32_t> gpuIndex2D(storage.images.keys.size(), -1);
+	uf::stl::vector<int32_t> gpuIndexCube(storage.images.keys.size(), -1);
+
+	int32_t count2D = 0;
+	int32_t countCube = 0;
+	for ( size_t i = 0; i < storage.images.keys.size(); ++i ) {
+		auto& key = storage.images.keys[i];
+		auto& image = storage.images.map[key].handle;
+
+		if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ) {
+			gpuIndexCube[i] = countCube++;
+		} else {
+			gpuIndex2D[i] = count2D++;
+		}
+	}
+	UF_MSG_DEBUG("texture2Ds={}, textureCubes={}", count2D, countCube);
+
 	for ( auto& name : graph.textures ) {
 		auto& texture = storage.textures[name];
 		auto& keys = storage.images.keys;
@@ -1080,7 +1104,15 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( !(0 <= texture.index && texture.index < graph.images.size()) ) continue;
 
 		auto& needle = graph.images[texture.index];
-		texture.index = indices[needle];
+		int32_t storageImageIndex = indices[needle];
+
+		auto& image = storage.images.map[keys[storageImageIndex]].handle;
+		if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ) {
+			texture.index = gpuIndexCube[storageImageIndex];
+		} else {
+			texture.index = gpuIndex2D[storageImageIndex];
+		}
+		UF_MSG_DEBUG("name={}, index={}, layers={}, type={}", name, texture.index, image.layers, image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ? "cube" : "2D" );
 	}
 
 	// remap materials->texture IDs
@@ -1089,7 +1121,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& material = storage.materials[name];
 		auto& keys = storage.textures.keys;
 		auto& indices = storage.textures.indices;
-		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
+		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness, &material.indexCubemap };
 		for ( auto* pointer : IDs ) {
 			auto& ID = *pointer;
 			if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
@@ -1122,6 +1154,15 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& needle = graph.textures[instance.lightmapID];
 				instance.lightmapID = indices[needle];
 			}
+			if ( 0 <= instance.cubemapID && instance.cubemapID < graph.textures.size() ) {
+				auto& keys = storage.textures.keys;
+				auto& indices = storage.textures.indices;
+
+				if ( !(0 <= instance.cubemapID && instance.cubemapID < graph.textures.size()) ) continue;
+
+				auto& needle = graph.textures[instance.cubemapID];
+				instance.cubemapID = indices[needle];
+			}
 
 			// remap a skinID as an actual jointID
 			if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
@@ -1148,6 +1189,13 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& needle = graph.textures[instance.lightmapID];
 				instance.lightmapID = indices[needle];
 			}
+			if ( 0 <= instance.cubemapID && instance.cubemapID < graph.textures.size() ) {
+				auto& keys = storage.textures.keys;
+				auto& indices = storage.textures.indices;
+				auto& needle = graph.textures[instance.cubemapID];
+				instance.cubemapID = indices[needle];
+			}
+			
 			if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
 				auto& skinName = graph.skins[instance.jointID];
 				instance.jointID = 0;
@@ -1898,6 +1946,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	}
 	for ( auto& t : storage.shadow2Ds ) t.destroy();
 	for ( auto& t : storage.shadowCubes ) t.destroy();
+	for ( auto& t : storage.cubemaps ) t.destroy();
 
 	for ( auto pair : storage.atlases.map ) pair.second.clear();
 	for ( auto pair : storage.meshes.map ) pair.second.destroy();
@@ -1916,6 +1965,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	storage.entities.clear();
 	storage.shadow2Ds.clear();
 	storage.shadowCubes.clear();
+	storage.cubemaps.clear();
 
 	// cleanup storage buffers
 	if ( !soft ) {
@@ -2195,13 +2245,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			// lightmaps are not sRGB, while textures (usually) are
 			#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
 				auto& key = graph.textures[ID];\
-				textureReferences[key] += visible ? 1 : 0;\
-				isSrgb[key] = isSRGB;\
+				textureDescriptors[key].srgb = isSRGB;\
+				textureDescriptors[key].references += visible ? 1 : 0;\
+				textureDescriptors[key].layers = 1;\
 			}
 
-			uf::stl::unordered_map<uf::stl::string, bool> isSrgb; // cringe
-			uf::stl::unordered_map<uf::stl::string, size_t> textureReferences;
 			// determine which textures are in use or not
+			uf::stl::unordered_map<uf::stl::string, TextureDescriptor> textureDescriptors;
 			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
 				auto& primitive = primitives[drawID];
 				auto& instance = primitive.instance;
@@ -2223,10 +2273,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			}
 
 			// iterate through our ref counts
-			for ( auto& [ key, count ] : textureReferences ) {
+			for ( auto& [ key, descriptor ] : textureDescriptors ) {
 				auto& image = storage.images[key].data;
 				auto& texture = storage.images[key].handle;
-				bool visible = count > 0;
+				bool visible = descriptor.references > 0;
 
 				if ( visible && (!texture.generated() || texture.aliased) ) {
 					// load image
@@ -2257,7 +2307,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 					texture.sampler.descriptor.filter.min = filter;
 					texture.sampler.descriptor.filter.mag = filter;
-					texture.srgb = isSrgb[key];
+					texture.layers = descriptor.layers;
+					texture.srgb = descriptor.srgb;
 
 					texture.loadFromImage( image );
 				#if UF_ENV_DREAMCAST

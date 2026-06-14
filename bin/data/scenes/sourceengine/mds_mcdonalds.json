@@ -1,16 +1,7 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-	//	{ "filename": "./maps/mds_mcdonalds.bsp" }
-		{ "filename": "./maps/mds_mcdonalds/graph.json" }
-	],
-	"metadata": {
-		"graph": {
-			// "bgm": "./audio/soundscape/sh2_ambience.wav",
-			// realistically shouldn't ever need to define additional tags for BSPs
-			"tags": {
-
-			}
-		}	
-	}
+	//	{ "filename": "./maps/mcdonalds-mds.bsp" }
+		{ "filename": "./maps/mcdonalds-mds/graph.json" }
+	]
 }

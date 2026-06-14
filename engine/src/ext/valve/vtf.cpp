@@ -11,6 +11,8 @@ namespace impl {
 	constexpr uint32_t IMAGE_FORMAT_DXT1 = 13;
 	constexpr uint32_t IMAGE_FORMAT_DXT5 = 15;
 
+	constexpr uint32_t TEXTUREFLAGS_ENVMAP = 0x00002000;
+
 #pragma pack(push, 1)
 	struct VTFHeader {
 		char signature[4]; // "VTF\0"
@@ -152,56 +154,134 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 	const impl::VTFHeader* header = (const impl::VTFHeader*)(buffer.data());
 	if ( strncmp(header->signature, "VTF", 3) != 0 ) return false;
 
+	bool isCubemap = (header->flags & impl::TEXTUREFLAGS_ENVMAP) != 0;
+	int numFrames = std::max<int>(1, header->frames);
+
+	size_t singleFaceSize = 0;
+	for ( int mip = header->mipmapCount - 1; mip >= 0; --mip ) {
+		int mipWidth = std::max(1, header->width >> mip);
+		int mipHeight = std::max(1, header->height >> mip);
+		int blocksX = (mipWidth + 3) / 4;
+		int blocksY = (mipHeight + 3) / 4;
+
+		if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT1 ) singleFaceSize += blocksX * blocksY * 8;
+		else if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) singleFaceSize += blocksX * blocksY * 16;
+		else if ( header->highResImageFormat == impl::IMAGE_FORMAT_BGRA8888 ) singleFaceSize += mipWidth * mipHeight * 4;
+	}
+
 	size_t offset = header->headerSize;
 	if ( header->lowResImageFormat != 0xFFFFFFFF ) {
 		offset += std::max<size_t>(1, (header->lowResImageWidth * header->lowResImageHeight) / 2);
 	}
 
-	for ( int mip = header->mipmapCount - 1; mip > 0; --mip ) {
-		int mipWidth = std::max(1, header->width >> mip);
-		int mipHeight = std::max(1, header->height >> mip);
+	size_t remainingBytes = buffer.size() - offset;
+	size_t bytesPerFace = singleFaceSize * numFrames;
+	int actualFaces = bytesPerFace > 0 ? (remainingBytes / bytesPerFace) : 1;
 
-		if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT1 ) {
-			offset += std::max(8, (mipWidth / 4) * (mipHeight / 4) * 8);
-		} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) {
-			offset += std::max(16, (mipWidth / 4) * (mipHeight / 4) * 16);
-		} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_BGRA8888 ) {
-			offset += mipWidth * mipHeight * 4;
+	if ( actualFaces == 6 || actualFaces == 7 ) {
+		isCubemap = true;
+	}
+
+	int numFaces = 1;
+	if ( isCubemap ) {
+		if ( actualFaces >= 6 ) {
+			numFaces = actualFaces;
+		} else {
+			isCubemap = false;
+			numFaces = 1;
 		}
 	}
 
-	const uint8_t* data = buffer.data() + offset;
-	image.size = { header->width, header->height };
+	for ( int mip = header->mipmapCount - 1; mip > 0; --mip ) {
+		int mipWidth = std::max(1, header->width >> mip);
+		int mipHeight = std::max(1, header->height >> mip);
+		int blocksX = (mipWidth + 3) / 4;
+		int blocksY = (mipHeight + 3) / 4;
+
+		size_t mipSize = 0;
+		if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT1 ) mipSize = blocksX * blocksY * 8;
+		else if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) mipSize = blocksX * blocksY * 16;
+		else if ( header->highResImageFormat == impl::IMAGE_FORMAT_BGRA8888 ) mipSize = mipWidth * mipHeight * 4;
+
+		offset += mipSize * numFrames * numFaces;
+	}
+
+	int outputFaces = isCubemap ? 6 : 1;
+
+	image.size = { header->width, header->height * outputFaces };
 	image.channels = 4;
 	image.bpp = 8 * 4;
-	image.pixels.resize( header->width * header->height * 4 );
+	image.pixels.resize( header->width * header->height * 4 * outputFaces );
 
-	int dataSize = 0;
-	if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT1 ) {
-		int blockCountX = (header->width + 3) / 4;
-		int blockCountY = (header->height + 3) / 4;
-		for ( int by = 0; by < blockCountY; ++by ) {
-			for ( int bx = 0; bx < blockCountX; ++bx ) {
-				impl::decompressDXT1Block(data + (by * blockCountX + bx) * 8, image.pixels.data(), bx * 4, by * 4, header->width, header->height);
+	int faceSizePixels = header->width * header->height;
+	int blocksX = (header->width + 3) / 4;
+	int blocksY = (header->height + 3) / 4;
+
+	const int faceMap[6] = { 4, 5, 0, 1, 2, 3 };
+	const int faceModes[6] = { 2, 0, 6, 1, 1, 3  };
+	for ( int face = 0; face < outputFaces; ++face ) {
+		const uint8_t* data = buffer.data() + offset;
+		int mappedFace = (isCubemap && face < 6) ? faceMap[face] : face;
+		uint8_t* outPixels = image.pixels.data() + (mappedFace * faceSizePixels * 4);
+
+		if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT1 ) {
+			for ( int by = 0; by < blocksY; ++by ) {
+				for ( int bx = 0; bx < blocksX; ++bx ) {
+					impl::decompressDXT1Block(data + (by * blocksX + bx) * 8, outPixels, bx * 4, by * 4, header->width, header->height);
+				}
+			}
+			offset += blocksX * blocksY * 8;
+		} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) {
+			for ( int by = 0; by < blocksY; ++by) {
+				for ( int bx = 0; bx < blocksX; ++bx) {
+					impl::decompressDXT5Block(data + (by * blocksX + bx) * 16, outPixels, bx * 4, by * 4, header->width, header->height);
+				}
+			}
+			offset += blocksX * blocksY * 16;
+		} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_BGRA8888 ) {
+			for ( auto i = 0; i < faceSizePixels; ++i ) {
+				outPixels[i * 4 + 0] = data[i * 4 + 2];
+				outPixels[i * 4 + 1] = data[i * 4 + 1];
+				outPixels[i * 4 + 2] = data[i * 4 + 0];
+				outPixels[i * 4 + 3] = data[i * 4 + 3];
+			}
+			offset += faceSizePixels * 4;
+		}
+
+		if ( isCubemap ) {
+			int mode = faceModes[mappedFace];
+			if ( mode == 0 ) continue;
+			uf::stl::vector<uint8_t> temp(faceSizePixels * 4);
+			memcpy(temp.data(), outPixels, faceSizePixels * 4);
+
+			int size = header->width;
+			int max = size - 1;
+
+			for ( int y = 0; y < size; ++y ) {
+				for ( int x = 0; x < size; ++x ) {
+					int srcX = x;
+					int srcY = y;
+
+					switch ( mode ) {
+						case 1: srcX = y; srcY = max - x; break; // 90 CW
+						case 2: srcX = max - x; srcY = max - y; break; // 180
+						case 3: srcX = max - y; srcY = x; break; // 90 CCW
+						case 4: srcX = max - x; srcY = y; break; // Flip Horizontal
+						case 5: srcX = x; srcY = max - y; break; // Flip Vertical
+						case 6: srcX = y; srcY = x; break; // Transpose (Diagonal Flip)
+						case 7: srcX = max - y; srcY = max - x; break; // Anti-Transpose
+					}
+
+					int srcIdx = (srcY * size + srcX) * 4;
+					int dstIdx = (y * size + x) * 4;
+
+					outPixels[dstIdx + 0] = temp[srcIdx + 0];
+					outPixels[dstIdx + 1] = temp[srcIdx + 1];
+					outPixels[dstIdx + 2] = temp[srcIdx + 2];
+					outPixels[dstIdx + 3] = temp[srcIdx + 3];
+				}
 			}
 		}
-	} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) {
-		int blockCountX = (header->width + 3) / 4;
-		int blockCountY = (header->height + 3) / 4;
-		for ( int by = 0; by < blockCountY; ++by) {
-			for ( int bx = 0; bx < blockCountX; ++bx) {
-				impl::decompressDXT5Block(data + (by * blockCountX + bx) * 16, image.pixels.data(), bx * 4, by * 4, header->width, header->height);
-			}
-		}
-	} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_BGRA8888 ) {
-		for ( auto i = 0; i < header->width * header->height; ++i ) {
-			image.pixels[i * 4 + 0] = data[i * 4 + 2];
-			image.pixels[i * 4 + 1] = data[i * 4 + 1];
-			image.pixels[i * 4 + 2] = data[i * 4 + 0];
-			image.pixels[i * 4 + 3] = data[i * 4 + 3];
-		}
-	} else {
-		UF_MSG_WARNING("Unsupported VTF format: {}", header->highResImageFormat);
 	}
 
 	return true;

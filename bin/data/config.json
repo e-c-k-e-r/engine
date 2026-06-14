@@ -3,7 +3,7 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": true,
-				"lightmaps": false,
+				"lightmaps": true,
 				"max": 32,
 				"shadows": {
 					"enabled": true,
@@ -21,8 +21,8 @@
 			},
 			"textures": {
 				"max": {
-					"2D": 1024,
-					"cube": 1024,
+					"2D": 512,
+					"cube": 128,
 					"3D": 128
 				}
 			},
@@ -115,12 +115,12 @@
 				"pipelines": {
 					"deferred": true,
 					"gui": true,
-					"vsync": false, // vsync on vulkan side rather than engine-side
+					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
 					"vxgi": false, // to-do: fix issues
 					"culling": false,
-					"bloom": false,
-					"dof": false,
+					"bloom": true,
+					"dof": true,
 					"rt": false,
 					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false

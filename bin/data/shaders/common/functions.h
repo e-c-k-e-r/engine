@@ -314,6 +314,32 @@ void populateSurfaceMaterial() {
 	if ( validTextureIndex( material.indexEmissive ) ) {
 		surface.light *= sampleTexture( material.indexEmissive );
 	}
+	// Cubemap
+	int cubemapIndex = -1;
+	if ( 0 <= surface.instance.cubemapID ) cubemapIndex = surface.instance.cubemapID; // instance takes priority over material
+/*
+	else if ( 0 <= material.indexCubemap ) cubemapIndex = material.indexCubemap;
+
+	if ( 0 <= cubemapIndex && surface.material.roughness < 1.0 ) {
+		const Texture texture = textures[cubemapIndex];
+
+	    vec3 V = normalize(surface.position.eye);
+	    vec3 N = surface.normal.eye;
+	    vec3 R = reflect(V, N);
+
+	    mat3 invView = mat3(ubo.eyes[surface.pass].iView);
+	    vec3 worldR = invView * R;
+
+	    float mipLevel = surface.material.roughness * mipLevels(textureSize(samplerCubemaps[nonuniformEXT(texture.index)], 0).xy);
+	    vec3 reflection = textureLod(samplerCubemaps[nonuniformEXT(texture.index)], worldR, mipLevel).rgb;
+
+		vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
+	    float cosTheta = max(dot(N, -V), 0.0);
+	    vec3 F = F0 + (max(vec3(1.0 - surface.material.roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+
+	    surface.light.rgb += reflection * F * surface.material.occlusion;
+	}
+*/
 	// (Occlusion/)Metallic/Roughness map
 	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
 		vec4 samp = sampleTexture( material.indexMetallicRoughness );
