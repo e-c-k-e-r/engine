@@ -35,33 +35,7 @@ namespace ext {
 		void UF_API initialize();
 		void UF_API destroy();
 
-		void UF_API listener( const pod::Transform<>& );
-	/*	
-		void UF_API listener( ALenum name, ALfloat x );
-		void UF_API listener( ALenum name, ALfloat x, ALfloat y, ALfloat z );
-		void UF_API listener( ALenum name, const ALfloat* f );
-
-		void UF_API listener( const uf::stl::string& name, ALfloat x );
-		void UF_API listener( const uf::stl::string& name, ALfloat x, ALfloat y, ALfloat z );
-		void UF_API listener( const uf::stl::string& name, const ALfloat* f );
-	*/
-
 		uf::stl::string UF_API getError( ALenum = 0 );
-
-		uf::audio::Metadata* UF_API create( const uf::stl::string&, bool, uint8_t );
-		uf::audio::Metadata* UF_API create( const pod::PCM&, bool, uint8_t );
-		uf::audio::Metadata* UF_API open( const uf::stl::string& );
-		uf::audio::Metadata* UF_API open( const uf::stl::string&, bool );
-		uf::audio::Metadata* UF_API open( const pod::PCM& );
-		uf::audio::Metadata* UF_API open( const pod::PCM&, bool );
-		uf::audio::Metadata* UF_API load( const uf::stl::string& );
-		uf::audio::Metadata* UF_API load( const pod::PCM& );
-		uf::audio::Metadata* UF_API stream( const uf::stl::string& );
-		uf::audio::Metadata* UF_API stream( const pod::PCM& );
-		void UF_API update( uf::audio::Metadata& );
-
-		void UF_API close( uf::audio::Metadata* );
-		void UF_API close( uf::audio::Metadata& );
 	}
 }
 #endif

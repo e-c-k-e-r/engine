@@ -40,65 +40,32 @@ namespace uf {
 			extern UF_API float voice;
 		};
 	#endif
-	}
-	class UF_API Audio {
-	public:
-		typedef uf::audio::Metadata Metadata;
-	protected:
-		Metadata* m_metadata = NULL;
-	public:
-		bool initialized() const;
-		bool playing() const;
-		bool played() const;
 
-		void open( const uf::stl::string& );
-		void open( const uf::stl::string&, bool );
-		void open( const pod::PCM& );
-		void open( const pod::PCM&, bool );
-		void load( const uf::stl::string& );
-		void load( const pod::PCM& );
-		void stream( const uf::stl::string& );
-		void stream( const pod::PCM& );
-		void update();
-		void update( const pod::Vector3f&, const pod::Quaternion<>& );
-		void destroy();
-
-		void play();
-		void stop();
-		void loop( bool = true );
-		bool loops() const;
-
-		float getTime() const;
-		void setTime( float );
-
-		bool spatial() const;
-		void setSpatial( bool );
-
-		void setPosition( const pod::Vector3f& );
-		void setOrientation( const pod::Quaternion<>& );
-
-		float getPitch() const;
-		void setPitch( float );
-
-		float getGain() const;
-		void setGain( float );
-
-		float getRolloffFactor() const;
-		void setRolloffFactor( float );
-
-		float getMaxDistance() const;
-		void setMaxDistance( float );
-
-		float getVolume() const;
-		void setVolume( float );
-
-		const uf::stl::string& getFilename() const;
-		float getDuration() const;
-
-		bool hasLoops() const;
-	};
-	namespace audio {
-		extern uf::Audio null;
+		void UF_API initialize( pod::AudioClip& clip, uint8_t buffers = uf::audio::buffers );
+		void UF_API initialize( pod::AudioSource& source );
+		bool UF_API load( pod::AudioClip& clip, const uf::stl::string& filename, bool streamed = uf::audio::streamsByDefault );
+		void UF_API destroy( pod::AudioClip& clip );
+		void UF_API bind( pod::AudioSource& source, pod::AudioClip* clip );
+		void UF_API play( pod::AudioSource& source );
+		void UF_API stop( pod::AudioSource& source );
+		void UF_API update( pod::AudioSource& source );
+		void UF_API update( pod::AudioSource& source, const pod::Vector3f& position, const pod::Quaternion<>& orientation );
+		void UF_API destroy( pod::AudioSource& source );
+		void UF_API destroy( pod::AudioClip& clip );
+		void UF_API listener( const pod::Transform<>& transform );
+		void UF_API loop( pod::AudioSource& source, bool state );
+		void UF_API position( pod::AudioSource& source, const pod::Vector3f& v );
+		void UF_API orientation( pod::AudioSource& source, const pod::Quaternion<>& q );
+		float UF_API time( const pod::AudioSource& source );
+		void UF_API time( pod::AudioSource& source, float v );
+		float UF_API pitch( const pod::AudioSource& source );
+		void UF_API pitch( pod::AudioSource& source, float v );
+		float UF_API gain( const pod::AudioSource& source );
+		void UF_API gain( pod::AudioSource& source, float v );
+		float UF_API rolloff( const pod::AudioSource& source );
+		void UF_API rolloff( pod::AudioSource& source, float v );
+		float UF_API maxDistance( const pod::AudioSource& source );
+		void UF_API maxDistance( pod::AudioSource& source, float v );
 	}
 }
 

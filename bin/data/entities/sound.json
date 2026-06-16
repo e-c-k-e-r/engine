@@ -3,7 +3,7 @@
 	"name": "Sound Emitter",
 	"ignore": false,
 	"assets": [],
-	"behaviors": [ "SoundEmitterBehavior" ],
+	"behaviors": [ "AudioEmitterBehavior" ],
 	"transform": { "reference": true },
 	"system": {
 		"hot reload": { "enabled": true }

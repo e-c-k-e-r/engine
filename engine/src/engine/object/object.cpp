@@ -163,6 +163,10 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 			payload.asComponent = isObject ? target[i]["component"].as<bool>(true) : true;
 			
 			switch ( assetType ) {
+				case uf::asset::Type::AUDIO: {
+					payload.asComponent = false;
+					if ( bind ) uf::instantiator::bind("AudioEmitterBehavior", *this);
+				} break;
 				case uf::asset::Type::LUA: {
 					payload.asComponent = false;
 					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);

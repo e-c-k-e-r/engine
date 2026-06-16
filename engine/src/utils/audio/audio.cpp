@@ -6,6 +6,10 @@
 	#include <uf/ext/openal/openal.h>
 #endif
 
+#include <uf/ext/audio/vorbis.h>
+#include <uf/ext/audio/wav.h>
+#include <uf/ext/audio/pcm.h>
+
 #if UF_USE_OPENAL
 	bool uf::audio::muted = false;
 #else
@@ -16,14 +20,6 @@ bool uf::audio::asyncUpdate = false;
 bool uf::audio::streamsByDefault = true;
 uint8_t uf::audio::buffers = 4;
 size_t uf::audio::bufferSize = 1024 * 16;
-uf::Audio uf::audio::null;
-
-// to-do: make this a global setting
-#if UF_ENV_DREAMCAST
-#define UF_AUDIO_ASYNC 0
-#else
-#define UF_AUDIO_ASYNC 0
-#endif
 
 #if UF_AUDIO_MAPPED_VOLUMES
 	uf::stl::unordered_map<uf::stl::string, float> uf::audio::volumes;
@@ -33,268 +29,166 @@ uf::Audio uf::audio::null;
 	float uf::audio::volumes::voice = 1.0f;
 #endif
 
-bool uf::Audio::initialized() const {
-#if UF_USE_OPENAL
-	return this->m_metadata && this->m_metadata->al.source.getIndex();
-#else
-	return false;
-#endif
+void uf::audio::initialize( pod::AudioClip& clip, uint8_t buffers ) {
+	clip.alBuffer.initialize( buffers );
 }
-bool uf::Audio::playing() const {
-#if UF_USE_OPENAL
-	return this->m_metadata && this->m_metadata->al.source.playing();
-#else
-	return false;
-#endif
-}
-bool uf::Audio::played() const {
-#if UF_USE_OPENAL
-	return this->getDuration() > 0 && this->getTime() >= this->getDuration();
-#else
-	return false;
-#endif
+void uf::audio::initialize( pod::AudioSource& source ) {
+	source.alSource.initialize();
+	source.alSource.set( AL_PITCH, 1.0f );
+	source.alSource.set( AL_GAIN, 1.0f );
 }
 
-void uf::Audio::open( const uf::stl::string& filename ) {
-	this->open( filename, uf::audio::streamsByDefault );
+//
+
+bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename, bool streamed ) {
+	uf::audio::destroy( clip );
+	clip.streamed = streamed;
+	clip.filename = uf::io::resolveURI( filename );
+	clip.extension = uf::io::extension( clip.filename );
+
+	uf::audio::initialize( clip, 1 );
+
+	if ( clip.extension == "ogg" ) ext::vorbis::load( clip );
+	else if ( clip.extension == "wav" ) ext::wav::load( clip );
+	// else UF_MSG_ERROR ...
+
+	return true;
 }
-void uf::Audio::open( const uf::stl::string& filename, bool streamed ) {
-	streamed ? stream( filename ) : load( filename );
+
+// to-do: PCM audio load
+
+void uf::audio::bind( pod::AudioSource& source, pod::AudioClip* clip ) {
+	source.clip = clip;
+	if ( !clip ) return;
+
+	if ( !clip->streamed ) {
+		source.alSource.set( AL_BUFFER, (ALint)clip->alBuffer.getIndex(0) );
+	} else {
+		source.streamState.consumed = 0;
+		if ( clip->extension == "ogg" ) ext::vorbis::open( source );
+		else if ( clip->extension == "wav" ) ext::wav::open( source );
+		else if ( clip->extension == "pcm" ) ext::pcm::open( source );
+	}
 }
-void uf::Audio::open( const pod::PCM& buffer ) {
-	this->open( buffer, uf::audio::streamsByDefault );
+
+void uf::audio::play( pod::AudioSource& source ) {
+	if ( !source.alSource.playing() ) {
+		source.info.elapsed += source.info.timer.elapsed().asDouble();
+		source.info.timer.start();
+	}
+	source.alSource.play();
 }
-void uf::Audio::open( const pod::PCM& buffer, bool streamed ) {
-	streamed ? stream( buffer ) : load( buffer );
+
+void uf::audio::stop( pod::AudioSource& source ) {
+	source.alSource.stop();
+	source.info.timer.stop();
+	if ( source.clip && source.clip->streamed ) {
+		// to-do: reset stream cursor
+	}
 }
-void uf::Audio::load( const uf::stl::string& filename ) {
+
+void uf::audio::update( pod::AudioSource& source ) {
+	if ( !source.clip || !source.clip->streamed ) return;
+
+	auto update = [&]{
+		if ( source.clip->extension == "ogg" ) ext::vorbis::update( source );
+		else if ( source.clip->extension == "wav" ) ext::wav::update( source );
+		else if ( source.clip->extension == "pcm" ) ext::pcm::update( source );
+	};
+
+	if ( uf::audio::asyncUpdate ) uf::thread::queue( uf::thread::fetchWorker(), update );
+	else update();
+}
+
+void uf::audio::update( pod::AudioSource& source, const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	if ( source.settings.spatial ) {
+		uf::audio::position( source, position );
+		uf::audio::orientation( source, orientation );
+	}
+	uf::audio::update( source );
+}
+
+void uf::audio::destroy( pod::AudioSource& source ) {
+	uf::audio::stop( source );
+	source.alSource.set( AL_BUFFER, 0 );
+
+	if ( source.clip && source.clip->streamed ) {
+		if ( source.clip->extension == "ogg" ) ext::vorbis::close( source );
+		else if ( source.clip->extension == "wav" ) ext::wav::close( source );
+		else if ( source.clip->extension == "pcm" ) ext::pcm::close( source );
+	}
+
+	source.alSource.destroy();
+	source.clip = nullptr;
+}
+
+void uf::audio::destroy( pod::AudioClip& clip ) {
+	clip.alBuffer.destroy();
+	if ( clip.extension == "ogg" ) ext::vorbis::close( clip );
+	else if ( clip.extension == "wav" ) ext::wav::close( clip );
+	else if ( clip.extension == "pcm" ) ext::pcm::close( clip );
+}
+
+void uf::audio::listener( const pod::Transform<>& transform ) {
 	if ( uf::audio::muted ) return;
-#if UF_USE_OPENAL
-	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
-	this->m_metadata = ext::al::load( filename );
-#endif
+	auto axes = uf::transform::axes( transform );
+	axes.forward *= -1;
+	float o[6] = { axes.forward.x, axes.forward.y, axes.forward.z, axes.up.x, axes.up.y, axes.up.z };
+	AL_CHECK_RESULT(alListener3f( AL_POSITION, transform.position.x, transform.position.y, transform.position.z ));
+	AL_CHECK_RESULT(alListener3f( AL_VELOCITY, 0, 0, 0 ));
+	AL_CHECK_RESULT(alListenerfv( AL_ORIENTATION, &o[0] ));
 }
-void uf::Audio::load( const pod::PCM& buffer ) {
-	if ( uf::audio::muted ) return;
-#if UF_USE_OPENAL
-	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
-	this->m_metadata = ext::al::load( buffer );
-#endif
-}
-void uf::Audio::stream( const uf::stl::string& filename ) {
-	if ( uf::audio::muted ) return;
-#if UF_USE_OPENAL
-	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
-	this->m_metadata = ext::al::stream( filename );
-#endif
-}
-void uf::Audio::stream( const pod::PCM& buffer ) {
-	if ( uf::audio::muted ) return;
-#if UF_USE_OPENAL
-	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
-	this->m_metadata = ext::al::stream( buffer );
-#endif
-}
-void uf::Audio::update() {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	if ( !this->m_metadata->settings.streamed ) return;
 
-	if ( uf::audio::asyncUpdate ) uf::thread::queue( uf::thread::fetchWorker(), [&]{
-		ext::al::update( *this->m_metadata );
-	}); else  ext::al::update( *this->m_metadata );
-#endif
-}
-void uf::Audio::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
-	if ( this->spatial() ) {
-		this->setPosition( position );
-		this->setOrientation( orientation );
+void uf::audio::loop( pod::AudioSource& source, bool state ) {
+	source.settings.loop = state;
+	if ( source.clip && !source.clip->streamed ) {
+		source.alSource.set( AL_LOOPING, state ? AL_TRUE : AL_FALSE );
 	}
-	this->update();
-}
-void uf::Audio::destroy() {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	ext::al::close( this->m_metadata );
-	this->m_metadata = NULL;
-#endif
 }
 
-void uf::Audio::play() {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	if ( !this->playing() ) {
-		this->m_metadata->info.elapsed += this->m_metadata->info.timer.elapsed().asDouble();
-		this->m_metadata->info.timer.start();
-	}
-	this->m_metadata->al.source.play();
-#endif
-
-}
-void uf::Audio::stop() {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.stop();
-	this->m_metadata->info.timer.stop();
-#endif
-}
-void uf::Audio::loop( bool x ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->settings.loop = x;
-	if ( !this->m_metadata->settings.streamed ) {
-	}
-	this->m_metadata->al.source.set( AL_LOOPING, x ? AL_TRUE : AL_FALSE );
-#endif
-}
-bool uf::Audio::loops() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return false;
-	return this->m_metadata->settings.loop;
-#else
-	return false;
-#endif
+void uf::audio::position( pod::AudioSource& source, const pod::Vector3f& v ) {
+	source.alSource.set( AL_POSITION, v[0], v[1], v[2] );
 }
 
-bool uf::Audio::spatial() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return false;
-	return this->m_metadata->settings.spatial;
-#endif
-}
-void uf::Audio::setSpatial( bool state ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->settings.spatial = state;
-#endif
+void uf::audio::orientation( pod::AudioSource& source, const pod::Quaternion<>& q ) {
+	// to-do: set
 }
 
-float uf::Audio::getTime() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return 0;
-	return this->m_metadata->info.elapsed + this->m_metadata->info.timer.elapsed().asDouble();
-/*
-	if ( !this->playing() ) return 0;
-
-	auto& metadata = *this->m_metadata;
-
+float uf::audio::time( const pod::AudioSource& source ) {
+	return source.info.elapsed + source.info.timer.elapsed().asDouble();
+}
+void uf::audio::time( pod::AudioSource& source, float v ) {
+	source.alSource.set( AL_SEC_OFFSET, v ); 
+}
+float uf::audio::pitch( const pod::AudioSource& source ) {
 	float v;
-	metadata.al.source.get( AL_SEC_OFFSET, v );
-
-	if ( metadata.info.duration >= 0 ) {
-		ALint processed = 0;
-		metadata.al.source.get(AL_BUFFERS_PROCESSED, processed);
-		auto currentlyProcessed = (metadata.settings.buffers - processed) * uf::audio::bufferSize;
-		UF_MSG_DEBUG("{} | {} | {}", processed, metadata.settings.buffers, uf::audio::bufferSize);
-		auto consumed = metadata.stream.consumed - currentlyProcessed;
-		v += (float) consumed / metadata.info.size * metadata.info.duration;
-	}
-
+	source.alSource.get( AL_PITCH, v );
 	return v;
-*/
-#else
-	return 0;
-#endif
 }
-void uf::Audio::setTime( float v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-#if UF_USE_OPENAL_ALDC
-	if ( v <= 0 ) {
-		this->stop();
-		this->play();
-	}
-#else
-	this->m_metadata->al.source.set( AL_SEC_OFFSET, v ); 
-#endif
-#endif
+void uf::audio::pitch( pod::AudioSource& source, float v ) {
+	source.alSource.set( AL_PITCH, v );
 }
-
-void uf::Audio::setPosition( const pod::Vector3f& v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_POSITION, v[0], v[1], v[2] );
-#endif
-}
-void uf::Audio::setOrientation( const pod::Quaternion<>& v ) {
-	if ( !this->m_metadata ) return;
-}
-
-float uf::Audio::getPitch() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return 0;
+float uf::audio::gain( const pod::AudioSource& source ) {
 	float v;
-	this->m_metadata->al.source.get( AL_PITCH, v );
+	source.alSource.get( AL_GAIN, v );
 	return v;
-#else
-	return 0;
-#endif
 }
-void uf::Audio::setPitch( float v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_PITCH, v );
-#endif
+void uf::audio::gain( pod::AudioSource& source, float v ) {
+	source.alSource.set( AL_GAIN, v );
 }
-
-float uf::Audio::getGain() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return 0;
+float uf::audio::rolloff( const pod::AudioSource& source ) {
 	float v;
-	this->m_metadata->al.source.get( AL_GAIN, v );
+	source.alSource.get( AL_ROLLOFF_FACTOR, v );
 	return v;
-#endif
-	return 0;
 }
-void uf::Audio::setGain( float v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_GAIN, v );
-#endif
+void uf::audio::rolloff( pod::AudioSource& source, float v ) {
+	source.alSource.set( AL_ROLLOFF_FACTOR, v );
 }
-
-float uf::Audio::getRolloffFactor() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return 0;
+float uf::audio::maxDistance( const pod::AudioSource& source ) {
 	float v;
-	this->m_metadata->al.source.get( AL_ROLLOFF_FACTOR, v );
+	source.alSource.get( AL_MAX_DISTANCE, v );
 	return v;
-#endif
-	return 0;
 }
-void uf::Audio::setRolloffFactor( float v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_ROLLOFF_FACTOR, v );
-#endif
-}
-
-float uf::Audio::getMaxDistance() const {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return 0;
-	float v;
-	this->m_metadata->al.source.get( AL_MAX_DISTANCE, v );
-	return v;
-#endif
-	return 0;
-}
-void uf::Audio::setMaxDistance( float v ) {
-#if UF_USE_OPENAL
-	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_MAX_DISTANCE, v );
-#endif
-}
-
-float uf::Audio::getVolume() const { return this->getGain(); }
-void uf::Audio::setVolume( float v ) { return this->setGain( v ); }
-const uf::stl::string& uf::Audio::getFilename() const {
-	static const uf::stl::string null = "";
-	return this->m_metadata ? this->m_metadata->filename : null;
-}
-float uf::Audio::getDuration() const {
-	return this->m_metadata ? this->m_metadata->info.duration : 0;
-}
-
-bool uf::Audio::hasLoops() const {
-	return this->m_metadata ? this->m_metadata->info.loop.has : false;
+void uf::audio::maxDistance( pod::AudioSource& source, float v ) {
+	source.alSource.set( AL_MAX_DISTANCE, v );
 }

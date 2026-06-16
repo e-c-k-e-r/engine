@@ -4,132 +4,87 @@
 uf::AudioEmitter::~AudioEmitter() {
 	this->cleanup(true);
 }
-bool uf::AudioEmitter::has( const uf::stl::string& filename ) const {
-	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return true;
-	return false;
-}
-uf::Audio& uf::AudioEmitter::add() {
-	return this->m_container.emplace_back();
-}
-uf::Audio& uf::AudioEmitter::add( const uf::stl::string& filename ) {
-//	if ( this->has(filename) ) return this->get(filename);
-	uf::Audio& sound = this->add();
-	sound.open(filename);
-	return sound;
-}
-uf::Audio& uf::AudioEmitter::load( const uf::stl::string& filename ) {
-//	if ( this->has(filename) ) return this->get(filename);
-	uf::Audio& sound = this->add();
-	sound.load(filename);
-	return sound;
-}
-uf::Audio& uf::AudioEmitter::stream( const uf::stl::string& filename ) {
-//	if ( this->has(filename) ) return this->get(filename);
-	uf::Audio& sound = this->add();
-	sound.stream(filename);
-	return sound;
+
+pod::AudioSource& uf::AudioEmitter::emit( const uf::stl::string& key, pod::AudioClip* clip, bool unique ) {
+	auto& pool = this->m_container[key];
+
+	if ( unique && !pool.empty() ) {
+		pod::AudioSource& source = pool.front();
+		if ( !source.alSource.playing() ) uf::audio::bind( source, clip );
+		return source;
+	}
+
+	for ( auto& source : pool ) {
+		if ( !source.alSource.playing() ) {
+			uf::audio::bind( source, clip );
+			return source;
+		}
+	}
+
+	pod::AudioSource& source = pool.emplace_back();
+	uf::audio::initialize( source );
+	uf::audio::bind( source, clip );
+	return source;
 }
 
-uf::Audio& uf::AudioEmitter::get( const uf::stl::string& filename ) {
-	if ( !this->has(filename) ) return this->add(filename);
-	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return audio;
-	return this->add();
+void uf::AudioEmitter::update() {
+	for ( auto& pair : this->m_container ) {
+		for ( auto& source : pair.second ) {
+			if ( source.alSource.playing() ) uf::audio::update( source );
+		}
+	}
 }
-const uf::Audio& uf::AudioEmitter::get( const uf::stl::string& filename ) const {
-	for ( auto& audio : this->m_container ) if ( audio.getFilename() == filename ) return audio;
-	return uf::audio::null;
+
+void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	for ( auto& pair : this->m_container ) {
+		for ( auto& source : pair.second ) {
+			if ( !source.alSource.playing() ) continue;
+			uf::audio::position( source, position );
+			uf::audio::orientation( source, orientation );
+			uf::audio::update( source );
+		}
+	}
 }
+
+void uf::AudioEmitter::cleanup( bool purge ) {
+	for ( auto mapIt = this->m_container.begin(); mapIt != this->m_container.end(); ) {
+		auto& pool = mapIt->second;
+
+		for ( auto vecIt = pool.begin(); vecIt != pool.end(); ) {
+			auto& source = *vecIt;
+			if ( purge || (!source.alSource.playing() && !source.settings.loop) ) {
+				uf::audio::destroy( source );
+				vecIt = pool.erase(vecIt);
+			} else {
+				++vecIt;
+			}
+		}
+
+		if ( pool.empty() ) {
+			mapIt = this->m_container.erase(mapIt);
+		} else {
+			++mapIt;
+		}
+	}
+}
+
+bool uf::AudioEmitter::has( const uf::stl::string& key ) const {
+	auto it = this->m_container.find(key);
+	return it != this->m_container.end() && !it->second.empty();
+}
+
+pod::AudioSource& uf::AudioEmitter::get( const uf::stl::string& key ) {
+	return this->m_container[key].front();
+}
+
+const pod::AudioSource& uf::AudioEmitter::get( const uf::stl::string& key ) const {
+	return this->m_container.at(key).front();
+}
+
 uf::AudioEmitter::container_t& uf::AudioEmitter::get() {
 	return this->m_container;
 }
+
 const uf::AudioEmitter::container_t& uf::AudioEmitter::get() const {
 	return this->m_container;
-}
-void uf::AudioEmitter::update() {
-	for ( auto& audio : this->m_container ) if ( audio.playing() ) audio.update();
-}
-void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
-	for ( auto& audio : this->m_container ) {
-		if ( audio.playing() ) audio.update( position, orientation );
-	}
-}
-void uf::AudioEmitter::cleanup( bool purge ) {
-	for ( auto it = this->m_container.begin(); it != this->m_container.end(); ) {
-		auto& audio = *it;
-		if ( purge || audio.played() ) {
-			audio.stop();
-			audio.destroy();
-			// because cleanup might only happen on nonplaying audio (for some reason) we're erasing here instead of just clearing the container
-			it = this->m_container.erase(it);
-		} else {
-			++it;
-		}
-	}
-}
-
-//
-uf::MappedAudioEmitter::~MappedAudioEmitter() {
-	this->cleanup(true);
-}
-bool uf::MappedAudioEmitter::has( const uf::stl::string& filename ) const {
-	return this->m_container.count(filename) > 0;
-}
-uf::Audio& uf::MappedAudioEmitter::add( const uf::stl::string& filename ) {
-	if ( this->has(filename) ) return this->get(filename);
-
-	uf::Audio& sound = this->m_container[filename];
-	sound.open(filename);
-	return sound;
-}
-
-uf::Audio& uf::MappedAudioEmitter::load( const uf::stl::string& filename ) {
-	if ( this->has(filename) ) return this->get(filename);
-
-	uf::Audio& sound = this->m_container[filename];
-	sound.load(filename);
-	return sound;
-}
-uf::Audio& uf::MappedAudioEmitter::stream( const uf::stl::string& filename ) {
-	if ( this->has(filename) ) return this->get(filename);
-
-	uf::Audio& sound = this->m_container[filename];
-	sound.stream(filename);
-	return sound;
-}
-
-uf::Audio& uf::MappedAudioEmitter::get( const uf::stl::string& filename ) {
-	if ( !this->has(filename) ) return this->add(filename);
-	return this->m_container[filename];
-}
-const uf::Audio& uf::MappedAudioEmitter::get( const uf::stl::string& filename ) const {
-	return this->m_container.at(filename);
-}
-uf::MappedAudioEmitter::container_t& uf::MappedAudioEmitter::get() {
-	return this->m_container;
-}
-const uf::MappedAudioEmitter::container_t& uf::MappedAudioEmitter::get() const {
-	return this->m_container;
-}
-void uf::MappedAudioEmitter::update() {
-	for ( auto& pair : this->m_container ) {
-		pair.second.update();
-	}
-}
-void uf::MappedAudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
-	for ( auto& pair : this->m_container ) {
-		if ( pair.second.playing() ) pair.second.update( position, orientation );
-	}
-}
-void uf::MappedAudioEmitter::cleanup( bool purge ) {
-	for ( auto it = this->m_container.begin(); it != this->m_container.end(); ) {
-		auto& pair = *it;
-		if ( purge || pair.second.played() ) {
-			pair.second.stop();
-			pair.second.destroy();
-			// because cleanup might only happen on nonplaying audio (for some reason) we're erasing here instead of just clearing the container
-			it = this->m_container.erase(it);
-		} else {
-			++it;
-		}
-	}
 }

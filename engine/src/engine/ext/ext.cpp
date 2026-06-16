@@ -784,7 +784,7 @@ void UF_API uf::initialize() {
 	//	ext::imgui::initialize();
 	}
 #endif
-#if UF_USE_VALL_E
+#if 0 && UF_USE_VALL_E
 	if ( /*global*/::config.engine.ext.vall_e.enabled ) {
 		ext::vall_e::initialize( /*global*/::config.engine.ext.vall_e.model_path, /*global*/::config.engine.ext.vall_e.encodec_path );
 

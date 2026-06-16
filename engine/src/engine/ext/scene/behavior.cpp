@@ -427,7 +427,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		*/
 		}
 		transform = uf::transform::flatten( transform );		
-		ext::al::listener( transform );
+		uf::audio::listener( transform );
 	}
 #endif
 #if !UF_ENV_DREAMCAST
@@ -554,7 +554,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				texture2dOffset++;
 			}
 		}
-		//UF_MSG_DEBUG("texture2D={}, textureCube={}", texture2dOffset, textureCubeOffset);
 
 		// traverse scene graph
 		for ( auto entity : graph ) {

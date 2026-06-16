@@ -1,7 +1,7 @@
 {
 	"assets": ["./scripts/door.lua"],
 	"behaviors": [
-		"SoundEmitterBehavior"
+		"AudioEmitterBehavior"
 	],
 	"metadata": {
 		"physics": {

@@ -216,8 +216,8 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			asset.open(filename);
 		} break;
 		case uf::asset::Type::AUDIO: {
-			UF_ASSET_REGISTER(uf::Audio)
-			asset.open(filename, true);
+			UF_ASSET_REGISTER(pod::AudioClip)
+			uf::audio::load(asset, filename, true);
 		} break;
 		case uf::asset::Type::JSON: {
 			UF_ASSET_REGISTER(uf::Serializer)

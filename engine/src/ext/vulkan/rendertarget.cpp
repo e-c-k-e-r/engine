@@ -219,50 +219,40 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	return index;
 }
 size_t ext::vulkan::RenderTarget::aliasAttachment( const Attachment& source ) {
-	if ( this->views == 0 ) this->views = source.views.size(); // Keep view count consistent
+	if ( this->views == 0 ) this->views = source.views.size();
 
 	size_t index = attachments.size();
 	auto& attachment = attachments.emplace_back();
 
-	// 1. Copy the descriptor and mark it as aliased!
-	// This prevents RenderTarget::destroy from double-freeing the memory,
-	// and prevents RenderTarget::initialize from trying to re-allocate it.
 	attachment.descriptor = source.descriptor;
 	attachment.descriptor.aliased = true;
 
-	// 2. Copy the Vulkan resource handles
 	attachment.image = source.image;
 	attachment.view = source.view;
 	attachment.framebufferView = source.framebufferView;
-	attachment.views = source.views; // Copy the vector of image views
-
-	// 3. Copy the pipeline states
+	attachment.views = source.views;
+	
 	attachment.blendState = source.blendState;
 
-	// 4. Copy memory references (safe because aliased == true)
 	attachment.mem = source.mem;
 	attachment.allocation = source.allocation;
 	attachment.allocationInfo = source.allocationInfo;
 
-    return index;
+	return index;
 }
 void ext::vulkan::RenderTarget::initialize( Device& device ) {
-	// Bind
 	this->device = &device;
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
-	// resize attachments if necessary
 	if ( initialized ) {
 		for ( auto& attachment: this->attachments ) {
 			if ( attachment.descriptor.aliased ) continue;
 			attach( attachment.descriptor, &attachment );
 		}
 	}
-	// ensure attachments are already created
 	assert( this->attachments.size() > 0 );
 
-	// Create render pass
 	bool isSwapchain = false;
 	for ( auto& attachment : this->attachments ) {
 		if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) isSwapchain = true;
@@ -464,7 +454,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
 			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			// All frame buffers use the same renderpass setup
 			frameBufferCreateInfo.renderPass = renderPass;
 			frameBufferCreateInfo.attachmentCount = static_cast<uint32_t>(attachmentViews.size());
 			frameBufferCreateInfo.pAttachments = attachmentViews.data();
@@ -472,7 +461,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			frameBufferCreateInfo.height = height;
 			frameBufferCreateInfo.layers = 1;
 
-			// Create the framebuffer
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[frame]));
 			VK_REGISTER_HANDLE( framebuffers[frame] );
 		}

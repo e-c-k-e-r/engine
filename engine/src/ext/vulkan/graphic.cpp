@@ -561,8 +561,8 @@ void ext::vulkan::DescriptorSets::record( const Graphic& graphic, const GraphicD
 	}
 
 	for ( const auto& [binding, stride] : bindingStrides ) {
-        dynamicOffsets.emplace_back( stride * offset );
-    }
+		dynamicOffsets.emplace_back( stride * offset );
+	}
 
 	// no matching bind point for shaders, skip
 	if ( !bound ) {

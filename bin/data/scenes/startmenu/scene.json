@@ -4,7 +4,7 @@
 		"SceneBehavior",
 		"ExtSceneBehavior",
 		"ImguiBehavior",
-		"BgmEmitterBehavior"
+		"AudioEmitterBehavior"
 	],
 	"assets": [
 		"/gui.json",

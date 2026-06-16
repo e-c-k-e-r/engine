@@ -23,14 +23,14 @@ namespace {
 		size_t totalSize;
 	};
 
-	size_t drwav_vfs_read(void* pUserData, void* pBufferOut, size_t bytesToRead) {
+	size_t drwav_vfs_read( void* pUserData, void* pBufferOut, size_t bytesToRead ) {
 		DrWavVfsContext* ctx = (DrWavVfsContext*)pUserData;
 		size_t bytesLeft = ctx->totalSize - ctx->currentOffset;
-		if (bytesToRead > bytesLeft) bytesToRead = bytesLeft;
+		if ( bytesToRead > bytesLeft ) bytesToRead = bytesLeft;
 
-		if (bytesToRead > 0) {
+		if ( bytesToRead > 0 ) {
 			uf::stl::vector<uint8_t> tempBuffer;
-			if (uf::vfs::readRange(ctx->filename, ctx->currentOffset, bytesToRead, tempBuffer)) {
+			if ( uf::vfs::readRange(ctx->filename, ctx->currentOffset, bytesToRead, tempBuffer) ) {
 				std::memcpy(pBufferOut, tempBuffer.data(), tempBuffer.size());
 				ctx->currentOffset += tempBuffer.size();
 				return tempBuffer.size();
@@ -39,17 +39,12 @@ namespace {
 		return 0;
 	}
 
-	drwav_bool32 drwav_vfs_seek(void* pUserData, int offset, drwav_seek_origin origin) {
+	drwav_bool32 drwav_vfs_seek( void* pUserData, int offset, drwav_seek_origin origin ) {
 		DrWavVfsContext* ctx = (DrWavVfsContext*)pUserData;
 		long long targetOffset = 0;
-
-		if ( (int)origin == 0 ) {
-			targetOffset = offset;
-		} else if ( (int)origin == 1 ) {
-			targetOffset = (long long)ctx->currentOffset + offset;
-		} else if ( (int)origin == 2 ) {
-			targetOffset = (long long)ctx->totalSize + offset;
-		}
+		if ( (int)origin == 0 ) targetOffset = offset;
+		else if ( (int)origin == 1 ) targetOffset = (long long)ctx->currentOffset + offset;
+		else if ( (int)origin == 2 ) targetOffset = (long long)ctx->totalSize + offset;
 
 		if (targetOffset < 0) targetOffset = 0;
 		if ((size_t)targetOffset > ctx->totalSize) targetOffset = ctx->totalSize;
@@ -58,238 +53,190 @@ namespace {
 		return 1;
 	}
 
-	drwav_bool32 drwav_vfs_tell(void* pUserData, long long int* pCursor) {
+	drwav_bool32 drwav_vfs_tell( void* pUserData, long long int* pCursor ) {
 		DrWavVfsContext* ctx = (DrWavVfsContext*)pUserData;
-		if (pCursor) {
-			*pCursor = (long long int)ctx->currentOffset;
-		}
+		if (pCursor) *pCursor = (long long int)ctx->currentOffset;
 		return 1;
 	}
 
-	namespace funs {
-		size_t read(void* destination, size_t size, size_t nmemb, void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			DrWavVfsContext* ctx = (DrWavVfsContext*) metadata.stream.handle;
-			drwav* wav = &ctx->wav;
-
-			size_t bytesRequested = size * nmemb;
-			size_t frameSize = wav->channels * (wav->bitsPerSample / 8);
-			size_t framesToRead = bytesRequested / frameSize;
-
-			drwav_uint64 framesRead = drwav_read_pcm_frames(wav, framesToRead, destination);
-			size_t bytesRead = framesRead * frameSize;
-
-			metadata.stream.consumed += bytesRead;
-			return bytesRead;
+	inline bool format( pod::AudioClip& clip, int channels, int bitDepth ) {
+		if (channels == 1 && bitDepth == 8) clip.info.format = AL_FORMAT_MONO8;
+		else if (channels == 1 && bitDepth == 16) clip.info.format = AL_FORMAT_MONO16;
+		else if (channels == 2 && bitDepth == 8) clip.info.format = AL_FORMAT_STEREO8;
+		else if (channels == 2 && bitDepth == 16) clip.info.format = AL_FORMAT_STEREO16;
+		else {
+			UF_MSG_ERROR("WAV: unrecognized format: {} channels, {} bps", channels, bitDepth);
+			return false;
 		}
-		int seek(void* userdata, int64_t to, int type) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			DrWavVfsContext* ctx = (DrWavVfsContext*) metadata.stream.handle;
-			drwav* wav = &ctx->wav;
-
-			drwav_uint64 targetFrame = 0;
-			switch (type) {
-				case SEEK_CUR: targetFrame = metadata.stream.consumed / (wav->channels * (wav->bitsPerSample / 8)) + to; break;
-				case SEEK_END: targetFrame = wav->totalPCMFrameCount - to; break;
-				case SEEK_SET: targetFrame = to; break;
-				default: return -1;
-			}
-			if (!drwav_seek_to_pcm_frame(wav, targetFrame)) return -1;
-			metadata.stream.consumed = (size_t)(targetFrame * wav->channels * (wav->bitsPerSample / 8));
-			return 0;
-		}
-		int close(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			DrWavVfsContext* ctx = (DrWavVfsContext*) metadata.stream.handle;
-			if (ctx) {
-				drwav_uninit(&ctx->wav);
-				delete ctx;
-				metadata.stream.handle = nullptr;
-			}
-			return 0;
-		}
-		long tell(void* userdata) {
-			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*)userdata);
-			return metadata.stream.consumed;
-		}
+		return true;
 	}
 }
 
-void ext::wav::open(uf::Audio::Metadata& metadata) {
+void ext::wav::load( pod::AudioClip& clip ) {
 	DrWavVfsContext* ctx = new DrWavVfsContext();
-	ctx->filename = metadata.filename;
+	ctx->filename = clip.filename;
 	ctx->currentOffset = 0;
-	ctx->totalSize = uf::vfs::size(metadata.filename);
+	ctx->totalSize = uf::vfs::size(clip.filename);
 
-	if (!drwav_init(&ctx->wav, drwav_vfs_read, drwav_vfs_seek, drwav_vfs_tell, ctx, nullptr)) {
-		UF_MSG_ERROR("Could not open WAV file: {}", metadata.filename);
+	if ( !drwav_init(&ctx->wav, drwav_vfs_read, drwav_vfs_seek, drwav_vfs_tell, ctx, nullptr) ) {
+		UF_MSG_ERROR("Could not open WAV file: {}", clip.filename);
 		delete ctx;
 		return;
 	}
 
 	drwav* wav = &ctx->wav;
-
-	// fill out metadata
-	metadata.stream.handle = ctx;
-	metadata.info.size = wav->totalPCMFrameCount * wav->channels * (wav->bitsPerSample / 8);
-	metadata.stream.consumed = 0;
-	metadata.info.channels = wav->channels;
-	metadata.info.bitDepth = wav->bitsPerSample;
-	metadata.info.frequency = wav->sampleRate;
-	metadata.info.duration = (double) wav->totalPCMFrameCount / wav->sampleRate;
+	clip.info.size = wav->totalPCMFrameCount * wav->channels * (wav->bitsPerSample / 8);
+	clip.info.channels = wav->channels;
+	clip.info.bitDepth = wav->bitsPerSample;
+	clip.info.frequency = wav->sampleRate;
+	clip.info.duration = (double) wav->totalPCMFrameCount / wav->sampleRate;
+	clip.info.loop.has = false;
+	clip.info.loop.start = 0;
+	clip.info.loop.end = (uint32_t)wav->totalPCMFrameCount;
 
 	for ( drwav_uint32 i = 0; i < wav->metadataCount; ++i ) {
 		if ( wav->pMetadata[i].type == drwav_metadata_type_smpl ) {
 			const drwav_smpl& smpl = wav->pMetadata[i].data.smpl;
-
 			if ( smpl.sampleLoopCount > 0 && smpl.pLoops != nullptr ) {
-				metadata.info.loop.has = true;
-				metadata.info.loop.start = smpl.pLoops[0].firstSampleOffset;
-				metadata.info.loop.end = smpl.pLoops[0].lastSampleOffset;
-
-				if ( metadata.info.loop.end == 0 ) {
-					metadata.info.loop.end = (uint32_t)wav->totalPCMFrameCount;
-				}
+				clip.info.loop.has = true;
+				clip.info.loop.start = smpl.pLoops[0].firstSampleOffset;
+				clip.info.loop.end = smpl.pLoops[0].lastSampleOffset;
+				if ( clip.info.loop.end == 0 ) clip.info.loop.end = (uint32_t)wav->totalPCMFrameCount;
 			}
 			break;
 		}
 	}
 
-	// determine OpenAL format
-	if (wav->channels == 1 && wav->bitsPerSample == 8)
-		metadata.info.format = AL_FORMAT_MONO8;
-	else if (wav->channels == 1 && wav->bitsPerSample == 16)
-		metadata.info.format = AL_FORMAT_MONO16;
-	else if (wav->channels == 2 && wav->bitsPerSample == 8)
-		metadata.info.format = AL_FORMAT_STEREO8;
-	else if (wav->channels == 2 && wav->bitsPerSample == 16)
-		metadata.info.format = AL_FORMAT_STEREO16;
-	else {
-		UF_MSG_ERROR("WAV: unrecognized format: {} channels, {} bps", wav->channels, wav->bitsPerSample);
-		funs::close(&metadata);
+	if ( !format(clip, wav->channels, wav->bitsPerSample) ) {
+		drwav_uninit(wav); delete ctx;
 		return;
 	}
 
-	// choose load or stream
-	if (metadata.settings.streamed) ext::wav::stream(metadata); else ext::wav::load(metadata);
-}
+	if (!clip.streamed) {
+		uf::stl::vector<uint8_t> bytes(clip.info.size);
+		drwav_read_pcm_frames(wav, wav->totalPCMFrameCount, bytes.data());
 
-void ext::wav::load(uf::Audio::Metadata& metadata) {
-	// if streaming is requested, use streaming function
-	if (metadata.settings.streamed) return ext::wav::stream(metadata);
-	// read all PCM data
-	size_t totalBytes = (size_t) metadata.info.size;
-	uf::stl::vector<uint8_t> bytes(totalBytes);
-
-	size_t bytesRead = funs::read(bytes.data(), 1, totalBytes, &metadata);
-	if (bytesRead < totalBytes) {
-		bytes.resize(bytesRead);
+		clip.alBuffer.buffer(clip.info.format, bytes.data(), (ALsizei)bytes.size(), clip.info.frequency);
+		if ( clip.info.loop.has ) {
+			ALint loopPoints[2] = { (ALint) clip.info.loop.start, (ALint) clip.info.loop.end };
+			alBufferiv(clip.alBuffer.getIndex(0), 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints);
+		}
 	}
 
-	metadata.al.buffer.buffer(metadata.info.format, bytes.data(), (ALsizei) bytes.size(), metadata.info.frequency);
-	if ( metadata.info.loop.has ) {
-		ALint loopPoints[2] = { (ALint) metadata.info.loop.start, (ALint) metadata.info.loop.end };
-		alBufferiv(metadata.al.buffer.getIndex(), 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints);
-	}
-	metadata.al.source.set(AL_BUFFER, (ALint) metadata.al.buffer.getIndex());
-
-	funs::close(&metadata);
+	drwav_uninit(wav);
+	delete ctx;
 }
 
-void ext::wav::stream(uf::Audio::Metadata& metadata) {
-	if (!metadata.settings.streamed) return ext::wav::load(metadata);
+void ext::wav::open( pod::AudioSource& source ) {
+	pod::AudioClip* clip = source.clip;
+	if ( !clip || !clip->streamed ) return;
 
-	funs::seek(&metadata, 0, SEEK_SET);
+	source.streamBuffers.initialize(source.settings.buffers);
+
+	DrWavVfsContext* ctx = new DrWavVfsContext();
+	ctx->filename = clip->filename;
+	ctx->currentOffset = 0;
+	ctx->totalSize = uf::vfs::size(clip->filename);
+
+	if ( !drwav_init(&ctx->wav, drwav_vfs_read, drwav_vfs_seek, drwav_vfs_tell, ctx, nullptr) ) {
+		delete ctx; return;
+	}
+
+	source.streamState.handle = (void*) ctx;
+	drwav* wav = &ctx->wav;
+
+	size_t frameSize = wav->channels * (wav->bitsPerSample / 8);
+	size_t bufferFrames = uf::audio::bufferSize / frameSize;
 
 	char buffer[uf::audio::bufferSize];
 	uint8_t queuedBuffers = 0;
-	for (; queuedBuffers < metadata.settings.buffers; ++queuedBuffers) {
-		size_t bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
 
-		if (bytesRead == 0) {
-			if (metadata.settings.loop) {
-				metadata.stream.consumed = 0;
-				if ( funs::seek(&metadata, metadata.info.loop.start, SEEK_SET) != 0 ) {
-					UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
-					break;
-				}
-				bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
+	for ( ; queuedBuffers < source.settings.buffers; ++queuedBuffers ) {
+		drwav_uint64 framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
+
+		if ( framesRead == 0 ) {
+			if ( source.settings.loop ) {
+				drwav_seek_to_pcm_frame(wav, clip->info.loop.has ? clip->info.loop.start : 0);
+				framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
 			}
 		}
+		if ( framesRead == 0 ) break;
 
-		if (bytesRead == 0) {
-			if ( queuedBuffers == 0 ) UF_MSG_WARNING("WAV: consumed file stream before {} buffers were filled: {}", (int) queuedBuffers, metadata.filename);
-			break;
-		}
-
-		AL_CHECK_RESULT(alBufferData(metadata.al.buffer.getIndex(queuedBuffers), metadata.info.format, buffer, bytesRead, metadata.info.frequency));
+		AL_CHECK_RESULT(alBufferData(source.streamBuffers.getIndex(queuedBuffers), clip->info.format, buffer, (ALsizei)(framesRead * frameSize), clip->info.frequency));
 	}
-	AL_CHECK_RESULT(alSourceQueueBuffers(metadata.al.source.getIndex(), queuedBuffers, &metadata.al.buffer.getIndex()));
+	AL_CHECK_RESULT(alSourceQueueBuffers(source.alSource.getIndex(), queuedBuffers, &source.streamBuffers.getIndex(0)));
 
-	if (queuedBuffers >= metadata.settings.buffers) {
-		metadata.settings.loopMode = 1;
-		metadata.al.source.set(AL_LOOPING, AL_FALSE);
+	if ( queuedBuffers >= source.settings.buffers ) {
+		source.settings.loopMode = 1;
+		source.alSource.set(AL_LOOPING, AL_FALSE);
 	}
 }
 
-void ext::wav::update(uf::Audio::Metadata& metadata) {
-	if (!metadata.settings.streamed) return;
-	// disable hard looping temporarily
-	if (metadata.settings.loopMode == 1) metadata.al.source.set(AL_LOOPING, AL_FALSE);
+void ext::wav::update( pod::AudioSource& source ) {
+	pod::AudioClip* clip = source.clip;
+	if ( !clip || !clip->streamed || !source.streamState.handle ) return;
+
+	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_FALSE);
+
+	DrWavVfsContext* ctx = (DrWavVfsContext*) source.streamState.handle;
+	drwav* wav = &ctx->wav;
 
 	ALint state;
-	metadata.al.source.get(AL_SOURCE_STATE, state);
-	if (state != AL_PLAYING) {
-		if (!metadata.settings.loop && metadata.stream.consumed >= metadata.info.size) {
-			return; // stream finished
-		}
-		// stream stalled, restart it
-		metadata.al.source.play();
+	source.alSource.get(AL_SOURCE_STATE, state);
+	if ( state != AL_PLAYING ) {
+		if ( !source.settings.loop && ctx->currentOffset >= ctx->totalSize ) return;
+		source.alSource.play();
 	}
+
 	ALint processed = 0;
-	metadata.al.source.get(AL_BUFFERS_PROCESSED, processed);
-	if (processed <= 0) return;
+	source.alSource.get(AL_BUFFERS_PROCESSED, processed);
+	if ( processed <= 0 ) return;
+
+	size_t frameSize = wav->channels * (wav->bitsPerSample / 8);
+	size_t bufferFrames = uf::audio::bufferSize / frameSize;
 
 	ALuint index;
 	char buffer[uf::audio::bufferSize];
-	while (processed--) {
-		memset(buffer, 0, uf::audio::bufferSize);
-		AL_CHECK_RESULT(alSourceUnqueueBuffers(metadata.al.source.getIndex(), 1, &index));
 
-		size_t bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
+	while ( processed-- ) {
+		AL_CHECK_RESULT(alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &index));
 
-		if (bytesRead == 0) {
-			// no more data left to read, reset file stream if we're looping
-			if (!metadata.settings.loop) break;
-			if ( funs::seek(&metadata, metadata.info.loop.start, SEEK_SET) != 0 ) {
-				UF_MSG_ERROR("WAV: failed to loop (seek to start): {}", metadata.filename);
-				break;
-			}
-			bytesRead = funs::read(buffer, 1, uf::audio::bufferSize, &metadata);
-			if (bytesRead == 0) {
-				// should never actually reach here
-				UF_MSG_ERROR("WAV: failed to read after looping: {}", metadata.filename);
-				break;
-			}
+		drwav_uint64 framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
+
+		if ( framesRead == 0 ) {
+			if ( !source.settings.loop ) break;
+			drwav_seek_to_pcm_frame(wav, clip->info.loop.has ? clip->info.loop.start : 0);
+			framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
 		}
 
-		if (bytesRead > 0) {
-			AL_CHECK_RESULT(alBufferData(index, metadata.info.format, buffer, bytesRead, metadata.info.frequency));
-			AL_CHECK_RESULT(alSourceQueueBuffers(metadata.al.source.getIndex(), 1, &index));
-		}
-		if (metadata.settings.loop && bytesRead < uf::audio::bufferSize) {
-			UF_MSG_ERROR("WAV: missing data: {}", metadata.filename);
+		if ( framesRead > 0 ) {
+			AL_CHECK_RESULT(alBufferData(index, clip->info.format, buffer, (ALsizei)(framesRead * frameSize), clip->info.frequency));
+			AL_CHECK_RESULT(alSourceQueueBuffers(source.alSource.getIndex(), 1, &index));
 		}
 	}
-	// enable hard looping for if we aren't able to call an update in a timely manner
-	if (metadata.settings.loopMode == 1) metadata.al.source.set(AL_LOOPING, AL_TRUE);
+	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_TRUE);
 }
 
-void ext::wav::close(uf::Audio::Metadata& metadata) {
-	if (metadata.stream.handle) {
-		funs::close(&metadata);
+void ext::wav::close( pod::AudioClip& clip ) {
+	// ...
+}
+void ext::wav::close(pod::AudioSource& source) {
+	if ( !source.clip || !source.clip->streamed ) return;
+
+	ALint queued;
+	source.alSource.get(AL_BUFFERS_QUEUED, queued);
+	while ( queued-- ) {
+		ALuint buffer;
+		alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &buffer);
 	}
-	metadata.stream.handle = nullptr;
+	source.streamBuffers.destroy();
+
+	if ( source.streamState.handle ) {
+		DrWavVfsContext* ctx = (DrWavVfsContext*)source.streamState.handle;
+		drwav_uninit(&ctx->wav);
+		delete ctx;
+		source.streamState.handle = nullptr;
+	}
 }
 
 #endif

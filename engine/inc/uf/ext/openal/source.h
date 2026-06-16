@@ -23,13 +23,13 @@ namespace ext {
 			ALuint& getIndex();
 			ALuint getIndex() const;
 
-			void get( ALenum name, ALfloat& x );
-			void get( ALenum name, ALfloat& x, ALfloat& y, ALfloat& z );
-			void get( ALenum name, ALfloat* f );
+			void get( ALenum name, ALfloat& x ) const;
+			void get( ALenum name, ALfloat& x, ALfloat& y, ALfloat& z ) const;
+			void get( ALenum name, ALfloat* f ) const;
 
-			void get( ALenum name, ALint& x );
-			void get( ALenum name, ALint& x, ALint& y, ALint& z );
-			void get( ALenum name, ALint* f );
+			void get( ALenum name, ALint& x ) const;
+			void get( ALenum name, ALint& x, ALint& y, ALint& z ) const;
+			void get( ALenum name, ALint* f ) const;
 			
 			void set( ALenum name, ALfloat x );
 			void set( ALenum name, ALfloat x, ALfloat y, ALfloat z );
@@ -39,13 +39,13 @@ namespace ext {
 			void set( ALenum name, ALint x, ALint y, ALint z );
 			void set( ALenum name, const ALint* f );
 
-			void get( const uf::stl::string& name, ALfloat& x );
-			void get( const uf::stl::string& name, ALfloat& x, ALfloat& y, ALfloat& z );
-			void get( const uf::stl::string& name, ALfloat* f );
+			void get( const uf::stl::string& name, ALfloat& x ) const;
+			void get( const uf::stl::string& name, ALfloat& x, ALfloat& y, ALfloat& z ) const;
+			void get( const uf::stl::string& name, ALfloat* f ) const;
 
-			void get( const uf::stl::string& name, ALint& x );
-			void get( const uf::stl::string& name, ALint& x, ALint& y, ALint& z );
-			void get( const uf::stl::string& name, ALint* f );
+			void get( const uf::stl::string& name, ALint& x ) const;
+			void get( const uf::stl::string& name, ALint& x, ALint& y, ALint& z ) const;
+			void get( const uf::stl::string& name, ALint* f ) const;
 
 			void set( const uf::stl::string& name, ALfloat x );
 			void set( const uf::stl::string& name, ALfloat x, ALfloat y, ALfloat z );
@@ -57,7 +57,7 @@ namespace ext {
 
 			void play();
 			void stop();
-			bool playing();
+			bool playing() const;
 		};
 	}
 }

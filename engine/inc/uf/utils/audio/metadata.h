@@ -19,49 +19,58 @@ namespace pod {
 	};
 }
 
-namespace uf {
-	namespace audio {
-		struct UF_API Metadata {
-			uf::stl::string filename = "";
-			uf::stl::string extension = "";
-			struct {
-				void* context = NULL;
-				void* handle = NULL;
-				char* buffer = NULL;
-				
-				size_t consumed = 0;
-				int bitStream = 0;
-			} stream;
-			struct {
-				ext::al::Source source;
-				ext::al::Buffer buffer;
-			} al;
-			struct {
-				uint8_t channels = 0;
-				uint8_t bitDepth = 0;
-				uint32_t frequency = 0;
-				size_t size = 0;
+namespace pod {
+	struct UF_API AudioClip {
+		uf::stl::string filename = "";
+		uf::stl::string extension = "";
 
-				uint32_t format = 0;
-				float duration = 0;
+		ext::al::Buffer alBuffer;
 
-				uf::Timer<> timer;
-				float elapsed = 0;
-				
-				struct {
-					bool has = false;
-					uint32_t start = 0;
-					uint32_t end = 0;
-				} loop;
-			} info;
-
+		struct {
+			uint8_t channels = 0;
+			uint8_t bitDepth = 0;
+			uint32_t frequency = 0;
+			size_t size = 0;
+			uint32_t format = 0;
+			float duration = 0;
+			
 			struct {
-				bool streamed = true;
-				bool loop = false;
-				bool spatial = false;
-				uint8_t buffers = 4;
-				uint8_t loopMode = 0;
-			} settings;
-		};
-	}
+				bool has = false;
+				uint32_t start = 0;
+				uint32_t end = 0;
+			} loop;
+		} info;
+
+		bool streamed = false;
+
+		struct {
+			void* buffer = NULL;
+		} stream;
+	};
+
+	struct UF_API AudioSource {
+		ext::al::Source alSource;
+		ext::al::Buffer streamBuffers;
+
+		pod::AudioClip* clip = NULL;
+
+		struct {
+			uf::Timer<> timer;
+			float elapsed = 0;
+		} info;
+
+		struct {
+			bool loop = false;
+			bool spatial = false;
+			uint8_t buffers = 4;
+			uint8_t loopMode = 0;
+		} settings;
+
+		struct {
+			void* context = NULL;
+			void* handle = NULL;
+			size_t consumed = 0;
+			int bitStream = 0;
+		} streamState;
+	};
 }

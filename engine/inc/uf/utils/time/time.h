@@ -31,29 +31,29 @@ namespace uf {
 		uf::Time<T>::time_t get() const;
 		uf::Time<T>::exp_t getBase() const;
 
-		uf::Time<T>::time_t asBase(uf::Time<T>::exp_t base = spec::time::unit );
-		inline uf::Time<T>::time_t asSeconds();
-		inline uf::Time<T>::time_t asMilliseconds();
-		inline uf::Time<T>::time_t asMicroseconds();
-		inline uf::Time<T>::time_t asNanoseconds();
-		float asFloat();
-		double asDouble();
+		uf::Time<T>::time_t asBase(uf::Time<T>::exp_t base = spec::time::unit ) const;
+		inline uf::Time<T>::time_t asSeconds() const;
+		inline uf::Time<T>::time_t asMilliseconds() const;
+		inline uf::Time<T>::time_t asMicroseconds() const;
+		inline uf::Time<T>::time_t asNanoseconds() const;
+		float asFloat() const;
+		double asDouble() const;
 
 		uf::Time<T>& operator=( const uf::Time<T>::time_t& t );
-		operator float();
-		operator double();
-		bool operator>( const uf::Time<T>::time_t& t );
-		bool operator>=( const uf::Time<T>::time_t& t );
-		bool operator<( const uf::Time<T>::time_t& t );
-		bool operator<=( const uf::Time<T>::time_t& t );
-		bool operator==( const uf::Time<T>::time_t& t );
-		bool operator>( const uf::Time<T>& t );
-		bool operator>=( const uf::Time<T>& t );
-		bool operator<( const uf::Time<T>& t );
-		bool operator<=( const uf::Time<T>& t );
-		bool operator==( const uf::Time<T>& t );
-		uf::Time<T> operator-( const uf::Time<T>& t );
-		uf::Time<T> operator+( const uf::Time<T>& t );
+		operator float() const;
+		operator double() const;
+		bool operator>( const uf::Time<T>::time_t& t ) const;
+		bool operator>=( const uf::Time<T>::time_t& t ) const;
+		bool operator<( const uf::Time<T>::time_t& t ) const;
+		bool operator<=( const uf::Time<T>::time_t& t ) const;
+		bool operator==( const uf::Time<T>::time_t& t ) const;
+		bool operator>( const uf::Time<T>& t ) const;
+		bool operator>=( const uf::Time<T>& t ) const;
+		bool operator<( const uf::Time<T>& t ) const;
+		bool operator<=( const uf::Time<T>& t ) const;
+		bool operator==( const uf::Time<T>& t ) const;
+		uf::Time<T> operator-( const uf::Time<T>& t ) const;
+		uf::Time<T> operator+( const uf::Time<T>& t ) const;
 	};
 	template<typename T = spec::time::time_t>
 	class /*UF_API*/ Timer {

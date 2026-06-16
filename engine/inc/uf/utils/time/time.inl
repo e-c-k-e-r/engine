@@ -41,31 +41,31 @@ typename uf::Time<T>::exp_t uf::Time<T>::getBase() const {
 }
 
 template<typename T>
-typename uf::Time<T>::time_t uf::Time<T>::asBase(uf::Time<T>::exp_t base) { 
+typename uf::Time<T>::time_t uf::Time<T>::asBase(uf::Time<T>::exp_t base) const { 
 	return this->m_time * pow((int) 10, this->m_exp - base);
 }
 template<typename T>
-inline typename uf::Time<T>::time_t uf::Time<T>::asSeconds() {
+inline typename uf::Time<T>::time_t uf::Time<T>::asSeconds() const {
 	return this->asBase( uf::Time<T>::seconds );
 }
 template<typename T>
-inline typename uf::Time<T>::time_t uf::Time<T>::asMilliseconds() {
+inline typename uf::Time<T>::time_t uf::Time<T>::asMilliseconds() const {
 	return this->asBase( uf::Time<T>::milliseconds );
 }
 template<typename T>
-inline typename uf::Time<T>::time_t uf::Time<T>::asMicroseconds() {
+inline typename uf::Time<T>::time_t uf::Time<T>::asMicroseconds() const {
 	return this->asBase( uf::Time<T>::microseconds );
 }
 template<typename T>
-inline typename uf::Time<T>::time_t uf::Time<T>::asNanoseconds() {
+inline typename uf::Time<T>::time_t uf::Time<T>::asNanoseconds() const {
 	return this->asBase( uf::Time<T>::nanoseconds );
 }
 template<typename T>
-float uf::Time<T>::asFloat() {
+float uf::Time<T>::asFloat() const {
 	return this->m_time * pow(10.0f, this->m_exp);
 }
 template<typename T>
-double uf::Time<T>::asDouble() {
+double uf::Time<T>::asDouble() const {
 	return this->m_time * pow(10.0, this->m_exp);
 }
 
@@ -75,58 +75,58 @@ uf::Time<T>& uf::Time<T>::operator=( const uf::Time<T>::time_t& t ) {
 	return *this;
 }
 template<typename T>
-uf::Time<T>::operator double() {
+uf::Time<T>::operator double() const {
 	return this->asDouble();
 }
 template<typename T>
-uf::Time<T>::operator float() {
+uf::Time<T>::operator float() const {
 	return this->asFloat();
 }
 template<typename T>
-bool uf::Time<T>::operator>( const uf::Time<T>::time_t& t ) {
+bool uf::Time<T>::operator>( const uf::Time<T>::time_t& t ) const {
 	return this->m_time > t;
 }
 template<typename T>
-bool uf::Time<T>::operator>=( const uf::Time<T>::time_t& t ) {
+bool uf::Time<T>::operator>=( const uf::Time<T>::time_t& t ) const {
 	return this->m_time >= t;
 }
 template<typename T>
-bool uf::Time<T>::operator<( const uf::Time<T>::time_t& t ) {
+bool uf::Time<T>::operator<( const uf::Time<T>::time_t& t ) const {
 	return this->m_time < t;
 }
 template<typename T>
-bool uf::Time<T>::operator<=( const uf::Time<T>::time_t& t ) {
+bool uf::Time<T>::operator<=( const uf::Time<T>::time_t& t ) const {
 	return this->m_time <= t;
 }
 template<typename T>
-bool uf::Time<T>::operator==( const uf::Time<T>::time_t& t ) {
+bool uf::Time<T>::operator==( const uf::Time<T>::time_t& t ) const {
 	return this->m_time == t;
 }
 template<typename T>
-bool uf::Time<T>::operator>( const uf::Time<T>& t ) {
+bool uf::Time<T>::operator>( const uf::Time<T>& t ) const {
 	return this->m_time > t.m_time;
 }
 template<typename T>
-bool uf::Time<T>::operator>=( const uf::Time<T>& t ) {
+bool uf::Time<T>::operator>=( const uf::Time<T>& t ) const {
 	return this->m_time >= t.m_time;
 }
 template<typename T>
-bool uf::Time<T>::operator<( const uf::Time<T>& t ) {
+bool uf::Time<T>::operator<( const uf::Time<T>& t ) const {
 	return this->m_time < t.m_time;
 }
 template<typename T>
-bool uf::Time<T>::operator<=( const uf::Time<T>& t ) {
+bool uf::Time<T>::operator<=( const uf::Time<T>& t ) const {
 	return this->m_time <= t.m_time;
 }
 template<typename T>
-bool uf::Time<T>::operator==( const uf::Time<T>& t ) {
+bool uf::Time<T>::operator==( const uf::Time<T>& t ) const {
 	return this->m_time == t.m_time;
 }
 template<typename T>
-uf::Time<T> uf::Time<T>::operator-( const uf::Time<T>& t ) {
+uf::Time<T> uf::Time<T>::operator-( const uf::Time<T>& t ) const {
 	return uf::Time<T>(this->m_time - t.m_time);
 }
 template<typename T>
-uf::Time<T> uf::Time<T>::operator+( const uf::Time<T>& t ) {
+uf::Time<T> uf::Time<T>::operator+( const uf::Time<T>& t ) const {
 	return uf::Time<T>(this->m_time + t.m_time);
 }

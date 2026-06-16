@@ -2,11 +2,11 @@
 
 // create ID from pointers
 size_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
-    uintptr_t lhs = reinterpret_cast<uintptr_t>(&a);
-    uintptr_t rhs = reinterpret_cast<uintptr_t>(&b);
-    if ( lhs > rhs ) std::swap(lhs, rhs);
-    size_t hash = uf::algo::fnv1a(lhs);
-    return uf::algo::fnv1a(rhs, hash);
+	uintptr_t lhs = reinterpret_cast<uintptr_t>(&a);
+	uintptr_t rhs = reinterpret_cast<uintptr_t>(&b);
+	if ( lhs > rhs ) std::swap(lhs, rhs);
+	size_t hash = uf::algo::fnv1a(lhs);
+	return uf::algo::fnv1a(rhs, hash);
 }
 
 // marks a body as asleep

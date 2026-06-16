@@ -1094,7 +1094,6 @@ void uf::graph::process( pod::Graph& graph ) {
 			gpuIndex2D[i] = count2D++;
 		}
 	}
-	UF_MSG_DEBUG("texture2Ds={}, textureCubes={}", count2D, countCube);
 
 	for ( auto& name : graph.textures ) {
 		auto& texture = storage.textures[name];
@@ -1112,7 +1111,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		} else {
 			texture.index = gpuIndex2D[storageImageIndex];
 		}
-		UF_MSG_DEBUG("name={}, index={}, layers={}, type={}", name, texture.index, image.layers, image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ? "cube" : "2D" );
 	}
 
 	// remap materials->texture IDs

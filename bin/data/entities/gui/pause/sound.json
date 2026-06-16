@@ -5,7 +5,7 @@
 	"assets": [
 	],
 	"behaviors": [
-		"SoundEmitterBehavior"
+		"AudioEmitterBehavior"
 	],
 	"transform": {
 		"position": [ 0, 0, 0 ],

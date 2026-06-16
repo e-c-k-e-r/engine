@@ -13,11 +13,11 @@
 
 namespace ext {
 	namespace vorbis {
-		void UF_API open( uf::Audio::Metadata& );
-		void UF_API load( uf::Audio::Metadata& );
-		void UF_API stream( uf::Audio::Metadata& );
-		void UF_API update( uf::Audio::Metadata& );
-		void UF_API close( uf::Audio::Metadata& );
+		void UF_API load( pod::AudioClip& );
+		void UF_API open( pod::AudioSource& );
+		void UF_API update( pod::AudioSource& );
+		void UF_API close( pod::AudioClip& );
+		void UF_API close( pod::AudioSource& );
 	}
 }
 #endif

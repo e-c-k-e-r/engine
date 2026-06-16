@@ -216,20 +216,15 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		}
 	}
 
-	if ( this->hasComponent<uf::Audio>() ) {
-		auto& audio = this->getComponent<uf::Audio>();
-		audio.destroy();
-	//	this->deleteComponent<uf::Audio>();
+	if ( this->hasComponent<pod::AudioSource>() ) {
+		auto& audio = this->getComponent<pod::AudioSource>();
+		uf::audio::destroy( audio );
+	//	this->deleteComponent<pod::AudioSource>();
 	}
-	if ( this->hasComponent<uf::SoundEmitter>() ) {
-		auto& audio = this->getComponent<uf::SoundEmitter>();
+	if ( this->hasComponent<uf::AudioEmitter>() ) {
+		auto& audio = this->getComponent<uf::AudioEmitter>();
 		audio.cleanup(true);
-	//	this->deleteComponent<uf::SoundEmitter>();
-	}
-	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
-		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
-		audio.cleanup(true);
-	//	this->deleteComponent<uf::MappedSoundEmitter>();
+	//	this->deleteComponent<uf::AudioEmitter>();
 	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
@@ -273,17 +268,12 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto flattened = uf::transform::flatten( transform );
 	// update audios
-	if ( this->hasComponent<uf::Audio>() ) {
-		auto& audio = this->getComponent<uf::Audio>();
-		audio.update( flattened.position, flattened.orientation );
+	if ( this->hasComponent<pod::AudioSource>() ) {
+		auto& source = this->getComponent<pod::AudioSource>();
+		uf::audio::update( source, flattened.position, flattened.orientation );
 	}
-	if ( this->hasComponent<uf::SoundEmitter>() ) {
-		auto& audio = this->getComponent<uf::SoundEmitter>();
-		audio.update( flattened.position, flattened.orientation );
-		audio.cleanup();
-	}
-	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
-		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
+	if ( this->hasComponent<uf::AudioEmitter>() ) {
+		auto& audio = this->getComponent<uf::AudioEmitter>();
 		audio.update( flattened.position, flattened.orientation );
 		audio.cleanup();
 	}

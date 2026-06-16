@@ -3,54 +3,28 @@
 namespace uf {
 	class UF_API AudioEmitter {
 	public:
-		typedef uf::stl::vector<uf::Audio> container_t;
+		typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::AudioSource>> container_t;
 	protected:
-		uf::AudioEmitter::container_t m_container;
+		container_t m_container;
 	public:
 		~AudioEmitter();
-		
-		bool has( const uf::stl::string& ) const;
 
-		uf::Audio& add();
-		uf::Audio& add( const uf::stl::string& );
-		uf::Audio& load( const uf::stl::string& );
-		uf::Audio& stream( const uf::stl::string& );
+		bool has( const uf::stl::string& key ) const;
 
-		uf::Audio& get( const uf::stl::string& );
-		const uf::Audio& get( const uf::stl::string& ) const;
-		
+		pod::AudioSource& emit( const uf::stl::string& key, pod::AudioClip* clip, bool unique = false );
+
+		pod::AudioSource& get( const uf::stl::string& key );
+		const pod::AudioSource& get( const uf::stl::string& key ) const;
+
 		container_t& get();
 		const container_t& get() const;
 
 		void update();
-		void update( const pod::Vector3f&, const pod::Quaternion<>& );
-		void cleanup( bool = false );
-	};
-	class UF_API MappedAudioEmitter {
-	public:
-		typedef uf::stl::unordered_map<uf::stl::string, uf::Audio> container_t;
-	protected:
-		uf::MappedAudioEmitter::container_t m_container;
-	public:
-		~MappedAudioEmitter();
-		
-		bool has( const uf::stl::string& ) const;
-
-		uf::Audio& add( const uf::stl::string& );
-		uf::Audio& load( const uf::stl::string& );
-		uf::Audio& stream( const uf::stl::string& );
-
-		uf::Audio& get( const uf::stl::string& );
-		const uf::Audio& get( const uf::stl::string& ) const;
-		
-		container_t& get();
-		const container_t& get() const;
-
-		void update();
-		void update( const pod::Vector3f&, const pod::Quaternion<>& );
-		void cleanup( bool = false );
+		void update( const pod::Vector3f& position, const pod::Quaternion<>& orientation );
+		void cleanup( bool purge = false );
 	};
 
-	using SoundEmitter = AudioEmitter; // alias
-	using MappedSoundEmitter = MappedAudioEmitter; // alias
+	using MappedAudioEmitter 	= AudioEmitter;
+	using SoundEmitter	   		= AudioEmitter;
+	using MappedSoundEmitter 	= AudioEmitter;
 }

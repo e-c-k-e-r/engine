@@ -2,7 +2,7 @@
 	"name": "Ragdoll",
 	"assets": [ "./scripts/ragdoll.lua" ],
 	"behaviors": [
-		"SoundEmitterBehavior"
+		"AudioEmitterBehavior"
 	],
 	"transform": {
 		"position": [ -1.00137, 0.748778, -51.6508 ],

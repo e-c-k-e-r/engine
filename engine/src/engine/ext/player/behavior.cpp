@@ -311,7 +311,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		this->lazyCallHook( "entity:Use.%UID%", payload );
 	/*
-		auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
+		auto& emitter = this->getComponent<uf::AudioEmitter>();
 		uf::stl::string filename = pointer ? "./ui/select.ogg" : "./ui/deny.ogg";
 		uf::Audio& sfx = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
 
@@ -584,38 +584,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	metadata.states = stats;
 	metadata.states.crouching = metadata.system.crouching;
 
-#if UF_USE_OPENAL
+#if 1 && UF_USE_OPENAL
 	if ( false && stats.floored && !stats.noclipped ) {
 		if ( stats.walking ) {
-			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
-		#if 0
-			bool playing = false;
-			for ( uint i = 0; i < metadata.audio.footstep.list.size(); ++i ) {
-				if ( !emitter.has(metadata.audio.footstep.list[i]) ) continue;
-				uf::Audio& audio = emitter.get( metadata.audio.footstep.list[i] );
-				if ( audio.playing() ) playing = true;
-			}
-
-			if ( !playing ) {
-				int cycle = rand() % metadata.audio.footstep.list.size();
-				uf::stl::string filename = metadata.audio.footstep.list[cycle];
-				uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
-
-				// [0, 1]
-				float modulation = (rand() % 100) / 100.0;
-				// [0, 0.1]
-				modulation *= 0.1f;
-				// [-0.05, 0.05]
-				modulation -= 0.05f;
-				if ( keys.running ) modulation += 0.5f;
-				footstep.setPitch( 1 + modulation );
-				footstep.setVolume( metadata.audio.footstep.volume * (metadata.system.crouching ? 0.5 : 1) );
-				footstep.setPosition( transform.position );
-
-				footstep.setTime( 0 );
-				footstep.play();
-			}
-		#else
+			auto& emitter = this->getComponent<uf::AudioEmitter>();
 			metadata.audio.footstep.timer -= uf::physics::time::delta;
 			if ( metadata.audio.footstep.timer <= 0.0f ) {
 				// player/footsteps
@@ -661,23 +633,28 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				}
 
 				filename = ::fmt::format("valve://sound/player/footsteps/{}{}.wav", filename, (rand() % 3) + 1 );
-				uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
+				if ( !uf::asset::has(filename) ) {
+					auto payload = uf::asset::resolveToPayload(filename, "");
+					payload.type = uf::asset::Type::AUDIO;
+					uf::asset::load( payload );
+				}
+				pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( filename );
+
+				pod::AudioSource& footstep = emitter.emit(filename, clip, false);
 
 				float pitch = 0.95f + ((rand() % 11) / 100.0f);
 				float volume = metadata.audio.footstep.volume;
 
 				if ( metadata.system.crouching ) {
-				    volume *= 0.5f;
+					volume *= 0.5f;
 				} else if ( keys.running ) {
-				    volume *= 1.0f;
+					volume *= 1.0f;
 				}
 
-				footstep.setPitch( pitch );
-				footstep.setVolume( volume );
-				footstep.setPosition( transform.position );
-
-				footstep.setTime( 0 );
-				footstep.play();
+				uf::audio::pitch( footstep, pitch );
+				uf::audio::gain( footstep, volume );
+				uf::audio::position( footstep, transform.position );
+				uf::audio::play( footstep );
 
 				if ( keys.running ) {
 					metadata.audio.footstep.timer = 0.3f;
@@ -687,7 +664,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					metadata.audio.footstep.timer = 0.45f;
 				}
 			}
-		#endif
 			// set animation to walk
 			stats.targetAnimation = "walk";
 		} else if ( !keys.jump ) {

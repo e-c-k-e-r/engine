@@ -317,7 +317,6 @@ void populateSurfaceMaterial() {
 	// Cubemap
 	int cubemapIndex = -1;
 	if ( 0 <= surface.instance.cubemapID ) cubemapIndex = surface.instance.cubemapID; // instance takes priority over material
-/*
 	else if ( 0 <= material.indexCubemap ) cubemapIndex = material.indexCubemap;
 
 	if ( 0 <= cubemapIndex && surface.material.roughness < 1.0 ) {
@@ -339,7 +338,6 @@ void populateSurfaceMaterial() {
 
 	    surface.light.rgb += reflection * F * surface.material.occlusion;
 	}
-*/
 	// (Occlusion/)Metallic/Roughness map
 	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
 		vec4 samp = sampleTexture( material.indexMetallicRoughness );

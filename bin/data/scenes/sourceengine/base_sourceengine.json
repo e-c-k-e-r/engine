@@ -27,7 +27,7 @@
 					"resolution": 2048
 				} },*/
 
-				"ambient_generic": { "action": "load", "payload": { "assets": ["ent://scripts/ambient_generic.lua"], "behaviors": ["SoundEmitterBehavior"] } },
+				"ambient_generic": { "action": "load", "payload": { "assets": ["ent://scripts/ambient_generic.lua"], "behaviors": ["AudioEmitterBehavior"] } },
 				
 				// automatically handled
 			//	"/^func_door/": { "action": "load", "payload": { "import": "/door.json" } },
