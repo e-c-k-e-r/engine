@@ -51,6 +51,9 @@ namespace impl {
 	pod::Vector3f triangleNormal( const pod::TriangleWithNormal& tri );
 	pod::TriangleWithNormal fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body );
 
+	float getMaterialTransmittance( const uf::stl::string& materialName );
+	uf::stl::string getMaterialName( const pod::PhysicsBody& body, uint32_t triID );
+
 	/*FORCE_INLINE*/ bool aabbOverlap( const pod::AABB& a, const pod::AABB& b );
 	/*FORCE_INLINE*/ float aabbSurfaceArea( const pod::AABB& aabb );
 	/*FORCE_INLINE*/ pod::AABB computeSegmentAABB( const pod::Vector3f& p1, const pod::Vector3f p2, float r );

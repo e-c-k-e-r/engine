@@ -36,14 +36,81 @@ void uf::AudioEmitter::update() {
 }
 
 void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	bool spatial = false;
+	for ( auto& pair : this->m_container ) {
+		for ( auto& source : pair.second ) {
+			if ( source.alSource.playing() && source.settings.spatial ) {
+				spatial = true;
+				break;
+			}
+		}
+		if ( spatial ) break;
+	}
+
+	float occlusionValue = 1.0f;
+	if ( spatial ) {
+		occlusionValue = uf::audio::occlusion( position );
+
+		if ( this->m_acousticTimer.elapsed().asDouble() >= 0.1 ) {
+			this->updateAcoustics( position, orientation );
+			this->m_acousticTimer.reset();
+		}
+	}
+
 	for ( auto& pair : this->m_container ) {
 		for ( auto& source : pair.second ) {
 			if ( !source.alSource.playing() ) continue;
-			uf::audio::position( source, position );
-			uf::audio::orientation( source, orientation );
+
+			if ( source.settings.spatial ) {
+				uf::audio::position( source, position );
+				uf::audio::orientation( source, orientation );
+				uf::audio::occlude( source, occlusionValue );
+
+				if ( m_efxInitialized ) {
+					AL_CHECK_RESULT(alSource3i( source.alSource.getIndex(), AL_AUXILIARY_SEND_FILTER, (ALint)m_effectSlot.getIndex(), 0, AL_FILTER_NULL ));
+				}
+			} else {
+				if ( m_efxInitialized ) {
+					AL_CHECK_RESULT(alSource3i( source.alSource.getIndex(), AL_AUXILIARY_SEND_FILTER, 0, 0, AL_FILTER_NULL ));
+				}
+			}
+
 			uf::audio::update( source );
 		}
 	}
+}
+
+void uf::AudioEmitter::updateAcoustics( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
+	
+	if ( !m_efxInitialized ) {
+		m_effect.initialize();
+		m_effectSlot.initialize();
+		m_efxInitialized = true;
+	}
+
+	float energy = 0.0f;
+	float distance = 0.0f;
+	int bounces = 0;
+
+	uf::audio::acoustics( position, orientation, energy, distance, bounces );
+
+	if ( bounces == 0 ) {
+		m_effect.set( AL_REVERB_GAIN, 0.0f );
+		m_effectSlot.set( AL_EFFECTSLOT_EFFECT, (ALint)m_effect.getIndex() );
+		return;
+	}
+
+	float avgEnergy = energy / bounces;
+	float avgDistance = distance / bounces;
+	float decayTime = std::max( 0.1f, std::min( (avgDistance / 15.0f) * avgEnergy, 1.5f ) );
+	float gain = avgEnergy * 0.3f;
+	float hfRatio = std::max( 0.1f, 1.0f - (avgDistance / 30.0f) );
+
+	m_effect.set( AL_REVERB_DECAY_TIME, decayTime );
+	m_effect.set( AL_REVERB_GAIN, gain );
+	m_effect.set( AL_REVERB_DECAY_HFRATIO, hfRatio );
+	m_effect.set( AL_REVERB_DIFFUSION, 1.0f );
+	m_effectSlot.set( AL_EFFECTSLOT_EFFECT, (ALint)m_effect.getIndex() );
 }
 
 void uf::AudioEmitter::cleanup( bool purge ) {

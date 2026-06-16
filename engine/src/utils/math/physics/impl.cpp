@@ -8,6 +8,7 @@
 #include <uf/utils/math/physics/constraints.h>
 
 #include <uf/engine/scene/scene.h>
+#include <uf/engine/graph/graph.h>
 
 #define UF_PHYSICS_TEST 0
 
@@ -476,7 +477,11 @@ void uf::physics::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torq
 }
 void uf::physics::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	impl::wakeBody( body );
-	body.velocity = v;
+	if ( body.inverseMass == 0.0f ) {
+		body.transform->position += v * uf::physics::time::delta;
+	} else {
+		body.velocity = v;
+	}
 }
 void uf::physics::applyVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	impl::wakeBody( body );
@@ -543,6 +548,12 @@ pod::CollisionEvent::events_t uf::physics::getCollisionEvents( const pod::Physic
 	}
 	return res;
 }
+uf::stl::string uf::physics::getCollisionMaterialName( const pod::CollisionEvent& event ) {
+	auto triID = MIN( event.featureA, event.featureB );
+	auto* other = event.a->collider.type == pod::ShapeType::MESH ? event.a : event.b;
+	return impl::getMaterialName( *other, triID );
+}
+
 // body creation
 pod::PhysicsBody& uf::physics::create( pod::World& world, uf::Object& object, float mass, const pod::Vector3f& positionOffset, const pod::Quaternion<>& orientationOffset ) {
 	auto& root = object.getComponent<pod::PhysicsBody>();

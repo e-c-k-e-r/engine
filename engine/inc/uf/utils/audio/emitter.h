@@ -6,6 +6,11 @@ namespace uf {
 		typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::AudioSource>> container_t;
 	protected:
 		container_t m_container;
+		
+		ext::al::Effect m_effect;
+		ext::al::EffectSlot m_effectSlot;
+		bool m_efxInitialized = false;
+		uf::Timer<> m_acousticTimer = {true};
 	public:
 		~AudioEmitter();
 
@@ -21,6 +26,7 @@ namespace uf {
 
 		void update();
 		void update( const pod::Vector3f& position, const pod::Quaternion<>& orientation );
+		void updateAcoustics( const pod::Vector3f& position, const pod::Quaternion<>& orientation );
 		void cleanup( bool purge = false );
 	};
 

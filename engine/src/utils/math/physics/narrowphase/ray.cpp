@@ -349,3 +349,68 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 
 	return rayHit;
 }
+
+float uf::physics::occlusion( const pod::Vector3f& to, const pod::Vector3f& from ) {
+	pod::Vector3f dir = from - to;
+	float mag = uf::vector::magnitude( dir );
+	if ( mag <= EPS ) return 1.0f;
+	float dist = std::sqrt( mag );
+	dir /= dist;
+
+	pod::Ray ray;
+	ray.origin = from;
+	ray.direction = dir;
+
+	pod::RayQuery hit = uf::physics::rayCast( ray, uf::physics::getWorld(), dist );
+
+	if ( hit.contact.penetration >= dist ) return 1.0f;
+
+	auto materialName = uf::physics::getRayMaterialName( hit );
+	return impl::getMaterialTransmittance( materialName );
+}
+uf::stl::string uf::physics::getRayMaterialName( const pod::RayQuery& query ) {
+	return impl::getMaterialName( *query.body, query.contact.featureA );
+}
+
+pod::AcousticBounce uf::physics::acousticReflection( const pod::Vector3f& sourcePos, const pod::Vector3f& rayDirection, const pod::Vector3f& listenerPos, float maxDistance ) {
+	pod::AcousticBounce result;
+
+	pod::Ray primaryRay;
+	primaryRay.origin = sourcePos;
+	primaryRay.direction = rayDirection;
+
+	pod::RayQuery firstHit = uf::physics::rayCast( primaryRay, uf::physics::getWorld(), maxDistance );
+
+	if ( firstHit.contact.penetration >= maxDistance ) return result;
+
+	auto materialName = uf::physics::getRayMaterialName( firstHit );
+	float transmittance = impl::getMaterialTransmittance( materialName );
+
+	float reflectance = 1.0f - transmittance;
+
+	pod::Vector3f N = firstHit.contact.normal;
+	pod::Vector3f D = rayDirection;
+
+	float dotProduct = uf::vector::dot( D, N );
+	pod::Vector3f reflectDir = D - (N * (2.0f * dotProduct));
+	uf::vector::normalize( reflectDir );
+
+	pod::Vector3f bounceOrigin = firstHit.contact.point + (N * EPS);
+	pod::Vector3f toListener = listenerPos - bounceOrigin;
+	float distToListener = uf::vector::magnitude( toListener );
+
+	pod::Ray secondaryRay;
+	secondaryRay.origin = bounceOrigin;
+	secondaryRay.direction = toListener / distToListener;
+
+	pod::RayQuery secondHit = uf::physics::rayCast( secondaryRay, uf::physics::getWorld(), distToListener );
+
+	if ( secondHit.contact.penetration >= distToListener ) {
+		result.valid = true;
+		result.totalDistance = firstHit.contact.penetration + distToListener;
+		result.retainedEnergy = reflectance;
+		result.hitPoint = firstHit.contact.point;
+	}
+
+	return result;
+}

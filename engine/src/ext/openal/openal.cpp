@@ -32,7 +32,7 @@ void ext::al::initialize() {
 	}
 
 	ALboolean enumeration = alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT");
-	if (enumeration == AL_FALSE) {
+	if ( enumeration == AL_FALSE ) {
 		// do something
 		UF_EXCEPTION("Device enumeration not available");
 	}
@@ -42,6 +42,11 @@ void ext::al::initialize() {
 		UF_EXCEPTION(ext::al::getError());
 	}
 #endif
+
+	ALboolean hasEfx = alcIsExtensionPresent(::device, "ALC_EXT_EFX");
+	if ( hasEfx == AL_FALSE ) {
+		UF_MSG_WARNING("AL_EXT_EFX not supported! Spatial audio will lack occlusion.");
+	}
 }
 void ext::al::destroy() {
 #if UF_USE_ALUT
@@ -94,6 +99,7 @@ void ext::al::Source::get( ALenum name, ALint& x ) const { AL_CHECK_RESULT_ENUM(
 void ext::al::Source::get( ALenum name, ALint& x, ALint& y, ALint& z ) const { AL_CHECK_RESULT_ENUM(alGetSource3i, this->m_index, name, &x, &y, &z ); }
 void ext::al::Source::get( ALenum name, ALint* f ) const { AL_CHECK_RESULT_ENUM(alGetSourceiv, this->m_index, name, f ); }
 
+// string=>enum not used internally at the moment
 void ext::al::Source::get( const uf::stl::string& string, ALfloat& x ) const {
 	// alSourcef
 	if ( string == "PITCH" ) return this->get( AL_PITCH, x );
@@ -241,4 +247,66 @@ void ext::al::Buffer::buffer(ALenum format, const ALvoid* data, ALsizei size, AL
 	if ( !this->initialized() ) this->initialize();
 	AL_CHECK_RESULT(alBufferData(this->m_indices[i], format, data, size, frequency));
 }
+
+void ext::al::Filter::initialize() {
+	if ( this->m_index ) this->destroy();
+	AL_CHECK_RESULT(alGenFilters(1, &this->m_index));
+	AL_CHECK_RESULT(alFilteri(this->m_index, AL_FILTER_TYPE, AL_FILTER_LOWPASS));
+}
+void ext::al::Filter::destroy() {
+	if ( this->m_index && alIsFilter(this->m_index) ) {
+		AL_CHECK_RESULT(alDeleteFilters(1, &this->m_index));
+	}
+	this->m_index = 0;
+}
+ALuint ext::al::Filter::getIndex() const {
+	return this->m_index;
+}
+void ext::al::Filter::set( ALenum name, ALfloat x ) {
+	AL_CHECK_RESULT_ENUM( alFilterf, this->m_index, name, x );
+}
+void ext::al::Filter::set( ALenum name, ALint x ) {
+	AL_CHECK_RESULT_ENUM( alFilteri, this->m_index, name, x );
+}
+
+void ext::al::Effect::initialize() {
+	if ( this->m_index ) this->destroy();
+
+	AL_CHECK_RESULT(alGenEffects(1, &this->m_index));
+	AL_CHECK_RESULT(alEffecti(this->m_index, AL_EFFECT_TYPE, AL_EFFECT_REVERB));
+}
+
+void ext::al::Effect::destroy() {
+	if ( this->m_index && alIsEffect(this->m_index) ) {
+		AL_CHECK_RESULT(alDeleteEffects(1, &this->m_index));
+	}
+	this->m_index = 0;
+}
+
+ALuint ext::al::Effect::getIndex() const { return this->m_index; }
+void ext::al::Effect::set( ALenum name, ALfloat x ) {
+	AL_CHECK_RESULT_ENUM( alEffectf, this->m_index, name, x );
+}
+void ext::al::Effect::set( ALenum name, ALint x ) {
+	AL_CHECK_RESULT_ENUM( alEffecti, this->m_index, name, x );
+}
+
+void ext::al::EffectSlot::initialize() {
+	if ( this->m_index ) this->destroy();
+	AL_CHECK_RESULT(alGenAuxiliaryEffectSlots(1, &this->m_index));
+}
+void ext::al::EffectSlot::destroy() {
+	if ( this->m_index && alIsAuxiliaryEffectSlot(this->m_index) ) {
+		AL_CHECK_RESULT(alDeleteAuxiliaryEffectSlots(1, &this->m_index));
+	}
+	this->m_index = 0;
+}
+ALuint ext::al::EffectSlot::getIndex() const { return this->m_index; }
+void ext::al::EffectSlot::set( ALenum name, ALfloat x ) {
+	AL_CHECK_RESULT_ENUM( alAuxiliaryEffectSlotf, this->m_index, name, x );
+}
+void ext::al::EffectSlot::set( ALenum name, ALint x ) {
+	AL_CHECK_RESULT_ENUM( alAuxiliaryEffectSloti, this->m_index, name, x );
+}
+
 #endif

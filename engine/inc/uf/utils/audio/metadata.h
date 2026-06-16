@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <uf/utils/math/transform.h>
 
 #include <uf/utils/memory/string.h>
 #include <uf/utils/memory/vector.h>
@@ -50,9 +51,13 @@ namespace pod {
 
 	struct UF_API AudioSource {
 		ext::al::Source alSource;
+	#if !UF_ENV_DREAMCAST
+		ext::al::Filter alFilter;
+	#endif
 		ext::al::Buffer streamBuffers;
 
 		pod::AudioClip* clip = NULL;
+		pod::Transform<> transform;
 
 		struct {
 			uf::Timer<> timer;

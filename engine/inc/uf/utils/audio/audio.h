@@ -66,6 +66,10 @@ namespace uf {
 		void UF_API rolloff( pod::AudioSource& source, float v );
 		float UF_API maxDistance( const pod::AudioSource& source );
 		void UF_API maxDistance( pod::AudioSource& source, float v );
+
+		float UF_API occlusion( const pod::Vector3f& position );
+		void UF_API occlude( pod::AudioSource& source, float factor );
+		void UF_API acoustics( const pod::Vector3f&, const pod::Quaternion<>&, float&, float&, int& );
 	}
 }
 

@@ -595,11 +595,7 @@ namespace impl {
 			if ( classname.starts_with("func_door") ) {
 				auto& metadataDoor = metadata["door"];
 
-				metadataDoor["speed"] = metadata["speed"].as<float>(100.0f);
-				metadataDoor["wait"] = metadata["wait"].as<float>(4.0f);
-				metadataDoor["lip"] = metadata["lip"].as<float>(8.0f);
-				metadataDoor["spawnflags"] = metadata["spawnflags"].as<int>(0);
-
+				float scale = impl::sourceToMeters;
 				if ( classname == "func_door" ) {
 					auto movedirStr = metadata["movedir"].as<uf::stl::string>("");
 					if ( movedirStr == "" && metadata["angle"].as<float>() ) {
@@ -610,14 +606,20 @@ namespace impl {
 					}
 
 					if ( movedirStr != "" ) {
-						pod::Transform<> t;
-						auto pyr = impl::str2vec<pod::Vector3f>( movedirStr ) * -DEG_2_RAD;
-						t.orientation = uf::quaternion::euler( pyr );
-						auto axes = uf::transform::axes( t );
+						auto pyr = impl::str2vec<pod::Vector3f>( movedirStr );
 
-						metadataDoor["direction"] = uf::vector::encode( axes.forward );
+						float pitch = pyr.x * DEG_2_RAD;
+						float yaw   = pyr.y * DEG_2_RAD;
+
+						pod::Vector3f slideDir;
+						slideDir.x = cos(yaw) * cos(pitch);
+						slideDir.z = -(sin(yaw) * cos(pitch));
+						slideDir.y = -sin(pitch);
+
+						metadataDoor["direction"] = uf::vector::encode( uf::vector::normalize(slideDir) );
 					}
 				} else if ( classname == "func_door_rotating" ) {
+					scale = 1.0f;
 					metadataDoor["distance"] = metadata["distance"].as<float>(90.0f);
 
 					int flags = metadataDoor["spawnflags"].as<int>();
@@ -627,6 +629,11 @@ namespace impl {
 
 					metadataDoor["axis"] = uf::vector::encode( axis );
 				}
+				
+				metadataDoor["speed"] = metadata["speed"].as<float>(100.0f) * scale;
+				metadataDoor["wait"] = metadata["wait"].as<float>(4.0f);
+				metadataDoor["lip"] = metadata["lip"].as<float>(8.0f) * scale;
+				metadataDoor["spawnflags"] = metadata["spawnflags"].as<int>(0);
 			}
 
 			// parse parent

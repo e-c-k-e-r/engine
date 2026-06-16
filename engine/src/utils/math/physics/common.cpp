@@ -1,4 +1,5 @@
 #include <uf/utils/math/physics/common.h>
+#include <uf/engine/graph/graph.h>
 
 // create ID from pointers
 size_t impl::makePairKey( const pod::PhysicsBody& a, const pod::PhysicsBody& b ) {
@@ -791,4 +792,33 @@ pod::AABB impl::transformAabbToLocal( const pod::AABB& box, const pod::Transform
 		out.max = uf::vector::max( out.max, local );
 	});
 	return out;
+}
+
+float impl::getMaterialTransmittance( const uf::stl::string& materialName ) {
+	if ( uf::string::contains(materialName, "chainlink") ||
+		 uf::string::contains(materialName, "metalgrate") ) return 0.9f;
+
+	// woods
+	if ( uf::string::contains(materialName, "wood") ) return 0.4f;
+
+	// hollow metal
+	if ( uf::string::contains(materialName, "duct") ) return 0.7f;
+
+	// solid dense materials
+	if ( uf::string::contains(materialName, "concrete") ||
+		 uf::string::contains(materialName, "metal") ||
+		 uf::string::contains(materialName, "dirt") ) return 0.15f;
+
+	return 0.2f;
+}
+uf::stl::string impl::getMaterialName( const pod::PhysicsBody& body, uint32_t triID ) {
+	if ( triID == (uint32_t)(-1) ) return "";
+	if ( body.collider.type != pod::ShapeType::MESH ) return "";
+	auto& scene = uf::scene::getCurrentScene();
+	auto& graph = scene.getComponent<pod::Graph>();
+	
+	auto& mesh = *body.collider.mesh.mesh;
+	auto drawCommand = uf::mesh::fetchDrawCommand( mesh, triID );
+	auto instance = uf::graph::getInstance( graph, drawCommand.instanceID );
+	return uf::graph::getMaterialName( graph, instance.materialID );
 }

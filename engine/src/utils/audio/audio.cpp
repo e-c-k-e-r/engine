@@ -1,6 +1,7 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/math/physics.h>
 
 #if UF_USE_OPENAL
 	#include <uf/ext/openal/openal.h>
@@ -15,6 +16,11 @@
 #else
 	bool uf::audio::muted = true;
 #endif
+
+namespace {
+	ext::al::Filter occlusionFilter;
+	pod::Transform<> listener;
+}
 
 bool uf::audio::asyncUpdate = false;
 bool uf::audio::streamsByDefault = true;
@@ -36,9 +42,11 @@ void uf::audio::initialize( pod::AudioSource& source ) {
 	source.alSource.initialize();
 	source.alSource.set( AL_PITCH, 1.0f );
 	source.alSource.set( AL_GAIN, 1.0f );
-}
 
-//
+#if !UF_ENV_DREAMCAST
+	source.alFilter.initialize();
+#endif
+}
 
 bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename, bool streamed ) {
 	uf::audio::destroy( clip );
@@ -118,8 +126,11 @@ void uf::audio::destroy( pod::AudioSource& source ) {
 		else if ( source.clip->extension == "pcm" ) ext::pcm::close( source );
 	}
 
-	source.alSource.destroy();
 	source.clip = nullptr;
+	source.alSource.destroy();
+#if !UF_ENV_DREAMCAST
+	source.alFilter.destroy();
+#endif
 }
 
 void uf::audio::destroy( pod::AudioClip& clip ) {
@@ -131,6 +142,7 @@ void uf::audio::destroy( pod::AudioClip& clip ) {
 
 void uf::audio::listener( const pod::Transform<>& transform ) {
 	if ( uf::audio::muted ) return;
+	::listener = transform;
 	auto axes = uf::transform::axes( transform );
 	axes.forward *= -1;
 	float o[6] = { axes.forward.x, axes.forward.y, axes.forward.z, axes.up.x, axes.up.y, axes.up.z };
@@ -147,11 +159,12 @@ void uf::audio::loop( pod::AudioSource& source, bool state ) {
 }
 
 void uf::audio::position( pod::AudioSource& source, const pod::Vector3f& v ) {
+	source.transform.position = v;
 	source.alSource.set( AL_POSITION, v[0], v[1], v[2] );
 }
 
 void uf::audio::orientation( pod::AudioSource& source, const pod::Quaternion<>& q ) {
-	// to-do: set
+	source.transform.orientation = q;
 }
 
 float uf::audio::time( const pod::AudioSource& source ) {
@@ -191,4 +204,40 @@ float uf::audio::maxDistance( const pod::AudioSource& source ) {
 }
 void uf::audio::maxDistance( pod::AudioSource& source, float v ) {
 	source.alSource.set( AL_MAX_DISTANCE, v );
+}
+
+//
+float uf::audio::occlusion( const pod::Vector3f& position ) {
+	return uf::physics::occlusion( ::listener.position, position );
+}
+
+void uf::audio::occlude( pod::AudioSource& source, float factor ) {
+#if UF_ENV_DREAMCAST
+	uf::audio::gain( source, factor );
+#else
+	if ( factor >= 0.99f ) {
+		source.alSource.set( AL_DIRECT_FILTER, AL_FILTER_NULL );
+	} else {
+		ALuint filterId = source.alFilter.getIndex();
+
+		AL_CHECK_RESULT(alFilterf( filterId, AL_LOWPASS_GAINHF, factor ));
+		AL_CHECK_RESULT(alFilterf( filterId, AL_LOWPASS_GAIN, 0.8f ));
+
+		source.alSource.set( AL_DIRECT_FILTER, (ALint)filterId );
+	}
+#endif
+}
+
+void uf::audio::acoustics( const pod::Vector3f& position, const pod::Quaternion<>& orientation, float& energy, float& distance, int& bounces ) {
+#if !UF_ENV_DREAMCAST
+	static uf::stl::vector<pod::Vector3f> sphere = uf::math::fibonacciSphere( 32 );
+	for ( const auto& dir : sphere ) {
+		auto bounce = uf::physics::acousticReflection( position, dir, ::listener.position, 50.0f );
+		if ( bounce.valid ) {
+			energy += bounce.retainedEnergy;
+			distance += bounce.totalDistance;
+			bounces++;
+		}
+	}
+#endif
 }

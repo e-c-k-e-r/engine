@@ -22,5 +22,9 @@ namespace uf {
 		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::PhysicsBody&, float = FLT_MAX );
 		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, float = FLT_MAX );
 		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::PhysicsBody*, float = FLT_MAX );
+
+		float UF_API occlusion( const pod::Vector3f& to, const pod::Vector3f& from );
+		uf::stl::string UF_API getRayMaterialName( const pod::RayQuery& query );
+		pod::AcousticBounce UF_API acousticReflection( const pod::Vector3f& sourcePos, const pod::Vector3f& rayDirection, const pod::Vector3f& listenerPos, float maxDistance );
 	}
 }

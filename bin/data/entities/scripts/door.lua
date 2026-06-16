@@ -15,6 +15,7 @@ local transform = ent:getComponent("Transform")
 local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
 local metadataDoor = metadata["door"] or {}
+local metadataValve = metadata["valve"] or {}
 
 local speed = metadataDoor["speed"] or 100.0
 local wait = metadataDoor["wait"] or 4.0
@@ -28,6 +29,19 @@ local flags = metadataDoor["spawnflags"] or 0
 local isToggle = (math.floor(flags / 32) % 2) ~= 0
 if isToggle then
 	wait = -1
+end
+
+local sounds = {
+	locked = "doors/default_locked.wav",
+	open = "doors/default_move.wav",
+	close = "doors/default_stop.wav",
+}
+
+if metadataValve["noise1"] then
+	sounds["open"] = metadataValve["noise1"]
+end
+if metadataValve["noise2"] then
+	sounds["close"] = metadataValve["noise2"]
 end
 
 if isRotating then
@@ -61,17 +75,24 @@ else
 		local size = obb.extent * 2.0
 
 		local travelSize = math.abs(moveDir:dot(size))
+
+		if travelSize < 0.8 then
+			travelSize = 2.4
+		end
+
 		targetDistance = travelSize - lip
 	else
-		targetDistance = 96.0 - lip
+		targetDistance = 2.4 - lip
 	end
+
+	if targetDistance <= 0 then targetDistance = 0.1 end
 end
 
 local soundEmitter = ent
 
 local playSound = function( key, loop )
 	if not loop then loop = false end
-	local url = "/door/" .. key .. ".ogg"
+	local url = "valve://sound/" .. key
 	soundEmitter:queueHook("sound:Emit.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"]),
 		spatial = true, streamed = true, volume = "sfx", loop = loop
@@ -81,7 +102,7 @@ end
 local function toggleDoor( payload )
 	if state == 0 or state == 3 then
 		state = 1
-		playSound("default_move")
+		playSound(sounds["open"])
 
 	   if isRotating and payload.uid ~= nil then
 			local isOneWay = (math.floor(flags / 16) % 2) ~= 0
@@ -115,7 +136,7 @@ local function toggleDoor( payload )
 		end
 	elseif state == 2 then
 		state = 3
-		playSound("default_move")
+		playSound(sounds["open"])
 	end
 end
 
@@ -133,7 +154,7 @@ ent:bind( "tick", function(self)
 			currentDistance = targetDistance
 			state = 2
 			timer:reset()
-			playSound("default_stop")
+			playSound(sounds["close"])
 
 			ent:queueHook("io:FireOutput.%UID%", { output = "OnOpen" }, 0)
 		end
@@ -145,12 +166,12 @@ ent:bind( "tick", function(self)
 			deltaMove = deltaMove - currentDistance
 			currentDistance = 0
 			state = 0
-			playSound("default_stop")
+			playSound(sounds["close"])
 		end
 	elseif state == 2 and wait >= 0 then
 		if timer:elapsed() >= wait then
 			state = 3
-			playSound("default_move")
+			playSound(sounds["open"])
 		end
 	end
 
@@ -167,7 +188,6 @@ ent:bind( "tick", function(self)
 		else
 			local vec = moveDir * finalMove
 			if physicsBody:initialized() then
-				print("Moving by: ", finalMove, " Axis: ", moveDir.x, moveDir.y, moveDir.z)
 				physicsBody:setVelocity(moveDir * (finalMove / time.delta()))
 			else
 				transform.position = transform.position + vec
@@ -191,7 +211,7 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 
 		ent:queueHook("io:FireOutput.%UID%", { output = "OnUse" }, 0)
 	else
-		playSound("default_locked")
+		playSound(sounds["locked"])
 	end
 end )
 

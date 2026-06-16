@@ -302,4 +302,11 @@ namespace std {
 	};
 }
 
+// maths
+namespace uf {
+	namespace math {
+		uf::stl::vector<pod::Vector3f> UF_API fibonacciSphere( int points );
+	}
+}
+
 #include "vector/vector.inl"

@@ -591,7 +591,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			metadata.audio.footstep.timer -= uf::physics::time::delta;
 			if ( metadata.audio.footstep.timer <= 0.0f ) {
 				// player/footsteps
-				uf::stl::vector<uf::stl::string> surfaces = {
+				static uf::stl::vector<uf::stl::string> surfaces = {
 					"chainlink",
 					"concrete",
 					"dirt",
@@ -609,30 +609,22 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					"wood",
 					"woodpanel",
 				};
-				uf::stl::string filename = "concrete";
+				uf::stl::string surface = "concrete";
 				
 				auto events = uf::physics::getCollisionEvents( physicsBody );
 				for ( const auto& event : events ) {
-					if ( event.normal.y > -0.7f ) continue;
-					auto triID = MIN( event.featureA, event.featureB );
-					auto* other = event.a != &physicsBody ? event.a : event.b;
-					if ( triID == (uint32_t)(-1) ) continue;
-					if ( other->collider.type != pod::ShapeType::MESH ) continue;
-					// to-do: sugar it up with a helper function
-					auto& mesh = *other->collider.mesh.mesh;
-					auto drawCommand = uf::mesh::fetchDrawCommand( mesh, triID );
-					auto instance = uf::graph::getInstance( graph, drawCommand.instanceID );
-					auto materialName = uf::graph::getMaterialName( graph, instance.materialID );
+					if ( event.normal.y > -0.7f ) continue; // to-do: reorient?
+					auto materialName = uf::physics::getCollisionMaterialName( event );
 					
 					for ( auto& key : surfaces ) {
 						if ( !uf::string::contains( materialName, key ) ) continue;
-						filename = key;
+						surface = key;
 						break;
 					}
 					break;
 				}
 
-				filename = ::fmt::format("valve://sound/player/footsteps/{}{}.wav", filename, (rand() % 3) + 1 );
+				uf::stl::string filename = ::fmt::format("valve://sound/player/footsteps/{}{}.wav", surface, (rand() % 3) + 1 );
 				if ( !uf::asset::has(filename) ) {
 					auto payload = uf::asset::resolveToPayload(filename, "");
 					payload.type = uf::asset::Type::AUDIO;

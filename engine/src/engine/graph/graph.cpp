@@ -1298,8 +1298,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			loadJson["assets"].emplace_back("ent://scripts/io.lua");
 		}
 
+		// bind ambient
+		if ( node.name.starts_with("ambient_") ) {
+			loadJson["assets"].emplace_back("ent://scripts/ambient_generic.lua");
+			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
 		// bind door script
-		if ( ext::json::isObject( metadataValve["door"] ) ) {
+		} else if ( ext::json::isObject( metadataValve["door"] ) ) {
 			node.metadata["door"] = metadataValve["door"];
 			loadJson["imports"].emplace_back("ent://door.json");
 		}
@@ -1335,7 +1339,14 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		}
 
 		// check if trigger
-		if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
+		if ( node.name.starts_with("trigger_") ) {
+			loadJson["assets"].emplace_back("ent://scripts/trigger.lua");
+			// signal to assign a physics body
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				node.metadata["physics"]["type"] = "bounding box";
+				node.metadata["physics"]["category"] = "trigger";
+			}
+		} else if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 			auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 			for ( auto& primitive : primitives ) {
 				auto materialID = primitive.instance.materialID;

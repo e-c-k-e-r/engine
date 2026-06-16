@@ -27,6 +27,7 @@
 
 #include "source.h"
 #include "buffer.h"
+#include "filter.h"
 #include <uf/utils/audio/metadata.h>
 #include <uf/utils/math/transform.h>
 

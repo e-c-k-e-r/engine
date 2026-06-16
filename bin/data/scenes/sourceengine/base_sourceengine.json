@@ -27,9 +27,9 @@
 					"resolution": 2048
 				} },*/
 
-				"ambient_generic": { "action": "load", "payload": { "assets": ["ent://scripts/ambient_generic.lua"], "behaviors": ["AudioEmitterBehavior"] } },
 				
 				// automatically handled
+			//	"ambient_generic": { "action": "load", "payload": { "assets": ["ent://scripts/ambient_generic.lua"], "behaviors": ["AudioEmitterBehavior"] } },
 			//	"/^func_door/": { "action": "load", "payload": { "import": "/door.json" } },
 			//	"/^prop_door/": { "action": "load", "payload": { "import": "/door.json" } },
 			//	"/^prop_static/": { "action": "load", "payload": { "import": "ent://prop.json" } },

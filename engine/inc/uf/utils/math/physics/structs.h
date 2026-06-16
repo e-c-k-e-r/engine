@@ -217,6 +217,13 @@ namespace pod {
 		pod::Vector3f rB;
 		pod::Vector3f n;
 	};
+
+	struct AcousticBounce {
+		bool valid = false;
+		float totalDistance = 0.0f;
+		float retainedEnergy = 1.0f;
+		pod::Vector3f hitPoint;
+	};
 }
 
 // BVH
