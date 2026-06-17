@@ -223,7 +223,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 			if ( a.activity.awake && !b.activity.awake ) impl::wakeBody( b );
 			if ( b.activity.awake && !a.activity.awake ) impl::wakeBody( a );
 			// mark as grounded
-			for ( auto& c : manifold.points ) {
+			bool isTrigger = (a.collider.category & pod::Collider::CATEGORY_TRIGGER) || (b.collider.category & pod::Collider::CATEGORY_TRIGGER);
+			if ( !isTrigger ) for ( auto& c : manifold.points ) {
 				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > uf::physics::settings.groundedThreshold ) {
 					// only mark if contact point is below body
 					if ( c.point.y < impl::getPosition(a).y ) a.activity.grounded = true;

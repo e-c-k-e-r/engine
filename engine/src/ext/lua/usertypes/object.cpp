@@ -155,22 +155,21 @@ namespace binds {
 			#if UF_LUA_PCALLS
 				if ( !result.valid() ) {
 					sol::error err = result;
-					uf::iostream << err.what() << "\n";
+					UF_MSG_ERROR("{}", err.what());
 					return;
 				}
 			#endif
 				return;
 			}
 
-			uf::stl::string payload = json.dump();
-			auto decoded = ext::lua::decode( payload );
+			auto decoded = ext::lua::decode( json );
 			if ( !decoded ) return;
 			sol::table table = decoded.value();
 			auto result = fun( table );
 		#if UF_LUA_PCALLS
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 				return;
 			}
 		#endif

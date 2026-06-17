@@ -20,30 +20,85 @@ uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/io/fmt.h>
 
-struct vfs_reader {
-	uf::stl::vector<uint8_t> buffer;
-	bool read_once;
+namespace {
+	struct vfs_reader {
+		uf::stl::vector<uint8_t> buffer;
+		bool read_once;
 
-	vfs_reader(const uf::stl::string& filename) : read_once(false) {
-		// Use your VFS abstraction to load the entire file into the buffer
-		uf::io::readAsBuffer(buffer, filename);
-	}
-
-	static const char* read(lua_State*, void* data, size_t* size) {
-		vfs_reader* reader = static_cast<vfs_reader*>(data);
-
-		// If we haven't yielded the buffer to Lua yet, do it now.
-		if (!reader->read_once && !reader->buffer.empty()) {
-			*size = reader->buffer.size();
-			reader->read_once = true;
-			return reinterpret_cast<const char*>(reader->buffer.data());
+		vfs_reader(const uf::stl::string& filename) : read_once(false) {
+			uf::io::readAsBuffer(buffer, filename);
 		}
 
-		// Yield 0 to signify EOF
-		*size = 0;
-		return nullptr;
+		static const char* read(lua_State*, void* data, size_t* size) {
+			vfs_reader* reader = static_cast<vfs_reader*>(data);
+
+			if (!reader->read_once && !reader->buffer.empty()) {
+				*size = reader->buffer.size();
+				reader->read_once = true;
+				return reinterpret_cast<const char*>(reader->buffer.data());
+			}
+
+			*size = 0;
+			return nullptr;
+		}
+	};
+
+	ext::json::Value encodeNode( sol::object obj ) {
+		if ( obj.get_type() == sol::type::boolean ) return ext::json::Value(obj.as<bool>());
+		if ( obj.get_type() == sol::type::number ) return ext::json::Value(obj.as<double>());
+		if ( obj.get_type() == sol::type::string ) return ext::json::Value(obj.as<uf::stl::string>());
+
+		if ( obj.get_type() == sol::type::table ) {
+			sol::table t = obj.as<sol::table>();
+			ext::json::Value json;
+
+			bool isArray = true;
+			size_t expectedIndex = 1;
+			for (auto& kv : t) {
+				if (kv.first.get_type() != sol::type::number || kv.first.as<size_t>() != expectedIndex++) {
+					isArray = false;
+					break;
+				}
+			}
+
+			if ( isArray ) {
+				for ( auto& kv : t ) json.emplace_back( encodeNode(kv.second) );
+			} else {
+				for ( auto& kv : t ) {
+					if ( kv.first.get_type() == sol::type::string ) {
+						json[kv.first.as<uf::stl::string>()] = encodeNode( kv.second );
+					}
+				}
+			}
+			return json;
+		}
+		return ext::json::Value();
 	}
-};
+
+	sol::object decodeNode(const ext::json::Value& json) {
+		if ( json.is_null() ) return sol::lua_nil;
+		if ( json.is_boolean() ) return sol::make_object(ext::lua::state, json.as<bool>());
+		if ( json.is_number() ) return sol::make_object(ext::lua::state, json.as<double>());
+		if ( json.is_string() ) return sol::make_object(ext::lua::state, json.as<uf::stl::string>());
+
+		if ( json.is_array() ) {
+			sol::table t = ext::lua::state.create_table();
+			ext::json::forEach(json, [&](size_t i, const ext::json::Value& val) {
+				t[i + 1] = decodeNode(val);
+			});
+			return t;
+		}
+
+		if ( json.is_object() ) {
+			sol::table t = ext::lua::state.create_table();
+			ext::json::forEach(json, [&](const uf::stl::string& key, const ext::json::Value& val) {
+				t[key] = decodeNode(val);
+			});
+			return t;
+		}
+		return sol::lua_nil;
+	}
+}
 
 sol::table ext::lua::createTable() {
 	return sol::table(ext::lua::state, sol::create);
@@ -55,6 +110,8 @@ uf::stl::string ext::lua::sanitize( const uf::stl::string& dirty, int index  ) {
 	part = uf::string::replace( part, "<>", "" );
 	return part;
 }
+
+/*
 std::optional<uf::stl::string> ext::lua::encode( sol::table table ) {
 	LUA_FUN fun = ext::lua::state["json"]["encode"];
 	auto result = fun( table );
@@ -79,6 +136,16 @@ std::optional<sol::table> ext::lua::decode( const uf::stl::string& string ) {
 #endif
 	return result;
 }
+*/
+
+std::optional<ext::json::Value> ext::lua::encode(sol::table table) {
+	return ::encodeNode(table);
+}
+std::optional<sol::table> ext::lua::decode(const ext::json::Value& json) {
+	sol::object obj = ::decodeNode(json);
+	if ( obj.is<sol::table>() ) return obj.as<sol::table>();
+	return ext::lua::state.create_table();
+}
 
 uf::stl::vector<std::function<void()>>* ext::lua::onInitializationFunctions = NULL;
 void ext::lua::onInitialization( const std::function<void()>& function ) {
@@ -94,7 +161,7 @@ namespace binds {
 	namespace hook {
 		void add( const uf::stl::string& name, LUA_FUN function ) {
 			uf::hooks.addHook( name, [function](ext::json::Value& json){
-				sol::table table = ext::lua::state["json"]["decode"]( json.dump() );
+				sol::table table = ext::lua::decode(json).value_or(ext::lua::state.create_table());
 				auto result = function( table );
 				// ???
 			#if UF_LUA_PCALLS
@@ -188,8 +255,7 @@ namespace binds {
 		sol::table readFromFile( const uf::stl::string& filename ){
 			uf::Serializer serializer;
 			serializer.readFromFile( filename );
-			uf::stl::string string = serializer.serialize();
-			auto decoded = ext::lua::decode( string );
+			auto decoded = ext::lua::decode( serializer );
 			return decoded ? decoded.value() : ext::lua::createTable();
 		};
 		bool writeToFile( sol::table table, const uf::stl::string& path ) {

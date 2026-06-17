@@ -28,6 +28,7 @@
 #include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/singletons/pre_main.h>
 #include <uf/utils/string/ext.h>
+#include <uf/ext/json/json.h>
 
 namespace pod {
 	struct UF_API LuaScript {
@@ -57,8 +58,8 @@ namespace ext {
 
 		sol::table createTable();
 		uf::stl::string sanitize( const uf::stl::string& dirty, int index = -1 );
-		std::optional<uf::stl::string> encode( sol::table table );
-		std::optional<sol::table> decode( const uf::stl::string& string );
+		std::optional<ext::json::Value> encode( sol::table table );
+		std::optional<sol::table> decode( const ext::json::Value& string );
 	}
 }
 

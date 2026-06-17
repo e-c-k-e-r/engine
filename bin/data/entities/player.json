@@ -1,26 +1,13 @@
 {
 	"name": "Player",
-	"type": "Object",
+	"type": "Player",
 	"behaviors": [
-		"PlayerBehavior",
 		"AudioEmitterBehavior"
 	],
-	"ignore": false,
-	/*
-	"transform": {
-		"position": [ 0, 0, 0 ],
-		"rotation": {
-			"axis": [ 0, 1, 0 ],
-			"angle": 0
-		},
-		"scale": [ 1, 1, 1 ]
-	},
-	*/
 	"assets":  [
 		{ "filename": "./playerModel.json", "delay": 1 },
 	//	"./playerModel.json",
 		"./playerLight.json",
-	//	"./playerHands.json",
 		"./gui/hud/hud.json",
 		"./scripts/player.lua"
 	],
@@ -30,78 +17,37 @@
 		}
 	},
 	"metadata": {
-		"overlay": {
-			"transform": {
-				"position": [ 0, 0, -3 ],
-				"scale": [ 1.77778, -1, 1 ],
-				"orientation": [ 0, 0, 0, 1 ]
-			},
-			"floating": false,
-			"enabled": true,
-			"alpha": 1.0,
-			"cursor": {
-				"type": "mouse",
-				"radius": 0.05,
-				"color": [ 0.2, 0.2, 1.0, 1.0 ],
-				"enabled": false
-			}
-		},
-		"audio": {
-			"footstep": {
-				"volume": 0.5,
-				"list": [
-					"/footstep/1.ogg",
-					"/footstep/2.ogg"
-				]
-			}
-		},
 		"movement": {
-			"walk": 8,
-			"move": 8,
-			"run": 20,
-		//	"rotate": 1.5,
-			"rotate": 6,
+			"walk": 6,
+			"move": 12,
+			"run": 18,
+			"rotate": 6.0,
 			"air": 0.1,
 
-			"crouch": 1,
+			"crouch": 0.9,
 			"jump": [ 0, 8, 0 ],
 			"look": 1,
 			"floored": {
 				"feet": [ 0, -1, 0 ],
-			//	"floor": [ 0, -0.5, 0 ],
-				"floor": [ 0, -1, 0 ],
-				"print": false
+				"floor": [ 0, -1, 0 ]
 			},
 			"strafe": true
 		},
 		"physics": {	
-			"gravity": [ 0, -9.81, 0 ],
+			"gravity": [ 0, -14.0, 0 ],
 			"inertia": false,
-
-			"offset": [ 0, 0, 0 ],
-
-		//	"type": "sphere",
-		//	"radius": 2,
 
 			"type": "capsule",
 			"radius": 1,
 			"height": 2,
 			"category": "player",
 			"mask": "player",
-
-		//	"type": "bounding box",
-		//	"min": [ -1, -1, -1 ],
-		//	"max": [  1,  1,  1 ],
 		
 			"mass": 100,
-			"friction": 0.95,
-			"restitution": 0.0,
-			
-			"shared": false
+			"friction": 0.90,
+			"restitution": 0.0
 		},
 		"camera": {
-		//	"offset": [ 0, 10, 6 ],
-		//	"orientation": [ 0, 0.894427, -0.447214, 0 ],
 			"position" :  [ 0, 1.8, 0 ],
 			"scale": [ 1, 1, 1 ],
 			"invert": [ false, false, false ],

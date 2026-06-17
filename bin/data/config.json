@@ -354,7 +354,7 @@
 				"ngs": true,
 				"percent": 0.2,
 				"slop": 0.01, // 0.005
-				"max": 0.2 // 0.2
+				"max": 0.1 // 0.2
 			},
 			"debug draw": {
 				"static": false,
