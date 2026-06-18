@@ -16,6 +16,7 @@
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/engine/scene/scene.h>
 
 #include <mutex>
 
@@ -56,12 +57,15 @@ uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> uf::asset::map;
 uf::Serializer uf::asset::metadata;
 
 void uf::asset::processQueue() {
-	auto tasks = uf::asset::asyncQueue ? uf::thread::schedule(false) : uf::thread::schedule(true, false);
+	if ( uf::asset::jobs.empty() ) return;
 
+	STATIC_THREAD_LOCAL(uf::asset::Job::container_t, jobs);
 	mutex.lock();
-	auto jobs = std::move(uf::asset::jobs);
+	std::swap( jobs, uf::asset::jobs );
 	mutex.unlock();
 
+	bool async = false; // uf::asset::asyncQueue; // a bit buggy
+	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, !true);
 	for ( auto& job : jobs ) tasks.queue([=]{
 		auto callback = job.callback;
 		auto type = job.type;
@@ -244,7 +248,6 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			}
 		#endif
 
-		//	asset = uf::graph::load( filename, payload.metadata );
 			uf::graph::load( asset, filename, payload.metadata );
 			uf::graph::process( asset );
 

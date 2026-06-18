@@ -156,7 +156,8 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) key += ":";
 
-	auto& storage = uf::graph::getStorage( graph );
+	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
+	auto& storage = uf::graph::getStorage( graph ); // will just fetch the above
 
 	// load images
 	{

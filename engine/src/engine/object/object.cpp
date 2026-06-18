@@ -159,8 +159,8 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 
 			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
 			payload.object = this->resolvable<>();
-			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
-			payload.asComponent = isObject ? target[i]["component"].as<bool>(true) : true;
+			payload.async = isObject ? target[i]["async"].as<bool>(true) : true;
+			payload.asComponent = isObject ? target[i]["component"].as<bool>(false) : false;
 			
 			switch ( assetType ) {
 				case uf::asset::Type::AUDIO: {
@@ -172,7 +172,7 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 				} break;
 				case uf::asset::Type::GRAPH: {
-				//	payload.asComponent = true;
+					payload.asComponent = true;
 					if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
 
 					auto metadata = json["metadata"]["graph"];

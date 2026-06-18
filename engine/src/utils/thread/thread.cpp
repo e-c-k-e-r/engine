@@ -66,9 +66,11 @@ pod::Thread::Tasks uf::thread::schedule( const uf::stl::string& name, bool wait 
 
 	return tasks;
 }
-uf::stl::vector<pod::Thread*> uf::thread::execute( pod::Thread::Tasks& tasks ) {
-	uf::stl::vector<pod::Thread*> workers;
-	if ( tasks.container.empty() ) return workers;
+std::shared_ptr<pod::Thread::Tasks::Tracker> uf::thread::execute( pod::Thread::Tasks& tasks ) {
+	auto tracker = std::make_shared<pod::Thread::Tasks::Tracker>();
+	if ( tasks.container.empty() ) return tracker;
+
+	tracker->pending.store( tasks.container.size(), std::memory_order_relaxed );
 
 	if ( tasks.name == uf::thread::mainThreadName ) {
 	#if UF_THREAD_METRICS
@@ -78,28 +80,39 @@ uf::stl::vector<pod::Thread*> uf::thread::execute( pod::Thread::Tasks& tasks ) {
 			task();
 			++tasksThisFrame;
 		}
-		tasks.container.clear();
 		thread.metrics.tasksProcessed.store(tasksThisFrame, std::memory_order_relaxed);
 	#else
 		for ( auto& task : tasks.container ) task();
 	#endif
+		tasks.container.clear();
+		tracker->pending.store(0, std::memory_order_release);
 	} else {
 		for ( auto& task : tasks.container ) {
 			auto& worker = uf::thread::fetchWorker( tasks.name );
-			uf::thread::queue( worker, task );
-			workers.emplace_back(&worker);
+
+			uf::thread::queue( worker, [task, tracker]() {
+				struct Decrementer {
+					std::shared_ptr<pod::Thread::Tasks::Tracker> t;
+					~Decrementer() {
+						if ( t->pending.fetch_sub(1, std::memory_order_release) == 1 ) {
+							std::lock_guard<std::mutex> lock(t->mutex);
+							t->cv.notify_all();
+						}
+					}
+				} dec{ tracker };
+
+				task();
+			});
 		}
 		tasks.container.clear();
-		if ( tasks.waits ) uf::thread::wait( workers );
+		if ( tasks.waits ) uf::thread::wait( tracker );
 	}
-	return workers;
+	return tracker;
 }
-void uf::thread::wait( uf::stl::vector<pod::Thread*>& workers ) {
-	for ( auto& worker : workers ) uf::thread::wait( *worker );
-	workers.clear();
-}
-void uf::thread::wait( const uf::stl::vector<pod::Thread*>& workers ) {
-	for ( auto& worker : workers ) uf::thread::wait( *worker );
+void uf::thread::wait( std::shared_ptr<pod::Thread::Tasks::Tracker> tracker ) {
+	if ( !tracker ) return;
+	std::unique_lock<std::mutex> lock(tracker->mutex);
+	tracker->cv.wait(lock, [&]{ return tracker->pending.load(std::memory_order_acquire) == 0; });
 }
 
 void uf::thread::add( pod::Thread& thread, const pod::Thread::function_t& function ) {
@@ -225,6 +238,13 @@ void uf::thread::wait( pod::Thread& thread ) {
 //	while ( thread.pending.load() > 0 ) std::this_thread::yield();
 }
 
+uf::stl::string uf::thread::name( std::thread::id id ) {
+	if ( id == uf::thread::mainThreadId ) return uf::thread::mainThreadName;
+	for ( auto& [ name, thread ] : uf::thread::threads ) {
+		if ( thread->thread.get_id() == id ) return name;
+	}
+	return "?";
+}
 const uf::stl::string& uf::thread::name( const pod::Thread& thread ) {
 	return thread.name;
 }

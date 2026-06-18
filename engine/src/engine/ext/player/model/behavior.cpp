@@ -1,5 +1,5 @@
 #include "behavior.h"
-#include "../behavior.h"
+
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/time/time.h>

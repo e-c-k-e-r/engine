@@ -22,6 +22,8 @@ namespace uf {
 			uf::stl::vector<T> flatten() const;
 			uf::stl::vector<T> flattenByIndex() const;
 			void clear();
+			void merge( KeyMap<T, Key>&& other );
+			void import( const KeyMap<T, Key>& other );
 		};
 	}
 }
@@ -92,4 +94,24 @@ uf::stl::vector<T> uf::stl::KeyMap<T,Key>::flattenByIndex() const {
 	}
 
 	return res;
+}
+
+template<typename T, typename Key>
+void uf::stl::KeyMap<T,Key>::merge( KeyMap<T, Key>&& other ) {
+	this->reserve( this->keys.size() + other.keys.size() );
+
+	for ( auto& key : other.keys ) {
+		(*this)[key] = std::move( other.map[key] );
+	}
+
+	other.clear();
+}
+
+template<typename T, typename Key>
+void uf::stl::KeyMap<T,Key>::import( const KeyMap<T, Key>& other ) {
+	this->reserve( this->keys.size() + other.keys.size() );
+
+	for ( auto& key : other.keys ) {
+		(*this)[key] = other.map.at(key);
+	}
 }

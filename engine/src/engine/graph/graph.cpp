@@ -615,6 +615,8 @@ UF_VERTEX_INTERPOLATE(uf::graph::mesh::Skinned_u16q, {
 })
 
 pod::Graph::Storage& uf::graph::getStorage( pod::Graph& graph ) {
+	if ( graph.storage ) return *graph.storage; // just fetch it if it already exists
+
 	switch ( uf::graph::storageMode ) {
 		case pod::Graph::Storage::OBJECT: {
 			if ( !graph.root.entity ) {
@@ -771,6 +773,9 @@ void uf::graph::process( pod::Graph& graph ) {
 	auto& graphMetadataJson = graph.metadata;
 	auto& graphMetadataValve = graphMetadataJson["valve"];
 	auto& storage = uf::graph::getStorage( graph );
+	
+	std::lock_guard<std::mutex> lock(*storage.mutex);
+	uf::graph::initialize( storage );
 
 	// merge light settings with global settings
 	{
@@ -1657,9 +1662,14 @@ void uf::graph::tick() {
 }
 void uf::graph::tick( uf::Object& object ) {
 	auto& storage = uf::graph::getStorage( object );
+	// ! NOTE ! additionally, uncommenting these out also breaks things
+//	if ( !object.hasComponent<pod::Graph>() ) return;
+//	auto& graph = object.getComponent<pod::Graph>();
+//	if ( !graph.root.entity || !graph.root.entity->isValid() ) return;
 	storage.shouldRebind = uf::graph::tick( storage );
 }
 bool uf::graph::tick( pod::Graph::Storage& storage ) {
+	std::lock_guard<std::mutex> lock(*storage.mutex);
 	bool rebuild = false;
 
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance>, instances);
@@ -1955,7 +1965,6 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	}
 	for ( auto& t : storage.shadow2Ds ) t.destroy();
 	for ( auto& t : storage.shadowCubes ) t.destroy();
-	for ( auto& t : storage.cubemaps ) t.destroy();
 
 	for ( auto pair : storage.atlases.map ) pair.second.clear();
 	for ( auto pair : storage.meshes.map ) pair.second.destroy();
@@ -1974,7 +1983,6 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 	storage.entities.clear();
 	storage.shadow2Ds.clear();
 	storage.shadowCubes.clear();
-	storage.cubemaps.clear();
 
 	// cleanup storage buffers
 	if ( !soft ) {

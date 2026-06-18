@@ -102,8 +102,6 @@ namespace pod {
 			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
 			uf::stl::KeyMap<uf::Entity*> entities;
 			
-			uf::stl::vector<uf::renderer::TextureCube> cubemaps;
-
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
 			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
 
@@ -127,6 +125,8 @@ namespace pod {
 
 			bool stale = false;
 			bool shouldRebind = false; 
+
+			std::shared_ptr<std::mutex> mutex = std::make_shared<std::mutex>();
 		}/* storage*/;
 
 		pod::Graph::Storage* storage = NULL;
@@ -203,6 +203,7 @@ namespace uf {
 
 		pod::Graph& UF_API convert( uf::Object&, bool = false ); // converts an object into a graph
 		void UF_API postprocess( pod::Graph& ); // applies post-processing for format importing
+		void UF_API import( pod::Graph::Storage& to, pod::Graph::Storage& from, bool move = true  ); // moves storage from one to the other
 		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& ); // saves a graph to disk
 
 		uf::stl::string UF_API print( const pod::Graph& graph );

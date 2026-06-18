@@ -44,6 +44,7 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		if ( !uf::asset::isExpected( payload, uf::asset::Type::GRAPH ) ) return;
 		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
 		auto& graph = payload.asComponent ? this->getComponent<pod::Graph>() : uf::asset::get<pod::Graph>( payload );
+
 		if ( !payload.asComponent ) {
 			auto userdata = uf::asset::release( payload.filename );
 			this->moveComponent<pod::Graph>( userdata );
@@ -71,6 +72,7 @@ void uf::GraphBehavior::destroy( uf::Object& self ) {}
 void uf::GraphBehavior::tick( uf::Object& self ) {
 	if ( !this->hasComponent<pod::Graph>() ) return;
 	auto& graph = this->getComponent<pod::Graph>();
+	if ( !graph.root.entity || !graph.root.entity->isValid() ) return;
 	if ( !graph.metadata["debug"]["draw"]["armature"].as<bool>(false) ) return;
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& storage = uf::graph::getStorage( graph );

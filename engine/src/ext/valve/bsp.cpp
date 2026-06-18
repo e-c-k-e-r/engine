@@ -679,6 +679,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		return;
 	}
 
+	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
 	auto& storage = uf::graph::getStorage( graph );
 	graph.name = filename;
 	graph.metadata = metadata;

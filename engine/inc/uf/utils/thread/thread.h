@@ -33,6 +33,12 @@ namespace pod {
 		typedef uf::stl::vector<pod::Thread::function_t> container_t;
 		
 		struct UF_API Tasks {
+			struct UF_API Tracker {
+				std::atomic<uint32_t> pending{0};
+				std::mutex mutex;
+				std::condition_variable cv;
+			};
+
 			uf::stl::string name = uf::thread::workerThreadName;
 			bool waits = true;
 
@@ -94,9 +100,8 @@ namespace uf {
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = uf::thread::workerThreadName );
 		pod::Thread::Tasks UF_API schedule( bool multithread, bool waits = true );
 		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = uf::thread::workerThreadName, bool waits = true );
-		uf::stl::vector<pod::Thread*> UF_API execute( pod::Thread::Tasks& tasks );
-		void UF_API wait( uf::stl::vector<pod::Thread*>& );
-		void UF_API wait( const uf::stl::vector<pod::Thread*>& );
+		std::shared_ptr<pod::Thread::Tasks::Tracker> UF_API execute( pod::Thread::Tasks& tasks );
+		void UF_API wait( std::shared_ptr<pod::Thread::Tasks::Tracker> );
 
 	/* Acts on global threads */
 		typedef uf::stl::unordered_map<uf::stl::string, pod::Thread*> container_t;
@@ -145,6 +150,7 @@ namespace uf {
 
 		void UF_API wait( pod::Thread& );
 
+		uf::stl::string UF_API name( std::thread::id id );
 		const uf::stl::string& UF_API name( const pod::Thread& );
 		std::thread::id UF_API id( const pod::Thread& );
 		pod::Thread::id_t UF_API uid( const pod::Thread& );

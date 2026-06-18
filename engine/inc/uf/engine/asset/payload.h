@@ -26,7 +26,7 @@ namespace uf {
 			uf::stl::string uri = "";
 
 			bool initialize = true;
-			bool monoThreaded = false;
+			bool async = true;
 			bool asComponent = false;
 
 			uf::Serializer metadata;

@@ -331,4 +331,58 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 		graph.settings.stream.radius = 0;
 		graph.settings.stream.every = 0;
 	}
+
+	// migrate
+	if ( graph.storage && uf::graph::storageMode != pod::Graph::Storage::GRAPH ) {
+		auto* pointer = graph.storage;
+		graph.storage = NULL;
+		auto& storage = *pointer;
+		auto& target = uf::graph::getStorage( graph );
+		uf::graph::import( target, storage );
+		delete pointer;
+	}
+}
+
+void uf::graph::import( pod::Graph::Storage& target, pod::Graph::Storage& storage, bool move ) {
+	std::lock_guard<std::mutex> lock(*target.mutex);
+
+	if ( move ) {
+		target.primitives.merge(std::move(storage.primitives));
+		target.instances.merge(std::move(storage.instances));
+		target.meshes.merge(std::move(storage.meshes));
+		target.images.merge(std::move(storage.images));
+		target.materials.merge(std::move(storage.materials));
+		target.textures.merge(std::move(storage.textures));
+		target.samplers.merge(std::move(storage.samplers));
+		target.skins.merge(std::move(storage.skins));
+		target.animations.merge(std::move(storage.animations));
+		target.atlases.merge(std::move(storage.atlases));
+		target.objects.merge(std::move(storage.objects));
+		target.joints.merge(std::move(storage.joints));
+		target.entities.merge(std::move(storage.entities));
+		
+		for ( auto& v :storage.lights ) target.lights.emplace_back(std::move(v));
+		for ( auto& v :storage.shadow2Ds ) target.shadow2Ds.emplace_back(std::move(v));
+		for ( auto& v :storage.shadowCubes ) target.shadowCubes.emplace_back(std::move(v));
+		for ( auto& v :storage.flattenedPrimitives ) target.flattenedPrimitives.emplace_back(std::move(v));
+	} else {
+		target.primitives.import(storage.primitives);
+		target.instances.import(storage.instances);
+		target.meshes.import(storage.meshes);
+		target.images.import(storage.images);
+		target.materials.import(storage.materials);
+		target.textures.import(storage.textures);
+		target.samplers.import(storage.samplers);
+		target.skins.import(storage.skins);
+		target.animations.import(storage.animations);
+		target.atlases.import(storage.atlases);
+		target.objects.import(storage.objects);
+		target.joints.import(storage.joints);
+		target.entities.import(storage.entities);
+		
+		for ( auto& v :storage.lights ) target.lights.emplace_back(v);
+		for ( auto& v :storage.shadow2Ds ) target.shadow2Ds.emplace_back(v);
+		for ( auto& v :storage.shadowCubes ) target.shadowCubes.emplace_back(v);
+		for ( auto& v :storage.flattenedPrimitives ) target.flattenedPrimitives.emplace_back(v);
+	}
 }

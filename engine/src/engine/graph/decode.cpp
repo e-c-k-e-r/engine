@@ -11,13 +11,7 @@
 #include <uf/ext/valve/bsp.h>
 #include <uf/utils/io/fmt.h>
 
-// it's too unstable right now to do multithreaded loading, perhaps there's a better way
-#if UF_USE_OPENGL
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
-#else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1
-#endif
-
+#define UF_GRAPH_LOAD_MULTITHREAD 0
 #define UF_GRAPH_EXTENDED 1
 
 #if UF_ENV_DREAMCAST
@@ -388,7 +382,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	auto tasks = uf::thread::schedule(false);
 #endif
 
-	auto& storage = uf::graph::getStorage( graph );
+	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
+	auto& storage = uf::graph::getStorage( graph ); // will just fetch the above
 
 	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
 	#if UF_USE_OPENGL
@@ -647,6 +642,17 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		}
 	}
 	UF_DEBUG_TIMER_MULTITRACE_END("Processing graph...");
+
+
+	// migrate
+	if ( graph.storage && uf::graph::storageMode != pod::Graph::Storage::GRAPH ) {
+		auto* pointer = graph.storage;
+		graph.storage = NULL;
+		auto& storage = *pointer;
+		auto& target = uf::graph::getStorage( graph );
+		uf::graph::import( target, storage );
+		delete pointer;
+	}
 
 #if UF_ENV_DREAMCAST
 	DC_STATS();

@@ -23,8 +23,9 @@ uf::Entity::~Entity(){
 	this->destroy();
 }
 bool uf::Entity::isValid() const {
-	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
-	return /*this != NULL &&*/ (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
+//	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
+	if ( this == 0x0 ) return false;
+	return (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
 }
 bool uf::Entity::operator==( const uf::Entity& e ) const {
 	return this == &e;

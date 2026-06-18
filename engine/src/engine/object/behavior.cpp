@@ -65,40 +65,12 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		auto callback = this->formatHookName("asset:FinishedLoad.%UID%");
-	/*
-		switch ( payload.type ) {
-			case uf::asset::Type::AUDIO:
-			case uf::asset::Type::IMAGE:
-			case uf::asset::Type::LUA: {
-				if ( payload.monoThreaded ) {
-					if ( uf::asset::cache( payload ) != "" ) this->queueHook( callback, payload );
-				} else {
-					uf::asset::cache( callback, payload );
-				}
-			} break;
-
-			case uf::asset::Type::GRAPH: {
-				if ( payload.monoThreaded ) {
-					if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
-				} else {
-					uf::asset::load( callback, payload );
-				}
-			} break;
-		}
-	*/
 		payload.object = this->resolvable<>();
-		if ( payload.monoThreaded ) {
-			if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
-		} else {
+		if ( payload.async ) {
 			uf::asset::load( callback, payload );
-		}
-	/*
-		if ( payload.monoThreaded ) {
-			if ( uf::asset::cache( payload ) != "" ) this->queueHook( callback, payload );
 		} else {
-			uf::asset::cache( callback, payload );
+			if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
 		}
-	*/
 	});
 	this->addHook( "asset:FinishedLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		this->queueHook("asset:Load.%UID%", payload);
