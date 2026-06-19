@@ -46,5 +46,7 @@ namespace ext {
 
 		// dumps to disk
 		bool UF_API save( const pod::Dtex&, const uf::stl::string&, bool = false );
+		// dumps to buffer
+		bool UF_API save( const pod::Dtex&, uf::stl::vector<uint8_t>& );
 	}
 }

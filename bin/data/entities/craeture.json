@@ -4,14 +4,14 @@
 	"ignore": false,
 	"import": "./craetureModel.json",
 	"assets": [
-		"./scripts/craeture.lua"
+	//	"./scripts/craeture.lua"
 	],
 	"behaviors": [
 		"CraetureBehavior",
 		"AudioEmitterBehavior"
 	],
 	"transform": {
-		"position": [ -7, -3.5, -44 ],
+		"position": [ -36.8997, 4.49179, 16.0879 ],
 		//"position": [ 0, 1.5, 21 ],
 		//"position": [ 16.3489, 1.37972, -68.1571 ],
 		//"scale": [ 0.09, 0.09, 0.09 ]
@@ -32,7 +32,7 @@
 				}
 			},
 			"physics": {
-				"ragdoll": true
+				"ragdoll": false
 			}
 		}
 		/*

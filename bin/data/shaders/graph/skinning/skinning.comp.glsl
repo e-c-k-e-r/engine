@@ -19,43 +19,42 @@ uvec4 uvec2_16x4( uvec2 i ) {
 	return converted;
 }
 
-layout (binding = 0) uniform UBO {
+layout (push_constant) uniform SkinningPush {
 	uint jointID;
-	uint padding1;
-	uint padding2;
-	uint padding3;
-} ubo;
+	uint vertexOffset;
+} push;
 
-layout (std140, binding = 1) readonly buffer Joints {
+layout (std140, binding = 0) readonly buffer Joints {
 	mat4 joints[];
 };
 
-layout (binding = 2) readonly buffer VertexInputPosition {
-	/*vec3 verticesInPos[];*/
+layout (binding = 1) readonly buffer VertexInputPosition {
 	float verticesInPos[];
 };
-layout (binding = 3) readonly buffer VertexInputJoints {
+layout (binding = 2) readonly buffer VertexInputJoints {
 	uvec2 verticesInJoints[];
 };
-layout (binding = 4) readonly buffer VertexInputWeights {
+layout (binding = 3) readonly buffer VertexInputWeights {
 	vec4 verticesInWeights[];
 };
 
-layout (binding = 5) buffer VertexOutputPosition {
-	/*vec3 verticesOutPos[];*/
+layout (binding = 4) buffer VertexOutputPosition {
 	float verticesOutPos[];
 };
 
 void main() {
 	const uint i = gl_GlobalInvocationID.x;
-	
+
 	if ( i * 3 >= verticesInPos.length() || i * 3 >= verticesOutPos.length() ) return;
 
 	const vec3 inPos = vec3( verticesInPos[i * 3 + 0], verticesInPos[i * 3 + 1], verticesInPos[i * 3 + 2] );
 	const uvec4 inJoints = uvec2_16x4(verticesInJoints[i]);
 	const vec4 inWeights = verticesInWeights[i];
 
-	const mat4 skinned = inWeights.x * joints[ubo.jointID + int(inJoints.x)] + inWeights.y * joints[ubo.jointID + int(inJoints.y)] + inWeights.z * joints[ubo.jointID + int(inJoints.z)] + inWeights.w * joints[ubo.jointID + int(inJoints.w)];
+	const mat4 skinned =  inWeights.x * joints[push.jointID + int(inJoints.x)]
+						+ inWeights.y * joints[push.jointID + int(inJoints.y)]
+						+ inWeights.z * joints[push.jointID + int(inJoints.z)]
+						+ inWeights.w * joints[push.jointID + int(inJoints.w)];
 
 	const vec3 outPos = vec3(skinned * vec4(inPos, 1));
 	verticesOutPos[i * 3 + 0] = outPos[0];

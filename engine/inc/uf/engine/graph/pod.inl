@@ -114,3 +114,31 @@ namespace pod {
 		uf::renderer::Texture2D handle;
 	};
 }
+
+namespace pod {
+	struct StreamRegion {
+		uf::stl::string filename = "";
+		size_t offset = 0;
+		size_t length = 0;
+	};
+
+	struct AnimationStream {
+		struct SamplerStream {
+			pod::StreamRegion inputs;
+			pod::StreamRegion outputs;
+		};
+		uf::stl::vector<SamplerStream> samplers;
+	};
+
+	struct MeshStream {
+		uf::stl::vector<pod::StreamRegion> buffers;
+	};
+
+	struct SkinStream {
+		pod::StreamRegion inverseBindMatrices;
+	};
+
+	struct ImageStream {
+        StreamRegion buffer;
+    };
+}

@@ -53,19 +53,31 @@ namespace {
 bool uf::asset::assertionLoad = true;
 bool uf::asset::asyncQueue = true;
 uf::asset::Job::container_t uf::asset::jobs;
+uf::asset::Job::container_t uf::asset::finishedJobs;
 uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> uf::asset::map;
 uf::Serializer uf::asset::metadata;
 
 void uf::asset::processQueue() {
-	if ( uf::asset::jobs.empty() ) return;
+	if ( uf::asset::jobs.empty() && uf::asset::finishedJobs.empty() ) return;
 
 	STATIC_THREAD_LOCAL(uf::asset::Job::container_t, jobs);
+	uf::asset::Job::container_t finishedJobs;
+
 	mutex.lock();
 	std::swap( jobs, uf::asset::jobs );
+	std::swap( finishedJobs, uf::asset::finishedJobs );
 	mutex.unlock();
 
-	bool async = false; // uf::asset::asyncQueue; // a bit buggy
+	bool async = uf::asset::asyncQueue; // a bit buggy
 	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, !true);
+
+    if ( !finishedJobs.empty() ) {
+        tasks.queue([jobs = std::move(finishedJobs)]() {
+            for ( auto& job : jobs ) {
+                uf::hooks.call( job.callback, job.payload );
+            }
+        });
+    }
 	for ( auto& job : jobs ) tasks.queue([=]{
 		auto callback = job.callback;
 		auto type = job.type;
@@ -76,7 +88,9 @@ void uf::asset::processQueue() {
 		uf::stl::string filename = type == "cache" ? uf::asset::cache(payload) : uf::asset::load(payload);
 		
 		if ( callback != "" && filename != "" ) {
-			uf::hooks.call(callback, payload);
+			mutex.lock();
+			uf::asset::finishedJobs.emplace_back( job );
+			mutex.unlock();
 		}
 	});
 

@@ -1,7 +1,7 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-	//	{ "filename": "./maps/cs_office.bsp" }
-		{ "filename": "./maps/cs_office/graph.json" }
+		{ "filename": "./maps/cs_office.bsp" }
+	//	{ "filename": "./maps/cs_office/graph.json" }
 	]
 }

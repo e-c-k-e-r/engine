@@ -50,6 +50,14 @@ namespace {
 		}
 		return instanceID;
 	}
+	size_t allocateJointID( pod::Graph::Storage& storage, const uf::stl::string& name ) {
+		size_t jointID = 0;
+		for ( auto& key : storage.joints.keys ) {
+			if ( key == name ) break;
+			jointID += storage.joints.map[key].size();
+		}
+		return jointID;
+	}
 
 	// removes non-uniform aliased buffers
 	void resetBuffers( uf::renderer::Shader& shader ) {
@@ -68,7 +76,7 @@ namespace {
 		}
 	}
 
-	void bindShaders( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh ) {
+	void bindShaders( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh, uf::stl::vector<pod::Primitive>& primitives ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -278,7 +286,7 @@ namespace {
 					uint32_t jointID;
 				};
 
-				uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv"); {
+				uf::stl::string compShaderFilename = graphMetadataJson["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.comp.spv"); {
 					compShaderFilename = entity.resolveURI( compShaderFilename, root );
 				}
 			
@@ -328,13 +336,14 @@ namespace {
 
 				auto& shader = graphic.material.getShader("compute", "skinning");
 
-				struct {
+				struct SkinningPush {
 					uint32_t jointID;
-				} uniforms = {
-					.jointID = 0
 				};
 
-				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+				auto& pushConstant = shader.pushConstants.front().get<SkinningPush>();
+				pushConstant = {
+					.jointID = (uint32_t) primitives.front().instance.jointID
+				};
 
 				// bind buffers
 				::resetBuffers( shader );
@@ -514,7 +523,7 @@ namespace {
 size_t uf::graph::initialBufferElements = 1024;
 
 uint32_t uf::graph::storageMode = pod::Graph::Storage::SCENE;
-pod::Graph::Storage uf::graph::storage;
+pod::Graph::Storage uf::graph::globalStorage;
 
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, position)
@@ -641,7 +650,7 @@ pod::Graph::Storage& uf::graph::getStorage( pod::Graph& graph ) {
 		}
 		case pod::Graph::Storage::GLOBAL:
 		default: {
-			return uf::graph::storage;
+			return uf::graph::globalStorage;
 		}
 	}
 }
@@ -674,7 +683,7 @@ pod::Graph::Storage& uf::graph::getStorage( uf::Object& object ) {
 		}
 		case pod::Graph::Storage::GLOBAL:
 		default: {
-			return uf::graph::storage;
+			return uf::graph::globalStorage;
 		}
 	}
 }
@@ -751,7 +760,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 
 
 	::bindTextures( graph, graphic );
-	::bindShaders( graph, entity, mesh );
+	::bindShaders( graph, entity, mesh, primitives );
 	::bindBuffers( graph, graphic, mesh );
 	::bindAddresses( graph, graphic, mesh, primitives );
 
@@ -1166,17 +1175,6 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& needle = graph.textures[instance.cubemapID];
 				instance.cubemapID = indices[needle];
 			}
-
-			// remap a skinID as an actual jointID
-			if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
-				auto& name = graph.skins[instance.jointID];
-				instance.jointID = 0;
-				for ( auto key : storage.joints.keys ) {
-					if ( key == name ) break;
-					auto& joints = storage.joints[key];
-					instance.jointID += joints.size();
-				}
-			}
 		}
 
 		for ( auto& instance : storage.instances.map[name] ) {
@@ -1197,15 +1195,6 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& indices = storage.textures.indices;
 				auto& needle = graph.textures[instance.cubemapID];
 				instance.cubemapID = indices[needle];
-			}
-			
-			if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
-				auto& skinName = graph.skins[instance.jointID];
-				instance.jointID = 0;
-				for ( auto key : storage.joints.keys ) {
-					if ( key == skinName ) break;
-					instance.jointID += storage.joints[key].size();
-				}
 			}
 		}
 	}
@@ -1506,15 +1495,17 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	
 	// 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		{
-			node.object = ::allocateObjectID( storage );
-			auto objectKeyName = ::keyedID( node.object );
+		node.object = ::allocateObjectID( storage );
+		auto objectKeyName = ::keyedID( node.object );
 
-			storage.entities[objectKeyName] = &entity;	
-			storage.objects[objectKeyName] = pod::Instance::Object{
-				.model = model,
-				.previous = model,
-			};
+		storage.entities[objectKeyName] = &entity;	
+		storage.objects[objectKeyName] = pod::Instance::Object{
+			.model = model,
+			.previous = model,
+		};
+
+		if ( node.skin >= 0 && node.skin < graph.skins.size() ) {
+			storage.joints[objectKeyName] = {};
 		}
 
 		auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
@@ -1527,7 +1518,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
 			pod::Instance newInstance = primitives[drawID].instance;
 			newInstance.objectID = node.object;
-			newInstance.jointID = graphMetadataJson["renderer"]["skinned"].as<bool>() ? 0 : -1;
+			if ( node.skin >= 0 && node.skin < graph.skins.size() ) {
+				newInstance.jointID = ::allocateJointID( storage, ::keyedID(node.object) );
+			} else {
+				newInstance.jointID = -1;
+			}
 
 			bounds.min = uf::vector::min( bounds.min, newInstance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, newInstance.bounds.max );
@@ -1535,9 +1530,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			grouped.emplace_back(newInstance);
 		}
 
-		bool isFirstInstance = ( grouped.size() == primitives.size() );
 	#if !UF_GRAPH_EXTENDED
-		if ( graphMetadataJson["renderer"]["render"].as<bool>() && isFirstInstance ) {
+		bool isFirstInstance = ( grouped.size() == primitives.size() );
+		bool isSkinned = graphMetadataJson["renderer"]["skinned"].as<bool>();
+		bool shouldInitializeRender = graphMetadataJson["renderer"]["render"].as<bool>();
+
+		if ( shouldInitializeRender && (isFirstInstance || isSkinned) ) {
 			uf::graph::initializeGraphics( graph, entity, mesh, primitives );
 		}
 	#endif
@@ -1644,7 +1642,7 @@ void uf::graph::tick() {
 	// tick only one graph if scene/global
 	switch ( uf::graph::storageMode ) {
 		case pod::Graph::Storage::GLOBAL: {
-			auto& storage = uf::graph::storage;
+			auto& storage = uf::graph::globalStorage;
 			storage.shouldRebind = uf::graph::tick( storage );
 			return;
 		} break;
@@ -1689,7 +1687,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		auto& entity = *storage.entities.map[key];
 		auto& object = storage.objects.map[key];
 
-		if ( entity.isValid() ) {
+		if ( entity.hasComponent<pod::Transform<>>() ) {
 			auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
 			auto& transform = entity.getComponent<pod::Transform<>>();
 			
@@ -1746,14 +1744,21 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 
 		#if UF_USE_VULKAN
 			if ( commands && !grouped.empty() ) {
-				auto objectKeyName = ::keyedID(grouped.front().objectID);
-				if ( storage.entities.map.count(objectKeyName) > 0 ) {
+				uf::stl::unordered_set<uf::Object*> updatedGraphics;
+
+				for ( auto& instance : grouped ) {
+					auto objectKeyName = ::keyedID(instance.objectID);
+					if ( storage.entities.map.count(objectKeyName) == 0 ) continue;
 					auto& entity = *storage.entities.map[objectKeyName];
-					if ( entity.hasComponent<uf::renderer::Graphic>() ) {
-						auto& graphic = entity.getComponent<uf::renderer::Graphic>();
-						auto& attr = mesh.indirect.attributes.front();
-						graphic.updateBuffer( (const void*) attr.pointer, attr.length, graphic.metadata.buffers["indirect["+attr.descriptor.name+"]"] );
-					}
+					if ( !entity.hasComponent<uf::renderer::Graphic>() ) continue;
+					if ( updatedGraphics.find(&entity) != updatedGraphics.end() ) continue;
+
+					auto& graphic = entity.getComponent<uf::renderer::Graphic>();
+					auto& attr = mesh.indirect.attributes.front();
+
+					graphic.updateBuffer( (const void*) attr.pointer, attr.length, graphic.metadata.buffers["indirect["+attr.descriptor.name+"]"] );
+
+					updatedGraphics.insert(&entity);
 				}
 			}
 		#endif
@@ -1802,7 +1807,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 }
 
 void uf::graph::aggregate() {
-	return uf::graph::aggregate( uf::scene::getCurrentScene(), uf::graph::storage );
+	return uf::graph::aggregate( uf::scene::getCurrentScene(), uf::graph::globalStorage );
 }
 void uf::graph::aggregate( uf::Object& object, pod::Graph::Storage& storage ) {
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Instance>, instances);
@@ -1891,7 +1896,7 @@ void uf::graph::render() {
 	// render only one graph if scene/global
 	switch ( uf::graph::storageMode ) {
 		case pod::Graph::Storage::GLOBAL: {
-			auto& storage = uf::graph::storage;
+			auto& storage = uf::graph::globalStorage;
 			uf::graph::render( storage );
 			return;
 		} break;
@@ -2037,7 +2042,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	bool meshUpdated = false;
 	auto model = uf::transform::model( transform );
-	auto& mesh = storage.meshes.map[graph.meshes[node.mesh]];
+
+	auto meshName = graph.meshes[node.mesh];
+	auto& mesh = storage.meshes.map[meshName];
+	auto& meshStream = graph.streams.meshes[meshName];
 	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 
 	float radius = graph.settings.stream.radius;
@@ -2054,7 +2062,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		radius = 0;
 	}
 
-	if ( mesh.buffer_paths.empty() ) {
+	if ( meshStream.buffers.empty() ) {
 		radius = 0;
 	}
 
@@ -2207,7 +2215,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				if ( ranges.count(attribute.buffer) <= 0 ) { \
 					mesh.buffers[attribute.buffer].clear();\
 				} else {\
-					uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer], ranges[attribute.buffer] );\
+					auto& region = meshStream.buffers[attribute.buffer];\
+					auto adjustedRanges = ranges[attribute.buffer];\
+					for (auto& r : adjustedRanges) r.start += region.offset;\
+					uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, adjustedRanges );\
 				}\
 			}
 
@@ -2249,8 +2260,9 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 		#define STREAM_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
-				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
-				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer] );\
+				if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
+				auto& region = meshStream.buffers[attribute.buffer];\
+				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, region.offset, region.length );\
 			}
 
 		STREAM_MESH_DATA( index );
@@ -2297,7 +2309,21 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 				if ( visible && (!texture.generated() || texture.aliased) ) {
 					// load image
-					if ( image.getPixels().empty() ) image.open(image.getFilename(), false);
+					if ( image.getPixels().empty() ) {
+						auto& imgStream = graph.streams.images[key];
+						uf::stl::vector<uint8_t> buf;
+
+						if (imgStream.buffer.length > 0) {
+							uf::io::readAsBuffer(buf, imgStream.buffer.filename, imgStream.buffer.offset, imgStream.buffer.length);
+						} else {
+							uf::io::readAsBuffer(buf, imgStream.buffer.filename);
+						}
+
+						uf::stl::string formatHint = uf::io::extension(image.getFilename());
+						if (imgStream.buffer.filename.find(".dtex") != uf::stl::string::npos) formatHint = "dtex";
+
+						uf::image::open(image, buf, formatHint, false);
+					}
 
 					auto filter = uf::renderer::enums::Filter::LINEAR;
 					auto tag = ext::json::find( key, graphMetadataJson["tags"] );
@@ -2345,9 +2371,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		// load mesh if not already loaded
 		#define LOAD_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
-				if ( !mesh.buffers[attribute.buffer].empty() || mesh.buffer_paths.empty() ) continue;\
+				if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
 				meshUpdated = true;\
-				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], mesh.buffer_paths[attribute.buffer] );\
+				auto& region = meshStream.buffers[attribute.buffer];\
+				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, region.offset, region.length );\
 			}
 
 		LOAD_MESH_DATA( index );
@@ -2385,14 +2412,19 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	uf::renderer::states::rebuild = true;
 #endif
 
-	storage.stale = true; // force rebuffering the draw commands
+	storage.stale = true;
 
 	bool graphicOwner = graphMetadataJson["renderer"]["render"].as<bool>();
+	bool isSkinned = graphMetadataJson["renderer"]["skinned"].as<bool>();
 	if ( graphicOwner ) {
-		auto objectKeyName = ::keyedID(storage.instances.map[graph.primitives[node.mesh]].front().objectID);
-		graphicOwner = storage.entities[objectKeyName] == &entity;
+		if ( isSkinned ) {
+			graphicOwner = true;
+		} else {
+			auto objectKeyName = ::keyedID(storage.instances.map[graph.primitives[node.mesh]].front().objectID);
+			graphicOwner = storage.entities[objectKeyName] == &entity;
+		}
 	}
-	// update graphic
+
 	if ( graphicOwner ) {
 		bool exists = entity.hasComponent<uf::renderer::Graphic>();
 		if ( exists ) {
@@ -2448,7 +2480,16 @@ void uf::graph::reload( pod::Graph& graph ) {
 	// ::combineMesh( graph );
 }
 void uf::graph::reload() {
-	storage.stale = true;
+	switch ( uf::graph::storageMode ) {
+		case pod::Graph::Storage::SCENE: {
+			auto& storage = uf::scene::getCurrentScene().getComponent<pod::Graph::Storage>();
+			storage.stale = true;
+		}
+		case pod::Graph::Storage::GLOBAL:
+		default: {
+			uf::graph::globalStorage.stale = true;
+		}
+	}
 }
 
 void uf::graph::update( pod::Graph& graph ) {
@@ -2475,7 +2516,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 			::bindBuffers( graph, graphic, mesh );
 			::bindAddresses( graph, graphic, mesh, primitives );
 		}
-		storage.shouldRebind = false;
+		//storage.shouldRebind = false;
 	}
 
 	// get last update time
@@ -2495,6 +2536,7 @@ uf::stl::string uf::graph::getMaterialName( pod::Graph& graph, size_t materialID
 	return storage.materials.keys[materialID];
 }
 pod::Material uf::graph::getMaterial( pod::Graph& graph, size_t materialID ) {
+	auto& storage = uf::graph::getStorage( graph );
 	auto key = uf::graph::getMaterialName( graph, materialID );
 	return storage.materials.map[key];
 }

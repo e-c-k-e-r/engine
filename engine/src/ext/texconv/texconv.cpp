@@ -145,6 +145,20 @@ bool UF_API ext::texconv::save( const pod::Dtex& dtex, const uf::stl::string& fi
 
 	return true;
 }
+bool UF_API ext::texconv::save( const pod::Dtex& dtex, uf::stl::vector<uint8_t>& buffer ) {
+	size_t totalSize = dtex.imageData.size() + dtex.paletteData.size();
+    buffer.reserve(buffer.size() + totalSize);
+
+    if ( !dtex.imageData.empty() ) {
+        buffer.insert( buffer.end(), dtex.imageData.begin(), dtex.imageData.end() );
+    }
+
+    if ( !dtex.paletteData.empty() ) {
+        buffer.insert( buffer.end(), dtex.paletteData.begin(), dtex.paletteData.end() );
+    }
+
+    return true;
+}
 
 // maintains original main()
 bool ext::texconv::convert(  const pod::TextureOptions& opts  ) {

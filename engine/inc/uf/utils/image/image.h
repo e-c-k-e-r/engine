@@ -21,12 +21,14 @@ namespace pod {
 namespace uf {
 	namespace image {
 		bool UF_API open( pod::Image&, const uf::stl::string&, bool = true );
+		bool UF_API open( pod::Image&, const uf::stl::vector<uint8_t>&, const uf::stl::string&, bool = true );
 		void UF_API clear( pod::Image& );
 
 		void UF_API load( pod::Image&, const pod::Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, size_t bpp, size_t channels, bool flip = false );
 		void UF_API load( pod::Image&, const pod::Image::container_t& container, const pod::Vector2ui& size, size_t bpp, size_t channels, bool flip = false );
 		
 		bool UF_API save( const pod::Image&, const uf::stl::string& filename, bool flip = false );
+		void UF_API save( const pod::Image&, uf::stl::vector<uint8_t>&, bool flip = false );
 		void UF_API save( const pod::Image&, std::ostream& stream );
 
 		pod::Image::pixel_t UF_API at( pod::Image&, const pod::Vector2ui& at );
@@ -57,6 +59,7 @@ namespace uf {
 		Image& operator=( Image&& ) noexcept = default;
 
 		bool open( const uf::stl::string& filename, bool = true ); 								// from file
+		bool open( const uf::stl::vector<uint8_t>& buffer, const uf::stl::string&, bool = true ); 						// from buffer
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const pod::Vector2ui& size );					// move from vector of pixels
 		void move( uf::Image&& );																// move from image object
@@ -95,6 +98,7 @@ namespace uf {
 		void flip();
 		void padToPowerOfTwo();
 		bool save( const uf::stl::string& filename, bool flip = false ) const; 			// to file
+		bool save( uf::stl::vector<uint8_t>&, bool flip = false ) const; 				// to buffer
 		void save( std::ostream& stream ) const; 										// to stream
 		void convert( const uf::stl::string&, const uf::stl::string& = "rgba" );
 		Image overlay(const Image& top, const pod::Vector2ui& corner = {} ) const; 		// Merges one image on top of another

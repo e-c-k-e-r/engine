@@ -209,8 +209,6 @@ namespace uf {
 
 		uf::stl::vector<buffer_t> buffers;
 
-		// crunge, but it's better this way for streaming in mesh data
-		uf::stl::vector<uf::stl::string> buffer_paths;
 		// mega cringe, but i'd like to have a way to cache it
 		uf::stl::vector<uf::Mesh::View> buffer_views;
 	protected:

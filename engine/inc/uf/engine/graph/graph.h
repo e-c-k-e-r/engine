@@ -75,6 +75,13 @@ namespace pod {
 			} stream;
 		} settings;
 
+		struct StreamRegistry {
+			uf::stl::unordered_map<uf::stl::string, pod::AnimationStream> animations;
+			uf::stl::unordered_map<uf::stl::string, pod::SkinStream> skins;
+			uf::stl::unordered_map<uf::stl::string, pod::MeshStream> meshes;
+			uf::stl::unordered_map<uf::stl::string, pod::ImageStream> images;
+		} streams;
+
 		// Local storage, used for save/load
 		struct Storage {
 			enum StorageType : uint32_t {
@@ -137,7 +144,7 @@ namespace uf {
 	namespace graph {
 		extern UF_API size_t initialBufferElements;
 		extern UF_API uint32_t storageMode;
-		extern UF_API pod::Graph::Storage storage;
+		extern UF_API pod::Graph::Storage globalStorage;
 	}
 }
 

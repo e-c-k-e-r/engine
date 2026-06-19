@@ -33,6 +33,7 @@ namespace uf {
 		
 		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> map;
 		extern UF_API Job::container_t jobs;
+		extern UF_API Job::container_t finishedJobs;
 		extern UF_API uf::Serializer metadata;
 	
 	//	extern UF_API uf::Serializer map;

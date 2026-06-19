@@ -102,32 +102,45 @@ bool uf::image::open( pod::Image& image, const uf::stl::string& filename, bool f
 	if ( !uf::io::readAsBuffer( buffer, filename ) ) {
 		return false;
 	}
+
+	auto extension = uf::io::extension( filename );
 #if UF_USE_OPENGL_GLDC
-	 auto extension = uf::io::extension( filename );
-	if ( extension != "dtex" ) UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
+	if ( extension != "dtex" ) {
+		UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
+	}
 #endif
-	
+
 	image.filename = filename;
+	return uf::image::open(image, buffer, extension, flip);
+}
+bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer, const uf::stl::string& formatHint, bool flip ) {
 	image.pixels.clear();
 	int width = 0, height = 0, channelsDud = 0, bpp = 8, channels = 4;
+
 #if UF_USE_OPENGL_GLDC
-	if ( extension == "dtex" ) {
+	if ( formatHint == "dtex" ) {
 		struct {
 			char		id[4]; // 'DTEX'
-			uint16_t 	width;
-			uint16_t 	height;
-			uint32_t 	type;
-			uint32_t 	size;
+			uint16_t	width;
+			uint16_t	height;
+			uint32_t	type;
+			uint32_t	size;
 		} header;
 
-		uf::stl::vector<uint8_t> buffer;
-		if ( !uf::io::readAsBuffer( buffer, filename ) ) UF_EXCEPTION("IO error: could not read DTEX: {}", filename);
-		if ( buffer.size() < sizeof(header) ) UF_EXCEPTION("IO error: DTEX file is too small to contain a header: {}", filename);
+		if ( buffer.size() < sizeof(header) ) {
+			UF_EXCEPTION("IO error: DTEX buffer is too small to contain a header");
+			return false;
+		}
 		memcpy(&header, buffer.data(), sizeof(header));
-		if ( buffer.size() < sizeof(header) + header.size ) UF_EXCEPTION("IO error: DTEX file is truncated or corrupted: {}", filename);
+		if ( buffer.size() < sizeof(header) + header.size ) {
+			UF_EXCEPTION("IO error: DTEX buffer is truncated or corrupted");
+			return false;
+		}
 
 		image.pixels.resize(header.size);
-		memcpy(image.pixels.data(), buffer.data() + sizeof(header), header.size);
+		memcpy( image.pixels.data(), buffer.data() + sizeof(header), header.size );
+
+		// palette data:  buffer.data() + sizeof(header) + header.size
 
 		bool twiddled = (header.type & (1 << 26)) < 1;
 		bool compressed = (header.type & (1 << 30)) > 0;
@@ -137,8 +150,6 @@ bool uf::image::open( pod::Image& image, const uf::stl::string& filename, bool f
 		width = header.width;
 		height = header.height;
 
-		uint32_t expected = 2 * header.width * header.height;
-		uint32_t ratio = (uint32_t) (((float) expected) / ((float) header.size));
 		bpp = 4;
 		image.format = format;
 		if ( compressed ) {
@@ -147,25 +158,33 @@ bool uf::image::open( pod::Image& image, const uf::stl::string& filename, bool f
 					case 1: image.format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_RGB_565_VQ_TWID_KOS; channels = 3; break;
 					case 0: image.format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
 					case 2: image.format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS; break;
-					default: UF_EXCEPTION("Image error: invalid texture format: {}", filename); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format"); return false;
 				}
 			} else {
 				switch ( format ) {
 					case 1: image.format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS : GL_COMPRESSED_RGB_565_VQ_KOS; channels = 3; break;
 					case 0: image.format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
 					case 2: image.format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_4444_VQ_KOS; break;
-					default: UF_EXCEPTION("Image error: invalid texture format: {}", filename); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format"); return false;
 				}
 			}
-		} else { UF_EXCEPTION("Image error: not a compressed texture: {}", filename); return false; }
-	} else 
+		} else { UF_EXCEPTION("Image error: not a compressed texture"); return false; }
+	} else
 #endif
 	{
-		stbi_set_flip_vertically_on_load(flip);
+		stbi_set_flip_vertically_on_load( flip );
 		uint8_t* stbi_pixels = stbi_load_from_memory( buffer.data(), buffer.size(), &width, &height, &channelsDud, STBI_rgb_alpha );
+
+		if ( !stbi_pixels ) {
+			UF_EXCEPTION("Image error: stb_image failed to decode buffer");
+			return false;
+		}
+
 		size_t len = width * height * channels;
 		image.pixels.resize( len );
-		memcpy( &image.pixels[0], stbi_pixels, len );
+		memcpy( image.pixels.data(), stbi_pixels, len );
+
+		stbi_image_free(stbi_pixels);
 	}
 
 	image.size.x = width;
@@ -205,27 +224,29 @@ void uf::image::load( pod::Image& image, const pod::Image::container_t& containe
 	if ( flip ) uf::image::flip( image );
 }
 bool uf::image::save( const pod::Image& image, const uf::stl::string& filename, bool flip ) {
-	if ( image.pixels.empty() ) return false;
+	uf::stl::vector<uint8_t> buffer;
+	uf::image::save( image, buffer, flip );
+	if ( buffer.empty() ) return false;
+	return uf::vfs::write( filename, buffer.data(), buffer.size() ) > 0;
+}
+void uf::image::save( const pod::Image& image, uf::stl::vector<uint8_t>& buffer, bool flip ) {
+	buffer.clear();
+
+	if ( image.pixels.empty() ) return;
 	
 	uint w = image.size.x;
 	uint h = image.size.y;
 	auto* pixels = &image.pixels[0];
-	uf::stl::string extension = uf::io::extension(filename);
+	uf::stl::string extension = image.filename.empty() ? "png" : uf::io::extension( image.filename );
 	stbi_flip_vertically_on_write(flip);
 	
-	uf::stl::vector<uint8_t> buffer;
-
 	if ( extension == "png" ) {
 		stbi_write_png_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, w * image.channels);
 	} else if ( extension == "jpg" || extension == "jpeg" ) {
-		stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // 90 is quality
+		stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // quality
 	} else {
 		UF_MSG_ERROR("Unsupported image save format: {}", extension);
-		return false;
 	}
-
-	if ( buffer.empty() ) return false;
-	return uf::vfs::write( filename, buffer.data(), buffer.size() ) > 0;
 }
 void uf::image::save( const pod::Image& image, std::ostream& stream ) {
 
@@ -464,6 +485,9 @@ void uf::Image::setFilename( const uf::stl::string& filename ) {
 bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 	return uf::image::open( *this, filename, flip );
 }
+bool uf::Image::open( const uf::stl::vector<uint8_t>& buffer, const uf::stl::string& formatHint, bool flip ) {
+	return uf::image::open( *this, buffer, formatHint, flip );
+}
 void uf::Image::loadFromBuffer( const pod::Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, size_t bpp, size_t channels, bool flip ) {
 	return uf::image::load( *this, pointer, size, bpp, channels, flip );
 }
@@ -557,6 +581,11 @@ pod::Image::pixel_t uf::Image::at( const pod::Vector2ui& at ) {
 // to file
 bool uf::Image::save( const uf::stl::string& filename, bool flip ) const {
 	return uf::image::save( *this, filename, flip );
+}
+// to buffer
+bool uf::Image::save( uf::stl::vector<uint8_t>& buffer, bool flip ) const {
+	uf::image::save( *this, buffer, flip );
+	return true;
 }
 // to stream
 void uf::Image::save( std::ostream& stream ) const {

@@ -3,10 +3,10 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": true,
-				"lightmaps": true,
+				"lightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": false,
+					"enabled": true,
 					"update": 4,
 					"max": 16,
 					"samples": 1
@@ -426,7 +426,7 @@
 			},
 			"loader": {
 				"assert": true,
-				"async": false
+				"async": true
 			},
 			"hooks": {
 				"defer lazy calls": true

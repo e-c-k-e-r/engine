@@ -58,6 +58,15 @@ namespace ext {
 			template<typename T> inline T as(const T& fallback) const;
 
 			Value& reserve( size_t );
+
+			inline bool isTable() const;
+			inline bool isObject() const;
+			inline bool isArray() const;
+			inline bool isNull() const;
+			
+			inline Value& array();
+			inline Value& object();
+			inline Value& null();
 		};
 
 		inline bool isTable( const Value& v ) { return v.is_array() || v.is_object(); }
@@ -73,5 +82,10 @@ namespace ext {
 		uf::stl::vector<uf::stl::string> UF_API keys( const Value& v );
 	}
 }
+
+bool ext::json::Value::isTable() const { return ext::json::isTable( *this ); }
+bool ext::json::Value::isObject() const { return ext::json::isObject( *this ); }
+bool ext::json::Value::isArray() const { return ext::json::isArray( *this ); }
+bool ext::json::Value::isNull() const { return ext::json::isNull( *this ); }
 
 #include "nlohmann.inl"

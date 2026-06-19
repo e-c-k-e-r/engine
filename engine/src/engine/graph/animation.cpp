@@ -16,58 +16,58 @@
 #include <uf/engine/ext.h>
 
 namespace {
+	uf::stl::string keyedID( size_t id ) {
+		return ::fmt::format("{}", id);
+	}
+
 	// lazy load animations if requested
 	void loadAnimation( pod::Graph& graph, const uf::stl::string& name ) {
 		auto& storage = uf::graph::getStorage( graph );
-		
+
+		if ( storage.animations.map.count(name) == 0 ) return;
+		if ( graph.streams.animations.count(name) == 0 ) return;
+
 		auto& animation = storage.animations.map[name];
+		auto& animStream = graph.streams.animations[name];
 
-		//UF_ASSERT( animation.path != "" );
-		if ( animation.path == "" ) {
-			return;
+		for ( size_t i = 0; i < animation.samplers.size(); ++i ) {
+			auto& sampler = animation.samplers[i];
+			auto& stream = animStream.samplers[i];
+
+			if ( !sampler.inputs.empty() ) continue;
+
+			uf::stl::vector<uint8_t> ioBuf;
+
+			if ( stream.inputs.length > 0 ) {
+				if ( uf::io::readAsBuffer(ioBuf, stream.inputs.filename, stream.inputs.offset, stream.inputs.length) ) {
+					sampler.inputs.resize( stream.inputs.length / sizeof(float) );
+					memcpy( sampler.inputs.data(), ioBuf.data(), stream.inputs.length );
+				}
+			}
+
+			if ( stream.outputs.length > 0 ) {
+				if ( uf::io::readAsBuffer(ioBuf, stream.outputs.filename, stream.outputs.offset, stream.outputs.length) ) {
+					sampler.outputs.resize( stream.outputs.length / sizeof(pod::Vector4f) );
+					memcpy( sampler.outputs.data(), ioBuf.data(), stream.outputs.length );
+				}
+			}
 		}
-
-		uf::Serializer json;
-		json.readFromFile( animation.path );
-
-		animation.name = json["name"].as(animation.name);
-		animation.start = json["start"].as(animation.start);
-		animation.end = json["end"].as(animation.end);
-
-		if ( animation.samplers.empty() ) ext::json::forEach( json["samplers"], [&]( ext::json::Value& value ){
-			auto& sampler = animation.samplers.emplace_back();
-			sampler.interpolator = value["interpolator"].as(sampler.interpolator);
-
-			sampler.inputs.reserve( value["inputs"].size() );
-			ext::json::forEach( value["inputs"], [&]( ext::json::Value& input ){
-				sampler.inputs.emplace_back( input.as<float>() );
-			});
-			
-			sampler.outputs.reserve( value["outputs"].size() );
-			ext::json::forEach( value["outputs"], [&]( ext::json::Value& output ){
-				sampler.outputs.emplace_back( uf::vector::decode( output, pod::Vector4f{} ) );
-			});
-		});
-
-		if ( animation.channels.empty() ) ext::json::forEach( json["channels"], [&]( ext::json::Value& value ){
-			auto& channel = animation.channels.emplace_back();
-			channel.path = value["path"].as(channel.path);
-			channel.node = value["node"].as(channel.node);
-			channel.sampler = value["sampler"].as(channel.sampler);
-		});
 	}
 
 	void unloadAnimation( pod::Graph& graph, const uf::stl::string& name ) {
 		auto& storage = uf::graph::getStorage( graph );
-		
+
+		if ( storage.animations.map.count(name) == 0 ) return;
 		auto& animation = storage.animations.map[name];
 
-		animation.samplers.clear();
-		animation.channels.clear();
-	#if UF_ENV_DREAMCAST
-		animation.samplers.shrink_to_fit();
-		animation.channels.shrink_to_fit();
-	#endif
+		for ( auto& sampler : animation.samplers ) {
+			sampler.inputs.clear();
+			sampler.outputs.clear();
+		#if UF_ENV_DREAMCAST
+			sampler.inputs.shrink_to_fit();
+			sampler.outputs.shrink_to_fit();
+		#endif
+		}
 	}
 
 	pod::Matrix4f localMatrix( const pod::Graph& graph, int32_t index ) {
@@ -121,6 +121,9 @@ void uf::graph::override( pod::Graph& graph ) {
 
 		// load animation data
 		// if ( animation.channels.empty() || animation.samplers.empty() ) ::loadAnimation( graph, name );
+		if ( !animation.samplers.empty() && animation.samplers[0].inputs.empty() ) {
+			::loadAnimation( graph, name );
+		}
 
 		for ( auto& channel : animation.channels ) {
 			auto& override = graph.settings.animations.override.map[channel.node];
@@ -148,9 +151,16 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 	if ( key != "" ) key += ":";
 	uf::stl::string name = key + _name;
 
-	if ( storage.animations.map.count( name ) == 0 ) ::loadAnimation( graph, name );
-	//UF_MSG_DEBUG("name={}, count={}", name, storage.animations.map.count( name ) );
+	if ( storage.animations.map.count( name ) == 0 ) {
+        ::loadAnimation( graph, name );
+	}
 	if ( storage.animations.map.count( name ) > 0 ) {
+		auto& animation = storage.animations.map[name];
+
+        if ( !animation.samplers.empty() && animation.samplers[0].inputs.empty() ) {
+            ::loadAnimation( graph, name );
+        }
+
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
 		if ( immediate ) {
@@ -170,6 +180,7 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 
 void uf::graph::updateAnimation( pod::Graph& graph, float delta ) {
 	// update our instances
+	auto& storage = uf::graph::getStorage( graph );
 
 	// no skins
 	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) {
@@ -248,9 +259,10 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 			invArmatureMatrix = uf::matrix::inverse( uf::transform::model( armTf ) );
 		}
 
-		auto& name = graph.skins[node.skin];
-		auto& skin = storage.skins[name];
-		auto& joints = storage.joints[name];
+		auto& skinName = graph.skins[node.skin];
+		auto& skin = storage.skins[skinName];
+		auto objectKeyName = ::keyedID(node.object);
+        auto& joints = storage.joints[objectKeyName];
 		joints.resize( skin.joints.size() );
 		for ( size_t i = 0; i < skin.joints.size(); ++i ) {
 			auto nodeID = skin.joints[i];
