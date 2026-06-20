@@ -12,6 +12,7 @@ namespace impl {
 	constexpr uint32_t IMAGE_FORMAT_DXT5 = 15;
 
 	constexpr uint32_t TEXTUREFLAGS_ENVMAP = 0x00002000;
+	constexpr uint32_t TEXTUREFLAGS_NORMAL = 0x00000080;
 
 #pragma pack(push, 1)
 	struct VTFHeader {
@@ -281,6 +282,29 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 					outPixels[dstIdx + 3] = temp[srcIdx + 3];
 				}
 			}
+		}
+	}
+
+	if ( (header->flags & impl::TEXTUREFLAGS_NORMAL) != 0 && header->highResImageFormat == impl::IMAGE_FORMAT_DXT5 ) {
+		size_t pixelCount = image.pixels.size() / 4;
+		for ( size_t i = 0; i < pixelCount; ++i ) {
+			uint8_t& r = image.pixels[i * 4 + 0];
+			uint8_t& g = image.pixels[i * 4 + 1];
+			uint8_t& b = image.pixels[i * 4 + 2];
+			uint8_t& a = image.pixels[i * 4 + 3];
+
+			float x = (a / 255.0f) * 2.0f - 1.0f;
+			float y = (g / 255.0f) * 2.0f - 1.0f;
+
+			y = -y;
+
+			float z = std::sqrt(std::max(1.0f - (x * x + y * y), 0.0f));
+
+			r = (uint8_t)((x * 0.5f + 0.5f) * 255.0f);
+			g = (uint8_t)((y * 0.5f + 0.5f) * 255.0f);
+			b = (uint8_t)((z * 0.5f + 0.5f) * 255.0f);
+
+			a = 255;
 		}
 	}
 

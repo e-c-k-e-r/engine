@@ -198,7 +198,7 @@ void populateSurface() {
 	surface.material.roughness = 0;
 	surface.material.occlusion = 0;
 
-	float depth = 0.0;
+	float depth = IMAGE_LOAD(samplerDepth).r;
 	{
 
 	#if USE_CAMERA_VIEWPORT
@@ -218,10 +218,8 @@ void populateSurface() {
 		surface.ray.direction = normalize( far3 - near3 );
 		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz; // near3.xyz; // eyePos.xyz
 
-		depth = IMAGE_LOAD(samplerDepth).r;
-
 		vec4 eye = iProjection * vec4(surface.fragCoord, depth, 1.0);
-		eye /= eye.w;
+		if ( eye.w > 0.0001 ) eye /= eye.w;
 
 		surface.position.eye = eye.xyz;
 		surface.position.world = vec3( iView * eye );
@@ -234,7 +232,7 @@ void populateSurface() {
 	const uvec2 ID = msaa.IDs[msaa.currentID];
 #endif
 
-	if ( ID.x == 0 || ID.y == 0 || depth <= 0.0 ) {
+	if ( ID.x == 0 || ID.y == 0 /*|| depth <= 0.0*/ ) {
 		USE_SKYBOX_ON_DIVERGENCE = true;
 	}
 /*

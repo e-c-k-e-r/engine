@@ -710,12 +710,20 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	graphic.initialize();
 	graphic.initializeMesh( mesh );
 
+
 	graphic.device = &uf::renderer::device;
 	graphic.material.device = &uf::renderer::device;
 	graphic.descriptor.frontFace = graphMetadataJson["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
 	graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
+	
+	auto& entityName = entity.getName();
+	auto& metadataJson = entity.getComponent<uf::Serializer>();
+	auto& metadataValve = metadataJson["valve"];
+	if ( entityName == "skybox" || metadataValve["skyboxed"].as<bool>(false) ) {
+		graphic.descriptor.aux = 1; // to-do: some global enums for this shit
+	}
 
-	auto tag = ext::json::find( entity.getName(), graphMetadataJson["tags"] );
+	auto tag = ext::json::find( entityName, graphMetadataJson["tags"] );
 	if ( !ext::json::isObject( tag ) ) {
 		tag["renderer"] = graphMetadataJson["renderer"];
 	}
@@ -731,7 +739,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 	
 	// query materials if culling needs to be disabled
-	if ( entity.getName() != "worldspawn" ) {
+	if ( entityName != "worldspawn" ) {
 		for ( auto& primitive : primitives ) {
 			auto materialID = primitive.instance.materialID;
 			if ( 0 <= materialID && materialID <= graph.materials.size() ) {
@@ -1019,6 +1027,9 @@ void uf::graph::process( pod::Graph& graph ) {
 			// nodraw
 			if ( name.starts_with("tools/") ) {
 				material.colorBase.w = 0.0f;
+				material.modeAlpha = pod::Material::AlphaMode::MASK;
+				material.factorAlphaCutoff = 1.0f;
+				material.indexAlbedo = -1;
 			}
 		}
 

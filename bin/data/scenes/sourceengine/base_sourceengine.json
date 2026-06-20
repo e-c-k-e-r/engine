@@ -13,7 +13,7 @@
 					"physics": { "type": "mesh", "static": true, "mass": 0 },
 					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
 					"unwrap mesh": true
-				},
+				}
 				/*"light_environment": { "ignore": false, "light": {
 				//	"color": [0.1, 0.1, 0.1],
 					"power": 1000,
@@ -36,8 +36,7 @@
 			//	"/^prop_dynamic/": { "action": "load", "payload": { "import": "ent://prop.json" } },
 			//	"/^func_physbox/": { "action": "load", "payload": { "import": "ent://prop.json" } },
 			//	"/^prop_physics/": { "action": "load", "payload": { "import": "ent://prop.json" } },
-
-				"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
+			//	"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
 			}
 		}	
 	}

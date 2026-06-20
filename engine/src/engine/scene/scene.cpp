@@ -67,12 +67,6 @@ const uf::Entity& uf::Scene::getController() const {
 }
 
 uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
-	// ???
-/*
-	if ( auto currentRenderMode = uf::renderer::getCurrentRenderMode(); currentRenderMode && !currentRenderMode->getName().empty() ) {
-		return controller.getComponent<uf::Camera>();
-	}
-*/
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
@@ -83,15 +77,39 @@ uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
 
 	if ( lastFrame != uf::time::frame ) {
 		auto& sourceCamera = controller.getComponent<uf::Camera>();
-		if ( controller.getName() == "Player" ) sourceCamera.update();
+		auto& controllerName = controller.getName();
+		if ( controllerName == "Player" ) sourceCamera.update();
 		// copy all matrices
 		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
 			cachedCamera.setView(sourceCamera.getView(i), i);
 			cachedCamera.setProjection(sourceCamera.getProjection(i), i);
 		}
 		// flatten the transform in the event the parent transform updates later
-		cachedCamera.setTransform(uf::transform::flatten(sourceCamera.getTransform()));
+		auto transform = uf::transform::flatten(sourceCamera.getTransform());
+		cachedCamera.setTransform(transform);
 		lastFrame = uf::time::frame;
+
+		// handle sky_camera
+		if ( auto entity = this->findByName("sky_camera"); entity && controllerName == "Player" ) {
+			auto& metadatavalve = entity->getComponent<uf::Serializer>()["valve"];
+			float scale = metadatavalve["scale"].as<float>(16.0f);
+
+			auto cameraTransform = entity->getComponent<pod::Transform<>>();
+			cameraTransform.position += (transform.position / scale);
+			cameraTransform.orientation = transform.orientation;
+
+			uf::Camera skyCamera = sourceCamera;
+			skyCamera.setTransform(cameraTransform);
+			skyCamera.update();
+
+			int auxOffset = 2;
+			for ( auto i = 0; i < 2; ++i ) {
+				if ( (i + auxOffset) < uf::camera::maxViews ) {
+					cachedCamera.setView(skyCamera.getView(i), i + auxOffset);
+					cachedCamera.setProjection(sourceCamera.getProjection(i), i + auxOffset);
+				}
+			}
+		}
 	}
 	return cachedCamera;
 }

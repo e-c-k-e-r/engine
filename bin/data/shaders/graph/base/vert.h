@@ -10,7 +10,7 @@ layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inSt;
 layout (location = 4) in vec3 inNormal;
-layout (location = 5) in vec4 inTangent;
+layout (location = 5) in vec3 inTangent;
 #if SKINNED
 	layout (location = 6) in uvec4 inJoints;
 	layout (location = 7) in vec4 inWeights;
@@ -19,6 +19,7 @@ layout (location = 5) in vec4 inTangent;
 layout( push_constant ) uniform PushBlock {
   uint pass;
   uint draw;
+  uint aux;
 } PushConstant;
 
 layout (binding = 0) uniform Camera {
@@ -69,12 +70,15 @@ void main() {
 	const Object object = objects[instance.objectID];
 	const uint jointID = instance.jointID;
 
+	uint viewportIndex = gl_ViewIndex;
+	if ( PushConstant.aux == 1 ) viewportIndex += 2;
+
 #if BAKING
 	const mat4 view = mat4(1);
 	const mat4 projection = mat4(1);
 #else
-	const mat4 view = camera.viewport[/*PushConstant.pass*/gl_ViewIndex].view;
-	const mat4 projection = camera.viewport[/*PushConstant.pass*/gl_ViewIndex].projection;
+	const mat4 view = camera.viewport[viewportIndex].view;
+	const mat4 projection = camera.viewport[viewportIndex].projection;
 #endif
 #if SKINNED 
 	const mat4 skinned = joints.length() <= 0 || jointID < 0 ? mat4(1.0) : inWeights.x * joints[jointID + int(inJoints.x)] + inWeights.y * joints[jointID + int(inJoints.y)] + inWeights.z * joints[jointID + int(inJoints.z)] + inWeights.w * joints[jointID + int(inJoints.w)];

@@ -29,8 +29,6 @@
 #endif
 
 namespace {
-	const uf::stl::string DEFERRED_MODE = "compute";
-
 	namespace postprocesses {
 		struct {
 			ext::vulkan::Buffer atomicCounter;
@@ -243,25 +241,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.layer = */0,
 		/*.autoBuildPipeline =*/ true
 	);
-	if ( DEFERRED_MODE == "fragment" ) {
-		renderTarget.addPass(
-			/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-			/*.colors =*/ { attachments.color, attachments.scratch, attachments.motion },
-		#if BARYCENTRIC
-			#if !BARYCENTRIC_CALCULATE
-				/*.inputs =*/ { attachments.id, attachments.depth, attachments.bary },
-			#else
-				/*.inputs =*/ { attachments.id, attachments.depth },
-			#endif
-		#else
-			/*.inputs =*/ { attachments.id, attachments.depth, attachments.uv, attachments.normal },
-		#endif
-			/*.resolve =*/{},
-			/*.depth = */attachments.depth,
-			/*.layer = */0,
-			/*.autoBuildPipeline =*/ false
-		);
-	}
 
 	// metadata.outputs.emplace_back(metadata.attachments["output"]);
 	renderTarget.initialize( device );
@@ -339,34 +318,19 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 
 		if ( settings::pipelines::deferred ) {
-			if ( DEFERRED_MODE == "compute" ) {
-				uf::stl::string computeShaderFilename = "comp.spv"; {
-					std::pair<bool, uf::stl::string> settings[] = {
-						{ uf::renderer::settings::pipelines::rt, "rt.comp" },
-						{ uf::renderer::settings::pipelines::vxgi, "vxgi.comp" },
-						{ msaa > 1, "msaa.comp" },
-					};
-					FOR_ARRAY( settings ) if ( settings[i].first ) computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", settings[i].second );
-				}
-				computeShaderFilename = uf::io::root+"/shaders/display/deferred/comp/" + computeShaderFilename;
-				blitter.material.attachShader(uf::io::resolveURI(computeShaderFilename), uf::renderer::enums::Shader::COMPUTE, "deferred");
-				UF_MSG_DEBUG("Using deferred shader: {}", computeShaderFilename);
-			} else if ( DEFERRED_MODE == "fragment" )  {
-				uf::stl::string vertexShaderFilename = "vert.spv";
-				uf::stl::string fragmentShaderFilename = "frag.spv"; {
-					std::pair<bool, uf::stl::string> settings[] = {
-						{ uf::renderer::settings::pipelines::rt, "rt.frag" },
-						{ uf::renderer::settings::pipelines::vxgi, "vxgi.frag" },
-						{ msaa > 1, "msaa.frag" },
-					};
-					FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
-				}
-				fragmentShaderFilename = uf::io::root+"/shaders/display/deferred/frag/" + fragmentShaderFilename;
-				blitter.material.attachShader(uf::io::resolveURI(fragmentShaderFilename), uf::renderer::enums::Shader::FRAGMENT, "deferred");
-				UF_MSG_DEBUG("Using deferred shader: {}", fragmentShaderFilename);
+			uf::stl::string computeShaderFilename = "comp.spv"; {
+				std::pair<bool, uf::stl::string> settings[] = {
+					{ uf::renderer::settings::pipelines::rt, "rt.comp" },
+					{ uf::renderer::settings::pipelines::vxgi, "vxgi.comp" },
+					{ msaa > 1, "msaa.comp" },
+				};
+				FOR_ARRAY( settings ) if ( settings[i].first ) computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", settings[i].second );
 			}
+			computeShaderFilename = uf::io::root+"/shaders/display/deferred/comp/" + computeShaderFilename;
+			blitter.material.attachShader(uf::io::resolveURI(computeShaderFilename), uf::renderer::enums::Shader::COMPUTE, "deferred");
+			UF_MSG_DEBUG("Using deferred shader: {}", computeShaderFilename);
 
-			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
+			auto& shader = blitter.material.getShader("compute", "deferred");
 
 			size_t maxLights = uf::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
 			size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -561,8 +525,8 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 	}
 
 	// (re)bind aliases
-	if ( blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
-		auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
+	if ( blitter.material.hasShader("compute", "deferred") ) {
+		auto& shader = blitter.material.getShader("compute", "deferred");
 
 		shader.metadata.aliases.buffers.clear();
 		shader.aliasBuffer( storage.buffers.camera );
@@ -587,15 +551,10 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 		descriptor.bind.height = height;
 		descriptor.bind.depth = 1;
 
-		if ( settings::pipelines::deferred && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
+		if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred") ) {
 			descriptor.pipeline = "deferred";
-			if ( DEFERRED_MODE == "fragment" ) {
-				descriptor.subpass = 1;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-			} else if ( DEFERRED_MODE == "compute" ) {
-				descriptor.subpass = 0;
-				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-			}
+			descriptor.subpass = 0;
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 			blitter.update( descriptor );
 		}
 
@@ -894,48 +853,57 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
 				// render to geometry buffers
 				{		
 					size_t currentPass = 0;
 					size_t currentDraw = 0;
+					// render skybox geometry
+					for ( auto graphic : graphics ) {
+						if ( graphic->descriptor.renderMode != this->getName() ) continue;
+						if ( graphic->descriptor.renderTarget != 0 /*this->getName()*/ ) continue;
+						if ( graphic->descriptor.aux != 1 ) continue;
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[skybox][{}]", currentDraw) );
+						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
+					}
+					// clear depth buffer
+					if ( currentDraw > 0 ) {
+						VkClearAttachment clearDepth = {};
+						clearDepth.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+						clearDepth.clearValue.depthStencil = { depthClear, 0 };
+
+						VkClearRect clearRect = {};
+						clearRect.rect.offset = { 0, 0 };
+						clearRect.rect.extent = { width, height };
+						clearRect.baseArrayLayer = 0;
+						clearRect.layerCount = metadata.eyes > 0 ? metadata.eyes : 1;
+
+						vkCmdClearAttachments(commandBuffer, 1, &clearDepth, 1, &clearRect);
+					}
+					// render normal geometry
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						if ( graphic->descriptor.renderTarget != 0 /*this->getName()*/ ) continue;
+						if ( graphic->descriptor.aux != 0 ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
 						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
-					}
-				}
-				// skip deferred pass if RT is enabled, we still process geometry for a depth buffer
-				if ( DEFERRED_MODE == "fragment" ) {		
-					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "nextSubpass" );
-					vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
-
-					size_t currentPass = 0;
-					size_t currentDraw = 0;
-					{
-						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
-						descriptor.renderMode = "";
-						descriptor.pipeline = "deferred";
-						descriptor.subpass = currentSubpass;
-						descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "deferred" );
-						blitter.record(commandBuffer, descriptor, 0, currentDraw++, frame);
 					}
 				}
 			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "renderPass[end]" );
 			vkCmdEndRenderPass(commandBuffer);
 
 		#if 1
-			if ( settings::pipelines::deferred && DEFERRED_MODE == "compute" && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
+			if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred") ) {
 				VkMemoryBarrier computeBarrier = {};
 				computeBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 				computeBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 				computeBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &computeBarrier, 0, nullptr, 0, nullptr );
 
-				auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
+				auto& shader = blitter.material.getShader("compute", "deferred");
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 				descriptor.renderMode = "";
 				descriptor.pipeline = "deferred";

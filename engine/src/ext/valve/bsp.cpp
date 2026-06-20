@@ -6,6 +6,7 @@
 #include <uf/ext/zlib/zlib.h>
 
 #include <uf/utils/mesh/grid.h>
+#include <uf/utils/memory/unordered_set.h>
 
 namespace impl {
 	struct RGBE {
@@ -121,6 +122,31 @@ namespace impl {
 
 	#pragma pack(push, 1)
 
+	struct BspPlane {
+		pod::Vector3f normal;
+		float dist;
+		int32_t type;
+	};
+
+	struct BspNode {
+		int32_t planenum;
+		int32_t children[2];
+		int16_t mins[3], maxs[3];
+		uint16_t firstface, numfaces;
+		int16_t area;
+		int16_t padding;
+	};
+
+	struct BspLeaf {
+		int32_t contents;
+		int16_t cluster;
+		int16_t area_flags;
+		int16_t mins[3], maxs[3];
+		uint16_t firstleafface, numleaffaces;
+		uint16_t firstleafbrush, numleafbrushes;
+		int16_t leafWaterDataID;
+	};
+
 	struct BspDispSubNeighbor {
 		uint16_t neighbor;
 		uint8_t neighborOrientation;
@@ -205,14 +231,17 @@ namespace impl {
 		uf::stl::vector<int32_t> surfedges;
 		uf::stl::vector<impl::BspFace> faces;
 		// brush, brushside
-		// node, leaf
-		// leafface, leaffbrush
+		uf::stl::vector<impl::BspPlane> planes;
+		uf::stl::vector<impl::BspNode> nodes;
+		uf::stl::vector<impl::BspLeaf> leafs;
+		uf::stl::vector<uint16_t> leaffaces;
+		// leaffbrush
 		uf::stl::vector<impl::BspTexInfo> texinfos;
 		uf::stl::vector<impl::BspTexData> texdatas;
 		uf::stl::vector<int32_t> stringTable;
 		uf::stl::string stringData;
 		uf::stl::vector<impl::BspModel> models;
-		// visibility
+		uf::stl::vector<uint8_t> visibility;
 		uf::stl::vector<int8_t> entities;
 		uf::stl::vector<impl::BspGameLump> gameLumps;
 		uf::stl::vector<impl::BspDispInfo> dispinfos;
@@ -228,6 +257,8 @@ namespace impl {
 		// worldlight
 		// other
 
+		int32_t skyArea = -1;
+		uf::stl::unordered_set<int32_t> skyboxFaces;
 		uf::stl::vector<int32_t> modelToMesh;
 		uf::stl::vector<int32_t> texdataToMaterial;
 		uf::stl::vector<int32_t> cubemapIDs;
@@ -256,6 +287,49 @@ namespace impl {
 		io.timesToFire = tokens.size() > 4 ? std::stoi(tokens[4]) : -1;
 
 		return io;
+	}
+
+	int32_t findLeaf( const impl::BspContext& context, const pod::Vector3f& pos ) {
+		if ( context.nodes.empty() || context.planes.empty() || context.leafs.empty() ) return 0;
+
+		int32_t node = 0;
+		while ( node >= 0 ) {
+			const auto& n = context.nodes[node];
+			const auto& p = context.planes[n.planenum];
+
+			float d = uf::vector::dot(pos, p.normal) - p.dist;
+
+			node = n.children[d < 0 ? 1 : 0];
+		}
+		return -node - 1;
+	}
+
+	bool isClusterVisible( const impl::BspContext& context, int32_t visCluster, int32_t testCluster ) {
+		if ( context.visibility.size() < 8 || visCluster < 0 || testCluster < 0 ) return true;
+
+		// PVS Header: [num_clusters] [byteofs_pvs[num_clusters]] [byteofs_phs[num_clusters]]
+		int32_t numClusters = *(int32_t*)(context.visibility.data());
+		if ( visCluster >= numClusters || testCluster >= numClusters ) return false;
+
+		// offset to this cluster's PVS data
+		int32_t byteOffset = *(int32_t*)(context.visibility.data() + 4 + visCluster * 8);
+		const uint8_t* pvs = context.visibility.data() + byteOffset;
+
+		// decompress RLE
+		int32_t clusterCounter = 0;
+		while ( clusterCounter <= testCluster ) {
+			if ( *pvs == 0 ) {
+				clusterCounter += 8 * pvs[1];
+				pvs += 2;
+			} else {
+				if ( clusterCounter + 8 > testCluster ) {
+					return (*pvs & (1 << (testCluster - clusterCounter))) != 0;
+				}
+				clusterCounter += 8;
+				pvs++;
+			}
+		}
+		return false;
 	}
 
 	int32_t findClosestCubemap( const impl::BspContext& context, const pod::Vector3f& position ) {
@@ -392,10 +466,13 @@ namespace impl {
 
 				pod::Vector3f tangent = uf::vector::normalize(pR - pL);
 				pod::Vector3f bitangent = uf::vector::normalize(pU - pD);
+
 				pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(bitangent, tangent));
 
+			//	float w = (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent) < 0.0f) ? -1.0f : 1.0f;
+
 				meshlet.vertices[id].normal = normal;
-				meshlet.vertices[id].tangent = tangent;
+				meshlet.vertices[id].tangent = tangent = uf::vector::normalize(tangent - normal * uf::vector::dot(normal, tangent));
 			}
 		}
 
@@ -435,7 +512,7 @@ namespace impl {
 		const auto& face = context.faces[faceID];
 		pod::Vector4f vertex = context.vertices[vertexID];
 		vertex.w = 1; // for dot products
-			
+
 		// add index
 		meshlet.indices.emplace_back((uint32_t)(meshlet.vertices.size()));
 		// add vertex
@@ -443,7 +520,7 @@ namespace impl {
 		v.position = pos;
 		v.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 		v.normal = normal;
-		
+
 		// has texture information
 		if ( face.texinfo >= 0 && face.texinfo < context.texinfos.size() ) {
 			const auto& info = context.texinfos[face.texinfo];
@@ -459,7 +536,11 @@ namespace impl {
 
 			v.st = uf::atlas::mapUv( context.lightmapAtlas, v.st, impl::faceHash( faceID ) );
 
-			v.tangent = uf::vector::normalize( impl::convertPos( info.textureVecs[0], 1) );
+			pod::Vector3f t = uf::vector::normalize( impl::convertPos( info.textureVecs[0], 1.0f ) );
+			pod::Vector3f b = uf::vector::normalize( impl::convertPos( info.textureVecs[1], 1.0f ) );
+
+			v.tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
+		//	float w = (uf::vector::dot( uf::vector::cross(normal, t), b ) < 0.0f) ? -1.0f : 1.0f;
 		}
 	};
 
@@ -476,6 +557,21 @@ namespace impl {
 		uf::stl::vector<T> data;
 		impl::extractLump<T>( buffer, lump, data );
 		return data;
+	}
+
+	template<>
+	void extractLump( const uf::stl::vector<uint8_t>& buffer, const impl::BspLump& lump, uf::stl::vector<impl::BspLeaf>& data ) {
+		if ( lump.length == 0 || lump.offset >= buffer.size() ) return;
+
+		int stride = (lump.version == 0) ? 56 : 32;
+
+		size_t count = lump.length / stride;
+		data.resize(count);
+
+		const uint8_t* src = buffer.data() + lump.offset;
+		for ( size_t i = 0; i < count; ++i ) {
+			std::memcpy(&data[i], src + (i * stride), sizeof(impl::BspLeaf));
+		}
 	}
 
 	template<>
@@ -516,6 +612,9 @@ namespace impl {
 		for ( auto nodeID : graph.root.children ) {
 			auto& node = graph.nodes[nodeID];
 			auto& metadata = node.metadata["valve"];
+
+			if ( !ext::json::isObject( metadata ) ) continue;
+
 			auto classname = metadata["classname"].as<uf::stl::string>("");
 			//UF_MSG_INFO("Entity found: {}", classname);
 			node.name = classname;
@@ -691,11 +790,16 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	impl::extractLump<impl::BspEdge>(buffer, header->lumps[impl::BspLump::LUMP_EDGES], context.edges);
 	impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_SURFEDGES], context.surfedges);
 	impl::extractLump<impl::BspFace>(buffer, header->lumps[impl::BspLump::LUMP_FACES], context.faces);
+	impl::extractLump<impl::BspPlane>(buffer, header->lumps[impl::BspLump::LUMP_PLANES], context.planes);
+	impl::extractLump<impl::BspNode>(buffer, header->lumps[impl::BspLump::LUMP_NODES], context.nodes);
+	impl::extractLump<impl::BspLeaf>(buffer, header->lumps[impl::BspLump::LUMP_LEAFS], context.leafs);
+	impl::extractLump<uint16_t>(buffer, header->lumps[impl::BspLump::LUMP_LEAFFACES], context.leaffaces);
 	impl::extractLump<impl::BspTexInfo>(buffer, header->lumps[impl::BspLump::LUMP_TEXINFO], context.texinfos);
 	impl::extractLump<impl::BspTexData>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA], context.texdatas);
 	impl::extractLump<int32_t>(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_TABLE], context.stringTable);
 	impl::extractLumpString(buffer, header->lumps[impl::BspLump::LUMP_TEXDATA_STRING_DATA], context.stringData);
 	impl::extractLump<impl::BspModel>(buffer, header->lumps[impl::BspLump::LUMP_MODELS], context.models);
+	impl::extractLump<uint8_t>(buffer, header->lumps[impl::BspLump::LUMP_VISIBILITY], context.visibility);
 	impl::extractLump<int8_t>(buffer, header->lumps[impl::BspLump::LUMP_ENTITIES], context.entities);
 	impl::extractLump<impl::BspGameLump>(buffer, header->lumps[impl::BspLump::LUMP_GAME_LUMP], context.gameLumps);
 	impl::extractLump<impl::BspDispInfo>(buffer, header->lumps[impl::BspLump::LUMP_DISPINFO], context.dispinfos);
@@ -730,7 +834,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		auto& image = storage.images[matName].data;
 		auto& texture = storage.images[matName].handle;
 		if ( ext::valve::loadVtf( image, vtfPath ) ) {
-			UF_MSG_DEBUG("Loaded cubemap={}", vtfPath);
 			context.cubemapIDs.emplace_back( storage.materials[matName].indexCubemap = textureID );
 		}
 	}
@@ -787,106 +890,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		storage.textures[textureKey].index = atlasImageID;
 	}
 
-	// read models
-	for ( auto m = 0; m < context.models.size(); ++m ) {
-		const auto& model = context.models[m];
-		uf::stl::unordered_map<int32_t, impl::Meshlet> meshlets; // group by material IDs
-
-		for ( auto i = 0; i < model.numfaces; ++i ) {
-			const auto faceID = model.firstface + i;
-			const auto& face = context.faces[faceID];
-
-			if ( face.numedges < 3 ) continue;
-			if ( face.texinfo < 0 || face.texinfo >= context.texinfos.size() ) continue;
-
-			int32_t texDataID = context.texinfos[face.texinfo].texData;
-			if ( texDataID < 0 || texDataID >= context.texdatas.size() ) continue;
-
-			size_t materialID = context.texdataToMaterial[texDataID];
-			auto& matName = graph.materials[materialID];
-
-			// read brush
-			auto& meshlet = meshlets[materialID];
-			meshlet.primitive.instance.materialID = materialID;
-			
-			if ( 0 <= face.lightofs ) {
-				meshlet.primitive.instance.lightmapID = atlasTextureID;
-			}
-
-			if ( !context.cubemapIDs.empty() ) {
-				int32_t pivotSurfEdge = context.surfedges[face.firstedge];
-				uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
-				pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
-
-				meshlet.primitive.instance.cubemapID = impl::findClosestCubemap( context, p0 );
-			}
-			
-			if ( face.dispinfo != -1 ) {
-				impl::buildDisplacement( context, meshlet, faceID );
-				continue;
-			}
-
-			const auto edgeID = face.firstedge;
-			int32_t pivotSurfEdge = context.surfedges[edgeID];
-			uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
-			pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
-
-			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
-				int32_t se1 = context.surfedges[edgeID + i];
-				int32_t se2 = context.surfedges[edgeID + i + 1];
-
-				uint16_t v1 = se1 >= 0 ? context.edges[se1].x : context.edges[-se1].y;
-				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context.edges[-se2].y;
-
-				pod::Vector3f p1 = impl::convertPos( context.vertices[v1] );
-				pod::Vector3f p2 = impl::convertPos( context.vertices[v2] );
-				pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(p1 - p0, p2 - p0));
-
-				impl::addVertex( context, meshlet, pivotVertID, p0, normal, faceID );
-				impl::addVertex( context, meshlet, v1, p1, normal, faceID );
-				impl::addVertex( context, meshlet, v2, p2, normal, faceID );
-			}
-		}
-
-		if ( meshlets.empty() ) continue;
-
-
-		auto meshName = ::fmt::format("model_{}", m);
-		context.modelToMesh[m] = graph.meshes.size();
-
-		graph.meshes.emplace_back(meshName);
-		graph.primitives.emplace_back(meshName);
-
-		auto& mesh = storage.meshes[meshName];
-		auto& primitives = storage.primitives[meshName];
-
-		// slice worldspawn
-		if ( false && m == 0 ) {
-		/*
-			if ( ext::json::isObject( meshgrid.metadata ) ) {
-				if ( meshgrid.metadata["size"].is<size_t>() ) {
-					size_t d = meshgrid.metadata["size"].as<size_t>();
-					meshgrid.grid.divisions = {d, d, d};
-				} else {
-					meshgrid.grid.divisions = uf::vector::decode( meshgrid.metadata["size"], meshgrid.grid.divisions );
-				}
-
-				meshgrid.eps = meshgrid.metadata["epsilon"].as(meshgrid.eps);
-				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
-				meshgrid.clip = meshgrid.metadata["clip"].as(meshgrid.clip);
-				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
-			}
-		*/
-			uf::meshgrid::Grid grid;
-			grid.divisions = {8, 8, 8};
-			auto mlets = uf::stl::values( meshlets );
-			auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
-			mesh.compile( partitioned, primitives );
-		} else {
-			mesh.compile( meshlets, primitives );
-		}
-	}
-
 	// read entities
 	{
 		bool parsing = false;
@@ -941,6 +944,186 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 	}
 
+	// prepare for segregating skybox from worldspawn
+	{
+		pod::Vector3f skyCameraOrigin = {NAN, NAN, NAN};
+		for ( auto& node : graph.nodes ) {
+			auto& metadataValve = node.metadata["valve"];
+			if ( metadataValve["classname"].as<uf::stl::string>("") != "sky_camera" ) continue;
+			auto originStr = metadataValve["origin"].as<uf::stl::string>("");
+			if ( originStr == "" ) continue;
+			skyCameraOrigin = impl::str2vec<pod::Vector3f>( originStr );
+			break;
+		}
+
+		if ( uf::vector::isValid( skyCameraOrigin ) ) {
+			int32_t skyLeafIdx = impl::findLeaf(context, skyCameraOrigin);
+
+			context.skyArea = context.leafs[skyLeafIdx].area_flags & 0x01FF;
+
+			for ( const auto& leaf : context.leafs ) {
+				int16_t leafArea = leaf.area_flags & 0x01FF;
+
+				if ( leafArea == context.skyArea ) {
+					for ( int i = 0; i < leaf.numleaffaces; ++i ) {
+						context.skyboxFaces.insert(context.leaffaces[leaf.firstleafface + i]);
+					}
+				}
+			}
+		}
+	}
+
+	// read models
+	for ( auto m = 0; m < context.models.size(); ++m ) {
+		const auto& model = context.models[m];
+		uf::stl::unordered_map<int32_t, impl::Meshlet> meshlets; // group by material IDs
+		uf::stl::unordered_map<int32_t, impl::Meshlet> skyboxMeshlets; // segregate skybox geometry
+
+		for ( auto i = 0; i < model.numfaces; ++i ) {
+			const auto faceID = model.firstface + i;
+			const auto& face = context.faces[faceID];
+
+			if ( face.numedges < 3 ) continue;
+			if ( face.texinfo < 0 || face.texinfo >= context.texinfos.size() ) continue;
+
+			int32_t texDataID = context.texinfos[face.texinfo].texData;
+			if ( texDataID < 0 || texDataID >= context.texdatas.size() ) continue;
+
+			size_t materialID = context.texdataToMaterial[texDataID];
+			auto& matName = graph.materials[materialID];
+
+			// deduce which group to use
+			bool isSkybox = (m == 0 && context.skyboxFaces.count(faceID) > 0);
+			if ( !isSkybox && m == 0 && context.skyArea != -1 ) {
+				int32_t se0 = context.surfedges[face.firstedge];
+				int32_t se1 = context.surfedges[face.firstedge + 1];
+				int32_t se2 = context.surfedges[face.firstedge + 2];
+
+				uint16_t v0 = se0 >= 0 ? context.edges[se0].x : context.edges[-se0].y;
+				uint16_t v1 = se1 >= 0 ? context.edges[se1].x : context.edges[-se1].y;
+				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context.edges[-se2].y;
+
+				pod::Vector3f p0 = context.vertices[v0];
+				pod::Vector3f p1 = context.vertices[v1];
+				pod::Vector3f p2 = context.vertices[v2];
+
+				pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(p1 - p0, p2 - p0));
+
+				pod::Vector3f testPos = p0 + normal * 2.0f;
+
+				int32_t testLeafIdx = impl::findLeaf(context, testPos);
+				if ( testLeafIdx >= 0 && testLeafIdx < context.leafs.size() ) {
+					int16_t testArea = context.leafs[testLeafIdx].area_flags & 0x01FF;
+					if ( testArea == context.skyArea ) {
+						isSkybox = true;
+					}
+				}
+			}
+
+			// read brush
+			auto& meshlet = (isSkybox ? skyboxMeshlets : meshlets)[materialID];
+			meshlet.primitive.instance.materialID = materialID;
+			
+			if ( 0 <= face.lightofs ) {
+				meshlet.primitive.instance.lightmapID = atlasTextureID;
+			}
+
+			if ( !context.cubemapIDs.empty() ) {
+				int32_t pivotSurfEdge = context.surfedges[face.firstedge];
+				uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
+				pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
+
+				meshlet.primitive.instance.cubemapID = impl::findClosestCubemap( context, p0 );
+			}
+			
+			if ( face.dispinfo != -1 ) {
+				impl::buildDisplacement( context, meshlet, faceID );
+				continue;
+			}
+
+			
+			const auto edgeID = face.firstedge;
+			int32_t pivotSurfEdge = context.surfedges[edgeID];
+			uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
+			pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
+
+			const auto& plane = context.planes[face.planenum];
+
+			pod::Vector3f faceNormal = {0.0f, 0.0f, 0.0f};
+
+			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
+				int32_t se1 = context.surfedges[edgeID + i];
+				int32_t se2 = context.surfedges[edgeID + i + 1];
+
+				uint16_t v1 = se1 >= 0 ? context.edges[se1].x : context.edges[-se1].y;
+				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context .edges[-se2].y;
+
+				pod::Vector3f p1 = impl::convertPos( context.vertices[v1] );
+				pod::Vector3f p2 = impl::convertPos( context.vertices[v2] );
+
+				faceNormal += uf::vector::cross(p1 - p0, p2 - p0);
+			}
+
+			faceNormal = uf::vector::normalize(faceNormal);
+
+			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
+				int32_t se1 = context.surfedges[edgeID + i];
+				int32_t se2 = context.surfedges[edgeID + i + 1];
+
+				uint16_t v1 = se1 >= 0 ? context.edges[se1].x : context.edges[-se1].y;
+				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context.edges[-se2].y;
+
+				pod::Vector3f p1 = impl::convertPos( context.vertices[v1] );
+				pod::Vector3f p2 = impl::convertPos( context.vertices[v2] );
+
+				impl::addVertex( context, meshlet, pivotVertID, p0, faceNormal, faceID );
+				impl::addVertex( context, meshlet, v1, p1, faceNormal, faceID );
+				impl::addVertex( context, meshlet, v2, p2, faceNormal, faceID );
+			}
+		}
+
+		if ( !meshlets.empty() ) {
+			auto meshName = ::fmt::format("model_{}", m);
+			context.modelToMesh[m] = graph.meshes.size();
+
+			graph.meshes.emplace_back(meshName);
+			graph.primitives.emplace_back(meshName);
+
+			auto& mesh = storage.meshes[meshName];
+			auto& primitives = storage.primitives[meshName];
+
+		//	for ( auto& pair : meshlets ) uf::mesh::tangents( pair.second.vertices, pair.second.indices );
+
+			// slice worldspawn
+			if ( false && m == 0 ) {
+				uf::meshgrid::Grid grid;
+				grid.divisions = {8, 8, 8};
+				auto mlets = uf::stl::values( meshlets );
+				auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
+				mesh.compile( partitioned, primitives );
+			} else {
+				mesh.compile( meshlets, primitives );
+			}
+		}
+
+		if ( !skyboxMeshlets.empty() ) {
+			auto meshName = ::fmt::format("model_{}_skybox", m);
+			graph.meshes.emplace_back(meshName);
+			graph.primitives.emplace_back(meshName);
+
+			auto& mesh = storage.meshes[meshName];
+			auto& primitives = storage.primitives[meshName];
+			mesh.compile( skyboxMeshlets, primitives );
+
+			// create a skybox node for this
+			auto nodeID = graph.nodes.size();
+			auto& node = graph.nodes.emplace_back();
+			node.name = "skybox";
+			node.mesh = (int32_t)(graph.meshes.size() - 1);
+			graph.root.children.emplace_back(nodeID);
+		}
+	}
+
 	// read static props
 	for ( const auto& item : context.gameLumps ) {
 		if ( item.id == 1936749168 ) { // 'sprp' (Static Props)
@@ -991,6 +1174,16 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 					metadata["model"] = dict[type];
 					metadata["origin"] = ::fmt::format("{} {} {}", origin.x, origin.y, origin.z);
 					metadata["angles"] = ::fmt::format("{} {} {}", angles.x, angles.y, angles.z);
+					
+					if ( context.skyArea != -1 ) {
+						int32_t propLeafIdx = impl::findLeaf(context, origin);
+						if ( propLeafIdx >= 0 && propLeafIdx < context.leafs.size() ) {
+							int16_t propArea = context.leafs[propLeafIdx].area_flags & 0x01FF;
+							if ( propArea == context.skyArea ) {
+								metadata["skyboxed"] = true;
+							}
+						}
+					}
 
 					graph.root.children.emplace_back( nodeID );
 				}
@@ -1004,6 +1197,9 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	// load materials
 	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
 	for ( auto matName : graph.materials ) {
+		if ( matName == "" ) {
+			continue;
+		}
 		uf::Serializer vmt;
 		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
 		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
@@ -1054,13 +1250,15 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				texture.viewType = uf::renderer::enums::Image::VIEW_TYPE_CUBE;
 				
 				if ( ext::valve::loadVtf( image, vtfPath ) ) {
-					UF_MSG_DEBUG("Loaded cubemap={}", matName);
 					material.indexCubemap = textureID;
 				}
 			}
 		}
+		// bumpmap
+		if ( vmt["$ssbump"].as<int>(0) == 1 ) {
+			material.indexNormal = -1;
 		// normal map
-		if ( vmt["$bumpmap"].is<uf::stl::string>() ) {
+		} else if ( vmt["$bumpmap"].is<uf::stl::string>() ) {
 			auto matName = uf::string::lowercase(vmt["$bumpmap"].as<uf::stl::string>());
 			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
 

@@ -98,19 +98,17 @@ uf::stl::vector<T> uf::stl::KeyMap<T,Key>::flattenByIndex() const {
 
 template<typename T, typename Key>
 void uf::stl::KeyMap<T,Key>::merge( KeyMap<T, Key>&& other ) {
-    this->reserve( this->keys.size() + other.keys.size() );
+	this->reserve( this->keys.size() + other.keys.size() );
 
-    for ( auto& key : other.keys ) {
-        // Bypass custom operator[] and force a direct map assignment
-        if ( this->map.count(key) == 0 ) {
-            this->indices[key] = this->keys.size();
-            this->keys.emplace_back(key);
-        }
-        // Explicitly copy to prevent any weird std::move state corruption
-        this->map[key] = other.map.at(key);
-    }
+	for ( auto& key : other.keys ) {
+		if ( this->map.count(key) == 0 ) {
+			this->indices[key] = this->keys.size();
+			this->keys.emplace_back(key);
+		}
+		this->map[key] = other.map.at(key);
+	}
 
-    other.clear();
+	other.clear();
 }
 
 template<typename T, typename Key>

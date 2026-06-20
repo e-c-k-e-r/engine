@@ -3,7 +3,7 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": true,
-				"lightmaps": false,
+				"lightmaps": true,
 				"max": 32,
 				"shadows": {
 					"enabled": true,
@@ -426,7 +426,7 @@
 			},
 			"loader": {
 				"assert": true,
-				"async": true
+				"async": false
 			},
 			"hooks": {
 				"defer lazy calls": true

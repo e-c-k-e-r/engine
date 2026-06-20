@@ -282,8 +282,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
-//	auto& assetLoader = this->getComponent<uf::asset>();
 	uf::asset::processQueue();
+//	auto& assetLoader = this->getComponent<uf::asset>();
 	
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -625,8 +625,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		constexpr uint32_t MODE_CUBEMAP = 1;
 		constexpr uint32_t MODE_SEPARATE_2DS = 2;
 
-		for ( uint32_t i = 0; i < entities.size(); ++i ) {
-			auto& info = entities[i];
+		//for ( uint32_t i = 0; i < entities.size(); ++i ) {
+		for ( auto idx : indices ) {
+			auto& info = entities[idx];
 			uf::Entity* entity = info.entity;
 
 			int32_t boundIndexMap = -1;

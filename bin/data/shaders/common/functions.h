@@ -322,21 +322,21 @@ void populateSurfaceMaterial() {
 	if ( 0 <= cubemapIndex && surface.material.roughness < 1.0 ) {
 		const Texture texture = textures[cubemapIndex];
 
-	    vec3 V = normalize(surface.position.eye);
-	    vec3 N = surface.normal.eye;
-	    vec3 R = reflect(V, N);
+		vec3 V = normalize(surface.position.eye);
+		vec3 N = surface.normal.eye;
+		vec3 R = reflect(V, N);
 
-	    mat3 invView = mat3(ubo.eyes[surface.pass].iView);
-	    vec3 worldR = invView * R;
+		mat3 invView = mat3(ubo.eyes[surface.pass].iView);
+		vec3 worldR = invView * R;
 
-	    float mipLevel = surface.material.roughness * mipLevels(textureSize(samplerCubemaps[nonuniformEXT(texture.index)], 0).xy);
-	    vec3 reflection = textureLod(samplerCubemaps[nonuniformEXT(texture.index)], worldR, mipLevel).rgb;
+		float mipLevel = surface.material.roughness * mipLevels(textureSize(samplerCubemaps[nonuniformEXT(texture.index)], 0).xy);
+		vec3 reflection = textureLod(samplerCubemaps[nonuniformEXT(texture.index)], worldR, mipLevel).rgb;
 
 		vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
-	    float cosTheta = max(dot(N, -V), 0.0);
-	    vec3 F = F0 + (max(vec3(1.0 - surface.material.roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+		float cosTheta = max(dot(N, -V), 0.0);
+		vec3 F = F0 + (max(vec3(1.0 - surface.material.roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 
-	    surface.light.rgb += reflection * F * surface.material.occlusion;
+		surface.light.rgb += reflection * F * surface.material.occlusion;
 	}
 	// (Occlusion/)Metallic/Roughness map
 	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
@@ -402,6 +402,8 @@ uvec4 uvec2_16x4( uvec2 i ) {
 void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
+
+	float uvHandedness = 1.0;
 	if ( isValidAddress(addresses.position) ) {
 		VPos buf = VPos(nonuniformEXT(addresses.position));
 		#pragma unroll 3
@@ -432,8 +434,11 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 		vec2 deltaUV1 = points[1].uv - points[0].uv;
 		vec2 deltaUV2 = points[2].uv - points[0].uv;
 
-		float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+		float det = (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+		float r = 1.0f / det;
 		vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
+
+		uvHandedness = (det < 0.0) ? -1.0 : 1.0;
 
 		#pragma unroll 3
 		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = tangent_tri;
@@ -489,7 +494,7 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
 		surface.tangent.world = normalize(surface.tangent.world - dot(surface.tangent.world, surface.normal.world) * surface.normal.world);
 
-		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ) * uvHandedness, 0.0) ));
 		surface.tbn = mat3(surface.tangent.world, bitangent, surface.normal.world);
 	}
 	// bind UVs

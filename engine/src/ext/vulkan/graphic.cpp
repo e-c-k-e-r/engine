@@ -447,7 +447,8 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 			struct PushConstant {
 				uint32_t pass;
 				uint32_t draw;
-			} pushConstant = { pass, draw };
+				uint32_t aux;
+			} pushConstant = { pass, draw, descriptor.aux };
 			vkCmdPushConstants( commandBuffer, pipelineLayout, shader->descriptor.stage, 0, sizeof(pushConstant), &pushConstant );
 		} else if ( !shader->pushConstants.empty() ) {
 			auto& pushConstant = shader->pushConstants.front();
