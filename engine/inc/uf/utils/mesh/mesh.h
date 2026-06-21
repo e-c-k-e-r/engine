@@ -795,41 +795,21 @@ void uf::mesh::tangents( uf::stl::vector<T>& vertices ) {
 		auto uv20 = uv2 - uv0;
 
 		auto det = (uv10.x * uv20.y - uv10.y * uv20.x);
-		float r = 1.0f / det;
+
+		float r = (det != 0.0f) ? (1.0f / det) : 0.0f;
+
 		auto t = (p10 * uv20.y - p20 * uv10.y) * r;
 		auto b = (p20 * uv10.x - p10 * uv20.x) * r;
 
 		for ( auto j = 0; j < 3; ++j ) {
 			auto& n = vertices[idx[j]].normal;
 			auto& tangent = vertices[idx[j]].tangent;
-			tangent = uf::vector::normalize(t - n * uf::vector::dot(n, t));
-			if ( uf::vector::dot( uf::vector::cross(n, tangent), b) < 0.0f ) tangent = -tangent;
+
+			auto t_ortho = uf::vector::normalize(t - n * uf::vector::dot(n, t));
+			float w = (uf::vector::dot( uf::vector::cross(n, t_ortho), b) < 0.0f) ? -1.0f : 1.0f;
+
+			tangent = { t_ortho.x, t_ortho.y, t_ortho.z, w };
 		}
-	/*
-		pod::Vector3f position[3] = {
-			vertices[idx[0]].position, vertices[idx[1]].position, vertices[idx[2]].position
-		};
-		pod::Vector2f uv[3] = {
-			vertices[idx[0]].uv, vertices[idx[1]].uv, vertices[idx[2]].uv
-		};
-
-		pod::Vector3f dPosition[2] = { position[1] - position[0], position[2] - position[0] };
-		pod::Vector2f dUV[2] = { uv[1] - uv[0], uv[2] - uv[0] };
-
-		float det = (dUV[0].x * dUV[1].y - dUV[0].y * dUV[1].x);
-		if ( det == 0.0f ) continue;
-		float r = 1.0f / det;
-
-		auto t = (dPosition[0] * dUV[1].y - dPosition[1] * dUV[0].y) * r;
-		auto b = (dPosition[1] * dUV[0].x - dPosition[0] * dUV[1].x) * r;
-
-		for ( auto j = 0; j < 3; ++j ) {
-			auto& normal = vertices[idx[j]].normal;
-			auto& tangent = vertices[idx[j]].tangent;
-			tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
-			if ( uf::vector::dot(uf::vector::cross(normal, tangent), b) < 0.0f ) tangent = -tangent;
-		}
-	*/
 	}
 }
 
@@ -856,36 +836,21 @@ void uf::mesh::tangents( uf::stl::vector<T>& vertices, const uf::stl::vector<U>&
 		auto uv20 = uv2 - uv0;
 
 		auto det = (uv10.x * uv20.y - uv10.y * uv20.x);
-		float r = 1.0f / det;
+
+		float r = (det != 0.0f) ? (1.0f / det) : 0.0f;
+
 		auto t = (p10 * uv20.y - p20 * uv10.y) * r;
 		auto b = (p20 * uv10.x - p10 * uv20.x) * r;
 
 		for ( auto j = 0; j < 3; ++j ) {
 			auto& n = vertices[idx[j]].normal;
 			auto& tangent = vertices[idx[j]].tangent;
-			tangent = uf::vector::normalize(t - n * uf::vector::dot(n, t));
-			if ( uf::vector::dot( uf::vector::cross(n, tangent), b) < 0.0f ) tangent = -tangent;
+
+			auto t_ortho = uf::vector::normalize(t - n * uf::vector::dot(n, t));
+			float w = (uf::vector::dot( uf::vector::cross(n, t_ortho), b) < 0.0f) ? -1.0f : 1.0f;
+
+			tangent = { t_ortho.x, t_ortho.y, t_ortho.z, w };
 		}
-	/*
-		pod::Vector3f position[3] = { vertices[idx[0]].position, vertices[idx[1]].position, vertices[idx[2]].position };
-		pod::Vector2f uv[3] = { vertices[idx[0]].uv, vertices[idx[1]].uv, vertices[idx[2]].uv };
-		pod::Vector3f dPosition[2] = { position[1] - position[0], position[2] - position[0] };
-		pod::Vector2f dUV[2] = { uv[1] - uv[0], uv[2] - uv[0] };
-
-		float det = (dUV[0].x * dUV[1].y - dUV[0].y * dUV[1].x);
-		if ( det == 0.0f ) continue;
-		float r = 1.0f / det;
-
-		auto t = (dPosition[0] * dUV[1].y - dPosition[1] * dUV[0].y) * r;
-		auto b = (dPosition[1] * dUV[0].x - dPosition[0] * dUV[1].x) * r;
-
-		for ( auto j = 0; j < 3; ++j ) {
-			auto& normal = vertices[idx[j]].normal;
-			auto& tangent = vertices[idx[j]].tangent;
-			tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
-			if ( uf::vector::dot(uf::vector::cross(normal, tangent), b) < 0.0f ) tangent = -tangent;
-		}
-	*/
 	}
 }
 

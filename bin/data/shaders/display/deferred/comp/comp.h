@@ -179,6 +179,21 @@ void postProcess() {
 		}
 	}
 
+/*
+	{
+		const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
+		
+		int cubemapIndex = -1;
+		if ( 0 <= surface.instance.cubemapID ) cubemapIndex = surface.instance.cubemapID;
+		else if ( 0 <= material.indexCubemap ) cubemapIndex = material.indexCubemap;
+
+		if ( 0 <= cubemapIndex ) {
+			const Texture texture = textures[cubemapIndex];
+			outFragColor.rgb = textureLod(samplerCubemaps[nonuniformEXT(texture.index)], surface.ray.direction, 0).rgb;
+		}
+	}
+*/
+
 	IMAGE_STORE( imageColor, outFragColor );
 	//IMAGE_STORE( imageBright, outFragBright );
 	IMAGE_STORE( imageMotion, vec4(outFragMotion, 0, 0) );

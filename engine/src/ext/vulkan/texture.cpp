@@ -405,68 +405,47 @@ void ext::vulkan::Texture::loadFromImage(
 	VkImageLayout layout,
 	VkImageCreateFlags flags
 ) {
-/*
-	switch ( format ) {
-		case enums::Format::R8_SRGB:
-		case enums::Format::R8G8_SRGB:
-		case enums::Format::R8G8B8_SRGB:
-		case enums::Format::R8G8B8A8_SRGB:
-			srgb = true;
-		break;
-	}
-*/
 	switch ( image.getChannels() ) {
 		// R
 		case 1:
 			switch ( image.getBpp() ) {
-				case 8:
-					format = srgb ? VK_FORMAT_R8_SRGB : VK_FORMAT_R8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() );
-				break;
+				case 8:  format = srgb ? VK_FORMAT_R8_SRGB : VK_FORMAT_R8_UNORM; break;
+				case 16: format = VK_FORMAT_R16_SFLOAT; break; // Half-float
+				case 32: format = VK_FORMAT_R32_SFLOAT; break; // Full-float
+				default: UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() ); break;
 			}
 		break;
 		// RG
 		case 2:
 			switch ( image.getBpp() ) {
-				case 16:
-					format = srgb ? VK_FORMAT_R8G8_SRGB : VK_FORMAT_R8G8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() );
-				break;
+				case 16: format = srgb ? VK_FORMAT_R8G8_SRGB : VK_FORMAT_R8G8_UNORM; break;
+				case 32: format = VK_FORMAT_R16G16_SFLOAT; break;
+				case 64: format = VK_FORMAT_R32G32_SFLOAT; break;
+				default: UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() ); break;
 			}
 		break;
 		// RGB
 		case 3:
 			switch ( image.getBpp() ) {
-				case 24:
-					format = srgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() );
-				break;
+				case 24: format = srgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8_UNORM; break;
+				case 48: format = VK_FORMAT_R16G16B16_SFLOAT; break;
+				case 96: format = VK_FORMAT_R32G32B32_SFLOAT; break;
+				default: UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() ); break;
 			}
 		break;
 		// RGBA
 		case 4:
 			switch ( image.getBpp() ) {
-				case 32:
-					format = srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() );
-				break;
+				case 32:  format = srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM; break;
+				case 64:  format = VK_FORMAT_R16G16B16A16_SFLOAT; break; // 16-bit HDR
+				case 128: format = VK_FORMAT_R32G32B32A32_SFLOAT; break; // 32-bit HDR
+				default:  UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() ); break;
 			}
 		break;
 		default:
 			UF_EXCEPTION("Vulkan error: unsupported channels of {}", image.getChannels() );
 		break;
 	}
-
-	// convert to power of two
-	//image.padToPowerOfTwo();
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),

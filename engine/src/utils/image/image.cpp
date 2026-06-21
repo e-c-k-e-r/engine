@@ -20,6 +20,32 @@ namespace {
 		auto* bytes = static_cast<uint8_t*>(data);
 		buffer->insert(buffer->end(), bytes, bytes + size);
 	}
+
+	inline uint8_t halfTo8Bit(uint16_t h) {
+		uint32_t exp = (h >> 10) & 0x1F;
+		uint32_t mant = h & 0x3FF;
+		if (exp == 0) return 0;
+		if (exp == 31) return 255;
+
+		exp = exp + (127 - 15);
+		uint32_t f = (exp << 23) | (mant << 13);
+		float val;
+		std::memcpy(&val, &f, sizeof(float));
+
+		return (uint8_t)(std::min(std::max(val, 0.0f), 1.0f) * 255.0f);
+	}
+
+	inline float halfToFloat(uint16_t h) {
+		uint32_t exp = (h >> 10) & 0x1F;
+		uint32_t mant = h & 0x3FF;
+		if (exp == 0 && mant == 0) return 0.0f;
+
+		exp = exp + (127 - 15);
+		uint32_t f = (exp << 23) | (mant << 13);
+		float val;
+		std::memcpy(&val, &f, sizeof(float));
+		return val;
+	}
 }
 
 namespace impl {
@@ -142,10 +168,10 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 
 		// palette data:  buffer.data() + sizeof(header) + header.size
 
-		bool twiddled = (header.type & (1 << 26)) < 1;
-		bool compressed = (header.type & (1 << 30)) > 0;
-		bool mipmapped = (header.type & (1 << 31)) > 0;
-		bool strided = (header.type & (1 << 25)) > 0;
+		bool twiddled 		= (header.type & (1 << 26)) < 1;
+		bool compressed 	= (header.type & (1 << 30)) > 0;
+		bool mipmapped 		= (header.type & (1 << 31)) > 0;
+		bool strided 		= (header.type & (1 << 25)) > 0;
 		uint32_t format = (header.type >> 27) & 0b111;
 		width = header.width;
 		height = header.height;
@@ -173,22 +199,40 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 #endif
 	{
 		stbi_set_flip_vertically_on_load( flip );
-		uint8_t* stbi_pixels = stbi_load_from_memory( buffer.data(), buffer.size(), &width, &height, &channelsDud, STBI_rgb_alpha );
+		
+		if ( stbi_is_hdr_from_memory( buffer.data(), buffer.size() ) ) {
+			float* stbi_pixels = stbi_loadf_from_memory( buffer.data(), buffer.size(), &width, &height, &channelsDud, STBI_rgb_alpha );
+			if ( !stbi_pixels ) {
+				UF_EXCEPTION("Image error: stb_image failed to decode HDR buffer");
+				return false;
+			}
 
-		if ( !stbi_pixels ) {
-			UF_EXCEPTION("Image error: stb_image failed to decode buffer");
-			return false;
+			size_t len = width * height * 4 * sizeof(float);
+			image.pixels.resize( len );
+			std::memcpy( image.pixels.data(), stbi_pixels, len );
+			stbi_image_free(stbi_pixels);
+
+			bpp = 32;
+			channels = 4;
+		} else {
+			uint8_t* stbi_pixels = stbi_load_from_memory( buffer.data(), buffer.size(), &width, &height, &channelsDud, STBI_rgb_alpha );
+			if ( !stbi_pixels ) {
+				UF_EXCEPTION("Image error: stb_image failed to decode buffer");
+				return false;
+			}
+
+			size_t len = width * height * 4;
+			image.pixels.resize( len );
+			std::memcpy( image.pixels.data(), stbi_pixels, len );
+			stbi_image_free(stbi_pixels);
+
+			bpp = 8;
+			channels = 4;
 		}
-
-		size_t len = width * height * channels;
-		image.pixels.resize( len );
-		memcpy( image.pixels.data(), stbi_pixels, len );
-
-		stbi_image_free(stbi_pixels);
 	}
 
 	image.size.x = width;
-	image.size.y = height;
+	image.size.y = height / MAX(1, image.layers);
 	image.bpp = bpp * channels;
 	image.channels = channels;
 	return true;
@@ -235,12 +279,25 @@ void uf::image::save( const pod::Image& image, uf::stl::vector<uint8_t>& buffer,
 	if ( image.pixels.empty() ) return;
 	
 	uint w = image.size.x;
-	uint h = image.size.y;
+	uint h = image.pixels.size() / (w * (image.bpp / 8));
 	auto* pixels = &image.pixels[0];
 	uf::stl::string extension = image.filename.empty() ? "png" : uf::io::extension( image.filename );
 	stbi_flip_vertically_on_write(flip);
 	
-	if ( extension == "png" ) {
+	if ( extension == "hdr" ) {
+		if ( image.bpp == 128 ) {
+			stbi_write_hdr_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, (const float*)pixels);
+		} else if ( image.bpp == 64 ) {
+			size_t pixelCount = w * h * image.channels;
+			
+			uf::stl::vector<float> temp32(pixelCount);
+			const uint16_t* halfPixels = (const uint16_t*)pixels;
+			for ( size_t i = 0; i < pixelCount; ++i ) temp32[i] = ::halfToFloat(halfPixels[i]);
+			stbi_write_hdr_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, temp32.data());
+		} else {
+			UF_MSG_ERROR("Cannot save 8-bit image natively as HDR.");
+		}
+	} else if ( extension == "png" ) {
 		stbi_write_png_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, w * image.channels);
 	} else if ( extension == "jpg" || extension == "jpeg" ) {
 		stbi_write_jpg_to_func(stbi_buffer_write_func, &buffer, w, h, image.channels, pixels, 90); // quality
@@ -250,6 +307,11 @@ void uf::image::save( const pod::Image& image, uf::stl::vector<uint8_t>& buffer,
 }
 void uf::image::save( const pod::Image& image, std::ostream& stream ) {
 
+}
+
+void uf::image::layers( pod::Image& image, size_t layers ) {
+	if ( image.layers != layers ) image.size.y /= MAX(1, layers);
+	image.layers = layers;
 }
 
 pod::Image::pixel_t uf::image::at( pod::Image& image, const pod::Vector2ui& at ) {
@@ -414,66 +476,7 @@ pod::Image uf::image::scale( const pod::Image& image, const pod::Vector2ui& size
 	if ( filter == "linear" || filter == "bilinear" ) return impl::scaleBilinear( image, size );\
 	UF_EXCEPTION("unrecognized scale filter: {}", filter );
 }
-/*
-uf::Image::Image() {
-	size = {0,0};
-	bpp = 8;
-	channels = 4;
-	format = 0;
-}
 
-uf::Image::Image(const pod::Vector2ui& s) {
-	size = s;
-	bpp = 8;
-	channels = 4;
-	format = 0;
-	pixels.resize(size.x * size.y * channels);
-}
-
-uf::Image::Image( pod::Image::container_t&& move, const pod::Vector2ui& s ) {
-	pixels = std::move( move );
-	size = s;
-	bpp = 8;
-	channels = 4;
-	format = 0;
-}
-
-uf::Image::Image( const pod::Image::container_t& copy, const pod::Vector2ui& s ) {
-	pixels = copy;
-	size = s;
-	bpp = 8;
-	channels = 4;
-	format = 0;
-}
-
-uf::Image::Image( const uf::Image& copy ) {
-	this->copy( copy );
-}
-
-uf::Image::Image( uf::Image&& move ) noexcept {
-	//this->move( move );
-	pixels = std::move( move.pixels );
-	size = move.size;
-	bpp = move.bpp;
-	channels = move.channels;
-	format = move.format;
-}
-
-uf::Image& uf::Image::operator=( const uf::Image& copy ) {
-	this->copy( copy );
-	return *this;
-}
-
-uf::Image& uf::Image::operator=( uf::Image&& move ) noexcept {
-	//this->move( move );
-	pixels = std::move( move.pixels );
-	size = move.size;
-	bpp = move.bpp;
-	channels = move.channels;
-	format = move.format;
-	return *this;
-}
-*/
 uf::stl::string uf::Image::getFilename() const {
 	return this->filename;
 }
@@ -572,6 +575,9 @@ size_t uf::Image::getFormat() const {
 }
 uf::stl::string uf::Image::getHash() const {
 	return uf::image::hash( *this );
+}
+void uf::Image::setLayers( size_t layers ) {
+	return uf::image::layers( *this, layers );
 }
 pod::Image::pixel_t uf::Image::at( const pod::Vector2ui& at ) {
 	return uf::image::at( *this, at );

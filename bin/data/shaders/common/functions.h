@@ -402,8 +402,6 @@ uvec4 uvec2_16x4( uvec2 i ) {
 void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
-
-	float uvHandedness = 1.0;
 	if ( isValidAddress(addresses.position) ) {
 		VPos buf = VPos(nonuniformEXT(addresses.position));
 		#pragma unroll 3
@@ -419,31 +417,38 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 		#pragma unroll 3
 		for ( uint _ = 0; _ < 3; ++_ ) points[_].st = buf.v[indices[_]];
 	}
+	
+	vec3 e0 = points[1].position - points[0].position;
+	vec3 e1 = points[2].position - points[0].position;
+	vec2 dUv1 = points[1].uv - points[0].uv;
+	vec2 dUv2 = points[2].uv - points[0].uv;
+	float det = (dUv1.x * dUv2.y - dUv1.y * dUv2.x);
+	float handedness = (det < 0.0) ? -1.0 : 1.0;
+
 	if ( isValidAddress(addresses.normal) ) {
 		VNormal buf = VNormal(nonuniformEXT(addresses.normal));
 		#pragma unroll 3
 		for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+	} else {
+		vec3 normal = normalize(cross(e0, e1));
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].normal = normal;
 	}
 	if ( isValidAddress(addresses.tangent) ) {
 		VTangent buf = VTangent(nonuniformEXT(addresses.tangent));
 		#pragma unroll 3
-		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec3( buf.v[indices[_]*3+0], buf.v[indices[_]*3+1], buf.v[indices[_]*3+2] );
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec4( buf.v[indices[_]*4+0], buf.v[indices[_]*4+1], buf.v[indices[_]*4+2], buf.v[indices[_]*4+3] );
 	} else {
-		vec3 edge1 = points[1].position - points[0].position;
-		vec3 edge2 = points[2].position - points[0].position;
-		vec2 deltaUV1 = points[1].uv - points[0].uv;
-		vec2 deltaUV2 = points[2].uv - points[0].uv;
-
-		float det = (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
-		float r = 1.0f / det;
-		vec3 tangent_tri = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
-
-		uvHandedness = (det < 0.0) ? -1.0 : 1.0;
+		vec3 tangent = (e0 * dUv2.y - e1 * dUv1.y);
+		if ( abs(det) < 0.000001 ) {
+			tangent = abs(points[0].normal.y) < 0.999 ? vec3(0, 1, 0) : vec3(1, 0, 0);
+		} else {
+			tangent /= det;
+		}
 
 		#pragma unroll 3
-		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = tangent_tri;
+		for ( uint _ = 0; _ < 3; ++_ ) points[_].tangent = vec4(tangent, handedness);
 	}
-
 #if BARYCENTRIC_CALCULATE
 	{
 		const vec3 p = vec3(inverse( surface.object.model ) * vec4(surface.position.world, 1));
@@ -470,12 +475,12 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	}
 #endif
 	
-	// triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
-	triangle.point.position = /*triangle.*/points[0].position * surface.barycentric[0] + /*triangle.*/points[1].position * surface.barycentric[1] + /*triangle.*/points[2].position * surface.barycentric[2];
-	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
-	triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentric[0] + /*triangle.*/points[1].uv * surface.barycentric[1] + /*triangle.*/points[2].uv * surface.barycentric[2];
-	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
-	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
+	triangle.point.position = points[0].position * surface.barycentric[0] + points[1].position * surface.barycentric[1] + points[2].position * surface.barycentric[2];
+	triangle.point.normal = points[0].normal * surface.barycentric[0] + points[1].normal * surface.barycentric[1] + points[2].normal * surface.barycentric[2];
+	triangle.point.uv = points[0].uv * surface.barycentric[0] + points[1].uv * surface.barycentric[1] + points[2].uv * surface.barycentric[2];
+	triangle.point.st = points[0].st * surface.barycentric[0] + points[1].st * surface.barycentric[1] + points[2].st * surface.barycentric[2];
+	triangle.point.tangent = points[0].tangent * surface.barycentric[0] + points[1].tangent * surface.barycentric[1] + points[2].tangent * surface.barycentric[2];
+
 
 	// bind position (seems to muck with the skybox + fog)
 #if 0 && BARYCENTRIC_CALCULATE
@@ -490,11 +495,11 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	//	surface.normal.eye = vec3( VIEW_MATRIX * vec4(surface.normal.world, 0.0) );
 	}
 	// bind tangent
-	if ( triangle.point.tangent != vec3(0) ) {
-		surface.tangent.world = normalize(vec3( surface.object.model * vec4(triangle.point.tangent, 0.0) ));
+	{
+		surface.tangent.world = vec3( surface.object.model * vec4(triangle.point.tangent.xyz, 0.0) );
 		surface.tangent.world = normalize(surface.tangent.world - dot(surface.tangent.world, surface.normal.world) * surface.normal.world);
+		vec3 bitangent = normalize(cross(surface.normal.world, surface.tangent.world)) * sign(triangle.point.tangent.w);
 
-		vec3 bitangent = normalize(vec3( surface.object.model * vec4(cross( triangle.point.normal, triangle.point.tangent ) * uvHandedness, 0.0) ));
 		surface.tbn = mat3(surface.tangent.world, bitangent, surface.normal.world);
 	}
 	// bind UVs
@@ -598,13 +603,7 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 		#endif
 
 			float pixelSize = abs(surface.position.eye.z) * 2.0 / (proj[1][1] * float(size.y));
-
-			vec3 e0 = points[1].position - points[0].position;
-			vec3 e1 = points[2].position - points[0].position;
 			float geomArea = length(cross(e0, e1));
-
-			vec2 dUv1 = points[1].uv - points[0].uv;
-			vec2 dUv2 = points[2].uv - points[0].uv;
 			float uvArea = abs(dUv1.x * dUv2.y - dUv2.x * dUv1.y);
 			float uvPerMeter = sqrt(uvArea / max(geomArea, 0.00001));
 			float fallback = pixelSize * uvPerMeter;
@@ -636,7 +635,7 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	
 
 	#pragma unroll 3
-	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
+	for ( uint _ = 0; _ < 3; ++_ ) indices[_] += drawCommand.vertexID;
 
 	populateSurface( addresses, indices );
 }

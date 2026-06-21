@@ -436,12 +436,6 @@ namespace impl {
 				pod::Vector2f finalSt;
 				finalSt.x = tx;
 				finalSt.y = ty;
-			/*
-				finalSt.x = (uf::vector::dot( vBase, texInfo.lightmapVecs[0] ) + 0.5f - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
-				finalSt.y = (uf::vector::dot( vBase, texInfo.lightmapVecs[1] ) + 0.5f - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
-				//finalSt.x = 1.0f - finalSt.x; // ?
-				finalSt.y = 1.0f - finalSt.y; // ?
-			*/
 
 				int dispIdx = info.dispVertStart + y * side + x;
 				const auto& dVert = context.dispverts[dispIdx];
@@ -469,10 +463,14 @@ namespace impl {
 
 				pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(bitangent, tangent));
 
-			//	float w = (uf::vector::dot(uf::vector::cross(normal, tangent), bitangent) < 0.0f) ? -1.0f : 1.0f;
+				pod::Vector3f t = uf::vector::normalize( impl::convertPos( texInfo.textureVecs[0], 1.0f ) );
+				pod::Vector3f b = uf::vector::normalize( impl::convertPos( texInfo.textureVecs[1], 1.0f ) );
+
+				t = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
+				float w = (uf::vector::dot( uf::vector::cross(normal, t), b ) < 0.0f) ? -1.0f : 1.0f;
 
 				meshlet.vertices[id].normal = normal;
-				meshlet.vertices[id].tangent = tangent = uf::vector::normalize(tangent - normal * uf::vector::dot(normal, tangent));
+				meshlet.vertices[id].tangent = { t.x, t.y, t.z, w };
 			}
 		}
 
@@ -520,6 +518,7 @@ namespace impl {
 		v.position = pos;
 		v.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 		v.normal = normal;
+		v.tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
 
 		// has texture information
 		if ( face.texinfo >= 0 && face.texinfo < context.texinfos.size() ) {
@@ -539,8 +538,10 @@ namespace impl {
 			pod::Vector3f t = uf::vector::normalize( impl::convertPos( info.textureVecs[0], 1.0f ) );
 			pod::Vector3f b = uf::vector::normalize( impl::convertPos( info.textureVecs[1], 1.0f ) );
 
-			v.tangent = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
-		//	float w = (uf::vector::dot( uf::vector::cross(normal, t), b ) < 0.0f) ? -1.0f : 1.0f;
+			t = uf::vector::normalize(t - normal * uf::vector::dot(normal, t));
+			float w = (uf::vector::dot( uf::vector::cross(normal, t), b ) < 0.0f) ? -1.0f : 1.0f;
+
+			v.tangent = { t.x, t.y, t.z, w };
 		}
 	};
 
@@ -1047,10 +1048,14 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
 			pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
 
+		/*
+			// some faces are wrong when doing it this way
 			const auto& plane = context.planes[face.planenum];
+			pod::Vector3f faceNormal = uf::vector::normalize( impl::convertPos( plane.normal, 1.0f ) );
+			if ( face.side != 0 ) faceNormal = -faceNormal;
+		*/
 
 			pod::Vector3f faceNormal = {0.0f, 0.0f, 0.0f};
-
 			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
 				int32_t se1 = context.surfedges[edgeID + i];
 				int32_t se2 = context.surfedges[edgeID + i + 1];
@@ -1063,7 +1068,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 				faceNormal += uf::vector::cross(p1 - p0, p2 - p0);
 			}
-
 			faceNormal = uf::vector::normalize(faceNormal);
 
 			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
@@ -1197,9 +1201,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	// load materials
 	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
 	for ( auto matName : graph.materials ) {
-		if ( matName == "" ) {
-			continue;
-		}
 		uf::Serializer vmt;
 		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
 		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
@@ -1256,7 +1257,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 		// bumpmap
 		if ( vmt["$ssbump"].as<int>(0) == 1 ) {
-			material.indexNormal = -1;
+			// to-do: handle bumpmaps
 		// normal map
 		} else if ( vmt["$bumpmap"].is<uf::stl::string>() ) {
 			auto matName = uf::string::lowercase(vmt["$bumpmap"].as<uf::stl::string>());
@@ -1270,7 +1271,9 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				impl::addMaterial( graph, matName, textureID );
 				
 				auto& image = storage.images[matName].data;
-				if ( ext::valve::loadVtf( image, vtfPath ) ) material.indexNormal = textureID;
+				if ( ext::valve::loadVtf( image, vtfPath ) ) {
+					material.indexNormal = textureID;
+				}
 			}
 		}
 		// metallic/roughness/occlusion map

@@ -10,7 +10,7 @@ layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inSt;
 layout (location = 4) in vec3 inNormal;
-layout (location = 5) in vec3 inTangent;
+layout (location = 5) in vec4 inTangent;
 #if SKINNED
 	layout (location = 6) in uvec4 inJoints;
 	layout (location = 7) in vec4 inWeights;
@@ -104,6 +104,6 @@ void main() {
 	outSt = inSt;
 	outColor = inColor * object.color;
 	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
-	outTangent = normalize(vec3(model * vec4(inTangent.xyz, 0.0)));
+	outTangent = normalize(vec3(model * vec4(inTangent)));
 	outBitangent = normalize(vec3(model * vec4(cross( inNormal.xyz, inTangent.xyz ), 0.0)));
 }

@@ -531,7 +531,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32A32_SFLOAT, tangent)
 );
 // it'd be super sugoi if I could somehow macro this annoyance
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base, {
@@ -551,7 +551,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
 );
@@ -575,7 +575,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_16f, R16G16B16A16_SFLOAT, tangent)
 );
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_16f, {
 	return t < 0.5 ? p1 : p2;
@@ -587,7 +587,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_16f,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16_SFLOAT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_16f, R16G16B16A16_SFLOAT, weights)
 );
@@ -602,7 +602,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16_UINT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16_UINT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16_UINT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base_u16q, R16G16B16A16_UINT, tangent)
 );
 UF_VERTEX_INTERPOLATE(uf::graph::mesh::Base_u16q, {
 	return t < 0.5 ? p1 : p2;
@@ -614,7 +614,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned_u16q,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16_UINT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16_UINT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16_UINT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned_u16q, R16G16B16A16_UINT, weights)
 );
@@ -945,6 +945,11 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( (0 <= material.indexAlbedo && material.indexAlbedo < graph.textures.size() ) ) {
 			auto texName = graph.textures[material.indexAlbedo];
 			textureDescriptors[texName].srgb = true;
+		}
+
+		if ( (0 <= material.indexNormal && material.indexNormal < graph.textures.size() ) ) {
+			auto texName = graph.textures[material.indexNormal];
+			textureDescriptors[texName].srgb = false;
 		}
 	}
 

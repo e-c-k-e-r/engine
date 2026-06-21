@@ -15,6 +15,7 @@ namespace pod {
 		size_t bpp = 8 * 4;
 		size_t channels = 4;
 		size_t format = 0;
+		size_t layers = 1;
 	};
 }
 
@@ -33,6 +34,8 @@ namespace uf {
 
 		pod::Image::pixel_t UF_API at( pod::Image&, const pod::Vector2ui& at );
 		uf::stl::string UF_API hash( const pod::Image& );
+
+		void UF_API layers( pod::Image&, size_t );
 
 		void UF_API flip( pod::Image& );
 		void UF_API padToPowerOfTwo( pod::Image& );
@@ -91,6 +94,8 @@ namespace uf {
 
 		uf::stl::string getHash() const;
 		size_t getFormat() const;
+
+		void setLayers( size_t );
 
 		Image::pixel_t at( const pod::Vector2ui& at );
 

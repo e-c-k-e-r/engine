@@ -29,7 +29,7 @@ namespace {
 		uf::Image image;
 
 		uf::stl::string filename = "";
-		size_t offset = 0, length = 0;
+		size_t offset = 0, length = 0, layers = json["layers"].as<size_t>(1);
 		uf::stl::string formatHint = "";
 
 	#if UF_ENV_DREAMCAST
@@ -51,6 +51,7 @@ namespace {
 			size_t channels = json["channels"].as<size_t>();
 			auto pixels = uf::base64::decode( json["data"].as<uf::stl::string>() );
 			image.loadFromBuffer( &pixels[0], size, bpp, channels, true );
+			image.setLayers( layers );
 			return image;
 		}
 
@@ -69,6 +70,7 @@ namespace {
 			}
 
 			uf::image::open( image, buffer, formatHint, false );
+			uf::image::layers( image, layers );
 			image.setFilename(fullPath);
 		}
 
@@ -76,10 +78,10 @@ namespace {
 	}
 
 	pod::Animation decodeAnimation( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& animName, const uf::stl::vector<uint8_t>& megaBuffer ) {
-        pod::Animation animation = {};
-        animation.name = json["name"].as(animation.name);
-        animation.start = json["start"].as<float>(0.0f);
-        animation.end = json["end"].as<float>(1.0f);
+		pod::Animation animation = {};
+		animation.name = json["name"].as(animation.name);
+		animation.start = json["start"].as<float>(0.0f);
+		animation.end = json["end"].as<float>(1.0f);
 
 		uf::stl::string binPath = "";
 		if (json["buffer"].is<uf::stl::string>()) {

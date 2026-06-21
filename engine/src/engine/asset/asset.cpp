@@ -71,13 +71,13 @@ void uf::asset::processQueue() {
 	bool async = uf::asset::asyncQueue; // a bit buggy
 	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, !true);
 
-    if ( !finishedJobs.empty() ) {
-        tasks.queue([jobs = std::move(finishedJobs)]() {
-            for ( auto& job : jobs ) {
-                uf::hooks.call( job.callback, job.payload );
-            }
-        });
-    }
+	if ( !finishedJobs.empty() ) {
+		tasks.queue([jobs = std::move(finishedJobs)]() {
+			for ( auto& job : jobs ) {
+				uf::hooks.call( job.callback, job.payload );
+			}
+		});
+	}
 	for ( auto& job : jobs ) tasks.queue([=]{
 		auto callback = job.callback;
 		auto type = job.type;

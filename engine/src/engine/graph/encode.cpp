@@ -406,6 +406,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				json["offset"] = offset;
 				json["length"] = length;
 			}
+			json["layers"] = image.layers;
 
 		#if UF_USE_DC_TEXCONV
 			auto converted = image.scale( {32, 32}, "nearest" );

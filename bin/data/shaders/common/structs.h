@@ -303,7 +303,7 @@ struct Vertex {
 	uint color;
 	vec2 st;
 	vec3 normal;
-	vec3 tangent;
+	vec4 tangent;
 	uvec2 joints;
 	vec4 weights;
 };

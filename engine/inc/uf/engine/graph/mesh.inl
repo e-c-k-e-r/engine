@@ -7,7 +7,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
-				pod::Vector3f tangent{};
+				pod::Vector4f tangent{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base interpolate( const Base& p1, const Base& p2, float t );
@@ -18,7 +18,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
-				pod::Vector3f tangent{};
+				pod::Vector4f tangent{};
 				pod::Vector4us joints{};
 				pod::Vector4f weights{};
 
@@ -32,7 +32,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
-				pod::Vector3f16 tangent{};
+				pod::Vector4f16 tangent{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base_16f interpolate( const Base_16f& p1, const Base_16f& p2, float t );
@@ -43,7 +43,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f16 st{};
 				pod::Vector3f16 normal{};
-				pod::Vector3f16 tangent{};
+				pod::Vector4f16 tangent{};
 				pod::Vector4us joints{};
 				pod::Vector3f16 weights{};
 
@@ -57,7 +57,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
-				pod::Vector3us tangent{};
+				pod::Vector4us tangent{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 				static UF_API Base_u16q interpolate( const Base_u16q& p1, const Base_u16q& p2, float t );
@@ -68,7 +68,7 @@ namespace uf {
 				pod::Vector4ub color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2us st{};
 				pod::Vector3us normal{};
-				pod::Vector3us tangent{};
+				pod::Vector4us tangent{};
 				pod::Vector4us joints{};
 				pod::Vector3us weights{};
 

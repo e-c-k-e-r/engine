@@ -152,14 +152,14 @@ void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float 
 	uf::stl::string name = key + _name;
 
 	if ( storage.animations.map.count( name ) == 0 ) {
-        ::loadAnimation( graph, name );
+		::loadAnimation( graph, name );
 	}
 	if ( storage.animations.map.count( name ) > 0 ) {
 		auto& animation = storage.animations.map[name];
 
-        if ( !animation.samplers.empty() && animation.samplers[0].inputs.empty() ) {
-            ::loadAnimation( graph, name );
-        }
+		if ( !animation.samplers.empty() && animation.samplers[0].inputs.empty() ) {
+			::loadAnimation( graph, name );
+		}
 
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
@@ -262,7 +262,7 @@ void uf::graph::updateAnimation( pod::Graph& graph, pod::Node& node ) {
 		auto& skinName = graph.skins[node.skin];
 		auto& skin = storage.skins[skinName];
 		auto objectKeyName = ::keyedID(node.object);
-        auto& joints = storage.joints[objectKeyName];
+		auto& joints = storage.joints[objectKeyName];
 		joints.resize( skin.joints.size() );
 		for ( size_t i = 0; i < skin.joints.size(); ++i ) {
 			auto nodeID = skin.joints[i];
