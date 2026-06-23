@@ -24,27 +24,13 @@ namespace vr {
 
 namespace ext {
 	namespace openvr {
-		struct Driver {
-			uf::stl::string name;
-			uf::stl::string serial;
-			uf::stl::string manifest;
-			vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
-			uf::stl::string types[vr::k_unMaxTrackedDeviceCount];
-			vr::IVRRenderModels* renderModels;
-		};
-		extern UF_API Driver driver;
-		extern UF_API vr::IVRSystem* context;
-		extern UF_API uint8_t renderPass;
-		extern UF_API float width, height;
 		extern UF_API bool enabled;
-		extern UF_API bool swapEyes;
-		extern UF_API uint8_t dominantEye;
 
-		bool UF_API initialize( int stage = 0 );
+		bool UF_API initialize();
 		void UF_API tick();
 		void UF_API terminate();
 		void UF_API submit();
-		void UF_API synchronize( bool async = true );
+		void UF_API synchronize();
 		float UF_API predictedTimeToDisplay( float additional = 1 );
 		float UF_API updateTracking( float additional = 1 );
 		void UF_API recommendedResolution( uint32_t& width, uint32_t& height );
@@ -71,8 +57,10 @@ namespace ext {
 		bool UF_API controllerActive( vr::Controller_Hand );
 
 		bool UF_API requestRenderModel( const uf::stl::string& );
-		uf::Graphic& UF_API getRenderModel( const uf::stl::string& );
-		uf::Graphic& UF_API controllerRenderModel( vr::Controller_Hand );
+		uf::Mesh& UF_API getRenderModel( const uf::stl::string& );
+		uf::Mesh& UF_API controllerRenderModel( vr::Controller_Hand );
+		uf::Image& UF_API getRenderTexture( const uf::stl::string& );
+		uf::Image& UF_API controllerRenderTexture( vr::Controller_Hand );
 
 		void UF_API resetPosition();
 	/*

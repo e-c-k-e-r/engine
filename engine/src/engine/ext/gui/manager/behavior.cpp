@@ -52,6 +52,7 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 		renderMode.blitter.descriptor.subpass = 0;
 		renderMode.metadata.type = "single";
 		renderMode.metadata.name = name;
+		renderMode.metadata.json["vr"] = true;
 		if ( uf::renderer::settings::experimental::registerRenderMode ) uf::renderer::addRenderMode( &renderMode, name );
 
 		metadata.boundGui = true;

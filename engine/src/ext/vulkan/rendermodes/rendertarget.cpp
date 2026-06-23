@@ -11,6 +11,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/engine/ext.h>
 #include <uf/utils/io/fmt.h>
+#include <uf/ext/openvr/openvr.h>
 
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
@@ -212,6 +213,19 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			}
 		}
+
+		if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
+			uf::stl::string vertexShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.vert.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
+			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.frag.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
+
+			blitter.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "vr");
+			blitter.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vr");
+
+			{
+				auto& shader = blitter.material.getShader("fragment", "vr");
+				shader.aliasAttachment("color", this);
+			}
+		}
 	}
 
 	this->build(true);
@@ -264,6 +278,12 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		descriptor.pipeline = "mipmap";
 		descriptor.subpass = -1;
 		descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+		blitter.update( descriptor );
+	}
+
+	if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
+		auto descriptor = blitter.descriptor;
+		descriptor.pipeline = "vr";
 		blitter.update( descriptor );
 	}
 }

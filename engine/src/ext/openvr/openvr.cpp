@@ -5,726 +5,616 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/io.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/io/inputs.h>
+#include <uf/engine/scene/scene.h>
 
 #include <stdlib.h>
-#define DEBUG_MARKER 0
-
-vr::IVRSystem* ext::openvr::context;
-ext::openvr::Driver ext::openvr::driver;
-uint8_t ext::openvr::renderPass = 0;
-float ext::openvr::width = 0;
-float ext::openvr::height = 0;
-bool ext::openvr::enabled = false;
-bool ext::openvr::swapEyes = false;
-uint8_t ext::openvr::dominantEye = 0;
 
 #define VR_CHECK_INPUT_RESULT(f)\
-	if ( f != vr::VRInputError_None ) {\
-		uf::iostream << __FILE__ << ":" << __FUNCTION__ << ":L" << __LINE__ << ": VR Error: " << vr::VR_GetVRInitErrorAsEnglishDescription(err) << "\n";\
+	if ( (err = (f)) != vr::VRInputError_None ) {\
+		UF_MSG_ERROR("VR Error: {}", err);\
 		return false;\
 	}
 
-// toPort
+#define VR_CHECK_COMPOSITOR_RESULT(f)\
+	if ( (err = (f)) != vr::VRCompositorError_None ) UF_MSG_ERROR("VR Error: {}", err);
+
 namespace {
-	uf::stl::string GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL) {
-		uint32_t requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, NULL, 0, peError);
-		if( requiredBufferLen == 0 ) return "";
+	struct VRContext {
+		vr::IVRSystem* system = nullptr;
+		vr::IVRCompositor* compositor = nullptr;
 
-		char *pchBuffer = new char[requiredBufferLen];
-		requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice,prop,pchBuffer,requiredBufferLen,peError);
-		uf::stl::string sResult = pchBuffer;
-		delete[] pchBuffer;
+		struct Driver {
+			uf::stl::string name;
+			uf::stl::string serial;
+			uf::stl::string manifest = "./data/openvr_manifest.json";
+			vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
+			uf::stl::string types[vr::k_unMaxTrackedDeviceCount];
+			vr::IVRRenderModels* renderModels;
+		} driver;
 
-		return sResult;
-	}
+		uint8_t renderPass = 0;
+		float width = 0;
+		float height = 0;
 
-	uf::stl::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass klass) {
-		uf::stl::string str = "Unknown class";
+		bool enabled = false;
+		bool swapEyes = false;
+		uint8_t dominantEye = 0;
 
-		switch ( klass ) {
-			case vr::TrackedDeviceClass_Invalid:			// = 0, the ID was not valid.
-				str = "invalid";
-			break;
-			case vr::TrackedDeviceClass_HMD:				// = 1, Head-Mounted Displays
-				str = "hmd";
-			break;
-			case vr::TrackedDeviceClass_Controller:			// = 2, Tracked controllers
-				str = "controller";
-			break;
-			case vr::TrackedDeviceClass_GenericTracker:		// = 3, Generic trackers, similar to controllers
-				str = "generic tracker";
-			break;
-			case vr::TrackedDeviceClass_TrackingReference:	// = 4, Camera and base stations that serve as tracking reference points
-				str = "base station";
-			break;
-			case vr::TrackedDeviceClass_DisplayRedirect:	// = 5, Accessories that aren't necessarily tracked themselves, but may redirect video output from other tracked devices
-				str = "display redirect";
-			break;
-		}
-
-		return str;
-	}
-	struct {
 		struct {
-			pod::Matrix4t<> matrix;
-		} hmd;
-		struct {
-			struct {
+			struct { pod::Matrix4t<> matrix; } hmd;
+			struct ControllerState {
 				uint32_t index;
 				bool active;
 				uf::Serializer state;
 				pod::Matrix4t<> matrix;
 				pod::Matrix4t<> tip;
-				uf::Graphic graphic;
 			} left, right;
-		} controllers;
-	} devices;
+		} devices;
 
-	struct {
-		uf::stl::unordered_map<uf::stl::string, vr::VRActionHandle_t> actions;
-		uf::stl::unordered_map<uf::stl::string, vr::VRActionSetHandle_t> actionSets;
-	//	uf::stl::vector<vr::VRInputValueHandle_t> inputs;
-		uf::stl::vector<vr::VRActiveActionSet_t> activeActionSets;
-	} handles;
+		struct {
+			uf::stl::unordered_map<uf::stl::string, vr::VRActionHandle_t> actions;
+			uf::stl::unordered_map<uf::stl::string, vr::VRActionSetHandle_t> actionSets;
+			uf::stl::vector<vr::VRActiveActionSet_t> activeActionSets;
+		} handles;
 
-	struct QueuedRenderModel {
-		vr::RenderModel_t* model;
-		vr::RenderModel_TextureMap_t* texture;
-	};
-	uf::stl::unordered_map<uf::stl::string, QueuedRenderModel> queuedRenderModels;
-	uf::stl::unordered_map<uf::stl::string, uf::Graphic> renderModels;
-	uf::stl::vector<uf::stl::string> renderModelNames;
+		struct QueuedRenderModel {
+			vr::RenderModel_t* model = nullptr;
+			vr::RenderModel_TextureMap_t* texture = nullptr;
+		};
+		uf::stl::unordered_map<uf::stl::string, QueuedRenderModel> queuedRenderModels;
+		uf::stl::unordered_map<uf::stl::string, uf::Mesh> renderModels;
+		uf::stl::unordered_map<uf::stl::string, uf::Image> renderTextures;
+
+		uf::stl::vector<uf::stl::string> renderModelNames;
+	} g_vr;
+
+	inline pod::Matrix4t<> convertMatrix(const vr::HmdMatrix34_t& mat) {
+		return {
+			mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0f,
+			mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0f,
+			mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0f,
+			mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
+		};
+	}
+
+	inline uf::stl::string getTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = nullptr) {
+		uint32_t requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
+		if( requiredBufferLen == 0 ) return "";
+
+		uf::stl::string sResult;
+		sResult.resize(requiredBufferLen);
+		pHmd->GetStringTrackedDeviceProperty(unDevice, prop, sResult.data(), requiredBufferLen, peError);
+
+		while(!sResult.empty() && sResult.back() == '\0') sResult.pop_back();
+		return sResult;
+	}
+
+	inline uf::stl::string getTrackedDeviceClassString(vr::ETrackedDeviceClass klass) {
+		switch ( klass ) {
+			case vr::TrackedDeviceClass_HMD: return "hmd";
+			case vr::TrackedDeviceClass_Controller: return "controller";
+			case vr::TrackedDeviceClass_GenericTracker:	return "generic tracker";
+			case vr::TrackedDeviceClass_TrackingReference: return "base station";
+			case vr::TrackedDeviceClass_DisplayRedirect: return "display redirect";
+			default: return "invalid";
+		}
+	}
 }
 
-bool ext::openvr::initialize( int stage ) {
-	if ( stage == 1 ) {
-		if ( !vr::VRCompositor() ) {
-			uf::iostream << "Error while initializing HMD: VRCompositor() failed" << "\n";
-			return false;
-		}
-		return true;
-	}
-	if ( !vr::VR_IsHmdPresent() ) {
-		uf::iostream << "Error while initializing HMD: not present" << "\n";
+bool ext::openvr::enabled = false;
+bool ext::openvr::initialize() {
+	if ( !ext::openvr::enabled ) {
 		return false;
 	}
-	if ( !vr::VR_IsRuntimeInstalled() ) {
-		uf::iostream << "Error while initializing HMD: no runtime is installed" << "\n";
+
+	if ( !vr::VR_IsHmdPresent() || !vr::VR_IsRuntimeInstalled() ) {
+		UF_MSG_ERROR("VR Error: HMD not present or runtime missing.");
 		return false;
 	}
-	
-	int baseStations = 0;
-	// const char* runtime_path = vr::VR_GetRuntimePath();
+
 	vr::HmdError err;
-	ext::openvr::context = vr::VR_Init( &err, vr::EVRApplicationType::VRApplication_Scene );
-	if ( err != vr::VRInitError_None || ext::openvr::context == NULL ) {
-		uf::iostream << "Error while initializing SteamVR runtime: " << vr::VR_GetVRInitErrorAsEnglishDescription(err) << "\n";
+	g_vr.system = vr::VR_Init( &err, vr::EVRApplicationType::VRApplication_Scene );
+	if ( err != vr::VRInitError_None || !g_vr.system ) {
+		UF_MSG_ERROR("Error initializing SteamVR: {}", vr::VR_GetVRInitErrorAsEnglishDescription(err));
 		return false;
 	}
 
-	// Get connected devices
+	// get connected devices
+	int baseStations = 0;
 	for ( uint32_t i = vr::k_unTrackedDeviceIndex_Hmd; i < vr::k_unMaxTrackedDeviceCount; ++i ) {
-		if ( !ext::openvr::context->IsTrackedDeviceConnected(i) ) continue;
-		vr::ETrackedDeviceClass trackedDeviceClass = ext::openvr::context->GetTrackedDeviceClass(i);
-		uf::stl::string trackedDeviceType = ::GetTrackedDeviceClassString(trackedDeviceClass);
-		ext::openvr::driver.types[i] = trackedDeviceType;
+		if ( !g_vr.system->IsTrackedDeviceConnected(i) ) continue;
 
-		uf::iostream << "Tracking device " << i << " is connected " << "\n";
-		uf::iostream << "  Device type: " << trackedDeviceType << ". Name: " << ::GetTrackedDeviceString(ext::openvr::context, i, vr::Prop_TrackingSystemName_String) << "\n";
+		vr::ETrackedDeviceClass trackedClass = g_vr.system->GetTrackedDeviceClass(i);
+		uf::stl::string typeName = getTrackedDeviceClassString(trackedClass);
+		g_vr.driver.types[i] = typeName;
 
-		if (trackedDeviceClass == vr::ETrackedDeviceClass::TrackedDeviceClass_TrackingReference)
+		UF_MSG_DEBUG("Tracking device {} connected ({}): {}", i, typeName, getTrackedDeviceString(g_vr.system, i, vr::Prop_TrackingSystemName_String));
+
+		if ( trackedClass == vr::ETrackedDeviceClass::TrackedDeviceClass_TrackingReference ) {
 			++baseStations;
-		else if ( trackedDeviceClass == vr::ETrackedDeviceClass::TrackedDeviceClass_Controller ) {
-			vr::ETrackedControllerRole role = ext::openvr::context->GetControllerRoleForTrackedDeviceIndex(i);
-			if ( role == vr::TrackedControllerRole_LeftHand ) ::devices.controllers.left.index = i;
-			else if ( role == vr::TrackedControllerRole_RightHand ) ::devices.controllers.right.index = i;
+		} else if ( trackedClass == vr::ETrackedDeviceClass::TrackedDeviceClass_Controller ) {
+			vr::ETrackedControllerRole role = g_vr.system->GetControllerRoleForTrackedDeviceIndex(i);
+			if ( role == vr::TrackedControllerRole_LeftHand ) g_vr.devices.left.index = i;
+			else if ( role == vr::TrackedControllerRole_RightHand ) g_vr.devices.right.index = i;
 		}
+
 		if (i == vr::k_unTrackedDeviceIndex_Hmd) {
-			ext::openvr::driver.name = ::GetTrackedDeviceString(ext::openvr::context, i, vr::Prop_TrackingSystemName_String);
-			ext::openvr::driver.serial = ::GetTrackedDeviceString(ext::openvr::context, i, vr::Prop_SerialNumber_String);
+			g_vr.driver.name = getTrackedDeviceString(g_vr.system, i, vr::Prop_TrackingSystemName_String);
+			g_vr.driver.serial = getTrackedDeviceString(g_vr.system, i, vr::Prop_SerialNumber_String);
 		}
 	}
-/*
-	// Get render models
-	driver.renderModels = (vr::IVRRenderModels*) vr::VR_GetGenericInterface( vr::IVRRenderModels_Version, &err );
-	if ( err != vr::VRInitError_None ) {
-		uf::iostream << "Error while retrieving render model interface: " << vr::VR_GetVRInitErrorAsEnglishDescription(err) << "\n";
+
+	UF_MSG_DEBUG("HMD name={}, serial={}", g_vr.driver.name, g_vr.driver.serial);
+
+	// load manifest and action handles
+	{
+		vr::EVRInputError err;
+		VR_CHECK_INPUT_RESULT( vr::VRInput()->SetActionManifestPath( uf::io::absolute(g_vr.driver.manifest).c_str() ) );
+
+		uf::Serializer manifest;
+		manifest.readFromFile(g_vr.driver.manifest);
+
+		for ( auto i = 0; i < manifest["action_sets"].size(); ++i ) {
+			uf::stl::string name = manifest["action_sets"][i]["name"].as<uf::stl::string>();
+			vr::VRActionSetHandle_t handle;
+			VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
+			g_vr.handles.actionSets[name] = handle;
+		}
+
+		for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
+			uf::stl::string name = manifest["actions"][i]["name"].as<uf::stl::string>();
+			vr::VRActionHandle_t handle;
+			VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
+			g_vr.handles.actions[name] = handle;
+
+			// add haptics to hooks
+			uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+			uf::stl::string shortname = split.back();
+			split = uf::string::split( shortname, "." );
+
+			if ( split.front() == "hapticVibration" ) {
+				uf::hooks.addHook( "VR:Haptics." + split.back(), [handle](ext::json::Value& json){
+					vr::VRInput()->TriggerHapticVibrationAction(
+						handle, json["delay"].as<float>(), json["duration"].as<float>(),
+						json["frequency"].as<float>(), json["amplitude"].as<float>(),
+						vr::k_ulInvalidInputValueHandle
+					);
+				});
+			}
+		}
+	}
+
+	// cache model names
+	size_t count = vr::VRRenderModels()->GetRenderModelCount();
+	g_vr.renderModelNames.reserve(count);
+	for ( size_t i = 0; i < count; ++i ) {
+		size_t strlen = vr::VRRenderModels()->GetRenderModelName( i, nullptr, 0 );
+		if ( strlen == 0 ) continue;
+		uf::stl::string name(strlen, '\0');
+		vr::VRRenderModels()->GetRenderModelName( i, name.data(), strlen );
+		name.pop_back();
+		g_vr.renderModelNames.emplace_back( name );
+	}
+
+	uf::hooks.addHook( "VR:Seat.Reset", [&](ext::json::Value& json){ resetPosition(); });
+
+	g_vr.compositor = vr::VRCompositor();
+	if ( !g_vr.compositor ) {
+		UF_MSG_ERROR("VR Error: Failed to initialize VR Compositor!");
+		vr::VR_Shutdown();
+		g_vr.system = nullptr;
 		return false;
 	}
-*/
-	uf::iostream << "HMD " << ext::openvr::driver.name << " " << ext::openvr::driver.serial << "\n";
 
-	// load manifest
-	{
-		VR_CHECK_INPUT_RESULT( vr::VRInput()->SetActionManifestPath( uf::io::absolute(ext::openvr::driver.manifest).c_str() ) );
-		// configure action handles
-		{
-			uf::Serializer manifest;
-			manifest.readFromFile(ext::openvr::driver.manifest);
-
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG(ext::openvr::driver.manifest);
-			for ( auto i = 0; i < manifest["action_sets"].size(); ++i ) {
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG(manifest["action_sets"][i]);
-				uf::stl::string name = manifest["action_sets"][i]["name"].as<uf::stl::string>();
-				vr::VRActionSetHandle_t handle;
-				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
-				handles.actionSets[name] = handle;
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action set: {}", name);
-				// handles.actionSets.push_back(handle);
-			}
-			for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
-				uf::stl::string name = manifest["actions"][i]["name"].as<uf::stl::string>();
-				vr::VRActionHandle_t handle;
-				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
-				handles.actions[name] = handle;
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action: {}", name);
-				// handles.actions.push_back(handle);
-
-				// add haptics to hooks
-				{
-					uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
-					uf::stl::string shortname = split.back();
-					split = uf::string::split( shortname, "." );
-					if ( split.front() == "hapticVibration" ) {
-						if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered hook for haptic: {}", ("VR:Haptics."+split.back()));
-						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](ext::json::Value& json){
-							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].as<float>(), json["duration"].as<float>(), json["frequency"].as<float>(), json["amplitude"].as<float>(), vr::k_ulInvalidInputValueHandle ) )
-								return;
-							return;
-						});
-					}
-				}
-			}
-		}
-	}
-
-	// load render models
-	{
-		size_t count = vr::VRRenderModels()->GetRenderModelCount();
-		::renderModelNames.reserve(count);
-		for ( size_t i = 0; i < count; ++i ) {
-			size_t strlen = vr::VRRenderModels()->GetRenderModelName( i, NULL, 0 );
-			char buffer[strlen];
-			vr::VRRenderModels()->GetRenderModelName( i, &buffer[0], strlen );
-			uf::stl::string name = buffer;
-			::renderModelNames.push_back( name );
-		}
-	}
-
-	uf::hooks.addHook( "VR:Seat.Reset", [&](ext::json::Value& json){
-		ext::openvr::resetPosition();
-	});
-
-	vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
-	vr::VRCompositor()->SetExplicitTimingMode(vr::EVRCompositorTimingMode::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+	g_vr.compositor->SetExplicitTimingMode(vr::EVRCompositorTimingMode::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+	g_vr.compositor->WaitGetPoses(&g_vr.driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
 	return true;
 }
 void ext::openvr::terminate() {
-//	::devices.controllers.left.graphic.destroy();
-//	::devices.controllers.right.graphic.destroy();
-	for ( auto pair : ::renderModels ) {
-		pair.second.destroy();
-	}
-
+	for ( auto& pair : g_vr.renderModels ) pair.second.destroy();
+	g_vr.renderModels.clear();
 	vr::VR_Shutdown();
-	ext::openvr::context = NULL;
+	g_vr.system = nullptr;
 }
 void ext::openvr::resetPosition() {
-//	ext::openvr::context->ResetSeatedZeroPose();
+	// if ( g_vr.system ) g_vr.system->ResetSeatedZeroPose();
 }
 void ext::openvr::tick() {
-	if ( !ext::openvr::context ) return;
-	
-	if ( DEBUG_MARKER ) UF_MSG_DEBUG("OPENVR TICK");
+	if ( !g_vr.system ) return;
 
-	// load render model from api
-	for ( auto& pair : ::queuedRenderModels ) {
-		if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED: {}", pair.first);
-		uf::stl::string name = pair.first;
-		auto& queued = pair.second;
-		{
+	// process queued render models
+	for ( auto it = g_vr.queuedRenderModels.begin(); it != g_vr.queuedRenderModels.end(); ) {
+		uf::stl::string name = it->first;
+		auto& queued = it->second;
+
+		if ( !queued.model ) {
 			vr::EVRRenderModelError status = vr::VRRenderModels()->LoadRenderModel_Async( name.c_str(), &queued.model );
-			// wait for load
-			if ( status == vr::VRRenderModelError_Loading ) continue;
-			// error'd out
+			if ( status == vr::VRRenderModelError_Loading ) { ++it; continue; }
 			if ( status != vr::VRRenderModelError_None ) {
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model {}: {}", name, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
-				::queuedRenderModels.erase(name);
-				break;
+				it = g_vr.queuedRenderModels.erase(it);
+				continue;
 			}
 		}
-		// loaded, now to load texture
-		{
-			vr::EVRRenderModelError status = vr::VRRenderModels()->LoadTexture_Async( queued.model->diffuseTextureId, &queued.texture );
-			// wait for load
-			if ( status == vr::VRRenderModelError_Loading ) continue;
-			// error'd out
-			if ( status != vr::VRRenderModelError_None ) {
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model {}'s texture: ", name, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
-				vr::VRRenderModels()->FreeRenderModel( queued.model );
-				::queuedRenderModels.erase(name);
-				break;
-			}
-		}
-		// loaded texture, process
-		{
-		//	uf::Mesh& mesh = renderModels[name];
-			uf::Graphic& graphic = renderModels[name];
 
-			uf::Mesh mesh;
-			mesh.vertices.reserve(queued.model->unVertexCount);
+		if ( !queued.texture ) {
+			vr::EVRRenderModelError status = vr::VRRenderModels()->LoadTexture_Async( queued.model->diffuseTextureId, &queued.texture );
+			if ( status == vr::VRRenderModelError_Loading ) { ++it; continue; }
+			if ( status != vr::VRRenderModelError_None ) {
+				vr::VRRenderModels()->FreeRenderModel( queued.model );
+				it = g_vr.queuedRenderModels.erase(it);
+				continue;
+			}
+		}
+
+		// process mesh
+		{
+			uf::stl::vector<pod::Vertex_3F2F3F> vertices;
+			uf::stl::vector<uint16_t> indices;
+
+			vertices.reserve( queued.model->unVertexCount );
+			indices.reserve(queued.model->unTriangleCount * 3);
+
 			for ( size_t i = 0; i < queued.model->unVertexCount; ++i ) {
 				auto& v = queued.model->rVertexData[i];
-				
-				uf::Mesh::vertex_t vertex;
-				vertex.position = pod::Vector3f{ v.vPosition.v[0], v.vPosition.v[1], -v.vPosition.v[2] };
-				vertex.normal = pod::Vector3f{ v.vNormal.v[0], v.vNormal.v[1], v.vNormal.v[2] };
+
+				// might need to invert z
+				auto& vertex = vertices.emplace_back();
+				vertex.position = pod::Vector3f{ v.vPosition.v[0], v.vPosition.v[1], v.vPosition.v[2] };
 				vertex.uv = pod::Vector2f{ v.rfTextureCoord[0], v.rfTextureCoord[1] };
-				
-				mesh.vertices.push_back(vertex);
+				vertex.normal = pod::Vector3f{ v.vNormal.v[0], v.vNormal.v[1], v.vNormal.v[2] };
 			}
-			mesh.indices.reserve(queued.model->unTriangleCount * 3);
-			for ( std::size_t i = 0; i < queued.model->unTriangleCount * 3; ++i ) {
-				mesh.indices.push_back( queued.model->rIndexData[i] );
+
+			for ( std::size_t i = 0; i < queued.model->unTriangleCount * 3; i += 3 ) {
+				indices.emplace_back( queued.model->rIndexData[i + 0] );
+				indices.emplace_back( queued.model->rIndexData[i + 1] );
+				indices.emplace_back( queued.model->rIndexData[i + 2] );
 			}
-			// grab texture
-			size_t len = queued.texture->unWidth * queued.texture->unHeight * 4;
-			graphic.initialize();
-			graphic.initializeMesh(mesh);
-		
-			auto& texture = graphic.material.textures.emplace_back();
-			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, uf::renderer::enums::Format::R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight );
+
+			auto& mesh = g_vr.renderModels[name];
+			mesh.bind<pod::Vertex_3F2F3F, uint16_t>();
+			mesh.insertVertices(vertices);
+			mesh.insertIndices(indices);
 		}
-		// call hook
+		// process texture
+		{
+			auto& image = g_vr.renderTextures[name];
+			uf::image::load( image, queued.texture->rubTextureMapData, { queued.texture->unWidth, queued.texture->unHeight }, 8, 4 );
+		}
+
 		ext::json::Value payload;
 		payload["name"] = name;
 		uf::hooks.call( "VR:Model.Loaded", payload );
-		
-		// clear
-		{
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED MODEL: {}", queued.model);
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED TEXTURE: {}", queued.texture);
-			vr::VRRenderModels()->FreeRenderModel( queued.model );
-			vr::VRRenderModels()->FreeTexture( queued.texture );
-		}
-		{
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("FINISHED LOADING: {}", name);
-			::queuedRenderModels.erase(name);
-			break;
-		}
-	}
-	// 
 
-	// Obtain tracking device poses
-	float fPredictedSecondsFromNow = ext::openvr::predictedTimeToDisplay();
-	// Parse actions
-	{
-		{
-			handles.activeActionSets.clear();
-			for ( auto pair : handles.actionSets ) {
-				vr::VRActiveActionSet_t actionSet = { 0 };
-				actionSet.ulActionSet = pair.second;
-				handles.activeActionSets.push_back(actionSet);
+		vr::VRRenderModels()->FreeRenderModel( queued.model );
+		vr::VRRenderModels()->FreeTexture( queued.texture );
+		it = g_vr.queuedRenderModels.erase( it );
+	}
+
+	// parse actions
+	float fPredictedSecondsFromNow = predictedTimeToDisplay();
+
+	g_vr.handles.activeActionSets.clear();
+	for ( const auto& pair : g_vr.handles.actionSets ) {
+		vr::VRActiveActionSet_t actionSet = { 0 };
+		actionSet.ulActionSet = pair.second;
+		g_vr.handles.activeActionSets.emplace_back(actionSet);
+	}
+
+	vr::VRInput()->UpdateActionState( g_vr.handles.activeActionSets.data(), sizeof(vr::VRActiveActionSet_t), g_vr.handles.activeActionSets.size() );
+
+	for ( const auto& pair : g_vr.handles.actions ) {
+		uf::stl::string name = pair.first;
+		auto& handle = pair.second;
+
+		uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+		uf::stl::string shortname = split.back();
+		split = uf::string::split( shortname, "." );
+		auto actionStr = split.front();
+		auto handStr = split.back();
+
+		auto& controller = (handStr == "left") ? g_vr.devices.left : g_vr.devices.right;
+
+		vr::InputDigitalActionData_t digitalData;
+		if ( vr::VRInputError_None == vr::VRInput()->GetDigitalActionData(handle, &digitalData, sizeof(digitalData), vr::k_ulInvalidInputValueHandle) ) {
+			if ( digitalData.bActive ) {
+
+				if ( handStr == "left" ) {
+					if ( actionStr == "A" ) uf::inputs::controller::states::L_A = digitalData.bState;
+					else if ( actionStr == "B" ) uf::inputs::controller::states::L_B = digitalData.bState;
+					else if ( actionStr == "X" ) uf::inputs::controller::states::L_X = digitalData.bState;
+					else if ( actionStr == "Y" ) uf::inputs::controller::states::L_Y = digitalData.bState;
+					else if ( actionStr == "DPadUp" ) uf::inputs::controller::states::L_DPAD_UP = digitalData.bState;
+					else if ( actionStr == "DPadDown" ) uf::inputs::controller::states::L_DPAD_DOWN = digitalData.bState;
+					else if ( actionStr == "DPadLeft" ) uf::inputs::controller::states::L_DPAD_LEFT = digitalData.bState;
+					else if ( actionStr == "DPadRight" ) uf::inputs::controller::states::L_DPAD_RIGHT = digitalData.bState;
+					else if ( actionStr == "Start" ) uf::inputs::controller::states::START = digitalData.bState;
+				} else if ( handStr == "right" ) {
+					if ( actionStr == "A" ) uf::inputs::controller::states::R_A = digitalData.bState;
+					else if ( actionStr == "B" ) uf::inputs::controller::states::R_B = digitalData.bState;
+					else if ( actionStr == "X" ) uf::inputs::controller::states::R_X = digitalData.bState;
+					else if ( actionStr == "Y" ) uf::inputs::controller::states::R_Y = digitalData.bState;
+					else if ( actionStr == "DPadUp" ) uf::inputs::controller::states::R_DPAD_UP = digitalData.bState;
+					else if ( actionStr == "DPadDown" ) uf::inputs::controller::states::R_DPAD_DOWN = digitalData.bState;
+					else if ( actionStr == "DPadLeft" ) uf::inputs::controller::states::R_DPAD_LEFT = digitalData.bState;
+					else if ( actionStr == "DPadRight" ) uf::inputs::controller::states::R_DPAD_RIGHT = digitalData.bState;
+					else if ( actionStr == "Start" ) uf::inputs::controller::states::START = digitalData.bState;
+				}
+
+				if ( digitalData.bChanged ) {
+					ext::json::Value payload;
+					payload["name"] = actionStr;
+					payload["hand"] = handStr;
+					payload["full name"] = name;
+					payload["deltaTime"] = digitalData.fUpdateTime;
+					payload["state"] = digitalData.bState;
+					controller.state[actionStr] = payload;
+					uf::hooks.call( "VR:Input.Digital", payload );
+				}
 			}
 		}
-		vr::VRInput()->UpdateActionState( handles.activeActionSets.data(), sizeof(vr::VRActiveActionSet_t), handles.activeActionSets.size() );
-		for ( auto pair : handles.actions ) {
-			uf::stl::string name = pair.first;
-			auto& handle = pair.second;
-			// analog data
-			{
-				vr::InputAnalogActionData_t data;
-				if ( vr::VRInputError_None == vr::VRInput()->GetAnalogActionData(handle, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
-					float deltaTime = data.fUpdateTime;
-					pod::Vector3f delta = { data.deltaX, data.deltaY, data.deltaZ };
-					pod::Vector3f position = { data.x, data.y, data.z };
-					if ( data.bActive ) {
-						ext::json::Value payload;
-						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
-						uf::stl::string shortname = split.back();
-						split = uf::string::split( shortname, "." );
-						
-						payload["name"] = split.front();
-						payload["hand"] = split.back();
-						payload["full name"] = name;
-						payload["deltaTime"] = deltaTime;
-						payload["analog"]["position"][0] = position.x;
-						payload["analog"]["position"][1] = position.y;
-						payload["analog"]["position"][2] = position.z;
-						payload["analog"]["delta"][0] = delta.x;
-						payload["analog"]["delta"][1] = delta.y;
-						payload["analog"]["delta"][2] = delta.z;
-						// store state
-						if ( split.back() == "left" ) ::devices.controllers.left.state[split.front()] = payload;
-						else if ( split.back() == "right" ) ::devices.controllers.right.state[split.front()] = payload;
-						// send payload only on deltas
-						if ( delta != pod::Vector3f{ 0, 0, 0 } ) uf::hooks.call( "VR:Input.Analog", payload );
+
+		vr::InputAnalogActionData_t analogData;
+		if ( vr::VRInputError_None == vr::VRInput()->GetAnalogActionData(handle, &analogData, sizeof(analogData), vr::k_ulInvalidInputValueHandle) ) {
+			if ( analogData.bActive ) {
+				if ( handStr == "left" ) {
+					if ( actionStr == "Joystick" || actionStr == "Trackpad" ) {
+						uf::inputs::controller::states::L_JOYSTICK.x = analogData.x;
+						uf::inputs::controller::states::L_JOYSTICK.y = analogData.y;
+					} else if ( actionStr == "Trigger" ) {
+						uf::inputs::controller::states::L_TRIGGER = analogData.x;
 					}
+				} else if ( handStr == "right" ) {
+					if ( actionStr == "Joystick" || actionStr == "Trackpad" ) {
+						uf::inputs::controller::states::R_JOYSTICK.x = analogData.x;
+						uf::inputs::controller::states::R_JOYSTICK.y = analogData.y;
+					} else if ( actionStr == "Trigger" ) {
+						uf::inputs::controller::states::R_TRIGGER = analogData.x;
+					}
+				}
+
+				pod::Vector3f delta = { analogData.deltaX, analogData.deltaY, analogData.deltaZ };
+				pod::Vector3f position = { analogData.x, analogData.y, analogData.z };
+				if ( delta != pod::Vector3f{ 0, 0, 0 } ) {
+					ext::json::Value payload;
+					payload["name"] = actionStr;
+					payload["hand"] = handStr;
+					payload["full name"] = name;
+					payload["deltaTime"] = uf::time::delta;
+					payload["analog"]["position"] = uf::vector::encode( position );
+					payload["analog"]["delta"] = uf::vector::encode( delta );
+					controller.state[actionStr] = payload;
+					uf::hooks.call( "VR:Input.Analog", payload );
 				}
 			}
-			// digital data
-			{
-				vr::InputDigitalActionData_t data;
-				if ( vr::VRInputError_None == vr::VRInput()->GetDigitalActionData(handle, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
-					if ( data.bActive ) {
-						ext::json::Value payload;
-						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
-						uf::stl::string shortname = split.back();
-						split = uf::string::split( shortname, "." );
-						
-						payload["name"] = split.front();
-						payload["hand"] = split.back();
-						payload["full name"] = name;
-						payload["deltaTime"] = data.fUpdateTime;
-						payload["state"] = data.bState;
-						// store state
-						if ( split.back() == "left" ) ::devices.controllers.left.state[split.front()] = payload;
-						else if ( split.back() == "right" ) ::devices.controllers.right.state[split.front()] = payload;
-						// send payload only on deltas
-						if ( data.bChanged ) uf::hooks.call( "VR:Input.Digital", payload );
-					}
-				}
-			}
-			// pose data
-			{
-				vr::InputPoseActionData_t data;
-				if ( vr::VRInputError_None == vr::VRInput()->GetPoseActionDataRelativeToNow(handle, vr::TrackingUniverseStanding,  fPredictedSecondsFromNow, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
-					uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
-					uf::stl::string shortname = split.back();
-					split = uf::string::split( shortname, "." );
-					if ( split.front() == "handPose" ) {
-						if ( split.back() == "left" ) ::devices.controllers.left.active = data.bActive;
-						else if ( split.back() == "right" ) ::devices.controllers.right.active = data.bActive;
-					}
-					if ( data.bActive ) {
-						vr::HmdMatrix34_t mat = data.pose.mDeviceToAbsoluteTracking;
-						pod::Matrix4t<> res = {
-							mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0, 
-							mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0,
-							mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0,
-							mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
-						};
-						if ( split.back() == "left" ) {
-							if ( split.front() == "handPose" ) ::devices.controllers.left.matrix = res;
-							else if ( split.front() == "handTip" ) ::devices.controllers.left.tip = res;
-						}
-						else if ( split.back() == "right" ) {
-							if ( split.front() == "handPose" ) ::devices.controllers.right.matrix = res;
-							else if ( split.front() == "handTip" ) ::devices.controllers.right.tip = res;
-						}
-					}
-				}
+		}
+
+		vr::InputPoseActionData_t poseData;
+		if ( vr::VRInputError_None == vr::VRInput()->GetPoseActionDataRelativeToNow(handle, vr::TrackingUniverseStanding, fPredictedSecondsFromNow, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle) ) {
+			if ( actionStr == "handPose" ) controller.active = poseData.bActive;
+			if ( poseData.bActive ) {
+				pod::Matrix4t<> res = convertMatrix(poseData.pose.mDeviceToAbsoluteTracking);
+				if ( actionStr == "handPose" ) controller.matrix = res;
+				else if ( actionStr == "handTip" ) controller.tip = res;
 			}
 		}
 	}
 }
 bool ext::openvr::requestRenderModel( const uf::stl::string& name ) {
-	if ( DEBUG_MARKER ) UF_MSG_DEBUG("Requesting render model: {}", name);
-	if ( std::find( renderModelNames.begin(), renderModelNames.end(), name ) == renderModelNames.end() ) return false;
-	if ( renderModels.count(name) == 1 ) return true;
-	::queuedRenderModels[name];
-	return false;	
+	if ( std::find( g_vr.renderModelNames.begin(), g_vr.renderModelNames.end(), name ) == g_vr.renderModelNames.end() ) return false;
+	if ( g_vr.renderModels.count(name) == 1 ) return true;
+	g_vr.queuedRenderModels[name];
+	return false;
 }
-void ext::openvr::submit() { bool invert = swapEyes;
+void ext::openvr::submit() {
+	if ( !g_vr.system ) return;
 #if UF_USE_VULKAN
-	auto& renderMode = uf::renderer::getRenderMode("");
-	
+	bool invert = g_vr.swapEyes;
+
+	auto& scene = uf::scene::getCurrentScene();
+	uf::renderer::RenderMode* renderModePointer = nullptr;
+	if ( uf::renderer::hasRenderMode("VR") ) {
+		renderModePointer = &uf::renderer::getRenderMode("VR");
+	} else if ( scene.hasComponent<uf::renderer::DeferredRenderMode>() ) {
+		renderModePointer = &scene.getComponent<uf::renderer::DeferredRenderMode>();
+	} else {
+		renderModePointer = &uf::renderer::getRenderMode("", true);
+	}
+	if ( !renderModePointer ) return;
+	auto& renderMode = *renderModePointer;
 	float width = renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width;
 	float height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
-	auto& leftOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata.outputs[0]];
-	auto& rightOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata.outputs[1]];
 
-	// Submit to SteamVR
+	if ( !renderMode.hasAttachment("left") || !renderMode.hasAttachment("right") ) return;
+
+	auto& leftEyeAttachment = renderMode.getAttachment("left");
+	auto& rightEyeAttachment = renderMode.getAttachment("right");
+
 	vr::VRTextureBounds_t bounds;
 	bounds.uMin = 0.0f;
 	bounds.uMax = 1.0f;
 	bounds.vMin = 0.0f;
 	bounds.vMax = 1.0f;
 
-	vr::VRVulkanTextureData_t vulkanData;
+	vr::VRVulkanTextureData_t vulkanData = {};
 	vulkanData.m_pDevice = ( VkDevice_T * ) uf::renderer::device;
 	vulkanData.m_pPhysicalDevice = ( VkPhysicalDevice_T * ) uf::renderer::device.physicalDevice;
 	vulkanData.m_pInstance = ( VkInstance_T *) uf::renderer::device.instance;
 	vulkanData.m_pQueue = ( VkQueue_T * ) uf::renderer::device.getQueue( uf::renderer::QueueEnum::PRESENT );
 	vulkanData.m_nQueueFamilyIndex = uf::renderer::device.queueFamilyIndices.present;
-
 	vulkanData.m_nWidth = width;
 	vulkanData.m_nHeight = height;
 	vulkanData.m_nSampleCount = 1;
 
 	vr::Texture_t texture = { &vulkanData, vr::TextureType_Vulkan, vr::ColorSpace_Auto };
-	
-	vulkanData.m_nFormat = leftOutputAttachment.descriptor.format;
-	vulkanData.m_nImage = (uint64_t) (VkImage) leftOutputAttachment.image;
-	vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds );
 
-	vulkanData.m_nFormat = rightOutputAttachment.descriptor.format;
-	vulkanData.m_nImage = (uint64_t) (VkImage) rightOutputAttachment.image;
-	vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds );
+	vr::EVRCompositorError err;
+	vulkanData.m_nFormat = leftEyeAttachment.descriptor.format;
+	vulkanData.m_nImage = (uint64_t) (VkImage) leftEyeAttachment.image;
+	VR_CHECK_COMPOSITOR_RESULT(vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds ));
+
+
+	vulkanData.m_nFormat = rightEyeAttachment.descriptor.format;
+	vulkanData.m_nImage = (uint64_t) (VkImage) rightEyeAttachment.image;
+	VR_CHECK_COMPOSITOR_RESULT(vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds ));
 
 	vr::VRCompositor()->PostPresentHandoff();
 #endif
 }
-void ext::openvr::synchronize( bool async ) {
-	if ( async ) uf::thread::queue( uf::thread::fetchWorker(), [](){
-		vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
-	});
-	else vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
-	
-	ext::openvr::updateTracking(1);
+void ext::openvr::synchronize() {
+	if ( !g_vr.system ) return;
+	vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
+	updateTracking(1);
 }
 float ext::openvr::predictedTimeToDisplay( float additional ) {
-	float displayFrequency = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
-	float fFrameDuration = 1.f / displayFrequency;
-	
+	float displayFreq = g_vr.system->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
+	float fFrameDuration = 1.f / displayFreq;
+
 	float fSecondsSinceLastVsync = 0.0f;
-	ext::openvr::context->GetTimeSinceLastVsync( &fSecondsSinceLastVsync, NULL );
-	
-	float fSecondsFromVSyncToPhotons = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SecondsFromVsyncToPhotons_Float);
-	float fPredictedSecondsFromNow = additional * fFrameDuration - fSecondsSinceLastVsync + fSecondsFromVSyncToPhotons;
-// 	fFrameDuration - fSecondsSinceLastVsync + fFrameDuration + fSecondsFromVSyncToPhotons;
-//	frameDuration + vsyncToPhotons;
-	return fPredictedSecondsFromNow;
+	g_vr.system->GetTimeSinceLastVsync( &fSecondsSinceLastVsync, nullptr );
+
+	float fSecondsFromVSyncToPhotons = g_vr.system->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SecondsFromVsyncToPhotons_Float);
+	return additional * fFrameDuration - fSecondsSinceLastVsync + fSecondsFromVSyncToPhotons;
 }
 float ext::openvr::updateTracking(float additional) {
-	float fPredictedSecondsFromNow = ext::openvr::predictedTimeToDisplay(additional);
-	ext::openvr::context->GetDeviceToAbsoluteTrackingPose(
+	float fPredicted = predictedTimeToDisplay(additional);
+	g_vr.system->GetDeviceToAbsoluteTrackingPose(
 		vr::ETrackingUniverseOrigin::TrackingUniverseStanding,
-		fPredictedSecondsFromNow,
-		ext::openvr::driver.poses,
-		vr::k_unMaxTrackedDeviceCount
+		fPredicted, g_vr.driver.poses, vr::k_unMaxTrackedDeviceCount
 	);
 
-//	vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
-	if ( ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bDeviceIsConnected && ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid ) {
-		vr::HmdMatrix34_t mat = ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
-		::devices.hmd.matrix = {
-			mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0,
-			mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0,
-			mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0,
-			mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
-		};
-		::devices.hmd.matrix = uf::matrix::invert(::devices.hmd.matrix);
+	if ( g_vr.driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bDeviceIsConnected && g_vr.driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid ) {
+		g_vr.devices.hmd.matrix = convertMatrix(g_vr.driver.poses[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking);
+		g_vr.devices.hmd.matrix = uf::matrix::inverse(g_vr.devices.hmd.matrix);
 	}
-	return fPredictedSecondsFromNow;
+	return fPredicted;
 }
 
 void ext::openvr::recommendedResolution( uint32_t& width, uint32_t& height ) {
-	ext::openvr::width = width;
-	ext::openvr::height = height;
-	ext::openvr::context->GetRecommendedRenderTargetSize( &width, &height );
+	g_vr.system->GetRecommendedRenderTargetSize( &width, &height );
+	g_vr.width = width; g_vr.height = height;
 }
 
 pod::Matrix4t<> ext::openvr::hmdHeadPositionMatrix() {
-	return ::devices.hmd.matrix;
+	return g_vr.devices.hmd.matrix;
 }
 pod::Matrix4t<> ext::openvr::hmdEyePositionMatrix( vr::Hmd_Eye eye ) {
-	vr::HmdMatrix34_t mat = ext::openvr::context->GetEyeToHeadTransform( eye );
-	pod::Matrix4t<> res = {
-		mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0, 
-		mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0,
-		mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0,
-		mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
-	};
-	res = uf::matrix::inverse( res );
-	return res;
+	return uf::matrix::inverse( convertMatrix(g_vr.system->GetEyeToHeadTransform( eye )) );
 }
 pod::Matrix4t<> ext::openvr::hmdViewTranslationMatrix() {
 	return uf::matrix::translate( uf::matrix::identity(), hmdPosition() );
 }
 pod::Matrix4t<> ext::openvr::hmdViewRotationMatrix() {
 	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
-	mat[(4*3)+0] = 0;
-	mat[(4*3)+1] = 0;
-	mat[(4*3)+2] = 0;
+	mat(3,0) = 0;
+	mat(3,1) = 0;
+	mat(3,2) = 0;
 	return mat;
 }
 pod::Vector3f ext::openvr::hmdPosition() {
 	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
 	return {
-		mat[(4*3)+0],
-		mat[(4*3)+1],
-		-mat[(4*3)+2],
+		mat(3,0),
+		mat(3,1),
+		-mat(3,2),
 	};
 }
 pod::Vector3f ext::openvr::hmdEyePosition( vr::Hmd_Eye eye ) {
-	vr::HmdMatrix34_t mat = ext::openvr::context->GetEyeToHeadTransform( eye );
-	pod::Vector3f offset = { mat.m[0][3], mat.m[1][3], mat.m[2][3] };
-	return offset;
+	vr::HmdMatrix34_t mat = g_vr.system->GetEyeToHeadTransform( eye );
+	return { mat.m[0][3], mat.m[1][3], mat.m[2][3] };
 }
 pod::Vector3f ext::openvr::hmdPosition( vr::Hmd_Eye eye ) {
 	return hmdPosition() + hmdEyePosition( eye );
 }
 pod::Quaternion<> ext::openvr::hmdQuaternion() {
-	pod::Quaternion<> q = uf::quaternion::fromMatrix( hmdHeadPositionMatrix() );
-//	q.w *= -1;
-	return q;
-/*
-	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
-	pod::Quaternion<> q;
-	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
-	q.x = sqrt(fmax(0, 1 + mat[(4*0)+0] - mat[(4*1)+1] - mat[(4*2)+2])) / 2;
-	q.y = sqrt(fmax(0, 1 - mat[(4*0)+0] + mat[(4*1)+1] - mat[(4*2)+2])) / 2;
-	q.z = sqrt(fmax(0, 1 - mat[(4*0)+0] - mat[(4*1)+1] + mat[(4*2)+2])) / 2;
-
-	q.x = copysign(q.x, mat[(4*1)+2] - mat[(4*2)+1]);
-	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
-	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
-
-	q.w *= -1;
-	return q; // * pod::Vector4f{ 1, 1, -1, -1 };
-*/
+	return uf::quaternion::fromMatrix( hmdHeadPositionMatrix() );
 }
 pod::Matrix4t<> ext::openvr::hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& view ) {
-	return
-		hmdEyePositionMatrix( eye ) *
+	return hmdEyePositionMatrix( eye ) *
 		uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) *
-		uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, 1 } ) ) *
-	//	uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) *
+		uf::matrix::inverse( uf::quaternion::matrix( hmdQuaternion() * pod::Vector4f{ 1, 1, -1, 1 } ) ) *
 		view;
-//	return hmdEyePositionMatrix( eye ) * uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) * view;
-//	return uf::matrix::translate( uf::matrix::identity(), hmdEyePosition( eye ) ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() ) ) * view;
-//	return uf::matrix::scale(uf::matrix::identity(), pod::Vector3f{1,1,-1}) * hmdEyePositionMatrix( eye ) * hmdHeadPositionMatrix() * view;
 }
 pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, float zFar ) {
-	struct {
-		float left;
-		float right;
-		float top;
-		float bottom;
-	} frustum;
-	ext::openvr::context->GetProjectionRaw( eye, &frustum.left, &frustum.right, &frustum.top, &frustum.bottom );
+	float left, right, top, bottom;
+	g_vr.system->GetProjectionRaw( eye, &left, &right, &top, &bottom );
 
-	if ( true ) {
-		frustum.left = -abs( frustum.left );
-		frustum.right = abs( frustum.right );
-		frustum.top = -abs( frustum.top );
-		frustum.bottom = abs( frustum.bottom );
+	pod::Matrix4t<> m = uf::matrix::identity();
+
+	float idx = 1.0f / (right - left);
+	float idy = 1.0f / (bottom - top);
+
+	m(0,0) = 2.0f * idx;
+	m(1,1) = 2.0f * idy;
+	m(0,2) = (right + left) * idx;
+	m(1,2) = (bottom + top) * idy;
+	m(3,2) = 1.0f;
+	m(3,3) = 0.0f;
+
+	if ( zFar <= 0.0f ) {
+		m(2,2) = 0.0f;
+		m(2,3) = zNear;
 	} else {
+		float range = zFar - zNear;
+		m(2,2) = zFar / range;
+		m(2,3) = -(zFar * zNear) / range;
 	}
 
-	/*
-		float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);
-		float raidou = (float) this->m_settings.perspective.size.x / (float) this->m_settings.perspective.size.y;
-		float f = 1.0f / tan( 0.5f * fov );
-		this->m_matrices.projection = {
-			f / raidou, 	0.0f, 	 0.0f, 	0.0f,
-			0.0f, 			-f, 	 0.0f, 	0.0f,
-			0.0f,       	0.0f,    0.0f, 	1.0f,
-			0.0f,       	0.0f,   this->m_settings.perspective.bounds.x, 	0.0f
-		};
-	*/
-
-	switch ( 0 ) {
-		case 0: {
-			float Sx = 2 / (frustum.right - frustum.left);
-			float Sy = 2 / (frustum.top - frustum.bottom);
-			float S20 = (frustum.right + frustum.left) / (frustum.right - frustum.left);
-			float S21 = (frustum.top + frustum.bottom) / (frustum.top - frustum.bottom);
-			float Sz = -zFar / (zFar - zNear);
-			float S32 = -zFar * zNear / (zFar - zNear);
-		/*
-			return {
-				 Sx,   0,   0,   0,
-				  0,  Sy,   0,   0,
-				S20, S21,   0,   1,
-				  0,   0, zNear,   0,
-			};
-		*/
-			return uf::matrix::multiply( pod::Matrix4f{
-				1, 0, 0, 0,
-				0, 1, 0, 0,
-				0, 0, 1, 0,
-				0, 0, 0, 1,
-			}, pod::Matrix4f{
-				 Sx,   0,   0,   0,
-				  0,  Sy,   0,   0,
-				-S20, -S21,   0,   1,
-				  0,   0, zNear,   0,
-			});
-		} break;
-		default: {
-			vr::HmdMatrix44_t mat = ext::openvr::context->GetProjectionMatrix( eye, zFar, zNear );
-			return uf::matrix::multiply( pod::Matrix4f{
-				1, 0, 0, 0,
-				0,-1, 0, 0,
-				0, 0, 1, 0,
-				0, 0, 0, 1,
-			}, pod::Matrix4f{
-				mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
-				mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1], 
-			    -mat.m[0][2], -mat.m[1][2], mat.m[2][2],-mat.m[3][2], 
-				mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]
-			});
-		} break;
-	}
+	return m;
 }
 uf::Serializer ext::openvr::controllerState( vr::Controller_Hand hand, const uf::stl::string& key ) {
-	if ( hand == vr::Controller_Hand::Hand_Left ) return key == "" ? ::devices.controllers.left.state : ::devices.controllers.left.state[key];
-	else if ( hand == vr::Controller_Hand::Hand_Right ) return key == "" ? ::devices.controllers.right.state : ::devices.controllers.right.state[key];
-	return uf::Serializer();
+	auto& state = ( hand == vr::Controller_Hand::Hand_Left ) ? g_vr.devices.left.state : g_vr.devices.right.state;
+	return key == "" ? state : state[key];
 }
 pod::Vector3f ext::openvr::controllerPosition( vr::Controller_Hand hand, bool tip ) {
 	pod::Matrix4t<> mat = controllerMatrix( hand, tip );
 	return {
-		 mat[(4*3)+0],
-		 mat[(4*3)+1],
-		-mat[(4*3)+2],
+		 mat(3,0),
+		 mat(3,1),
+		-mat(3,2),
 	};
 }
 pod::Quaternion<> ext::openvr::controllerQuaternion( vr::Controller_Hand hand, bool tip ) {
 	pod::Quaternion<> q = uf::quaternion::fromMatrix( controllerMatrix( hand, tip ) );
 	q.w *= -1;
 	return q;
-/*
-	pod::Matrix4t<> mat = controllerMatrix( hand, tip );
-	pod::Quaternion<> q;
-	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
-	q.x = sqrt(fmax(0, 1 + mat[(4*0)+0] - mat[(4*1)+1] - mat[(4*2)+2])) / 2;
-	q.y = sqrt(fmax(0, 1 - mat[(4*0)+0] + mat[(4*1)+1] - mat[(4*2)+2])) / 2;
-	q.z = sqrt(fmax(0, 1 - mat[(4*0)+0] - mat[(4*1)+1] + mat[(4*2)+2])) / 2;
-
-	q.x = copysign(q.x, mat[(4*1)+2] - mat[(4*2)+1]);
-	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
-	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
-	return q * pod::Vector4f{ 1, 1, -1, 1 };
-*/
 }
 pod::Matrix4t<> ext::openvr::controllerTranslationMatrix( vr::Controller_Hand hand, bool tip ) {
 	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) );
 }
 pod::Matrix4t<> ext::openvr::controllerRotationMatrix( vr::Controller_Hand hand, bool tip ) {
 	pod::Matrix4t<> mat = controllerMatrix( hand, tip );
-	mat[(4*3)+0] = 0;
-	mat[(4*3)+1] = 0;
-	mat[(4*3)+2] = 0;
+	mat(3,0) = 0;
+	mat(3,1) = 0;
+	mat(3,2) = 0;
 	return uf::matrix::inverse( mat );
 }
 pod::Matrix4t<> ext::openvr::controllerModelMatrix( vr::Controller_Hand hand, bool tip ) {
-	return
-		uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) *
-		uf::quaternion::matrix( controllerQuaternion( hand, tip ) );
-//	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) * controllerRotationMatrix( hand, tip );
-//	return uf::matrix::scale( uf::matrix::identity(), pod::Vector3f{ 1, 1, -1 } ) * controllerMatrix( hand, tip );
-//	return uf::matrix::translate(  uf::quaternion::matrix( ext::openvr::controllerQuaternion( hand, tip ) ),  controllerPosition( hand, tip ) );
+	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) * uf::quaternion::matrix( controllerQuaternion( hand, tip ) );
 }
 pod::Matrix4t<> ext::openvr::controllerMatrix( vr::Controller_Hand hand, bool tip ) {
-	if ( hand == vr::Controller_Hand::Hand_Left ) return tip ? ::devices.controllers.left.tip : ::devices.controllers.left.matrix;
-	else if ( hand == vr::Controller_Hand::Hand_Right ) return tip ? ::devices.controllers.right.tip : ::devices.controllers.right.matrix;
+	if ( hand == vr::Controller_Hand::Hand_Left ) return tip ? g_vr.devices.left.tip : g_vr.devices.left.matrix;
+	else if ( hand == vr::Controller_Hand::Hand_Right ) return tip ? g_vr.devices.right.tip : g_vr.devices.right.matrix;
 	return uf::matrix::identity();
 }
 bool ext::openvr::controllerActive( vr::Controller_Hand hand ) {
-	if ( hand == vr::Controller_Hand::Hand_Left ) return ::devices.controllers.left.active;
-	else if ( hand == vr::Controller_Hand::Hand_Right ) return ::devices.controllers.right.active;
-	return false;
+	return ( hand == vr::Controller_Hand::Hand_Left ) ? g_vr.devices.left.active : g_vr.devices.right.active;
 }
-uf::Graphic& ext::openvr::getRenderModel( const uf::stl::string& name ) {
-	return ::renderModels[name];
+uf::Mesh& ext::openvr::getRenderModel( const uf::stl::string& name ) {
+	return g_vr.renderModels[name];
 }
-uf::Graphic& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
-	if ( hand == vr::Controller_Hand::Hand_Left ) return renderModels["{indexcontroller}valve_controller_knu_1_0_left"]; //return ::devices.controllers.left.mesh;
-	else if ( hand == vr::Controller_Hand::Hand_Right ) return renderModels["{indexcontroller}valve_controller_knu_1_0_right"]; //return ::devices.controllers.right.mesh;
+uf::Mesh& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
+	if ( hand == vr::Controller_Hand::Hand_Left ) return g_vr.renderModels["{indexcontroller}valve_controller_knu_1_0_left"];
+	else if ( hand == vr::Controller_Hand::Hand_Right ) return g_vr.renderModels["{indexcontroller}valve_controller_knu_1_0_right"];
+	UF_EXCEPTION("OpenVR error: invalid hand requested");
+}
+uf::Image& ext::openvr::getRenderTexture( const uf::stl::string& name ) {
+	return g_vr.renderTextures[name];
+}
+uf::Image& ext::openvr::controllerRenderTexture( vr::Controller_Hand hand ) {
+	if ( hand == vr::Controller_Hand::Hand_Left ) return g_vr.renderTextures["{indexcontroller}valve_controller_knu_1_0_left"];
+	else if ( hand == vr::Controller_Hand::Hand_Right ) return g_vr.renderTextures["{indexcontroller}valve_controller_knu_1_0_right"];
 	UF_EXCEPTION("OpenVR error: invalid hand requested");
 }
 #endif

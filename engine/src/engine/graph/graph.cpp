@@ -1707,10 +1707,8 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 			auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
 			auto& transform = entity.getComponent<pod::Transform<>>();
 			
-			if ( !metadata.system.ignoreGraph ) {
-				object.previous = object.model;
-				object.model = uf::transform::model( transform );
-			}
+			object.previous = object.model;
+			object.model = uf::transform::model( transform );
 		}
 
 		objects.emplace_back( object );

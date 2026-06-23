@@ -13,8 +13,8 @@ pod::Vector3f uf::camera::eye( const pod::Camera& camera, int i ) {
 	if ( i < 0 ) i = 0; 
 	pod::Vector3f position = uf::transform::flatten( camera.transform ).position;
 #if UF_USE_OPENVR
-	if ( camera.stereoscopic && ext::openvr::context ) {
-		position += ext::openvr::hmdPosition( eye == 0 ? vr::Eye_Left : vr::Eye_Right );
+	if ( camera.stereoscopic && ext::openvr::enabled ) {
+		position += ext::openvr::hmdPosition( i == 0 ? vr::Eye_Left : vr::Eye_Right );
 	}
 #endif
 	return position;
@@ -39,10 +39,8 @@ void uf::camera::projection( pod::Camera& camera, const pod::Matrix4f& mat, int 
 }
 void uf::camera::update( pod::Camera& camera ) {
 #if UF_USE_OPENVR
-	if ( this->stereoscopic && ext::openvr::context ) {
-		camera.transform.orientation = uf::quaternion::identity();
+	if ( camera.stereoscopic && ext::openvr::enabled ) {
 		auto view = uf::matrix::inverse( uf::transform::model( camera.transform ) );
-		camera.transform.orientation = ext::openvr::hmdQuaternion();
 
 		uf::camera::view( camera, ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
 		uf::camera::view( camera, ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );

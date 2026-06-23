@@ -28,6 +28,7 @@
 
 #include <uf/ext/ext.h>
 #include <uf/ext/ffx/fsr.h>
+#include <uf/ext/openvr/openvr.h>
 
 #include "../light/behavior.h"
 #include "../voxelizer/behavior.h"
@@ -158,11 +159,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		#endif
 			renderMode.scale = 1.0f; // ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
 			UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode.scale);
-		/*
-			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
+			if ( ext::openvr::enabled ) {
 				renderMode.metadata.eyes = 2;
 			}
-		*/
 		#if UF_USE_VULKAN
 			if ( uf::renderer::settings::pipelines::deferred ) {
 				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);

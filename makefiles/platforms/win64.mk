@@ -1,5 +1,5 @@
 ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
-	REQ_DEPS 			+= meshoptimizer toml xatlas curl dc:texconv # ffx:sdk vall_e cpptrace # openvr # ncurses draco discord bullet ultralight-ux
+	REQ_DEPS 			+= meshoptimizer toml xatlas curl dc:texconv ffx:sdk openvr # vall_e cpptrace # ncurses draco discord ultralight-ux
 	FLAGS 				+= -march=native -g # -flto # -g
 endif
 

@@ -16,6 +16,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/ext.h>
 #include <uf/ext/ffx/fsr.h>
+#include <uf/ext/openvr/openvr.h>
 
 #define BARYCENTRIC 1
 #if BARYCENTRIC
@@ -117,7 +118,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	struct {
 		size_t id, bary, depth, depth_resolved, uv, normal;
-		size_t color, scratch, motion, output;
+		size_t color, scratch, motion, output, outputRightEye;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
@@ -169,14 +170,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		/*.blend =*/ true,
 		/*.samples =*/ 1,
 	});
 	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		/*.blend =*/ false,
 		/*.samples =*/ 1,
 		/*.mips =*/ mips,
@@ -222,6 +223,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	metadata.attachments["motion"] = attachments.motion;
 
 	metadata.attachments["output"] = attachments.color;
+
+	if ( metadata.eyes == 2 ) {
+		metadata.attachments["left"] = metadata.attachments["output"];
+		metadata.attachments["right"] = metadata.attachments["scratch"];
+	}
 
 	// First pass: fill the G-Buffer
 	renderTarget.addPass(
@@ -449,6 +455,16 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
 			shader.aliasBuffer("atomicCounterDepth", ::postprocesses::depthPyramid.atomicCounter);
 		}
+
+		if ( ext::openvr::enabled ) {
+			uf::stl::string vertexShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/vr/stereo.vert.spv");
+			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/vr/stereo.frag.spv");
+			blitter.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "vr");
+			blitter.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vr");
+
+			auto& shader = blitter.material.getShader("fragment", "vr");
+			shader.aliasAttachment("output", this);
+		}
 	}
 
 	this->build(true);
@@ -595,6 +611,12 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.pipeline = "depth-pyramid";
 			descriptor.subpass = 0;
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+			blitter.update( descriptor );
+		}
+
+		if ( ext::openvr::enabled ) {
+			auto descriptor = blitter.descriptor;
+			descriptor.pipeline = "vr";
 			blitter.update( descriptor );
 		}
 	}
@@ -1191,6 +1213,63 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		}
 	#endif
 	*/
+	#if UF_USE_OPENVR
+		// OpenVR does not respect layered images
+		if ( metadata.eyes == 2 && !ext::vulkan::hasRenderMode("VR") ) {
+			auto& outputAttachment = this->getAttachment("left");
+			auto& scratchAttachment = this->getAttachment("right");
+
+			VkImageSubresourceRange outRange = {};
+			outRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			outRange.baseMipLevel = 0;
+			outRange.levelCount = 1;
+			outRange.baseArrayLayer = 0;
+			outRange.layerCount = metadata.eyes;
+
+			VkImageSubresourceRange scratchRange = outRange;
+			scratchRange.layerCount = 1;
+
+			uf::renderer::Texture::setImageLayout(
+				commandBuffer, outputAttachment.image,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // Or SHADER_READ_ONLY
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				outRange
+			);
+			uf::renderer::Texture::setImageLayout(
+				commandBuffer, scratchAttachment.image,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				scratchRange
+			);
+
+			VkImageCopy copy = {};
+			copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			copy.srcSubresource.baseArrayLayer = 1;
+			copy.srcSubresource.layerCount = 1;
+			copy.srcSubresource.mipLevel = 0;
+
+			copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			copy.dstSubresource.baseArrayLayer = 0;
+			copy.dstSubresource.layerCount = 1;
+			copy.dstSubresource.mipLevel = 0;
+
+			copy.extent = { width, height, 1 };
+
+			vkCmdCopyImage(
+				commandBuffer,
+				outputAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				scratchAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &copy
+			);
+
+			uf::renderer::Texture::setImageLayout(
+				commandBuffer, scratchAttachment.image,
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				scratchRange
+			);
+		}
+	#endif
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

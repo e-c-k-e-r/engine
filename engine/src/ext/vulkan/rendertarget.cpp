@@ -27,6 +27,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	size_t index = attachments.size();
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	uint8_t layers = descriptor.layers > 0 ? descriptor.layers : this->views;
 
 	if ( attachment ) {
 		for ( auto& view : attachment->views ) {
@@ -66,12 +67,13 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 
 	attachment->descriptor.width = width;
 	attachment->descriptor.height = height;
+	attachment->descriptor.layers = layers;
 	if ( attachment->descriptor.mips <= 1 ) {
 		attachment->descriptor.mips = 1;
 	} else {
 		attachment->descriptor.mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 	}
-	attachment->views.resize(this->views * attachment->descriptor.mips);
+	attachment->views.resize(layers * attachment->descriptor.mips);
 
 	bool isSwapchain = attachment->descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	bool isDepth = attachment->descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -86,7 +88,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		subresourceRange.levelCount = 1;
 		subresourceRange.baseArrayLayer = 0;
 		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.layerCount = this->views;
+		subresourceRange.layerCount = layers;
 
 		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
 		for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
@@ -123,13 +125,13 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageCreateInfo.format = attachment->descriptor.format;
 	imageCreateInfo.extent = { width, height, 1 };
 	imageCreateInfo.mipLevels = attachment->descriptor.mips;
-	imageCreateInfo.arrayLayers = this->views;
+	imageCreateInfo.arrayLayers = layers;
 	imageCreateInfo.samples = ext::vulkan::sampleCount( attachment->descriptor.samples );
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = attachment->descriptor.usage;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	if ( this->views == 6 ) {
+	if ( layers == 6 ) {
 		imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	}
 
@@ -152,8 +154,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	VkImageViewCreateInfo imageView = {};
 	imageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	if ( this->views > 1 ) {
-		imageView.viewType = this->views == 6 ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+	if ( layers > 1 ) {
+		imageView.viewType = layers == 6 ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 	}
 	imageView.format = attachment->descriptor.format;
 	imageView.subresourceRange = {};
@@ -161,7 +163,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageView.subresourceRange.baseMipLevel = 0;
 	imageView.subresourceRange.baseArrayLayer = 0;
 	imageView.subresourceRange.levelCount = attachment->descriptor.mips;
-	imageView.subresourceRange.layerCount = this->views;
+	imageView.subresourceRange.layerCount = layers;
 	imageView.image = attachment->image;
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
 	VK_REGISTER_HANDLE( attachment->view );
@@ -173,7 +175,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	}
 
 	size_t viewIndex = 0;
-	for ( size_t layer = 0; layer < this->views; ++layer ) {
+	for ( size_t layer = 0; layer < layers; ++layer ) {
 		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		imageView.subresourceRange.levelCount = 1;
 		imageView.subresourceRange.layerCount = 1;
@@ -210,7 +212,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.baseArrayLayer = 0;
 		subresourceRange.levelCount = attachment->descriptor.mips;
-		subresourceRange.layerCount = this->views;
+		subresourceRange.layerCount = layers;
 		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 		uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
 		device->flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
@@ -493,7 +495,7 @@ void ext::vulkan::RenderTarget::destroy() {
 				attachment.view = VK_NULL_HANDLE;
 			}
 		}
-		for ( size_t i = 0; i < this->views; ++i ) {
+		for ( size_t i = 0; i < attachment.views.size(); ++i ) {
 			vkDestroyImageView(*device, attachment.views[i], nullptr);
 			VK_UNREGISTER_HANDLE( attachment.views[i] );
 		}

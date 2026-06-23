@@ -11,6 +11,8 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/window/payloads.h>
 
+#include <uf/ext/openvr/openvr.h> // yuck
+
 bool client::ready = false;
 bool client::terminated = false;
 uf::Window client::window;
@@ -109,6 +111,9 @@ void client::initialize() {
 			auto& configRenderJson = client::config["engine"]["ext"]["opengl"];
 		#else
 			auto& configRenderJson = client::config["engine"]["ext"]["software"];
+		#endif
+		#if UF_USE_OPENVR
+			if ( ext::openvr::enabled ) return;
 		#endif
 
 			if ( !ext::json::isArray( configRenderJson["framebuffer"]["size"] ) ) {
