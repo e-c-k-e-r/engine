@@ -259,7 +259,7 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 		commands.resize( swapchain.buffers );
 
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			device->getCommandPool(this->queueEnum),
+			device->getCommandPool(this->queueEnum, id),
 			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			static_cast<uint32_t>(commands.size())
 		);
@@ -286,8 +286,11 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 		if ( pair.second.empty() ) continue;
 
 		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		vkQueueWaitIdle( queue );
+	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	*/
 		
 		for ( auto& commandBuffer : pair.second ) {
 			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
@@ -306,9 +309,13 @@ void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
 		if ( pair.first == id ) continue;
 		if ( pair.second.empty() ) continue;
 		
+
 		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		vkQueueWaitIdle( queue );
+	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	*/
 
 		for ( auto& commandBuffer : pair.second ) {
 			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
@@ -425,10 +432,11 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 	if ( std::find( metadata.pipelines.begin(), metadata.pipelines.end(), metadata.pipeline ) == metadata.pipelines.end() ) {
 		metadata.pipelines.emplace_back(metadata.pipeline);
 	}
-
+/*
 	if ( !this->hasBuffer("camera") ) {
 		this->metadata.buffers["camera"] = this->initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
 	}
+*/
 }
 
 void ext::vulkan::RenderMode::build( bool resized ) {
@@ -436,11 +444,9 @@ void ext::vulkan::RenderMode::build( bool resized ) {
 }
 void ext::vulkan::RenderMode::tick() {
 	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
-		//if ( device ) vkDeviceWaitIdle(*device);
+		synchronize();
 		cleanupAllCommands();
 	}
-	
-	//this->synchronize();
 	
 	if ( metadata.limiter.frequency > 0 ) {
 		if ( metadata.limiter.timer > metadata.limiter.frequency ) {

@@ -15,6 +15,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
 #include <uf/utils/io/inputs.h>
+#include <uf/ext/openvr/openvr.h>
 
 #include "../../scene/behavior.h"
 
@@ -60,7 +61,13 @@ void ext::PlayerCameraBehavior::initialize( uf::Object& self ) {
 			size = uf::vector::decode(uf::config["window"]["size"], pod::Vector2ui{});
 			raidou = (float) size.x / (float) size.y;
 		}
-		camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
+
+		if ( ext::openvr::enabled ) {
+			camera.setProjection( ext::openvr::hmdProjectionMatrix(0, range.x, range.y), 0 );
+			camera.setProjection( ext::openvr::hmdProjectionMatrix(1, range.x, range.y), 1 );
+		} else {
+			camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
+		}
 	}
 	camera.update();
 

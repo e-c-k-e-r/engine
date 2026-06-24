@@ -52,9 +52,9 @@ namespace pod {
 			} segregated;
 			struct {
 				void* freeLists[32];
-                uint8_t* splitBlockBitset;
-                size_t maxLevel;
-                size_t minBlockSize;
+				uint8_t* splitBlockBitset;
+				size_t maxLevel;
+				size_t minBlockSize;
 			} buddy;
 		} state;
 

@@ -58,6 +58,7 @@ layout(binding = 10, set = 0, r32f) uniform writeonly image2DArray imageDepthRes
 layout( push_constant ) uniform PushBlock {
   uint pass;
   uint draw;
+  uint aux;
 } PushConstant;
 
 #include "../../../common/structs.h"

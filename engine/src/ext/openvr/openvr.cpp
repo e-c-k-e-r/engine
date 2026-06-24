@@ -408,7 +408,9 @@ bool ext::openvr::requestRenderModel( const uf::stl::string& name ) {
 	return false;
 }
 void ext::openvr::submit() {
-	if ( !g_vr.system ) return;
+	if ( !g_vr.system ) {
+		return;
+	}
 #if UF_USE_VULKAN
 	bool invert = g_vr.swapEyes;
 
@@ -421,12 +423,16 @@ void ext::openvr::submit() {
 	} else {
 		renderModePointer = &uf::renderer::getRenderMode("", true);
 	}
-	if ( !renderModePointer ) return;
+	if ( !renderModePointer ) {
+		return;
+	}
 	auto& renderMode = *renderModePointer;
 	float width = renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width;
 	float height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
 
-	if ( !renderMode.hasAttachment("left") || !renderMode.hasAttachment("right") ) return;
+	if ( !renderMode.hasAttachment("left") || !renderMode.hasAttachment("right") ) {
+		return;
+	}
 
 	auto& leftEyeAttachment = renderMode.getAttachment("left");
 	auto& rightEyeAttachment = renderMode.getAttachment("right");
@@ -452,19 +458,19 @@ void ext::openvr::submit() {
 	vr::EVRCompositorError err;
 	vulkanData.m_nFormat = leftEyeAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) leftEyeAttachment.image;
-	VR_CHECK_COMPOSITOR_RESULT(vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds ));
+	VR_CHECK_COMPOSITOR_RESULT(g_vr.compositor->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds ));
 
 
 	vulkanData.m_nFormat = rightEyeAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) rightEyeAttachment.image;
-	VR_CHECK_COMPOSITOR_RESULT(vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds ));
+	VR_CHECK_COMPOSITOR_RESULT(g_vr.compositor->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds ));
 
-	vr::VRCompositor()->PostPresentHandoff();
+	g_vr.compositor->PostPresentHandoff();
 #endif
 }
 void ext::openvr::synchronize() {
 	if ( !g_vr.system ) return;
-	vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
+	g_vr.compositor->WaitGetPoses(nullptr, 0, nullptr, 0);
 	updateTracking(1);
 }
 float ext::openvr::predictedTimeToDisplay( float additional ) {
@@ -546,6 +552,25 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 	float idy = 1.0f / (bottom - top);
 
 	m(0,0) = 2.0f * idx;
+	m(1,1) = -2.0f * idy;
+	m(0,2) = (right + left) * idx;
+	m(1,2) = -(bottom + top) * idy;
+	m(3,2) = 1.0f;
+	m(3,3) = 0.0f;
+
+	if ( zFar <= 0.0f) {
+		m(2,2) = 0.0f;
+		m(2,3) = zNear;
+	} else {
+		float range = zFar - zNear;
+		m(2,2) = zFar / range;
+		m(2,3) = -(zFar * zNear) / range;
+	}
+/*
+	float idx = 1.0f / (right - left);
+	float idy = 1.0f / (bottom - top);
+
+	m(0,0) = 2.0f * idx;
 	m(1,1) = 2.0f * idy;
 	m(0,2) = (right + left) * idx;
 	m(1,2) = (bottom + top) * idy;
@@ -560,6 +585,7 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 		m(2,2) = zFar / range;
 		m(2,3) = -(zFar * zNear) / range;
 	}
+*/
 
 	return m;
 }

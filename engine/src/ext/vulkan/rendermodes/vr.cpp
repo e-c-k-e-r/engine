@@ -13,10 +13,6 @@
 #include <uf/utils/io/fmt.h>
 #include <uf/ext/openvr/openvr.h>
 
-namespace {
-	uf::Camera camera;
-}
-
 const uf::stl::string ext::vulkan::VrRenderMode::getType() const {
 	return "VR";
 }
@@ -25,7 +21,7 @@ void ext::vulkan::VrRenderMode::initialize(Device& device) {
 	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
 	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
-    metadata.pipeline = "vr";
+	metadata.pipeline = "vr";
 
 	ext::vulkan::RenderMode::initialize( device );
 	renderTarget.device = &device;
@@ -160,8 +156,20 @@ void ext::vulkan::VrRenderMode::createCommandBuffers(const uf::stl::vector<ext::
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
 							if ( !blitter.initialized || !blitter.process ) continue;
-                            UF_MSG_DEBUG("currentPass={}, frame={}, renderMode name={}, type={}", currentPass, frame, layer->getName(), layer->getType());
-							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor);
+							ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+							descriptor.pipeline = "vr";
+							descriptor.renderMode = this->getName();
+							descriptor.bind.width = width;
+							descriptor.bind.height = height;
+							descriptor.bind.depth = 1;
+							descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+							descriptor.subpass = 0;
+                            descriptor.depth.test = false;
+                            descriptor.inputs.vertex.count = 6;
+                            descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+
+							// to-do: transition attachment here
+
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("blitter[{}: {}]", layer->getName(), layer->getType()) );
 							blitter.record(commandBuffer, descriptor, currentPass, currentDraw++, frame);
 						}
@@ -175,6 +183,22 @@ void ext::vulkan::VrRenderMode::createCommandBuffers(const uf::stl::vector<ext::
 			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
 			} );
+
+			// transition attachments
+			{
+				auto& leftEyeAttachment = this->getAttachment("left");
+				auto& rightEyeAttachment = this->getAttachment("right");
+
+				VkImageSubresourceRange range = {};
+				range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				range.baseMipLevel = 0;
+				range.levelCount = 1;
+				range.baseArrayLayer = 0;
+				range.layerCount = 1;
+
+				uf::renderer::Texture::setImageLayout( commandBuffer, leftEyeAttachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range );
+				uf::renderer::Texture::setImageLayout( commandBuffer, rightEyeAttachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range );
+			}
 		}
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
@@ -211,9 +235,6 @@ void ext::vulkan::VrRenderMode::tick() {
 	if ( rebuild && blitter.process ) {
 		this->build( resized );
 	}
-
-	::camera.update();
-	this->updateBuffer( (const void*) &::camera.data().viewport, sizeof(pod::Camera::Viewports), metadata.buffers["camera"] );
 }
 
 void ext::vulkan::VrRenderMode::destroy() {
@@ -227,15 +248,7 @@ void ext::vulkan::VrRenderMode::render() {
 
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
 
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL;
-	submitInfo.pWaitSemaphores = NULL;
-	submitInfo.waitSemaphoreCount = 0;
-	submitInfo.pSignalSemaphores = NULL;
-	submitInfo.signalSemaphoreCount = 0;
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
-	submitInfo.commandBufferCount = 1;
+	VkSubmitInfo submitInfo = this->queue();
 
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, /*VK_NULL_HANDLE*/fences[states::currentBuffer]);

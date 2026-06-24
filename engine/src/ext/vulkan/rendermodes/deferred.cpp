@@ -367,7 +367,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("uv", this);
 			shader.aliasAttachment("normal", this);
 		#endif
-			shader.aliasAttachment("depth", this);
+			shader.aliasAttachment("depth", this, VK_IMAGE_LAYOUT_GENERAL);
 			
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
@@ -415,7 +415,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute", "dof-down");
 
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("depth_resolved", this);
+			shader.aliasAttachment("depth_resolved", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
@@ -432,7 +432,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute", "dof-up");
 
 			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("depth_resolved", this);
+			shader.aliasAttachment("depth_resolved", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			{
@@ -449,7 +449,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
 
-			shader.aliasAttachment("depth_resolved", this);
+			shader.aliasAttachment("depth_resolved", this, VK_IMAGE_LAYOUT_GENERAL);
 
 			// atomic counter buffer
 			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
@@ -617,6 +617,10 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 		if ( ext::openvr::enabled ) {
 			auto descriptor = blitter.descriptor;
 			descriptor.pipeline = "vr";
+			descriptor.renderMode = "VR";
+			descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			descriptor.depth.test = false;
+			descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 			blitter.update( descriptor );
 		}
 	}
@@ -657,56 +661,33 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	}
 }
 VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
-	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
-	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-	static VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	// The submit info structure specifices a command buffer queue submission batch
+
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = waitStageMask;												// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];	// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 1;															// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];			// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;														// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];								// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pWaitDstStageMask = NULL;
+	submitInfo.pWaitSemaphores = NULL;
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pSignalSemaphores = NULL;
+	submitInfo.signalSemaphoreCount = 0;
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
 
 	return submitInfo;
 }
 void ext::vulkan::DeferredRenderMode::render() {
-//	if ( this->executed ) return;
-	//lockMutex( this->mostRecentCommandPoolId );
 	if ( this->commands.container().empty() ) return;
-	
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
 
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
-	// Submit commands
-	// Use a fence to ensure that command buffer has finished executing before using it again
-	/*
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
-	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
-	*/
 
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL; 								// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
-	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
-	submitInfo.commandBufferCount = 1;
-
-//	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	VkSubmitInfo submitInfo = this->queue();
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
 	this->executed = true;
-	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	forwardRenderTarget.destroy();
@@ -899,7 +880,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						clearRect.rect.offset = { 0, 0 };
 						clearRect.rect.extent = { width, height };
 						clearRect.baseArrayLayer = 0;
-						clearRect.layerCount = metadata.eyes > 0 ? metadata.eyes : 1;
+						clearRect.layerCount = 1;
 
 						vkCmdClearAttachments(commandBuffer, 1, &clearDepth, 1, &clearRect);
 					}
@@ -1204,70 +1185,57 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		#endif
 		}
 
-	/*
-	#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
-		{
-			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "fsr:start" );
-			ext::fsr::render( commandBuffer );
-			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "fsr:end" );
-		}
-	#endif
-	*/
 	#if UF_USE_OPENVR
-		// OpenVR does not respect layered images
-		if ( metadata.eyes == 2 && !ext::vulkan::hasRenderMode("VR") ) {
-			auto& outputAttachment = this->getAttachment("left");
-			auto& scratchAttachment = this->getAttachment("right");
+		if ( metadata.eyes == 2 ) {
+			if ( ext::vulkan::hasRenderMode("VR") ) {
+			/*
+			// transition outputs
+				auto& outputAttachment = this->getAttachment("output");
 
-			VkImageSubresourceRange outRange = {};
-			outRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			outRange.baseMipLevel = 0;
-			outRange.levelCount = 1;
-			outRange.baseArrayLayer = 0;
-			outRange.layerCount = metadata.eyes;
+				VkImageSubresourceRange range = {};
+				range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				range.baseMipLevel = 0;
+				range.levelCount = 1;
+				range.baseArrayLayer = 0;
+				range.layerCount = metadata.eyes;
 
-			VkImageSubresourceRange scratchRange = outRange;
-			scratchRange.layerCount = 1;
+				uf::renderer::Texture::setImageLayout( commandBuffer, outputAttachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range );
+			*/
+			} else {
+			// OpenVR does not respect layered images
+				auto& outputAttachment = this->getAttachment("left");
+				auto& scratchAttachment = this->getAttachment("right");
 
-			uf::renderer::Texture::setImageLayout(
-				commandBuffer, outputAttachment.image,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // Or SHADER_READ_ONLY
-				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				outRange
-			);
-			uf::renderer::Texture::setImageLayout(
-				commandBuffer, scratchAttachment.image,
-				VK_IMAGE_LAYOUT_GENERAL,
-				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				scratchRange
-			);
+				VkImageSubresourceRange outRange = {};
+				outRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				outRange.baseMipLevel = 0;
+				outRange.levelCount = 1;
+				outRange.baseArrayLayer = 0;
+				outRange.layerCount = metadata.eyes;
 
-			VkImageCopy copy = {};
-			copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			copy.srcSubresource.baseArrayLayer = 1;
-			copy.srcSubresource.layerCount = 1;
-			copy.srcSubresource.mipLevel = 0;
+				VkImageSubresourceRange scratchRange = outRange;
+				scratchRange.layerCount = 1;
 
-			copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			copy.dstSubresource.baseArrayLayer = 0;
-			copy.dstSubresource.layerCount = 1;
-			copy.dstSubresource.mipLevel = 0;
+				uf::renderer::Texture::setImageLayout( commandBuffer, outputAttachment.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, outRange );
+				uf::renderer::Texture::setImageLayout( commandBuffer, scratchAttachment.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, scratchRange );
 
-			copy.extent = { width, height, 1 };
+				VkImageCopy copy = {};
+				copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				copy.srcSubresource.baseArrayLayer = 1;
+				copy.srcSubresource.layerCount = 1;
+				copy.srcSubresource.mipLevel = 0;
 
-			vkCmdCopyImage(
-				commandBuffer,
-				outputAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				scratchAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				1, &copy
-			);
+				copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				copy.dstSubresource.baseArrayLayer = 0;
+				copy.dstSubresource.layerCount = 1;
+				copy.dstSubresource.mipLevel = 0;
 
-			uf::renderer::Texture::setImageLayout(
-				commandBuffer, scratchAttachment.image,
-				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				scratchRange
-			);
+				copy.extent = { width, height, 1 };
+
+				vkCmdCopyImage( commandBuffer, outputAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, scratchAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy );
+
+				uf::renderer::Texture::setImageLayout( commandBuffer, scratchAttachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, scratchRange );
+			}
 		}
 	#endif
 

@@ -25,9 +25,7 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 	});
 
 	uf::physics::initialize( self );
-	UF_MSG_DEBUG("Initializing graph...");
 	uf::graph::initialize( self );
-	UF_MSG_DEBUG("Initialized graph.");
 
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 }

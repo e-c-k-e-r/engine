@@ -15,11 +15,11 @@ namespace uf {
 
 namespace pod {
 	struct UF_API Camera {
-		pod::Transform<> transform;		
+		pod::Transform<> transform = {};
 		struct Viewports {
 			struct Matrices{
-				pod::Matrix4f view;
-				pod::Matrix4f projection;
+				pod::Matrix4f view = uf::matrix::identity();
+				pod::Matrix4f projection = uf::matrix::identity();
 			} matrices[uf::camera::maxViews];
 		} viewport;
 		size_t views = 1;

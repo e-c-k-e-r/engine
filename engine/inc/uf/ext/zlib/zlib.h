@@ -11,11 +11,11 @@
 
 namespace pod {
 	struct ZipEntry {
-        size_t offset;
-        size_t compressedSize;
-        size_t uncompressedSize;
-        uint16_t compressionMethod;
-    };
+		size_t offset;
+		size_t compressedSize;
+		size_t uncompressedSize;
+		uint16_t compressionMethod;
+	};
 }
 
 namespace ext {

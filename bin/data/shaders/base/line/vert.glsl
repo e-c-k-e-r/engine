@@ -12,6 +12,7 @@ layout (location = 1) in vec4 inColor;
 layout( push_constant ) uniform PushBlock {
   uint pass;
   uint draw;
+  uint aux;
 } PushConstant;
 
 layout (binding = 0) uniform Camera {

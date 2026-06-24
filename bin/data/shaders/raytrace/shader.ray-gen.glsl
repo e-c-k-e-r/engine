@@ -28,6 +28,7 @@ layout (constant_id = 3) const uint CASCADES = 1;
 layout( push_constant ) uniform PushBlock {
 	uint pass;
 	uint draw;
+	uint aux;
 } PushConstant;
 
 layout (binding = 0) uniform accelerationStructureEXT tlas;

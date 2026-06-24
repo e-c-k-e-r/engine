@@ -2,6 +2,7 @@
 
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/image/image.h>
+#include <uf/utils/camera/camera.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/ext/vulkan/texture.h>
@@ -40,7 +41,6 @@ namespace ext {
 				uf::stl::string target = "";
 				uf::stl::string pipeline = "";
 				uf::stl::vector<uf::stl::string> pipelines;
-			//	uf::stl::vector<uint8_t> outputs;
 				
 				uf::stl::unordered_map<uf::stl::string, uint8_t> attachments;
 				uf::stl::unordered_map<uf::stl::string, uint8_t> buffers;
@@ -57,6 +57,7 @@ namespace ext {
 				uint8_t views = 1;
 				bool compute = false;
 
+				uf::Camera camera;
 			} metadata;
 			
 			Device* device = VK_NULL_HANDLE;

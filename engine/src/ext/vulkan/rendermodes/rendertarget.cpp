@@ -213,7 +213,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			}
 		}
-
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
 			uf::stl::string vertexShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.vert.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
 			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.frag.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
@@ -225,7 +225,18 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				auto& shader = blitter.material.getShader("fragment", "vr");
 				shader.aliasAttachment("color", this);
 			}
+
+			{
+				pod::Transform<> transform = {};
+				transform.position = {0, 0, -3};
+				transform.scale = { 1, -1, 1 };
+				transform.orientation = {0, 0, 0, 1};
+				metadata.camera.setTransform(transform);
+				metadata.camera.setProjection( ext::openvr::hmdProjectionMatrix(0, 0.001f, 0.0f), 0 );
+				metadata.camera.setProjection( ext::openvr::hmdProjectionMatrix(1, 0.001f, 0.0f), 1 );
+			}
 		}
+	#endif
 	}
 
 	this->build(true);
@@ -284,6 +295,10 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 	if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
 		auto descriptor = blitter.descriptor;
 		descriptor.pipeline = "vr";
+		descriptor.renderMode = "VR";
+		descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		descriptor.depth.test = false;
+		descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 		blitter.update( descriptor );
 	}
 }
@@ -304,6 +319,14 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	if ( rebuild && blitter.process ) {
 		this->build( resized );
 	}
+	
+	if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
+		auto& shader = blitter.material.getShader("vertex", "vr");
+		metadata.camera.update();
+		if ( shader.hasUniform("UBO") ) {
+			shader.updateBuffer( (const void*) &metadata.camera.data().viewport, sizeof(pod::Camera::Viewports), shader.getUniformBuffer("UBO") );
+		}
+	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
@@ -312,29 +335,15 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 void ext::vulkan::RenderTargetRenderMode::render() {
 	if ( this->commands.container().empty() ) return;
 
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
-
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
 
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL;
-	submitInfo.pWaitSemaphores = NULL;
-	submitInfo.waitSemaphoreCount = 0;
-	submitInfo.pSignalSemaphores = NULL;
-	submitInfo.signalSemaphoreCount = 0;
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
-	submitInfo.commandBufferCount = 1;
-
+	VkSubmitInfo submitInfo = this->queue();
 	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, /*VK_NULL_HANDLE*/fences[states::currentBuffer]);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
 	this->executed = true;
-}
-void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
-	ext::vulkan::RenderMode::pipelineBarrier( commandBuffer, state );
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
@@ -461,12 +470,27 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "renderPass[end]" );
 				vkCmdEndRenderPass(commandBuffer);
 			}
-
 			
 			// post-renderpass commands
 			VK_COMMAND_BUFFER_CALLBACK( CALLBACK_END, commandBuffer, frame, {
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
 			} );
+
+		#if 0 && UF_USE_OPENVR
+			if ( ext::vulkan::hasRenderMode("VR") ) {
+			// transition outputs
+				auto& outputAttachment = this->getAttachment("color");
+
+				VkImageSubresourceRange range = {};
+				range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				range.baseMipLevel = 0;
+				range.levelCount = 1;
+				range.baseArrayLayer = 0;
+				range.layerCount = 1;
+
+				uf::renderer::Texture::setImageLayout( commandBuffer, outputAttachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, range );
+			}
+		#endif
 		}
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

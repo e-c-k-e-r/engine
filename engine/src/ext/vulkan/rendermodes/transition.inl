@@ -1,3 +1,5 @@
+#include <uf/utils/memory/unordered_set.h>
+
 namespace {
 	void transitionAttachmentsTo(
 		ext::vulkan::RenderMode* self,
@@ -5,6 +7,8 @@ namespace {
 		VkCommandBuffer commandBuffer,
 		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	) {
+		uf::stl::unordered_set<VkImage> transitioned;
+		
 		VkImageSubresourceRange subresourceRange;
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = 1;
@@ -35,6 +39,10 @@ namespace {
 				}
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+
+			if ( transitioned.count(image) > 0 ) continue;
+			transitioned.insert(image);
+
 			bool isDepth = descriptor.name.starts_with("depth");
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.levelCount = 1;
@@ -57,6 +65,8 @@ namespace {
 		VkCommandBuffer commandBuffer,
 		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	) {
+		uf::stl::unordered_set<VkImage> transitioned;
+		
 		VkImageSubresourceRange subresourceRange;
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = 1;
@@ -87,6 +97,10 @@ namespace {
 				}
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+
+			if ( transitioned.count(image) > 0 ) continue;
+			transitioned.insert(image);
+
 			bool isDepth = descriptor.name.starts_with("depth");
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.levelCount = 1;

@@ -597,7 +597,6 @@ void ext::vulkan::render() {
 		uf::stl::vector<VkSubmitInfo> submitsCompute; submitsCompute.reserve( auxRenderModes.size() );
 
 		// stuff we can batch
-//		auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 		for ( auto renderMode : auxRenderModes ) {
 			auto submitInfo = renderMode->queue();
 			if ( submitInfo.sType != VK_STRUCTURE_TYPE_SUBMIT_INFO ) continue;
@@ -605,17 +604,12 @@ void ext::vulkan::render() {
 			else submitsGraphics.emplace_back(submitInfo);
 			renderMode->executed = true;
 
-//			tasks.queue([renderMode]{
-				ext::vulkan::setCurrentRenderMode(renderMode);
-				if ( renderMode->getType() != "Swapchain" ) {
-					uf::scene::render();
-				}
-				ext::vulkan::setCurrentRenderMode(NULL);
-//			});
+			ext::vulkan::setCurrentRenderMode(renderMode);
+			if ( renderMode->getType() != "Swapchain" ) {
+				uf::scene::render();
+			}
+			ext::vulkan::setCurrentRenderMode(NULL);
 		}
-//		uf::thread::execute( tasks );
-
-//		ext::vulkan::flushCommandBuffers();
 		
 		VK_CHECK_RESULT(vkWaitForFences(device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 		VK_CHECK_RESULT(vkResetFences(device, fences.size(), fences.data()));
@@ -646,7 +640,9 @@ void ext::vulkan::render() {
 		}
 	} else {
 		for ( auto& renderMode : renderModes ) {
-			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
+			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) {
+				continue;
+			}
 
 		#if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 			if ( renderMode->getType() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
@@ -654,6 +650,7 @@ void ext::vulkan::render() {
 				ext::fsr::render();
 			}
 		#endif
+
 
 			ext::vulkan::setCurrentRenderMode(renderMode);
 			if ( renderMode->getType() != "Swapchain" ) {
@@ -665,6 +662,11 @@ void ext::vulkan::render() {
 		}
 	}
 
+	#if UF_USE_OPENVR
+		if ( ext::openvr::enabled ) {
+			ext::openvr::submit();
+		}
+	#endif
 	if ( ext::vulkan::settings::invariant::waitOnRenderEnd ) synchronize();
 //	if ( ext::openvr::context ) ext::openvr::postSubmit();
 

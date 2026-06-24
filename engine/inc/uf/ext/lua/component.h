@@ -15,7 +15,7 @@ namespace ext {
 		
 		template<typename T>
 		sol::object getComponent( uf::Object& self ) {
-		    return sol::make_object(ext::lua::state, std::ref(self.getComponent<T>()));
+			return sol::make_object(ext::lua::state, std::ref(self.getComponent<T>()));
 		}
 	}
 }

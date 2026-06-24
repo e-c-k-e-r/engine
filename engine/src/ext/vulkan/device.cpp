@@ -824,7 +824,7 @@ VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueE
 		break;
 	}
 	UF_ASSERT( commandPool );
-	auto guard = commandPool->guardMutex();
+	auto guard = commandPool->guardMutex(id);
 	bool exists = commandPool->has(id);
 	VkCommandPool& pool = commandPool->get(id);
 	if ( !exists ) {
@@ -873,7 +873,7 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::th
 		break;
 	}
 	UF_ASSERT( commandPool );
-	auto guard = commandPool->guardMutex();
+	auto guard = commandPool->guardMutex(id);
 	bool exists = commandPool->has(id);
 	VkQueue& queue = commandPool->get(id);
 	if ( !exists ) {

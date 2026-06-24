@@ -12,6 +12,7 @@ namespace ext {
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			virtual void build( bool = true );
 			virtual void tick();
+			virtual VkSubmitInfo queue();
 			virtual void render();
 			virtual void destroy();
 		};

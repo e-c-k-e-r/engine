@@ -8,6 +8,7 @@ layout (location = 3) in vec2 inOffset;
 layout( push_constant ) uniform PushBlock {
   uint pass;
   uint draw;
+  uint aux;
 } PushConstant;
 
 struct Matrices {

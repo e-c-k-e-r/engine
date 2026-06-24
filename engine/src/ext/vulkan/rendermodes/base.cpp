@@ -9,6 +9,10 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/io/fmt.h>
 
+namespace {
+	uint32_t imageIndex;
+}
+
 const uf::stl::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
@@ -109,12 +113,28 @@ void ext::vulkan::BaseRenderMode::tick() {
 		this->build( resized );
 	}
 }
+VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+
+	static VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = waitStageMask;
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[::imageIndex];
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
+	submitInfo.commandBufferCount = 1;
+
+	return submitInfo;
+}
 void ext::vulkan::BaseRenderMode::render() {
 //	if ( this->commands.container().empty() ) return;
 
-	uint32_t imageIndex;
 	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
 	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
 	
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
@@ -200,7 +220,7 @@ void ext::vulkan::BaseRenderMode::render() {
 		scissor.offset.x = 0;
 		scissor.offset.y = 0;
 		
-		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[imageIndex];
+		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[::imageIndex];
 
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
@@ -244,25 +264,14 @@ void ext::vulkan::BaseRenderMode::render() {
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 	}
 
-	VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = waitStageMask;
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[imageIndex];
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
-	submitInfo.commandBufferCount = 1;
-
 	{
+		VkSubmitInfo submitInfo = this->queue();
 		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
 		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
 	
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), imageIndex, renderCompleteSemaphores[imageIndex]));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), ::imageIndex, renderCompleteSemaphores[::imageIndex]));
 
 	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
 	this->executed = true;

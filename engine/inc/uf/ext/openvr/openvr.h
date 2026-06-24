@@ -45,7 +45,13 @@ namespace ext {
 		pod::Vector3f UF_API hmdEyePosition( vr::Hmd_Eye eye );
 		pod::Quaternion<> UF_API hmdQuaternion();
 		pod::Matrix4t<> UF_API hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& = uf::matrix::identity() );
-		pod::Matrix4t<> UF_API hmdProjectionMatrix( vr::Hmd_Eye, float = 0.1f, float = 1024.0f );
+		pod::Matrix4t<> UF_API hmdProjectionMatrix( vr::Hmd_Eye, float = 0.001f, float = 0.0f );
+		inline pod::Matrix4t<> UF_API hmdViewMatrix( int i, const pod::Matrix4f& m = uf::matrix::identity() ) {
+			return hmdViewMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right, m );
+		}
+		inline pod::Matrix4t<> UF_API hmdProjectionMatrix( int i, float zNear = 0.001f, float zFar = 0.0f ) {
+			return hmdProjectionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right, zNear, zFar );
+		}
 
 		uf::Serializer UF_API controllerState( vr::Controller_Hand, const uf::stl::string& = "" );
 		pod::Vector3f UF_API controllerPosition( vr::Controller_Hand, bool = false );

@@ -8,7 +8,7 @@ layout (location = 1) flat in uint inPass;
 layout (location = 0) out vec4 outLeft;
 layout (location = 1) out vec4 outRight;
 
-layout (binding = 0) uniform sampler2DArray samplerColor;
+layout (binding = 1) uniform sampler2DArray samplerColor;
 
 layout(constant_id = 0) const int FORCE_OPAQUE = 0;
 
@@ -19,6 +19,9 @@ layout(constant_id = 0) const int FORCE_OPAQUE = 0;
 #include "../../common/functions.h"
 
 void main() {
+	outLeft = vec4(0.0);
+	outRight = vec4(0.0);
+
 	vec4 outColor = texture( samplerColor, vec3(inUv, inPass) );
 	if ( FORCE_OPAQUE == 1 ) outColor.a = 1;
 

@@ -57,6 +57,7 @@ bool projectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 
 layout( push_constant ) uniform PushBlock {
 	uint pass;
 	uint passes;
+	uint aux;
 } PushConstant;
 
 layout (binding = 0) uniform Camera {

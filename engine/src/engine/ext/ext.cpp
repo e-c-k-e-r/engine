@@ -376,11 +376,6 @@ void UF_API uf::load( ext::json::Value& json ) {
 	}
 #endif
 
-#if 0 && UF_USE_OPENVR
-	static auto* vrRenderMode = new ext::vulkan::VrRenderMode;
-	uf::renderer::addRenderMode(vrRenderMode, "VR");
-#endif
-
 	// shouldn't ever fire because the deferred rendermode is owned by the scene now
 	if ( uf::renderer::hasRenderMode("", true) ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
@@ -677,6 +672,10 @@ void UF_API uf::initialize() {
 			ext::openvr::recommendedResolution( uf::renderer::settings::width, uf::renderer::settings::height );
 			UF_MSG_DEBUG("VR Resolution: {}, {}", uf::renderer::settings::width, uf::renderer::settings::height); 
 		}
+			
+		// could probably live alongside gui/deferred in the scene
+		static auto* vrRenderMode = new ext::vulkan::VrRenderMode;
+		uf::renderer::addRenderMode(vrRenderMode, "VR");
 	}
 #endif
 
@@ -987,11 +986,6 @@ void UF_API uf::render() {
 	//	uf::renderer::tick();
 		uf::renderer::render();
 	}
-#if UF_USE_OPENVR
-	if ( !uf::renderer::hasRenderMode("VR") ) {
-		ext::openvr::submit();
-	}
-#endif
 }
 void UF_API uf::terminate() {
 	/* Kill threads */ {

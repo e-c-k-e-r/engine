@@ -9,8 +9,8 @@
 namespace uf {
 	namespace stl {
 		template<
-    		class T,
-    		class Container = uf::stl::deque<T>
+			class T,
+			class Container = uf::stl::deque<T>
 		>
 		using queue = std::queue<T, Container>;
 	}

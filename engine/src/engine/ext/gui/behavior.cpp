@@ -243,10 +243,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			auto anchor = ::parseAnchor( metadata.anchor, metadata.pivot ) * 2.0f - 1.0f;
 			transform.position.x += anchor.x;
 			transform.position.y += anchor.y;
-		/*
-			transform.position.x += anchor.x * ((float) metadata.size.x / uf::renderer::settings::width) * transform.scale.x;
-			transform.position.y += anchor.y * ((float) metadata.size.y / uf::renderer::settings::height) * transform.scale.y;
-		*/
 		}
 
 
@@ -280,7 +276,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( metadata.space != "screen" ) return;
 			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
+		#if UF_USE_OPENVR
+			pod::Vector2ui guiSize = uf::renderer::device.window->getSize();
+		#else
 			pod::Vector2ui guiSize = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
+		#endif
 			
 			bool clicked = false;
 			if ( payload.mouse.state == -1 ) {
@@ -372,7 +372,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( metadata.space != "screen" ) return;
 			if ((metadata.boxMin.x > metadata.boxMax.x)||(metadata.boxMin.y > metadata.boxMax.y)) return;
 
+		#if UF_USE_OPENVR
+			pod::Vector2ui guiSize = uf::renderer::device.window->getSize();
+		#else
 			pod::Vector2ui guiSize = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
+		#endif
 
 			bool hovered = false;
 			pod::Vector2f click;
@@ -469,7 +473,11 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 	auto& camera = controller.getComponent<uf::Camera>();
 
 	if ( metadata.space == "screen" ) {
+	#if UF_USE_OPENVR
+		pod::Vector2ui guiSize = uf::renderer::device.window->getSize();
+	#else
 		pod::Vector2f guiSize = pod::Vector2f{ uf::renderer::settings::width, uf::renderer::settings::height };
+	#endif
 		pod::Vector2f scale = { 1, 1 };	
 
 		if ( metadata.scaling == "fixed" || metadata.scaling == "fixed-x" ) scale.x = (float) metadata.size.x / guiSize.x;

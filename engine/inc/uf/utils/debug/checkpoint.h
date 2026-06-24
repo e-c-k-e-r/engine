@@ -11,10 +11,10 @@ namespace pod {
 			END,
 		};
 
-    	pod::Checkpoint::Type type = Type::GENERIC;
+		pod::Checkpoint::Type type = Type::GENERIC;
 		uf::stl::string name = "";
 		uf::stl::string info = "";
-    	pod::Checkpoint* previous = NULL;
+		pod::Checkpoint* previous = NULL;
 	};
 }
 

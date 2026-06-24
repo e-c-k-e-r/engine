@@ -122,8 +122,8 @@ template<typename T>
 pod::Transform<T> uf::transform::fromMatrix( const pod::Matrix4t<T>& matrix ) {
 	pod::Transform<T> transform;
 	transform.position = uf::matrix::extractTranslation( matrix );
-    transform.orientation = uf::quaternion::fromMatrix( matrix );
-    transform.scale = uf::matrix::extractScale( matrix );
+	transform.orientation = uf::quaternion::fromMatrix( matrix );
+	transform.scale = uf::matrix::extractScale( matrix );
 	return transform;
 }
 

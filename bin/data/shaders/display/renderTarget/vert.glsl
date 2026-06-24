@@ -7,6 +7,7 @@ layout (location = 1) out flat uint outPass;
 layout( push_constant ) uniform PushBlock {
   uint pass;
   uint draw;
+  uint aux;
 } PushConstant;
 
 void main() {
