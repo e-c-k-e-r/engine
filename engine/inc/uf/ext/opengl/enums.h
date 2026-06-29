@@ -97,30 +97,30 @@ namespace ext {
 			}
 			namespace PrimitiveTopology {
 				typedef GLenum type_t;
-				static const type_t POINT_LIST = GLenumerator(VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
-				static const type_t LINE_LIST = GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-				static const type_t LINE_STRIP = GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP);
-				static const type_t TRIANGLE_LIST = GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-				static const type_t TRIANGLE_STRIP = GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
-				static const type_t TRIANGLE_FAN = GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN);
-				static const type_t LINE_LIST_WITH_ADJACENCY = GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY);
-				static const type_t LINE_STRIP_WITH_ADJACENCY = GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY);
-				static const type_t TRIANGLE_LIST_WITH_ADJACENCY = GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY);
-				static const type_t TRIANGLE_STRIP_WITH_ADJACENCY = GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY);
-				static const type_t PATCH_LIST = GLenumerator(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST);
+				static const type_t POINT_LIST = 0; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+				static const type_t LINE_LIST = 1; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+				static const type_t LINE_STRIP = 2; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP);
+				static const type_t TRIANGLE_LIST = 3; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+				static const type_t TRIANGLE_STRIP = 4; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
+				static const type_t TRIANGLE_FAN = 5; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN);
+				static const type_t LINE_LIST_WITH_ADJACENCY = 6; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY);
+				static const type_t LINE_STRIP_WITH_ADJACENCY = 7; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY);
+				static const type_t TRIANGLE_LIST_WITH_ADJACENCY = 8; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY);
+				static const type_t TRIANGLE_STRIP_WITH_ADJACENCY = 9; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY);
+				static const type_t PATCH_LIST = 10; // GLenumerator(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST);
 			}
 			namespace PolygonMode {
 				typedef GLenum type_t;
-				static const type_t FILL = GLenumerator(VK_POLYGON_MODE_FILL);
-				static const type_t LINE = GLenumerator(VK_POLYGON_MODE_LINE);
-				static const type_t POINT = GLenumerator(VK_POLYGON_MODE_POINT);
+				static const type_t FILL = 0; // GLenumerator(VK_POLYGON_MODE_FILL);
+				static const type_t LINE = 1; // GLenumerator(VK_POLYGON_MODE_LINE);
+				static const type_t POINT = 2; // GLenumerator(VK_POLYGON_MODE_POINT);
 			}
 			namespace AddressMode {
 				typedef GLenum type_t;
-				static const type_t CLAMP_TO_EDGE = GLenumerator(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-				static const type_t CLAMP_TO_BORDER = GLenumerator(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
-				static const type_t MIRRORED_REPEAT = GLenumerator(VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
-				static const type_t REPEAT = GLenumerator(VK_SAMPLER_ADDRESS_MODE_REPEAT);
+				static const type_t CLAMP_TO_EDGE = 0; // GLenumerator(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+				static const type_t CLAMP_TO_BORDER = 1; // GLenumerator(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
+				static const type_t MIRRORED_REPEAT = 2; // GLenumerator(VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
+				static const type_t REPEAT = 3; // GLenumerator(VK_SAMPLER_ADDRESS_MODE_REPEAT);
 			}
 			namespace Filter {
 				typedef GLenum type_t;

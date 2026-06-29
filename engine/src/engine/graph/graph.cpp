@@ -834,9 +834,17 @@ void uf::graph::process( pod::Graph& graph ) {
 	UF_DEBUG_TIMER_MULTITRACE("Parsing lightmaps");
 	// cringe hack for VBSP loader
 	if ( storage.textures.map.count("lightmap_atlas") > 0 ) {
-		graphMetadataJson["lights"]["lightmap"] = true;
 		graphMetadataJson["baking"]["enabled"] = false;
 		textureDescriptors["lightmap_atlas"].srgb = false;
+
+		if ( !graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
+			for ( auto& name : graph.primitives ) {
+				auto& primitives = storage.primitives[name];
+				for ( auto& primitive : primitives ) {
+					primitive.instance.lightmapID = -1;
+				}
+			}
+		}
 	} else {
 		constexpr const char* UF_GRAPH_DEFAULT_LIGHTMAP = "./lightmap.%i.png";
 		uf::stl::unordered_map<size_t, uf::stl::string> filenames;
@@ -1518,6 +1526,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		storage.objects[objectKeyName] = pod::Instance::Object{
 			.model = model,
 			.previous = model,
+			.color = {1, 1, 1, 1},
 		};
 
 		if ( node.skin >= 0 && node.skin < graph.skins.size() ) {

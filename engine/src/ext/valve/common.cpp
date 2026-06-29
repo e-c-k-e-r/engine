@@ -34,6 +34,7 @@ size_t impl::addMaterial( pod::Graph& graph, const uf::stl::string& name, int32_
 	material.factorMetallic = 0.0f;
 	material.factorRoughness = 1.0f;
 	material.factorOcclusion = 1.0f;
+	material.factorAlphaCutoff = 0.0f;
 	material.indexNormal = -1;
 	material.indexEmissive = -1;
 	material.indexMetallicRoughness = -1;

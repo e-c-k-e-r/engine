@@ -417,7 +417,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 		drawCommandInfoBase.color.pointer = &uniforms->color;
 		drawCommandInfoBase.color.value = uniforms->color;
-		drawCommandInfoBase.color.enabled = true; // drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+		drawCommandInfoBase.color.enabled = drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 	}
 
 	struct {
@@ -497,8 +497,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.blend.modeAlpha = material.modeAlpha;
 			drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
 
-			drawCommandInfo.color.value = object.color * material.colorBase;
+			drawCommandInfo.color.value = object.color * material.colorBase; // to-do: blend properly
 			drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+
+			if ( drawCommandInfo.color.value.w == 0.0f ) {
+				continue;
+			}
 
 			if ( 0 <= textureID ) {
 				auto texture2DID = textures[textureID].index;
@@ -510,8 +514,8 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 			}
 			switch ( drawCommandInfo.blend.modeAlpha ) {
-				case 0: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
-				default: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
+				case pod::Material::AlphaMode::BLEND: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
+				default: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
 			}
 		}
 	} else {		

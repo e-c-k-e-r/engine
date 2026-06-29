@@ -69,7 +69,7 @@ namespace ext {
 				} textures;
 
 				struct {
-					uint8_t modeAlpha{};
+					int8_t modeAlpha{};
 					float alphaCutoff = 0.001f;
 				} blend;
 

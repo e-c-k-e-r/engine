@@ -281,10 +281,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (*drawInfo.matrices.model);
 			
 			bool visible = inside( instance, mat );
-			drawCommand.instances = visible ? 1 : 0;
-			if ( !visible ) ++::culled;
+			if ( !visible ) {
+				++::culled;
+				return;
+			}
 		}
-		if ( drawCommand.instances == 0 ) return;
 	}
 
 	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
@@ -327,12 +328,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 	}
 	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
-	
-	uf::stl::vector<pod::Vector4f> colors;
 
 	// CPU-buffer based command dispatching
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
 	
 	GLenum vertexType = GL_FLOAT;
@@ -452,16 +450,17 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	// prioritize uniform color for now
 	if ( drawInfo.color.enabled ) {
 		const auto& color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
-		colors = uf::stl::vector<pod::Vector4f>( drawInfo.descriptor.inputs.vertex.count, color );
-		GL_ERROR_CHECK(glColorPointer(4, GL_FLOAT, sizeof(pod::Vector4f), colors.data()));
-	//	GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
+		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
 	} else if ( drawInfo.attributes.color.pointer ) {
 		GLenum colorType = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
 			case sizeof(uint8_t): colorType = GL_UNSIGNED_BYTE; break;
 			case sizeof(float): colorType = GL_FLOAT; break;
 		}
+		GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
+	} else {
+		GL_ERROR_CHECK(glColor4f( 1, 1, 1, 1 ));
 	}
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
@@ -493,17 +492,25 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glVertexPointer(3, vertexType, vertexStride, vertexPtr));
 	}
 
+	GLenum mode = GL_TRIANGLES;
+	if ( drawInfo.descriptor.fill == uf::renderer::enums::PolygonMode::LINE ) {
+		mode = GL_LINES;
+		glLineWidth(drawInfo.descriptor.lineWidth);
+	} else {
+		glLineWidth(1.0f);
+	}
+
 	if ( drawInfo.descriptor.inputs.index.count ) {
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
+		GL_ERROR_CHECK(glDrawElements(mode, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
 	} else {
 	#if 0 && UF_ENV_DREAMCAST
 		// GLdc has a "regression" where glDrawArrays does not work
 		// everything should be using indices anyways so this path shouldn't really ever be taken
 		uf::stl::vector<uint16_t> indices(drawInfo.descriptor.inputs.vertex.count);
 		for ( auto i = 0; i < drawInfo.descriptor.inputs.vertex.count; ++i ) indices[i] = i;
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, indices.data()));
+		GL_ERROR_CHECK(glDrawElements(mode, indices.size(), GL_UNSIGNED_SHORT, indices.data()));
 	#else
-		GL_ERROR_CHECK(glDrawArrays(GL_TRIANGLES, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
+		GL_ERROR_CHECK(glDrawArrays(mode, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	#endif
 	}
 

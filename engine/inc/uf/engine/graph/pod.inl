@@ -22,7 +22,7 @@ namespace pod {
 		float factorMetallic = 0.0f;
 		float factorRoughness = 1.0f;
 		float factorOcclusion = 1.0f;
-		float factorAlphaCutoff = 1.0f;
+		float factorAlphaCutoff = 0.0f;
 
 		int32_t indexAlbedo = -1;
 		int32_t indexNormal = -1;

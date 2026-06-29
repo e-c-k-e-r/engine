@@ -1,9 +1,9 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "StartMenu",
+			"start": "SourceEngine",
 			"lights": { "enabled": true,
-				"lightmaps": true,
+				"lightmaps": false,
 				"max": 32,
 				"shadows": {
 					"enabled": false,

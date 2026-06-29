@@ -48,7 +48,7 @@
 #include <uf/ext/vall_e/vall_e.h>
 #include <uf/ext/valve/vpk.h>
 
-#if UF_USE_OPENVR
+#if UF_USE_OPENVR && UF_USE_VULKAN
 #include <uf/ext/vulkan/rendermodes/vr.h>
 #endif
 
@@ -664,7 +664,7 @@ void UF_API uf::initialize() {
 	}
 #endif
 
-#if UF_USE_OPENVR
+#if UF_USE_OPENVR && UF_USE_VULKAN
 	{	
 		auto& configVrJson = uf::config["engine"]["ext"]["vr"];
 		ext::openvr::enabled = configVrJson["enable"].as( ext::openvr::enabled );
@@ -674,7 +674,7 @@ void UF_API uf::initialize() {
 		}
 			
 		// could probably live alongside gui/deferred in the scene
-		static auto* vrRenderMode = new ext::vulkan::VrRenderMode;
+		static auto* vrRenderMode = new uf::renderer::VrRenderMode;
 		uf::renderer::addRenderMode(vrRenderMode, "VR");
 	}
 #endif
