@@ -1,7 +1,7 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [	
-		{ "filename": "./maps/de_dust2.bsp" }
-	//	{ "filename": "./maps/de_dust2/graph.json" }
+	//	{ "filename": "./maps/de_dust2.bsp" }
+		{ "filename": "./maps/de_dust2/graph.json" }
 	]
 }

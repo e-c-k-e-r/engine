@@ -389,6 +389,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			auto& image = storage.images.map.at(name).data;
 			uf::Serializer json;
 			json["name"] = name;
+			json["format"] = image.getFormat();
 
 			if ( !settings.combined ) {
 				uf::stl::string f = ::fmt::format("image.{}.png", i );
@@ -409,9 +410,44 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			json["layers"] = image.layers;
 
 		#if UF_USE_DC_TEXCONV
-			auto converted = image.scale( {32, 32}, "nearest" );
+			auto img = uf::Image(image);
+			pod::Vector2ui size = { 32, 32 };
+			uf::stl::string filter = "nearest";
+			uf::stl::string dtexFormat = "ARGB4444";
+			if ( name == "lightmap_atlas" || img.getFormat() == uf::renderer::enums::Format::R8G8B8A8_RGBE ) {
+				size = { 128, 128 };
+				filter = "linear";
+				dtexFormat = "RGB565";
+				auto* pixels = (pod::Vector4ub*) img.getPixels().data();
+				auto& size = img.getDimensions();
+				for ( auto p = 0; p < size.x * size.y; ++p ) {
+					auto& pixel = pixels[p];
+					if ( pixel.w == 0 ) {
+						pixel = {0,0,0,255};
+						continue;
+					}
+
+					// decode
+					float exp = (float) pixel.w - 128.0f;
+					float mult = std::exp2(exp);
+
+					const float gamma = 1.0f / 2.2f;
+					auto linear = pod::Vector3f{ pixel.x, pixel.y, pixel.z } * mult / 255.0f;
+					// tone-map
+					FOR_EACH( 3, {
+						linear[i] = linear[i] / ( 1 + linear[i] );
+					});
+					// gamma correct
+					linear = uf::vector::pow( uf::vector::clamp( linear, 0.0f, 1.0f ), gamma );
+					// 0-1 => 0-255
+					linear *= 255.0f;
+					pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
+				}
+			}
+
+			img = img.scale( size, filter );
 			uf::stl::vector<uint8_t> dtexBytes;
-			auto dtex = ext::texconv::convert( converted );
+			auto dtex = ext::texconv::convert( img, dtexFormat );
 			ext::texconv::save( dtex, dtexBytes );
 
 			size_t dtexOffset = dtexBuffer.size();
@@ -421,6 +457,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			json["dtex"]["filename"] = dtexBinName;
 			json["dtex"]["offset"] = dtexOffset;
 			json["dtex"]["length"] = dtexLength;
+			json["dtex"]["format"] = dtexFormat;
 		#endif
 
 			serializer["images"].emplace_back( json );

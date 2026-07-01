@@ -113,6 +113,8 @@ namespace {
 					instance.jointID = -1;
 					instance.bounds.min = boundsMin;
 					instance.bounds.max = boundsMax;
+					instance.bounds.center = (boundsMax + boundsMin) * 0.5f;
+					instance.bounds.extent = (boundsMax - boundsMin) * 0.5f;
 
 					if ( sourceDrawCommands ) {
 						drawCommand = sourceDrawCommands[drawCommandID];

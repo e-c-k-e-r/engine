@@ -183,3 +183,7 @@ static const type_t ASTC_12x10_UNORM_BLOCK = VK_FORMAT_ASTC_12x10_UNORM_BLOCK;
 static const type_t ASTC_12x10_SRGB_BLOCK = VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
 static const type_t ASTC_12x12_UNORM_BLOCK = VK_FORMAT_ASTC_12x12_UNORM_BLOCK;
 static const type_t ASTC_12x12_SRGB_BLOCK = VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+
+static const type_t R8G8B8A8_RGBE = (VkFormat)(255);
+static const type_t R8G8B8_UNORM_E8_SINT = R8G8B8A8_RGBE;
+static const type_t R8G8B8E8_UFLOAT = R8G8B8A8_RGBE;

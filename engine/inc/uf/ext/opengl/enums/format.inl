@@ -183,3 +183,7 @@ static const type_t ASTC_12x10_UNORM_BLOCK = 181;
 static const type_t ASTC_12x10_SRGB_BLOCK = 182;
 static const type_t ASTC_12x12_UNORM_BLOCK = 183;
 static const type_t ASTC_12x12_SRGB_BLOCK = 184;
+
+static const type_t R8G8B8A8_RGBE = 255;
+static const type_t R8G8B8_UNORM_E8_SINT = R8G8B8A8_RGBE;
+static const type_t R8G8B8E8_UFLOAT = R8G8B8A8_RGBE;

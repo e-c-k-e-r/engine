@@ -570,8 +570,68 @@ size_t& uf::Image::getChannels() {
 size_t uf::Image::getChannels() const {
 	return this->channels;
 }
-size_t uf::Image::getFormat() const {
-	return this->format;
+size_t uf::Image::getFormat( bool srgb ) const {
+	auto format = this->format;
+
+	// for some reason i'm auto-deducing it here
+#if UF_USE_OPENGL
+	switch ( format ) {
+		case uf::renderer::enums::Format::R8_SRGB:
+		case uf::renderer::enums::Format::R8G8_SRGB:
+		case uf::renderer::enums::Format::R8G8B8_SRGB:
+		case uf::renderer::enums::Format::R8G8B8A8_SRGB:
+			srgb = true;
+		break;
+	}
+#endif
+
+	if ( this->format > 0 ) format = this->format;
+	else switch ( this->channels ) {
+		// R
+		case 1:
+			switch ( this->bpp ) {
+				case 8:  format = srgb ? uf::renderer::enums::Format::R8_SRGB : uf::renderer::enums::Format::R8_UNORM; break;
+				case 16: format = uf::renderer::enums::Format::R16_SFLOAT; break;
+				case 32: format = uf::renderer::enums::Format::R32_SFLOAT; break;
+				default: UF_EXCEPTION("unsupported BPP of {}", this->bpp ); break;
+			}
+		break;
+		// RG
+		case 2:
+			switch ( this->bpp ) {
+				case 16: format = srgb ? uf::renderer::enums::Format::R8G8_SRGB : uf::renderer::enums::Format::R8G8_UNORM; break;
+				case 32: format = uf::renderer::enums::Format::R16G16_SFLOAT; break;
+				case 64: format = uf::renderer::enums::Format::R32G32_SFLOAT; break;
+				default: UF_EXCEPTION("unsupported BPP of {}", this->bpp ); break;
+			}
+		break;
+		// RGB
+		case 3:
+			switch ( this->bpp ) {
+				case 24: format = srgb ? uf::renderer::enums::Format::R8G8B8_SRGB : uf::renderer::enums::Format::R8G8B8_UNORM; break;
+				case 48: format = uf::renderer::enums::Format::R16G16B16_SFLOAT; break;
+				case 96: format = uf::renderer::enums::Format::R32G32B32_SFLOAT; break;
+				default: UF_EXCEPTION("unsupported BPP of {}", this->bpp ); break;
+			}
+		break;
+		// RGBA
+		case 4:
+			switch ( this->bpp ) {
+				case 32:  format = srgb ? uf::renderer::enums::Format::R8G8B8A8_SRGB : uf::renderer::enums::Format::R8G8B8A8_UNORM; break;
+				case 64:  format = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; break; // 16-bit HDR
+				case 128: format = uf::renderer::enums::Format::R32G32B32A32_SFLOAT; break; // 32-bit HDR
+				default:  UF_EXCEPTION("unsupported BPP of {}", this->bpp ); break;
+			}
+		break;
+		default:
+			UF_EXCEPTION("unsupported channels of {}", this->channels );
+		break;
+	}
+
+	return format;
+}
+void uf::Image::setFormat( size_t format ) {
+	this->format = format;
 }
 uf::stl::string uf::Image::getHash() const {
 	return uf::image::hash( *this );

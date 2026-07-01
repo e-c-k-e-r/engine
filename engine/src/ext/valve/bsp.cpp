@@ -1096,7 +1096,12 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			auto& mesh = storage.meshes[meshName];
 			auto& primitives = storage.primitives[meshName];
 
-		//	for ( auto& pair : meshlets ) uf::mesh::tangents( pair.second.vertices, pair.second.indices );
+			// recompute bounds from min/max to center-extent
+			for ( auto& [ _, meshlet ] : meshlets ) {
+				auto& bounds = meshlet.primitive.instance.bounds;
+				bounds.center = ( bounds.min + bounds.max ) * 0.5f;
+				bounds.extent = ( bounds.min - bounds.max ) * 0.5f;
+			}
 
 			// slice worldspawn
 			if ( false && m == 0 ) {

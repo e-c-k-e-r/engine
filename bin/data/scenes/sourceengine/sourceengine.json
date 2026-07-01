@@ -1,8 +1,8 @@
 {
 //	"import": "./rp_downtown_v2.json"
 //	"import": "./ss2_medsci1.json"
-	"import": "./mds_mcdonalds.json"
-//	"import": "./cs_office.json"
+//	"import": "./mds_mcdonalds.json"
+	"import": "./cs_office.json"
 //	"import": "./de_dust2.json"
 //	"import": "./gm_construct.json"
 }

@@ -103,9 +103,13 @@ namespace pod {
 		// should be for the specific draw call itself, rather than the mesh(let) entirely
 		struct Bounds {
 			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-			alignas(4) float padding1 = 0;
+			alignas(4) float padding1;
 			pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-			alignas(4) float padding2 = 0;
+			alignas(4) float padding2;
+			pod::Vector3f center = { 0, 0, 0 };
+			alignas(4) float padding3;
+			pod::Vector3f extent = { 0, 0, 0 };
+			alignas(4) float padding4;
 		} bounds;
 
 		// stores "pointers" on the GPU side for buffer locations, used for RT / recalculating barycentrics

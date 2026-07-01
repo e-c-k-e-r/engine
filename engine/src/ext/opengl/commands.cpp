@@ -197,71 +197,29 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 
 namespace {
 	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
-		bool visible = false;
-		#if 0
-			pod::Vector4f corners[8] = {
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
+		#pragma unroll
+		for ( auto p = 0; p < 4; ++p ) {
+			int i = p / 2;
+			int j = p % 2;
 
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
-			};
-			#pragma unroll
-			for ( uint p = 0; p < 8; ++p ) {
-				pod::Vector4f t = uf::matrix::multiply( mat, corners[p] );
-				float w = t.w * 1.25f;
-				if ( -w <= t.x && t.x <= w && -w <= t.y && t.y <= w && -w <= t.z && t.z <= w ) return true;
-			}
-		#else
-			pod::Vector4f planes[6]; {
-				#pragma unroll
-				for ( auto i = 0; i < 3; ++i )
-				#pragma unroll
-				for ( auto j = 0; j < 2; ++j) {
-					float x = mat[4*0+3] + (j == 0 ? mat[4*0+i] : -mat[4*0+i]);
-					float y = mat[4*1+3] + (j == 0 ? mat[4*1+i] : -mat[4*1+i]);
-					float z = mat[4*2+3] + (j == 0 ? mat[4*2+i] : -mat[4*2+i]);
-					float w = mat[4*3+3] + (j == 0 ? mat[4*3+i] : -mat[4*3+i]);
-					float length = 1.0f / sqrt( x * x + y * y + z * z );
-					
-					planes[i*2+j] = pod::Vector4f{ x * length, y * length, z * length, w * length };
-				}
-			}
-		#if 1
-			#pragma unroll
-			for ( auto p = 0; p < 6; ++p ) {
-				float d = std::max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
-						+ std::max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
-						+ std::max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
-				if ( d > -planes[p].w ) return true;
-			}
-		#else
-			pod::Vector4f corners[8] = {
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
+			float x = mat(0,3) + (j == 0 ? mat(0,i) : -mat(0,i));
+			float y = mat(1,3) + (j == 0 ? mat(1,i) : -mat(1,i));
+			float z = mat(2,3) + (j == 0 ? mat(2,i) : -mat(2,i));
+			float w = mat(3,3) + (j == 0 ? mat(3,i) : -mat(3,i));
 
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
-				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
-			};
-			#pragma unroll
-			for ( uint p = 0; p < 8; ++p ) corners[p] = uf::matrix::multiply( mat, corners[p] );
-			#pragma unroll
-			for ( uint p = 0; p < 6; ++p ) {
-				#pragma unroll
-				for ( uint q = 0; q < 8; ++q ) if ( uf::vector::dot( corners[q], planes[p] ) > 0 ) return true;
-				return false;
-			}
-		#endif
-		#endif
-		return visible;
+			float length = 1.0f / std::sqrt( x * x + y * y + z * z );
+
+			pod::Vector3f normal = { x * length, y * length, z * length };
+			float planeDist = w * length;
+
+			pod::Vector3f absNormal = uf::vector::abs(normal);
+			float r = uf::vector::dot(instance.bounds.extent, absNormal);
+			float d = uf::vector::dot(instance.bounds.center, normal) + planeDist;
+
+			if ( d < -r ) return false;
+		}
+
+		return true;
 	}
 }
 
@@ -275,8 +233,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.matrices.projection ) projection = *drawInfo.matrices.projection;
 
 	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
-		pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
 		if ( ext::opengl::settings::pipelines::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
+			pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
 			pod::Instance& instance = *(pod::Instance*) drawInfo.attributes.instance.pointer;
 			pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (*drawInfo.matrices.model);
 			
@@ -447,11 +405,15 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
 	}
 
-	// prioritize uniform color for now
-	if ( drawInfo.color.enabled ) {
-		const auto& color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+	{
+		pod::Vector4f color = {1,1,1,1};
+		if ( drawInfo.color.enabled ) {
+			color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+		}
 		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
-	} else if ( drawInfo.attributes.color.pointer ) {
+	}
+
+	if ( drawInfo.attributes.color.pointer ) {
 		GLenum colorType = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
 			case sizeof(uint8_t): colorType = GL_UNSIGNED_BYTE; break;
@@ -459,8 +421,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		}
 		GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
-	} else {
-		GL_ERROR_CHECK(glColor4f( 1, 1, 1, 1 ));
 	}
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
@@ -471,7 +431,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
 
-		if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) {
+		if ( drawInfo.attributes.color.pointer ) {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
 		} else {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
@@ -503,15 +463,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.descriptor.inputs.index.count ) {
 		GL_ERROR_CHECK(glDrawElements(mode, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
 	} else {
-	#if 0 && UF_ENV_DREAMCAST
-		// GLdc has a "regression" where glDrawArrays does not work
-		// everything should be using indices anyways so this path shouldn't really ever be taken
-		uf::stl::vector<uint16_t> indices(drawInfo.descriptor.inputs.vertex.count);
-		for ( auto i = 0; i < drawInfo.descriptor.inputs.vertex.count; ++i ) indices[i] = i;
-		GL_ERROR_CHECK(glDrawElements(mode, indices.size(), GL_UNSIGNED_SHORT, indices.data()));
-	#else
 		GL_ERROR_CHECK(glDrawArrays(mode, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
-	#endif
 	}
 
 	if ( drawInfo.textures.secondary.image ) {
@@ -528,7 +480,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	}
 
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
 	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
 }

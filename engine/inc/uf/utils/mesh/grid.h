@@ -126,6 +126,8 @@ namespace uf {
 					slice.primitive.instance.auxID = atlasID;
 					slice.primitive.instance.bounds.min = node.effectiveExtents.min;
 					slice.primitive.instance.bounds.max = node.effectiveExtents.max;
+					slice.primitive.instance.bounds.center = (node.effectiveExtents.max + node.effectiveExtents.min) * 0.5f;
+					slice.primitive.instance.bounds.extent = (node.effectiveExtents.max - node.effectiveExtents.min) * 0.5f;
 
 					slice.primitive.drawCommand.indices = slice.indices.size();
 					slice.primitive.drawCommand.instances = 1;

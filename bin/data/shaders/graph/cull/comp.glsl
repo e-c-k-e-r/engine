@@ -27,8 +27,8 @@ float mipLevels( ivec2 size ) {
 
 vec4 aabbToSphere( Bounds bounds ) {
 	vec4 sphere;
-	sphere.xyz = (bounds.max + bounds.min) * 0.5;
-	sphere.w = length((bounds.max - bounds.min) * 0.5);
+	sphere.xyz = bounds.center;
+	sphere.w = length( bounds.extent );
 	return sphere;
 }
 

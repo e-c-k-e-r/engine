@@ -405,13 +405,24 @@ void ext::vulkan::Texture::loadFromImage(
 	VkImageLayout layout,
 	VkImageCreateFlags flags
 ) {
+	// for some reason this causes everything to get washed out
+#if 0
+	format = (VkFormat) image.getFormat( srgb );
+	
+	// convert non-vulkan formats
+	switch ( format ) {
+		case enums::Format::R8G8B8A8_RGBE:
+			format = srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+		break;
+	}
+#else
 	switch ( image.getChannels() ) {
 		// R
 		case 1:
 			switch ( image.getBpp() ) {
 				case 8:  format = srgb ? VK_FORMAT_R8_SRGB : VK_FORMAT_R8_UNORM; break;
-				case 16: format = VK_FORMAT_R16_SFLOAT; break; // Half-float
-				case 32: format = VK_FORMAT_R32_SFLOAT; break; // Full-float
+				case 16: format = VK_FORMAT_R16_SFLOAT; break;
+				case 32: format = VK_FORMAT_R32_SFLOAT; break;
 				default: UF_EXCEPTION("Vulkan error: unsupported BPP of {}", image.getBpp() ); break;
 			}
 		break;
@@ -446,6 +457,7 @@ void ext::vulkan::Texture::loadFromImage(
 			UF_EXCEPTION("Vulkan error: unsupported channels of {}", image.getChannels() );
 		break;
 	}
+#endif
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),

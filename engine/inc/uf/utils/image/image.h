@@ -93,7 +93,9 @@ namespace uf {
 		size_t getChannels() const;
 
 		uf::stl::string getHash() const;
-		size_t getFormat() const;
+		
+		size_t getFormat( bool srgb = false ) const;
+		void setFormat( size_t );
 
 		void setLayers( size_t );
 

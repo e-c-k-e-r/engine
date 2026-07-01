@@ -107,73 +107,8 @@ void ext::opengl::Texture::loadFromImage(
 	Device& device,
 	enums::Format::type_t format
 ) {
-	switch ( format ) {
-		case enums::Format::R8_SRGB:
-		case enums::Format::R8G8_SRGB:
-		case enums::Format::R8G8B8_SRGB:
-		case enums::Format::R8G8B8A8_SRGB:
-			srgb = true;
-		break;
-	}
-
-	if ( image.getFormat() != 0 ) {
-		internalFormat = image.getFormat();
-	} else {
-		switch ( image.getChannels() ) {
-			// R
-			case 1:
-				switch ( image.getBpp() ) {
-					case 8:
-						format = srgb ? enums::Format::R8_SRGB : enums::Format::R8_UNORM;
-					break;
-					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
-					break;
-				}
-			break;
-			// RB
-			case 2:
-				switch ( image.getBpp() ) {
-					case 16:
-						format = srgb ? enums::Format::R8G8_SRGB : enums::Format::R8G8_UNORM;
-					break;
-					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
-					break;
-				}
-			break;
-			// RGB
-			case 3:
-				switch ( image.getBpp() ) {
-					case 24:
-						format = srgb ? enums::Format::R8G8B8_SRGB : enums::Format::R8G8B8_UNORM;
-					break;
-					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
-					break;
-				}
-			break;
-			// RGBA
-			case 4:
-				switch ( image.getBpp() ) {
-					case 16:
-						format = enums::Format::R4G4B4A4_UNORM_PACK16;
-					break;
-					case 32:
-						format = srgb ? enums::Format::R8G8B8A8_SRGB : enums::Format::R8G8B8A8_UNORM;
-					break;
-					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
-					break;
-				}
-			break;
-			default:
-			UF_EXCEPTION("OpenGL error: unsupported channels of {}", image.getChannels() );
-			break;
-		}
-	}
-	// convert to power of two
-	//image.padToPowerOfTwo();
+	format = image.getFormat( srgb );
+	internalFormat = image.format > 0 ? format : 0;
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),
@@ -333,6 +268,12 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 		case enums::Format::R8G8B8A8_SRGB:
 			format = GL_RGBA;
 			internalFormat = GL_RGBA8;
+		break;
+
+			// to-do: convert
+		case enums::Format::R8G8B8A8_RGBE:
+			format = GL_RGBA;
+			internalFormat = GL_RGBA;
 		break;
 	}
 	GL_MUTEX_LOCK();

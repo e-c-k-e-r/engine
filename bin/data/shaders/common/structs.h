@@ -97,6 +97,10 @@ struct Bounds {
 	float padding1;
 	vec3 max;
 	float padding2;
+	vec3 center;
+	float padding3;
+	vec3 extent;
+	float padding4;
 };
 
 struct LOD {

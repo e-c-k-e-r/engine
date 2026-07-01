@@ -25,26 +25,46 @@
 #endif
 
 namespace {
+	size_t deduceFormat( const uf::stl::string& format ) {
+		if ( format == "ARGB4444" ) return uf::renderer::enums::Format::R4G4B4A4_UNORM_PACK16;
+		if ( format == "RGB565" ) return uf::renderer::enums::Format::R5G6B5_UNORM_PACK16;
+		return 0;
+	}
 	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName ) {
 		uf::Image image;
 
 		uf::stl::string filename = "";
-		size_t offset = 0, length = 0, layers = json["layers"].as<size_t>(1);
-		uf::stl::string formatHint = "";
+		size_t offset = 0;
+		size_t length = 0;
+		size_t format = 0;
+		size_t layers = json["layers"].as<size_t>(1);
+		uf::stl::string extension = "";
 
+		if ( json["format"].is<uf::stl::string>() ) {
+			format = deduceFormat( json["format"].as<uf::stl::string>() );
+		} else {
+			format = json["format"].as<size_t>();
+		}
 	#if UF_ENV_DREAMCAST
-		if (json["dtex"].isObject()) {
+		if ( json["dtex"].isObject() ) {
 			filename = json["dtex"]["filename"].as<uf::stl::string>();
+			extension = "dtex";
+
 			offset = json["dtex"]["offset"].as<size_t>();
 			length = json["dtex"]["length"].as<size_t>();
-			formatHint = "dtex";
+			if ( json["dtex"]["format"].is<uf::stl::string>() ) {
+				format = deduceFormat( json["dtex"]["format"].as<uf::stl::string>() );
+			} else {
+				format = json["dtex"]["format"].as<size_t>();
+			}
 		} else
 	#endif
 		if ( json["filename"].is<uf::stl::string>() ) {
 			filename = json["filename"].as<uf::stl::string>();
+			extension = uf::io::extension(filename);
+			
 			offset = json["offset"].as<size_t>(0);
 			length = json["length"].as<size_t>(0);
-			formatHint = uf::io::extension(filename);
 		} else {
 			auto size = uf::vector::decode( json["size"], pod::Vector2ui{} );
 			size_t bpp = json["bpp"].as<size_t>();
@@ -52,6 +72,7 @@ namespace {
 			auto pixels = uf::base64::decode( json["data"].as<uf::stl::string>() );
 			image.loadFromBuffer( &pixels[0], size, bpp, channels, true );
 			image.setLayers( layers );
+			image.setFormat( format );
 			return image;
 		}
 
@@ -60,19 +81,20 @@ namespace {
 		if ( graph.settings.stream.textures ) {
 			auto& storage = uf::graph::getStorage(graph);
 			graph.streams.images[imageName] = { fullPath, offset, length };
-			image.setFilename(fullPath);
 		} else {
 			uf::stl::vector<uint8_t> buffer;
-			if (length > 0) {
-				uf::io::readAsBuffer(buffer, fullPath, offset, length);
+			if ( length > 0 ) {
+				uf::io::readAsBuffer( buffer, fullPath, offset, length );
 			} else {
-				uf::io::readAsBuffer(buffer, fullPath);
+				uf::io::readAsBuffer( buffer, fullPath );
 			}
 
-			uf::image::open( image, buffer, formatHint, false );
+			uf::image::open( image, buffer, extension, false );
 			uf::image::layers( image, layers );
-			image.setFilename(fullPath);
 		}
+		
+		image.setFilename( fullPath );
+		image.setFormat( format );
 
 		return image;
 	}
@@ -252,7 +274,7 @@ namespace {
 			uf::io::readAsBuffer(mesh.buffers[attr.buffer], region.filename, region.offset, region.length);
 		}
 
-		#if UF_ENV_DREAMCAST
+		#if 1 || UF_ENV_DREAMCAST
 		// remove extraneous buffers
 		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
 		{

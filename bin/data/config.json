@@ -274,7 +274,7 @@
 					"rebuild on tick begin": false
 				},
 				"pipelines": {
-					"culling": false
+					"culling": true
 				},
 				"experimental": {
 					"rebuild on tick begin": false,

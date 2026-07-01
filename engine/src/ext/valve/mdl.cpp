@@ -396,6 +396,13 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 				}
 
 				meshlet.primitive.instance.materialID = materialID;
+
+				// recompute bounds
+				{
+					auto& bounds = meshlet.primitive.instance.bounds;
+					bounds.center = ( bounds.max + bounds.min ) * 0.5f;
+					bounds.extent = ( bounds.max - bounds.min ) * 0.5f;
+				}
 			}
 		}
 	}

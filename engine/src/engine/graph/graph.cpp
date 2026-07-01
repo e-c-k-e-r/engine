@@ -837,7 +837,37 @@ void uf::graph::process( pod::Graph& graph ) {
 		graphMetadataJson["baking"]["enabled"] = false;
 		textureDescriptors["lightmap_atlas"].srgb = false;
 
-		if ( !graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
+		if ( graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
+		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
+			auto& image = storage.images["lightmap_atlas"].data;
+			auto* pixels = (pod::Vector4ub*) image.getPixels().data();
+			auto& size = image.getDimensions();
+			for ( auto p = 0; p < size.x * size.y; ++p ) {
+				auto& pixel = pixels[p];
+				if ( pixel.w == 0 ) {
+					pixel = {0,0,0,255};
+					continue;
+				}
+
+				// decode
+				float exp = (float) pixel.w - 128.0f;
+				float mult = std::exp2(exp);
+
+				const float gamma = 1.0f / 2.2f;
+				auto linear = pod::Vector3f{ pixel.x, pixel.y, pixel.z } * mult / 255.0f;
+				// tone-map
+				FOR_EACH( 3, {
+					linear[i] = linear[i] / ( 1 + linear[i] );
+				});
+				// gamma correct
+				linear = uf::vector::pow( uf::vector::clamp( linear, 0.0f, 1.0f ), gamma );
+				// 0-1 => 0-255
+				linear *= 255.0f;
+				pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
+			}
+			// to-do: update format
+		#endif
+		} else {
 			for ( auto& name : graph.primitives ) {
 				auto& primitives = storage.primitives[name];
 				for ( auto& primitive : primitives ) {
@@ -1555,6 +1585,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			grouped.emplace_back(newInstance);
 		}
 
+		bounds.center = (bounds.max + bounds.min) * 0.5f;
+		bounds.extent = uf::vector::abs(bounds.max - bounds.min) * 0.5f;
+
 	#if !UF_GRAPH_EXTENDED
 		bool isFirstInstance = ( grouped.size() == primitives.size() );
 		bool isSkinned = graphMetadataJson["renderer"]["skinned"].as<bool>();
@@ -1575,16 +1608,10 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 				bool isMesh = type == "mesh" || type == "hull";
 				if ( !isMesh ) {
-					auto min = bounds.min; // uf::matrix::multiply<float>( model, bounds.min, 1.0f );
-					auto max = bounds.max; // uf::matrix::multiply<float>( model, bounds.max, 1.0f );
-
-					pod::Vector3f center = (max + min) * 0.5f;
-					pod::Vector3f extent = uf::vector::abs(max - min) * 0.5f;
-
-					if ( ext::json::isNull( metadataJson["physics"]["center"] ) ) metadataJson["physics"]["center"] = uf::vector::encode( center );
-					if ( ext::json::isNull( metadataJson["physics"]["extent"] ) ) metadataJson["physics"]["extent"] = uf::vector::encode( extent );
-					if ( ext::json::isNull( metadataJson["physics"]["min"] ) ) metadataJson["physics"]["min"] = uf::vector::encode( min );
-					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( max );
+					if ( ext::json::isNull( metadataJson["physics"]["center"] ) ) metadataJson["physics"]["center"] = uf::vector::encode( bounds.center );
+					if ( ext::json::isNull( metadataJson["physics"]["extent"] ) ) metadataJson["physics"]["extent"] = uf::vector::encode( bounds.extent );
+					if ( ext::json::isNull( metadataJson["physics"]["min"] ) ) metadataJson["physics"]["min"] = uf::vector::encode( bounds.min );
+					if ( ext::json::isNull( metadataJson["physics"]["max"] ) ) metadataJson["physics"]["max"] = uf::vector::encode( bounds.max );
 				}
 			#if !UF_GRAPH_EXTENDED
 				if ( isMesh ) {
@@ -2108,7 +2135,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			auto& instance = primitive.instance;
 			auto& drawCommand = primitive.drawCommand;
 
-			pod::Vector3f center = uf::matrix::multiply( model, (instance.bounds.max + instance.bounds.min) * 0.5f, 1.0f ); // transform the center of the draw call
+			pod::Vector3f center = uf::matrix::multiply( model, instance.bounds.center, 1.0f ); // transform the center of the draw call
 			float distanceSquared = uf::vector::distanceSquared( center, controllerPosition ); // saves a sqrt()
 
 			// store closest draw call
