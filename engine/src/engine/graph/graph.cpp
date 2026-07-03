@@ -748,11 +748,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 				if ( material.modeCull == pod::Material::CullMode::NONE ) {
 					tag["renderer"]["cull mode"] = "none";
 				}
-			#if UF_USE_VULKAN
 				if ( material.modeAlpha == pod::Material::AlphaMode::BLEND ) {
 					graphic.descriptor.renderTarget = 1;
 				}
-			#endif
 			}
 		}
 	}

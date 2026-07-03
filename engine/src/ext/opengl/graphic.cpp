@@ -297,8 +297,9 @@ bool ext::opengl::Graphic::updateMesh( uf::Mesh& mesh ) {
 		}\
 	}
 
-	bool rebuild = true;
-	ext::opengl::states::rebuild = true;
+	// to-do: deduce if the "buffer" would resize to trigger a command buffer invalidation
+	bool rebuild = false;
+	//ext::opengl::states::rebuild = true;
 	// we actually don't buffer anything directly at the moment so this will always fail
 	// as vertex data is directly read from the mesh object
 	/*
@@ -409,8 +410,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	}
 
 	if ( uniformBufferSize == sizeof(pod::Camera::Viewports) ) {
-		drawCommandInfoBase.matrices.view = &viewports->matrices[0].view;
-		drawCommandInfoBase.matrices.projection = &viewports->matrices[0].projection;
+		auto viewIndex = descriptor.aux * 2;
+		drawCommandInfoBase.matrices.view = &viewports->matrices[viewIndex].view;
+		drawCommandInfoBase.matrices.projection = &viewports->matrices[viewIndex].projection;
 	} else if ( uniformBufferSize == sizeof(pod::Uniform) ) {
 		drawCommandInfoBase.matrices.model = &uniforms->modelView;
 		drawCommandInfoBase.matrices.projection = &uniforms->projection;
@@ -461,72 +463,67 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 	//	const bool optimize = false;
 		uf::stl::unordered_map<size_t, uf::stl::vector<CommandBuffer::InfoDraw>> pool;
-		for ( auto i = 0; i < descriptor.inputs.indirect.count; ++i ) {
-			auto& drawCommand = drawCommands[i];
-			auto instanceID = drawCommand.instanceID;
+		for ( auto drawID = 0; drawID < descriptor.inputs.indirect.count; ++drawID ) {
+			auto& drawCommand = drawCommands[drawID];
+			for ( auto instanceOffset = 0; instanceOffset < drawCommand.instances; ++instanceOffset ) {
+				auto instanceID = drawCommand.instanceID + instanceOffset;
 
-			auto& instance = instances[instanceID];
+				auto& instance = instances[instanceID];
 
-			auto objectID = instance.objectID;
-			auto materialID = instance.materialID;
-			auto lightmapID = instance.lightmapID;
+				auto objectID = instance.objectID;
+				auto materialID = instance.materialID;
+				auto lightmapID = instance.lightmapID;
 
-			auto& object = objects[objectID];
+				auto& object = objects[objectID];
 
-			auto& material = materials[materialID];
-			auto textureID = material.indexAlbedo;
+				auto& material = materials[materialID];
+				auto textureID = material.indexAlbedo;
 
-			auto& infos = pool[textureID];
-			CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
-		//	CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
+				auto& infos = pool[textureID];
+				CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
+			//	CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
 
-			drawCommandInfo.descriptor.inputs.index.first = drawCommand.indexID;
-			drawCommandInfo.descriptor.inputs.index.count = drawCommand.indices;
-			
-			drawCommandInfo.descriptor.inputs.vertex.first = drawCommand.vertexID;
-			drawCommandInfo.descriptor.inputs.vertex.count = drawCommand.vertices;
+				drawCommandInfo.descriptor.inputs.index.first = drawCommand.indexID;
+				drawCommandInfo.descriptor.inputs.index.count = drawCommand.indices;
+				
+				drawCommandInfo.descriptor.inputs.vertex.first = drawCommand.vertexID;
+				drawCommandInfo.descriptor.inputs.vertex.count = drawCommand.vertices;
 
-			drawCommandInfo.attributes.instance.pointer = (uint8_t*) (void*) &instance;
-			drawCommandInfo.attributes.instance.length = sizeof(instance);
+				drawCommandInfo.attributes.instance.pointer = (uint8_t*) (void*) &instance;
+				drawCommandInfo.attributes.instance.length = sizeof(instance);
 
-			drawCommandInfo.attributes.indirect.pointer = (uint8_t*) (void*) &drawCommand;
-			drawCommandInfo.attributes.indirect.length = sizeof(drawCommand);
+				drawCommandInfo.attributes.indirect.pointer = (uint8_t*) (void*) &drawCommand;
+				drawCommandInfo.attributes.indirect.length = sizeof(drawCommand);
 
-			drawCommandInfo.matrices.model = &object.model;
+				drawCommandInfo.matrices.model = &object.model;
 
-			drawCommandInfo.blend.modeAlpha = material.modeAlpha;
-			drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
+				drawCommandInfo.blend.modeAlpha = material.modeAlpha;
+				drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
 
-			drawCommandInfo.color.value = object.color * material.colorBase; // to-do: blend properly
-			drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+				drawCommandInfo.color.value = object.color * material.colorBase; // to-do: blend properly
+				drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 
-			if ( drawCommandInfo.color.value.w == 0.0f ) {
-				continue;
-			}
+				if ( drawCommandInfo.color.value.w == 0.0f ) {
+					continue;
+				}
 
-			if ( 0 <= textureID ) {
-				auto texture2DID = textures[textureID].index;
-				drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
-			}
-			if ( 0 <= lightmapID ) {
-				auto textureID = lightmapID;
-				auto texture2DID = textures[lightmapID].index;
-				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
-			}
-			switch ( drawCommandInfo.blend.modeAlpha ) {
-				case pod::Material::AlphaMode::BLEND: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
-				default: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
+				if ( 0 <= textureID ) {
+					auto texture2DID = textures[textureID].index;
+					drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
+				}
+				if ( 0 <= lightmapID ) {
+					auto textureID = lightmapID;
+					auto texture2DID = textures[lightmapID].index;
+					drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
+				}
+				if ( drawCommandInfo.blend.modeAlpha == pod::Material::AlphaMode::BLEND ) {
+					drawCommandInfo.descriptor.renderTarget = 1;
+				}
+				commandBuffer.record( drawCommandInfo );
 			}
 		}
 	} else {		
 		CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
-
-		// ???
-	/*
-		drawCommandInfoBase.matrices.model = NULL;
-		drawCommandInfoBase.matrices.view = NULL;
-		drawCommandInfoBase.matrices.projection = NULL;
-	*/
 
 		if ( !material.textures.empty() ) {
 			auto& texture = material.textures.front();
@@ -543,13 +540,17 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				break;
 			}
 		}
-		
+	
+		commandBuffer.record( drawCommandInfo );
+	/*
 		switch ( drawCommandInfo.blend.modeAlpha ) {
 			case 0: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
 			default: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
 		}
+	*/
 	}
 
+/*
 	if ( uf::matrix::reverseInfiniteProjection ) {
 		for ( auto it = drawCommandInfos.opaques.rbegin(); it != drawCommandInfos.opaques.rend(); ++it ) {
 			auto& drawCommandInfo = (*it);
@@ -563,6 +564,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		for ( auto& drawCommandInfo : drawCommandInfos.opaques ) commandBuffer.record(drawCommandInfo);
 		for ( auto& drawCommandInfo : drawCommandInfos.translucents ) commandBuffer.record(drawCommandInfo);
 	}
+*/
 //	UF_MSG_DEBUG("END")
 }
 void ext::opengl::Graphic::destroy() {

@@ -11,6 +11,7 @@ namespace ext {
 			bool execute = false;
 			bool executed = false;
 			bool rebuild = false;
+			bool rerecord = false;
 			bool resized = false;
 			
 			uint32_t width = 0;

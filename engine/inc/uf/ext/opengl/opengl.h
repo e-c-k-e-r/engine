@@ -86,6 +86,7 @@ namespace ext {
 	//	extern UF_API RenderMode* currentRenderMode;
 		extern UF_API uf::stl::vector<RenderMode*> renderModes;
 		extern UF_API uf::ThreadUnique<RenderMode*> currentRenderMode;
+		extern UF_API uf::stl::unordered_map<uf::stl::string, ext::opengl::RenderMode*> renderModesMap;
 		
 		bool UF_API hasRenderMode( const uf::stl::string&, bool = true );
 		RenderMode& UF_API addRenderMode( RenderMode*, const uf::stl::string& = "" );

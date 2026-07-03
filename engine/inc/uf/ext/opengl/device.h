@@ -40,6 +40,7 @@ namespace ext {
 
 			struct {
 				uf::stl::vector<Buffer> buffers;
+				uf::stl::vector<Texture> textures;
 			} transient;
 
 			void initialize();

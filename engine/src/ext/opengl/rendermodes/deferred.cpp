@@ -34,17 +34,9 @@ void ext::opengl::DeferredRenderMode::destroy() {
 void ext::opengl::DeferredRenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
-	
+
 	auto& commands = getCommands();	
 	commands.start(); {
-	#if 0
-		CommandBuffer::InfoClear clearCommandInfo = {};
-		clearCommandInfo.type = enums::Command::CLEAR;
-		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
-		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
-		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
-		commands.record(clearCommandInfo);
-	#endif
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};
@@ -54,8 +46,34 @@ void ext::opengl::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		size_t currentSubpass = 0;
 		size_t currentPass = 0;
 		size_t currentDraw = 0;
+		// draw skybox'd geometry
 		for ( auto graphic : graphics ) {
 			if ( graphic->descriptor.renderMode != this->getName() ) continue;
+			if ( graphic->descriptor.aux != 1 ) continue;
+			GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+			graphic->record( commands, descriptor, currentPass, currentDraw++ );
+		}
+		// clear depth
+		if ( currentDraw > 0 ) {
+			CommandBuffer::InfoClear clearCommandInfo = {};
+			clearCommandInfo.type = enums::Command::CLEAR;
+			clearCommandInfo.bits = GL_DEPTH_BUFFER_BIT;
+			clearCommandInfo.depth = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+			commands.record(clearCommandInfo);
+		}
+		// draw normal geometry
+		for ( auto graphic : graphics ) {
+			if ( graphic->descriptor.renderMode != this->getName() ) continue;
+			if ( graphic->descriptor.aux != 0 ) continue;
+			if ( graphic->descriptor.renderTarget != 0 ) continue;
+			GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+			graphic->record( commands, descriptor, currentPass, currentDraw++ );
+		}
+		// draw transparency
+		for ( auto graphic : graphics ) {
+			if ( graphic->descriptor.renderMode != this->getName() ) continue;
+			if ( graphic->descriptor.aux != 0 ) continue;
+			if ( graphic->descriptor.renderTarget != 1 ) continue;
 			GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 			graphic->record( commands, descriptor, currentPass, currentDraw++ );
 		}

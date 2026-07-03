@@ -274,7 +274,7 @@
 					"rebuild on tick begin": false
 				},
 				"pipelines": {
-					"culling": true
+					"culling": false
 				},
 				"experimental": {
 					"rebuild on tick begin": false,
@@ -353,11 +353,11 @@
 				"max": 0.1 // 0.2
 			},
 			"debug draw": {
-				"static": true,
-				"dynamic": true,
+				"static": false,
+				"dynamic": false,
 				"trigger": false,
 				"contacts": false,
-				"constraints": true,
+				"constraints": false,
 				"rays": false,
 				"depthTest": true
 			},

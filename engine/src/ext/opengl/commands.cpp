@@ -252,7 +252,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
 	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
 
-#if UF_ENV_DREAMCAST
+#if 0 && UF_ENV_DREAMCAST
 	// washingtondc has a regression where non-alpha-tested polys do not render
 	// more convenient to just work around the regression since later builds have working opengl backends
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));

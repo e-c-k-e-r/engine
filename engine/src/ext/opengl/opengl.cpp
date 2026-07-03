@@ -87,12 +87,66 @@ uint32_t ext::opengl::states::currentBuffer = 0;
 uint32_t ext::opengl::states::frameAccumulate = 0;
 bool ext::opengl::states::frameAccumulateReset = false;
 
-uf::ThreadUnique<ext::opengl::RenderMode*> ext::opengl::currentRenderMode;
+namespace {
+	uf::stl::vector<ext::opengl::RenderMode*> fetchRenderModes( bool initGraphics = false ) {
+		auto& scene = uf::scene::getCurrentScene(); 
+		auto/*&*/ graph = scene.getGraph();
 
+		uf::stl::vector<uf::renderer::RenderMode*> renderModes = ext::opengl::renderModes;
+		for ( auto entity : graph ) {
+			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+				if ( std::find( renderModes.begin(), renderModes.end(), &renderMode ) == renderModes.end() )
+					renderModes.emplace_back(&renderMode);
+			}
+			if ( entity->hasComponent<uf::renderer::DeferredRenderMode>() ) {
+				auto& renderMode = entity->getComponent<uf::renderer::DeferredRenderMode>();
+				if ( std::find( renderModes.begin(), renderModes.end(), &renderMode ) == renderModes.end() )
+					renderModes.emplace_back(&renderMode);
+			}
+		}
+
+		// group by category
+		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uf::renderer::RenderMode*>> renderModesMap;
+		for ( auto* renderMode : renderModes ) {
+			renderModesMap[renderMode->getName()].emplace_back( renderMode );
+		}
+
+		// empty
+		renderModes = {};
+
+		// order the end rendermodes in a specific way: Gui -> Deferred -> Swapchain
+		uf::stl::vector<uf::renderer::RenderMode*> end;
+
+		if ( renderModesMap.count("Gui") > 0 ) {
+			end.insert( end.end(), renderModesMap["Gui"].begin(), renderModesMap["Gui"].end() );
+			renderModesMap.erase("Gui");
+		}
+		if ( renderModesMap.count("") > 0 ) {
+			end.insert( end.end(), renderModesMap[""].begin(), renderModesMap[""].end() );
+			renderModesMap.erase("");
+		}
+		if ( renderModesMap.count("Swapchain") > 0 ) {
+			end.insert( end.end(), renderModesMap["Swapchain"].begin(), renderModesMap["Swapchain"].end() );
+			renderModesMap.erase("Swapchain");
+		}
+
+		for ( auto& pair : renderModesMap ) {
+			renderModes.insert( renderModes.end(), pair.second.begin(), pair.second.end() );
+		}
+		renderModes.insert( renderModes.end(), end.begin(), end.end() );
+
+		return renderModes;
+	}
+}
+
+uf::ThreadUnique<ext::opengl::RenderMode*> ext::opengl::currentRenderMode;
 
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
 	new ext::opengl::BaseRenderMode,
 };
+
+uf::stl::unordered_map<uf::stl::string, ext::opengl::RenderMode*> ext::opengl::renderModesMap;
 
 uf::stl::string ext::opengl::errorString() {
 	return ext::opengl::errorString(glGetError());
@@ -110,37 +164,25 @@ uf::stl::string ext::opengl::errorString( GLenum error ) {
 
 /////
 bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
-	for ( auto& renderMode: ext::opengl::renderModes ) {
-		if ( isName ) { if ( renderMode->getName() == name ) return true;
-		} else if ( renderMode->getType() == name ) return true;
+	if ( isName && ext::opengl::renderModesMap.count(name) > 0 ) return true;
+	auto renderModes = ::fetchRenderModes();
+	for ( auto& renderMode: renderModes ) {
+		if ( isName && renderMode->getName() == name ) return true;
+		else if ( renderMode->getType() == name ) return true;
 	}
 	return false;
 }
 
 ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
-	renderModes.push_back(mode);
-	if ( ext::opengl::settings::validation::enabled ) UF_MSG_DEBUG("Adding RenderMode: {}: {}", name, mode->getType());
-	// reorder
-	if ( hasRenderMode("", true) ) {
-		RenderMode& primary = getRenderMode("", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	} else {
-		RenderMode& primary = getRenderMode("Swapchain", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
+	renderModesMap[name] = renderModes.emplace_back(mode);
+	
 	ext::opengl::states::rebuild = true;
-
 	return *mode;
 }
 ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name, bool isName ) {
+	if ( isName && renderModesMap.count(name) > 0 ) return *renderModesMap[name];
+	auto renderModes = ::fetchRenderModes();
 	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
@@ -156,23 +198,39 @@ ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name
 			}
 		}
 	}
+//	VK_VALIDATION_MESSAGE("Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")");
 	return *target;
 }
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::string& name, bool isName ) {
+	if ( isName && renderModesMap.count(name) > 0 ) return { renderModesMap[name] };
 	return ext::opengl::getRenderModes(uf::stl::vector<uf::stl::string>{name}, isName);
 }
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
 	uf::stl::vector<RenderMode*> targets;
+	auto renderModes = ::fetchRenderModes();
+#if 1
+	// this way keeps the render mode ordered as requested
+	for ( auto& name : names ) {
+		for ( auto& renderMode: renderModes ) {
+			if ( (isName && renderMode->getName() == name) || (!isName && renderMode->getType() == name) ) {
+				targets.emplace_back( renderMode );
+			}
+		}
+	}
+#else
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
 		}
 	}
+#endif
 	return targets;
 }
 void ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool free ) {
 	if ( !mode ) return;
+	uf::stl::string name = mode->getName();
 	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
+	renderModesMap.erase( name );
 	mode->destroy();
 	if ( free ) delete mode;
 	ext::opengl::states::rebuild = true;
@@ -181,6 +239,9 @@ ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode() {
 	return getCurrentRenderMode( std::this_thread::get_id() );
 }
 ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode( std::thread::id id ) {
+//	bool exists = ext::opengl::currentRenderMode.has(id);
+//	auto& currentRenderMode = ext::opengl::currentRenderMode.get(id);
+//	return currentRenderMode;
 	return ext::opengl::currentRenderMode.get(id);
 }
 void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode ) {
@@ -224,7 +285,7 @@ void ext::opengl::initialize() {
 	
 	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording);
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
-		tasks.queue([&]{
+		tasks.queue([renderMode]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
@@ -371,11 +432,29 @@ void ext::opengl::initialize() {
 }
 void ext::opengl::tick(){
 	ext::opengl::mutex.lock();
-	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
+	
+	if ( ext::opengl::states::resized ) {
+		synchronize(0b11);
+		ext::opengl::states::rebuild = true;
+	//	::skip = true;
+	}
+	if ( ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
 	}
-	auto& scene = uf::scene::getCurrentScene();
-	auto& graph = scene.getGraph();
+
+	auto renderModes = ::fetchRenderModes();
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		if ( renderMode->executed && !renderMode->execute ) continue;
+		if ( !renderMode->device ) {
+			renderMode->initialize(ext::opengl::device);
+			ext::opengl::states::rebuild = true;
+		}
+		renderMode->tick();
+	}
+
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( entity->hasComponent<ext::opengl::Graphics>() ) {
 			auto& graphics = entity->getComponent<ext::opengl::Graphics>();
@@ -392,27 +471,25 @@ void ext::opengl::tick(){
 			ext::opengl::states::rebuild = true;
 		}
 	}
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( !renderMode->device ) {
-			renderMode->initialize(ext::opengl::device);
-			ext::opengl::states::rebuild = true;
-		}
-		renderMode->tick();
-	}
 
-	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording);
-	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
-		if ( ext::opengl::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
-			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
+	for ( auto& renderMode : renderModes ) { if ( !renderMode || (renderMode->executed && !renderMode->execute) ) continue;
+		if ( ext::opengl::states::rebuild || renderMode->rebuild ) tasks.queue([renderMode]{
+			renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
-	}
+		else if ( renderMode->rerecord ) tasks.queue([renderMode]{
+			renderMode->createCommandBuffers();
+		});
+	} 
+
 	uf::thread::execute( tasks );
 
-
+//	if ( ext::opengl::states::rebuild && ext::opengl::settings::experimental::skipRenderOnRebuild ) ::skip = true;
+	
 	ext::opengl::states::rebuild = false;
 	ext::opengl::states::resized = false;
+
 	ext::opengl::mutex.unlock();
 }
 void ext::opengl::render(){
@@ -486,6 +563,9 @@ void ext::opengl::render(){
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
 
+	for ( auto& texture : transient.textures ) texture.destroy(false);
+	transient.textures.clear();
+
 	ext::opengl::mutex.unlock();
 }
 void ext::opengl::destroy() {
@@ -520,7 +600,7 @@ void ext::opengl::synchronize( uint8_t flag ) {
 		}
 	}
 	if ( flag & 0b10 ) {
-	//	vkDeviceWaitIdle( device );
+		glFlush();
 	}
 }
 uf::stl::string ext::opengl::allocatorStats(){
