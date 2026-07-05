@@ -238,6 +238,7 @@ pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mes
 	if ( !convex ) {
 		body.collider.type = pod::ShapeType::MESH;
 		body.collider.mesh.mesh = &mesh;
+		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
 		body.collider.mesh.bvh = new pod::BVH;
 		
 		auto& bvh = *body.collider.mesh.bvh;
@@ -245,6 +246,7 @@ pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mes
 	} else {
 		body.collider.type = pod::ShapeType::CONVEX_HULL;
 		body.collider.convexHull.mesh = &mesh;
+		if ( body.collider.convexHull.bvh ) delete body.collider.convexHull.bvh;
 		body.collider.convexHull.bvh = new pod::BVH;
 		
 		auto& bvh = *body.collider.convexHull.bvh;

@@ -1,3 +1,4 @@
+#if UF_USE_VALVE
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
@@ -445,7 +446,7 @@ namespace impl {
 				vert.uv = finalUv;
 
 				vert.st = uf::atlas::mapUv( context.lightmapAtlas, finalSt, impl::faceHash( faceID ) );
-				vert.color = { 1.0f, 1.0f, 1.0f, dVert.alpha / 255.0f };
+				vert.color = { 255, 255, 255, dVert.alpha };
 			}
 		}
 
@@ -516,7 +517,7 @@ namespace impl {
 		// add vertex
 		auto& v = meshlet.vertices.emplace_back();
 		v.position = pos;
-		v.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+		v.color = { 255, 255, 255, 255 };
 		v.normal = normal;
 		v.tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -1097,19 +1098,26 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			auto& primitives = storage.primitives[meshName];
 
 			// recompute bounds from min/max to center-extent
+			size_t primitiveID = 0;
 			for ( auto& [ _, meshlet ] : meshlets ) {
 				auto& bounds = meshlet.primitive.instance.bounds;
-				bounds.center = ( bounds.min + bounds.max ) * 0.5f;
-				bounds.extent = ( bounds.min - bounds.max ) * 0.5f;
+				bounds.center = ( bounds.max + bounds.min ) * 0.5f;
+				bounds.extent = uf::vector::abs( bounds.max - bounds.min ) * 0.5f;
+
+				meshlet.primitive.instance.primitiveID = primitiveID++;
+				meshlet.primitive.drawCommand.indices = meshlet.indices.size();
+				meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 			}
 
 			// slice worldspawn
-			if ( false && m == 0 ) {
+			if ( m == 0 ) {
 				uf::meshgrid::Grid grid;
-				grid.divisions = {8, 8, 8};
+				grid.divisions = {8, 1, 8};
 				auto mlets = uf::stl::values( meshlets );
 				auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
 				mesh.compile( partitioned, primitives );
+				UF_MSG_DEBUG("meshlets={}, partitioned={}, primitives={}", mlets.size(), partitioned.size(), primitives.size());
+				UF_ASSERT( !partitioned.empty() );
 			} else {
 				mesh.compile( meshlets, primitives );
 			}
@@ -1318,3 +1326,4 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	// unmount pakfile
 	uf::vfs::unmount( pakfileMount );
 }
+#endif

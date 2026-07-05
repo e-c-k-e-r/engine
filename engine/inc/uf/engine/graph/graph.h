@@ -67,8 +67,8 @@ namespace pod {
 				bool textures = true;
 				bool animations = true;
 
-				uf::stl::string tag = "worldspawn";
-				uf::stl::string player = "info_player_spawn";
+				int32_t world = -1;
+				int32_t player = -1;
 				
 				size_t hash = 0;
 				float lastUpdate = 0;

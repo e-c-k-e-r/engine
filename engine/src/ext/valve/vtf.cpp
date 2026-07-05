@@ -1,3 +1,4 @@
+#if UF_USE_VALVE
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
@@ -476,3 +477,4 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 
 	return true;
 }
+#endif

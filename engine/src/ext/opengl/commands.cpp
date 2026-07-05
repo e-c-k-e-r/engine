@@ -11,7 +11,137 @@
 #include <uf/engine/graph/graph.h>
 
 namespace {
-	size_t culled = 0;
+	struct State {
+		bool initialized = false;
+
+		// matricies
+		const pod::Matrix4f* lastProjPtr = nullptr;
+		const pod::Matrix4f* lastViewPtr = nullptr;
+		const pod::Matrix4f* lastModelPtr = nullptr;
+
+		pod::Matrix4f projection = uf::matrix::identity();
+		pod::Matrix4f modelView = uf::matrix::identity();
+		pod::Matrix4f ndc = uf::matrix::identity();
+
+		bool modelViewDirty = true;
+		bool projectionDirty = true;
+
+		// blending
+		bool blendEnabled = false;
+		bool alphaTestEnabled = false;
+		float alphaCutoff = -1.0f;
+		
+		pod::Vector4f color = {1,1,1,1};
+		float lineWidth = 1.0f;
+
+		// culling
+		bool cullEnabled = false;
+		GLenum cullFace = GL_BACK;
+		GLenum frontFace = GL_CCW;
+
+		// depth
+		bool depthTestEnabled = false;
+		bool depthWriteEnabled = true;
+
+		// textures
+		GLuint boundTexture0 = 0;
+		GLuint boundTexture1 = 0;
+		bool tex0Enabled = false;
+		bool tex1Enabled = false;
+		GLenum tex0Target = GL_TEXTURE_2D;
+		GLenum tex1Target = GL_TEXTURE_2D;
+
+		// client states
+		bool normalArrayEnabled = false;
+		bool colorArrayEnabled = false;
+		bool texCoord0ArrayEnabled = false;
+		bool texCoord1ArrayEnabled = false;
+
+		void invalidate() {
+			initialized = false;
+
+			lastProjPtr = nullptr;
+			lastViewPtr = nullptr;
+			lastModelPtr = nullptr;
+			modelViewDirty = true;
+			projectionDirty = true;
+
+			blendEnabled = false;
+			alphaTestEnabled = false;
+			alphaCutoff = -1.0f;
+			
+			color = {1,1,1,1};
+			lineWidth = 1.0f;
+
+			cullEnabled = false;
+			cullFace = GL_BACK;
+			frontFace = GL_CCW;
+
+			depthTestEnabled = false;
+			depthWriteEnabled = true;
+
+			boundTexture0 = 0;
+			boundTexture1 = 0;
+			tex0Enabled = false;
+			tex1Enabled = false;
+			tex0Target = GL_TEXTURE_2D;
+			tex1Target = GL_TEXTURE_2D;
+
+			normalArrayEnabled = false;
+			colorArrayEnabled = false;
+			texCoord0ArrayEnabled = false;
+			texCoord1ArrayEnabled = false;
+		}
+
+		void update( const ext::opengl::CommandBuffer::InfoDraw::Matrices& matrices ) {
+			bool projectionChanged = lastProjPtr != matrices.projection;
+			bool viewChanged = lastViewPtr != matrices.view;
+			bool modelChanged = lastModelPtr != matrices.model;
+
+			if ( projectionChanged || viewChanged || modelChanged ) {
+				if ( projectionChanged ) {
+					projectionDirty = true;
+					projection = matrices.projection ? *matrices.projection : uf::matrix::identity();
+					lastProjPtr = matrices.projection;
+				}
+
+				if ( viewChanged || modelChanged ) {
+					modelViewDirty = true;
+
+					pod::Matrix4f view = matrices.view ? *matrices.view : uf::matrix::identity();
+					pod::Matrix4f model = matrices.model ? *matrices.model : uf::matrix::identity();
+
+					modelView = view * model;
+
+					lastViewPtr = matrices.view;
+					lastModelPtr = matrices.model;
+				}
+
+				ndc = projection * modelView;
+			}
+		}
+	} shadowState;
+
+	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
+		#pragma unroll
+		for ( auto p = 0; p < 4; ++p ) {
+			int i = p / 2;
+			int j = p % 2;
+			int s = 1 - (j * 2);
+
+			pod::Vector3f normal = {
+				mat(3,0) + s * mat(i,0),
+				mat(3,1) + s * mat(i,1),
+				mat(3,2) + s * mat(i,2)
+			};
+			float w = mat(3,3) + s * mat(i,3);
+			float r = uf::vector::dot( instance.bounds.extent, uf::vector::abs( normal ) );
+			float d = uf::vector::dot( instance.bounds.center, normal ) + w;
+			if ( d < -r ) return false;
+		}
+
+		return true;
+	}
 }
 size_t ext::opengl::CommandBuffer::preallocate = 8;
 void ext::opengl::CommandBuffer::initialize( Device& device ) {
@@ -109,7 +239,9 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer& commandBuffer ) {
 void ext::opengl::CommandBuffer::submit() {
 	if ( infos.empty() ) return;
 	mutex->lock();
-	//UF_TIMER_MULTITRACE_START("Starting command buffer submission: " << this);
+
+	::shadowState.invalidate();
+
 	for ( auto& info : infos ) {
 	#if UF_COMMAND_BUFFER_USERDATA
 		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
@@ -134,14 +266,19 @@ void ext::opengl::CommandBuffer::submit() {
 			} break;
 			case ext::opengl::enums::Command::DRAW: {
 				InfoDraw* info = (InfoDraw*) header;
+				::shadowState.update( info->matrices );
+
+				if ( ext::opengl::settings::pipelines::culling && info->attributes.instance.pointer && info->attributes.instance.length == sizeof(pod::Instance) ) {
+					const pod::Instance& instance = *(pod::Instance*) info->attributes.instance.pointer;
+
+					if ( !::inside( instance, ::shadowState.ndc ) ) continue;
+				}
+
 				drawIndexed( *info );
 			} break;
 			default: {
 			} break;
 		}
-	}
-	if ( ::culled ) {
-		::culled = 0;
 	}
 	state = 3;
 	mutex->unlock();
@@ -195,62 +332,18 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 #endif
 }
 
-namespace {
-	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
-		#pragma unroll
-		for ( auto p = 0; p < 4; ++p ) {
-			int i = p / 2;
-			int j = p % 2;
-
-			float x = mat(0,3) + (j == 0 ? mat(0,i) : -mat(0,i));
-			float y = mat(1,3) + (j == 0 ? mat(1,i) : -mat(1,i));
-			float z = mat(2,3) + (j == 0 ? mat(2,i) : -mat(2,i));
-			float w = mat(3,3) + (j == 0 ? mat(3,i) : -mat(3,i));
-
-			float length = 1.0f / std::sqrt( x * x + y * y + z * z );
-
-			pod::Vector3f normal = { x * length, y * length, z * length };
-			float planeDist = w * length;
-
-			pod::Vector3f absNormal = uf::vector::abs(normal);
-			float r = uf::vector::dot(instance.bounds.extent, absNormal);
-			float d = uf::vector::dot(instance.bounds.center, normal) + planeDist;
-
-			if ( d < -r ) return false;
-		}
-
-		return true;
-	}
-}
-
 void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
-	pod::Matrix4f modelView = uf::matrix::identity(), projection = uf::matrix::identity();
-
-	if ( drawInfo.matrices.model && drawInfo.matrices.view ) modelView = uf::matrix::multiply( *drawInfo.matrices.view, *drawInfo.matrices.model );
-	else if ( drawInfo.matrices.model ) modelView = *drawInfo.matrices.model;
-	else if ( drawInfo.matrices.view ) modelView = *drawInfo.matrices.view;
-
-	if ( drawInfo.matrices.projection ) projection = *drawInfo.matrices.projection;
-
-	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
-		if ( ext::opengl::settings::pipelines::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
-			pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
-			pod::Instance& instance = *(pod::Instance*) drawInfo.attributes.instance.pointer;
-			pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (*drawInfo.matrices.model);
-			
-			bool visible = inside( instance, mat );
-			if ( !visible ) {
-				++::culled;
-				return;
-			}
-		}
+	if ( ::shadowState.modelViewDirty ) {
+		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+		GL_ERROR_CHECK(glLoadMatrixf( &::shadowState.modelView[0] ));
+		::shadowState.modelViewDirty = false;
 	}
 
-	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-	GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
-
-	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
+	if ( ::shadowState.projectionDirty ) {
+		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+		GL_ERROR_CHECK(glLoadMatrixf( &::shadowState.projection[0] ));
+		::shadowState.projectionDirty = false;
+	}
 
 #if 0 && UF_ENV_DREAMCAST
 	// washingtondc has a regression where non-alpha-tested polys do not render
@@ -262,34 +355,74 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 #else
 	if ( drawInfo.blend.modeAlpha > 0 ) {
-		GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
-		GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
-	
-		GL_ERROR_CHECK(glEnable(GL_BLEND));
-		GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+		if ( !::shadowState.alphaTestEnabled ) {
+			GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
+			::shadowState.alphaTestEnabled = true;
+		}
+		if ( ::shadowState.alphaCutoff != drawInfo.blend.alphaCutoff ) {
+			GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
+			::shadowState.alphaCutoff = drawInfo.blend.alphaCutoff;
+		}
+		if ( !::shadowState.blendEnabled ) {
+			GL_ERROR_CHECK(glEnable(GL_BLEND));
+			GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+			::shadowState.blendEnabled = true;
+		}
 	} else {
-		GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
-		GL_ERROR_CHECK(glDisable(GL_BLEND));
+		if ( ::shadowState.alphaTestEnabled ) {
+			GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
+			::shadowState.alphaTestEnabled = false;
+		}
+		if ( ::shadowState.blendEnabled ) {
+			GL_ERROR_CHECK(glDisable(GL_BLEND));
+			::shadowState.blendEnabled = false;
+		}
 	}
 #endif
 
-	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
-		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
+	if ( drawInfo.descriptor.cullMode != GL_NONE ) {
+		if ( !::shadowState.cullEnabled ) {
+			GL_ERROR_CHECK(glEnable(GL_CULL_FACE));
+			::shadowState.cullEnabled = true;
+		}
+		if ( ::shadowState.frontFace != drawInfo.descriptor.frontFace ) {
+			GL_ERROR_CHECK(glFrontFace(drawInfo.descriptor.frontFace));
+			::shadowState.frontFace = drawInfo.descriptor.frontFace;
+		}
+		if ( ::shadowState.cullFace != drawInfo.descriptor.cullMode ) {
+			GL_ERROR_CHECK(glCullFace(drawInfo.descriptor.cullMode));
+			::shadowState.cullFace = drawInfo.descriptor.cullMode;
+		}
 	} else {
-		GL_ERROR_CHECK(glEnable(GL_CULL_FACE));
-		GL_ERROR_CHECK(glFrontFace(drawInfo.descriptor.frontFace));
-		GL_ERROR_CHECK(glCullFace(drawInfo.descriptor.cullMode));
+		if ( ::shadowState.cullEnabled ) {
+			GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
+			::shadowState.cullEnabled = false;
+		}
 	}
-	if ( drawInfo.descriptor.depth.test ) {
-		GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
-	} else {
-		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
-	}
-	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
 
-	// CPU-buffer based command dispatching
-	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
-	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
+	if ( drawInfo.descriptor.depth.test != ::shadowState.depthTestEnabled ) {
+		if ( drawInfo.descriptor.depth.test ) {
+			GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
+		} else {
+			GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
+		}
+		::shadowState.depthTestEnabled = drawInfo.descriptor.depth.test;
+	}
+
+	if ( drawInfo.descriptor.depth.write != ::shadowState.depthWriteEnabled ) {
+		GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
+		::shadowState.depthWriteEnabled = drawInfo.descriptor.depth.write;
+	}
+
+	pod::Vector4f color = {1,1,1,1};
+	if ( drawInfo.color.enabled ) {
+		color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+	}
+	if ( color != ::shadowState.color ) {
+		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
+		::shadowState.color = color;
+	}
+
 	
 	GLenum vertexType = GL_FLOAT;
 	switch ( drawInfo.attributes.position.descriptor.type ) {
@@ -368,11 +501,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	uint8_t* vertexPtr = drawInfo.attributes.position.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
 
 	auto vertexStride = drawInfo.attributes.position.stride;
-	uf::stl::vector<float> vertexBufferRemap;
+	STATIC_THREAD_LOCAL(uf::stl::vector<float>, vertexBufferRemap);
 
 #if !UF_ENV_DREAMCAST
 	if ( vertexType != GL_FLOAT ) {
-		vertexBufferRemap = uf::stl::vector<float>( drawInfo.descriptor.inputs.vertex.count * 3 );
+		vertexBufferRemap.resize( drawInfo.descriptor.inputs.vertex.count * 3 );
 		for ( size_t i = 0; i < drawInfo.descriptor.inputs.vertex.count * 3; ++i ) {
 			switch ( drawInfo.attributes.position.descriptor.type ) {
 				case uf::renderer::enums::Type::SHORT:
@@ -402,62 +535,120 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 #endif
 
 	if ( drawInfo.attributes.normal.pointer ) {
-		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
-	}
-
-	{
-		pod::Vector4f color = {1,1,1,1};
-		if ( drawInfo.color.enabled ) {
-			color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+		if ( !::shadowState.normalArrayEnabled ) {
+			GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
+			::shadowState.normalArrayEnabled = true;
 		}
-		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
+		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
+	} else if ( ::shadowState.normalArrayEnabled ) {
+		GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
+		::shadowState.normalArrayEnabled = false;
 	}
 
 	if ( drawInfo.attributes.color.pointer ) {
-		GLenum colorType = GL_UNSIGNED_BYTE;
-		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
-			case sizeof(uint8_t): colorType = GL_UNSIGNED_BYTE; break;
-			case sizeof(float): colorType = GL_FLOAT; break;
+		if ( !::shadowState.colorArrayEnabled ) {
+			GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
+			::shadowState.colorArrayEnabled = true;
 		}
-		GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
+		GLenum colorType = (drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components == sizeof(uint8_t)) ? GL_UNSIGNED_BYTE : GL_FLOAT;
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
+	} else if ( ::shadowState.colorArrayEnabled ) {
+		GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
+		::shadowState.colorArrayEnabled = false;
 	}
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
 
-		if ( drawInfo.attributes.color.pointer ) {
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		} else {
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		if ( !::shadowState.tex0Enabled || ::shadowState.tex0Target != drawInfo.textures.primary.viewType ) {
+			if ( ::shadowState.tex0Enabled ) {
+				GL_ERROR_CHECK(glDisable(::shadowState.tex0Target));
+			}
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
+			::shadowState.tex0Enabled = true;
+			::shadowState.tex0Target = drawInfo.textures.primary.viewType;
 		}
 
-		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+		if ( !::shadowState.texCoord0ArrayEnabled ) {
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			::shadowState.texCoord0ArrayEnabled = true;
+		}
+		if ( ::shadowState.boundTexture0 != drawInfo.textures.primary.image ) {
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
+			::shadowState.boundTexture0 = drawInfo.textures.primary.image;
+		}
+
+		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
+	} else {
+		if ( ::shadowState.tex0Enabled ) {
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+			GL_ERROR_CHECK(glDisable(::shadowState.tex0Target));
+			::shadowState.tex0Enabled = false;
+		}
+		if ( ::shadowState.texCoord0ArrayEnabled ) {
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+			GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+			::shadowState.texCoord0ArrayEnabled = false;
+		}
+	}
+
+	if ( drawInfo.textures.primary.image && drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+
+		if ( !::shadowState.tex1Enabled || ::shadowState.tex1Target != drawInfo.textures.secondary.viewType ) {
+			if ( ::shadowState.tex1Enabled ) {
+				GL_ERROR_CHECK(glDisable(::shadowState.tex1Target));
+			}
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
+			::shadowState.tex1Enabled = true;
+			::shadowState.tex1Target = drawInfo.textures.secondary.viewType;
+		}
+
+		if ( !::shadowState.texCoord1ArrayEnabled ) {
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			::shadowState.texCoord1ArrayEnabled = true;
+		}
+		if ( ::shadowState.boundTexture1 != drawInfo.textures.secondary.image ) {
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
+			::shadowState.boundTexture1 = drawInfo.textures.secondary.image;
+		}
+
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		GL_ERROR_CHECK(glTexCoordPointer(2, stType, drawInfo.attributes.st.stride, stPtr));
+	} else {
+		if ( ::shadowState.tex1Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
 			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
-			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-			GL_ERROR_CHECK(glTexCoordPointer(2, stType, drawInfo.attributes.st.stride, stPtr));
+			GL_ERROR_CHECK(glDisable(::shadowState.tex1Target));
+			::shadowState.tex1Enabled = false;
+		}
+		if ( ::shadowState.texCoord1ArrayEnabled ) {
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+			::shadowState.texCoord1ArrayEnabled = false;
 		}
 	}
 
 	{
+		GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
 		GL_ERROR_CHECK(glVertexPointer(3, vertexType, vertexStride, vertexPtr));
 	}
 
 	GLenum mode = GL_TRIANGLES;
+	float lineWidth = 1.0f;
+	
 	if ( drawInfo.descriptor.fill == uf::renderer::enums::PolygonMode::LINE ) {
 		mode = GL_LINES;
-		glLineWidth(drawInfo.descriptor.lineWidth);
-	} else {
-		glLineWidth(1.0f);
+		lineWidth = drawInfo.descriptor.lineWidth;
+	}
+
+	if ( ::shadowState.lineWidth != lineWidth ) {
+		GL_ERROR_CHECK(glLineWidth(lineWidth));
+		::shadowState.lineWidth = lineWidth;
 	}
 
 	if ( drawInfo.descriptor.inputs.index.count ) {
@@ -466,22 +657,12 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDrawArrays(mode, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	}
 
-	if ( drawInfo.textures.secondary.image ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, 0));
-		GL_ERROR_CHECK(glDisable(drawInfo.textures.secondary.viewType));
-	}
-	if ( drawInfo.textures.primary.image ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, 0));
-		GL_ERROR_CHECK(glDisable(drawInfo.textures.primary.viewType));
+	if ( drawInfo.descriptor.inputs.index.count ) {
+		GL_ERROR_CHECK(glDrawElements(mode, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
+	} else {
+		GL_ERROR_CHECK(glDrawArrays(mode, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	}
 
-	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
-	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
 }
 #endif

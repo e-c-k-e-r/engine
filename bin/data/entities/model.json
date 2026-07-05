@@ -77,9 +77,9 @@
 			},
 			"stream": {
 				"tag": "worldspawn",
-				"player": "info_player_spawn",
+				"player": "info_player_start",
 				"enabled": false, // "auto",
-				"radius": 16,
+				"radius": 64,
 				"every": 1
 			}
 		}

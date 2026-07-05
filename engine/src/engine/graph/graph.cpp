@@ -36,6 +36,34 @@ namespace {
 		size_t references = 0;
 	};
 
+	void convertLightmap( uf::Image& image ) {
+		auto* pixels = (pod::Vector4ub*) image.getPixels().data();
+		auto& size = image.getDimensions();
+		for ( auto p = 0; p < size.x * size.y; ++p ) {
+			auto& pixel = pixels[p];
+			if ( pixel.w == 0 ) {
+				pixel = {0,0,0,255};
+				continue;
+			}
+
+			// decode
+			float exp = (float) pixel.w - 128.0f;
+			float mult = std::exp2(exp);
+
+			const float gamma = 1.0f / 2.2f;
+			auto linear = pod::Vector3f{ pixel.x, pixel.y, pixel.z } * mult / 255.0f;
+			// tone-map
+			FOR_EACH( 3, {
+				linear[i] = linear[i] / ( 1 + linear[i] );
+			});
+			// gamma correct
+			linear = uf::vector::pow( uf::vector::clamp( linear, 0.0f, 1.0f ), gamma );
+			// 0-1 => 0-255
+			linear *= 255.0f;
+			pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
+		}
+	}
+
 	uf::stl::string keyedID( size_t id ) {
 		return ::fmt::format("{}", id);
 	}
@@ -837,33 +865,7 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		if ( graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
 		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
-			auto& image = storage.images["lightmap_atlas"].data;
-			auto* pixels = (pod::Vector4ub*) image.getPixels().data();
-			auto& size = image.getDimensions();
-			for ( auto p = 0; p < size.x * size.y; ++p ) {
-				auto& pixel = pixels[p];
-				if ( pixel.w == 0 ) {
-					pixel = {0,0,0,255};
-					continue;
-				}
-
-				// decode
-				float exp = (float) pixel.w - 128.0f;
-				float mult = std::exp2(exp);
-
-				const float gamma = 1.0f / 2.2f;
-				auto linear = pod::Vector3f{ pixel.x, pixel.y, pixel.z } * mult / 255.0f;
-				// tone-map
-				FOR_EACH( 3, {
-					linear[i] = linear[i] / ( 1 + linear[i] );
-				});
-				// gamma correct
-				linear = uf::vector::pow( uf::vector::clamp( linear, 0.0f, 1.0f ), gamma );
-				// 0-1 => 0-255
-				linear *= 255.0f;
-				pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
-			}
-			// to-do: update format
+			::convertLightmap( storage.images["lightmap_atlas"].data );
 		#endif
 		} else {
 			for ( auto& name : graph.primitives ) {
@@ -1055,6 +1057,8 @@ void uf::graph::process( pod::Graph& graph ) {
 
 			auto flatten = uf::transform::flatten( node.transform );
 			childTransform = flatten;
+
+			graph.settings.stream.player = spawnID;
 		}
 	}
 
@@ -1306,6 +1310,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 	auto& graphMetadataJson = graph.metadata;
 	auto& node = graph.nodes[index];
+	node.index = index;
+
 	// 
 	bool ignore = false;
 	// ignore pesky light_Orientation nodes
@@ -1338,6 +1344,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// convert metadata["valve"] into internal values:
 	auto& metadataValve = node.metadata["valve"];
 	if ( ext::json::isObject( metadataValve ) ) {
+		// worldspawn
+		if ( node.name == "worldspawn" ) {
+			graph.settings.stream.world = node.index;
+		}
+
 		// bind io connectivity
 		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
 			node.metadata["connections"] = metadataValve["connections"];
@@ -2073,8 +2084,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
 
 	pod::Vector3f controllerPosition = {};
-	auto& controller = scene.getController();
-	if ( controller.getName() != "Scene" ) {
+	auto& controller = scene.getController(); {
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+		controllerPosition = controllerTransform.position;
+	}
+
+	/*
+	if ( controller.getName() != "Scene" || graph.settings.stream.player == -1 ) {
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		controllerPosition = controllerTransform.position;
 	} else {
@@ -2087,6 +2103,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			break;
 		}
 	}
+	*/
 
 	bool meshUpdated = false;
 	auto model = uf::transform::model( transform );
@@ -2105,8 +2122,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 
 	// disable if not tagged for streaming
-	// to-do: check tag
-	if ( graph.settings.stream.tag != "" && node.name != graph.settings.stream.tag ) {
+	if ( graph.settings.stream.world != -1 && node.index != graph.settings.stream.world ) {
 		radius = 0;
 	}
 
@@ -2114,6 +2130,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		radius = 0;
 	}
 
+	uf::stl::unordered_set<int32_t> processedBuffers;
 	if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
 		// deduce draw command (indirect) buffer to write to
 		auto& attribute = mesh.indirect.attributes.front();
@@ -2146,6 +2163,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				found = true;
 
 				int8_t lodLevel = 0;
+			#if 0
 				// deduce a simple ratio [0.0 to 1.0] of how far we are into the streaming radius
 				float distRatio = distanceSquared / radiusSquared;
 				if ( distRatio > 0.6f ) 	 lodLevel = 3;
@@ -2155,6 +2173,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				while ( lodLevel > 0 && primitive.lod.levels[lodLevel].indices == 0 ) {
 					lodLevel--;
 				}
+			#endif
 
 				queuedLODs[drawID] = lodLevel;
 			}
@@ -2168,6 +2187,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		// bail if no update is detected
 		auto drawCommandHash = uf::algo::fnv1a(queuedLODs);
 		graph.settings.stream.lastUpdate = uf::physics::time::current;
+
 		if ( drawCommandHash == graph.settings.stream.hash ) {
 			return;
 		}
@@ -2230,18 +2250,22 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 			// queue up ranges to read from disk using LOD bounds
 			for (auto& attribute : mesh.index.attributes) {
-				auto size = attribute.descriptor.size;
-				ranges[attribute.buffer].emplace_back(pod::Range{
-					lod.indexID * size,
-					lod.indices * size,
-				});
+				auto stride = attribute.stride > 0 ? attribute.stride : attribute.descriptor.size;
+				if (ranges[attribute.buffer].empty() || ranges[attribute.buffer].back().start != lod.indexID * stride) {
+					ranges[attribute.buffer].emplace_back(pod::Range{
+						lod.indexID * stride,
+						lod.indices * stride,
+					});
+				}
 			}
 			for (auto& attribute : mesh.vertex.attributes) {
-				auto size = attribute.descriptor.size;
-				ranges[attribute.buffer].emplace_back(pod::Range{
-					lod.vertexID * size,
-					lod.vertices * size,
-				});
+				auto stride = attribute.stride > 0 ? attribute.stride : attribute.descriptor.size;
+				if (ranges[attribute.buffer].empty() || ranges[attribute.buffer].back().start != lod.vertexID * stride) {
+					ranges[attribute.buffer].emplace_back(pod::Range{
+						lod.vertexID * stride,
+						lod.vertices * stride,
+					});
+				}
 			}
 
 			// reset draw call and remap to local compacted buffers
@@ -2260,12 +2284,16 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 		#define STREAM_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
-				if ( ranges.count(attribute.buffer) <= 0 ) { \
+				if ( processedBuffers.count(attribute.buffer) ) continue; \
+				processedBuffers.insert(attribute.buffer); \
+				auto& region = meshStream.buffers[attribute.buffer];\
+				if ( ranges.count(attribute.buffer) <= 0 || region.length == 0 ) { \
 					mesh.buffers[attribute.buffer].clear();\
 				} else {\
-					auto& region = meshStream.buffers[attribute.buffer];\
 					auto adjustedRanges = ranges[attribute.buffer];\
-					for (auto& r : adjustedRanges) r.start += region.offset;\
+					for (auto& r : adjustedRanges) {\
+						r.start += region.offset;\
+					}\
 					uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, adjustedRanges );\
 				}\
 			}
@@ -2316,117 +2344,118 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		STREAM_MESH_DATA( index );
 		STREAM_MESH_DATA( vertex );
 	#endif
-		
-		if ( graph.settings.stream.textures ) {
-			// cringe macro that ensures a texture ID is mapped properly, regardless if its visible or not
-			// lightmaps are not sRGB, while textures (usually) are
-			#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
-				auto& key = graph.textures[ID];\
-				textureDescriptors[key].srgb = isSRGB;\
-				textureDescriptors[key].references += visible ? 1 : 0;\
-				textureDescriptors[key].layers = 1;\
-			}
-
-			// determine which textures are in use or not
-			uf::stl::unordered_map<uf::stl::string, TextureDescriptor> textureDescriptors;
-			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
-				auto& primitive = primitives[drawID];
-				auto& instance = primitive.instance;
-				auto& drawCommand = drawCommands[drawID];
-
-				bool visible = drawCommand.instances > 0;
-				
-				INCREMENT_TEXTURE_REFCOUNT(instance.lightmapID, false);
-				// no material information bound
-				if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) {
-					continue;
-				}
-				auto& material = storage.materials[graph.materials[instance.materialID]];
-				INCREMENT_TEXTURE_REFCOUNT(material.indexAlbedo, true);
-				INCREMENT_TEXTURE_REFCOUNT(material.indexNormal, true);
-				INCREMENT_TEXTURE_REFCOUNT(material.indexEmissive, true);
-				INCREMENT_TEXTURE_REFCOUNT(material.indexOcclusion, true);
-				INCREMENT_TEXTURE_REFCOUNT(material.indexMetallicRoughness, true);
-			}
-
-			// iterate through our ref counts
-			for ( auto& [ key, descriptor ] : textureDescriptors ) {
-				auto& image = storage.images[key].data;
-				auto& texture = storage.images[key].handle;
-				bool visible = descriptor.references > 0;
-
-				if ( visible && (!texture.generated() || texture.aliased) ) {
-					// load image
-					if ( image.getPixels().empty() ) {
-						auto& imgStream = graph.streams.images[key];
-						uf::stl::vector<uint8_t> buf;
-
-						if (imgStream.buffer.length > 0) {
-							uf::io::readAsBuffer(buf, imgStream.buffer.filename, imgStream.buffer.offset, imgStream.buffer.length);
-						} else {
-							uf::io::readAsBuffer(buf, imgStream.buffer.filename);
-						}
-
-						uf::stl::string formatHint = uf::io::extension(image.getFilename());
-						if (imgStream.buffer.filename.find(".dtex") != uf::stl::string::npos) formatHint = "dtex";
-
-						uf::image::open(image, buf, formatHint, false);
-					}
-
-					auto filter = uf::renderer::enums::Filter::LINEAR;
-					auto tag = ext::json::find( key, graphMetadataJson["tags"] );
-					if ( !ext::json::isObject( tag ) ) {
-						tag["renderer"] = graphMetadataJson["renderer"];
-					}
-					if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
-						const auto mode = uf::string::lowercase( tag["renderer"]["filter"].as<uf::stl::string>("linear") );
-						if ( mode == "linear" ) filter = uf::renderer::enums::Filter::LINEAR;
-						else if ( mode == "nearest" ) filter = uf::renderer::enums::Filter::NEAREST;
-						else UF_MSG_WARNING("Invalid Filter enum string specified: {}", mode);
-					}
-
-					// avoids manipulating the aliased texture
-					if ( texture.aliased ) {
-						texture.aliased = false;
-					#if UF_USE_OPENGL
-						texture.image = 0;
-					#else
-						texture.image = {};
-						texture.view = {};
-					#endif
-					}
-
-					texture.sampler.descriptor.filter.min = filter;
-					texture.sampler.descriptor.filter.mag = filter;
-					texture.layers = descriptor.layers;
-					texture.srgb = descriptor.srgb;
-
-					texture.loadFromImage( image );
-				#if UF_ENV_DREAMCAST
-					image.clear();
-				#endif
-				} else if ( !visible && (texture.generated() && !texture.aliased) ) {
-					// unload image
-					image.clear();
-					// defer destruction of texture
-					texture.destroy( true );
-					// alias to null texture
-					texture.aliasTexture(uf::renderer::Texture2D::empty);
-				}
-			}
-		}
 	} else {
 		// load mesh if not already loaded
 		#define LOAD_MESH_DATA( N ) \
 			for ( auto& attribute : mesh.N.attributes ) {\
+				if ( processedBuffers.count(attribute.buffer) ) continue; \
 				if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
 				meshUpdated = true;\
+				processedBuffers.insert(attribute.buffer); \
 				auto& region = meshStream.buffers[attribute.buffer];\
 				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, region.offset, region.length );\
 			}
 
 		LOAD_MESH_DATA( index );
 		LOAD_MESH_DATA( vertex );
+	}
+
+	if ( graph.settings.stream.textures ) {
+		#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
+			auto& key = graph.textures[ID];\
+			textureDescriptors[key].srgb = isSRGB;\
+			textureDescriptors[key].references += visible ? 1 : 0;\
+			textureDescriptors[key].layers = 1;\
+		}
+
+		uf::stl::unordered_map<uf::stl::string, TextureDescriptor> textureDescriptors;
+		for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+			auto& primitive = primitives[drawID];
+			auto& instance = primitive.instance;
+
+			bool visible = primitive.drawCommand.instances > 0;
+
+			INCREMENT_TEXTURE_REFCOUNT(instance.lightmapID, false);
+			if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) {
+				continue;
+			}
+			auto& material = storage.materials[graph.materials[instance.materialID]];
+			INCREMENT_TEXTURE_REFCOUNT(material.indexAlbedo, true);
+			INCREMENT_TEXTURE_REFCOUNT(material.indexNormal, true);
+			INCREMENT_TEXTURE_REFCOUNT(material.indexEmissive, true);
+			INCREMENT_TEXTURE_REFCOUNT(material.indexOcclusion, true);
+			INCREMENT_TEXTURE_REFCOUNT(material.indexMetallicRoughness, true);
+		}
+
+		// iterate through our ref counts
+		for ( auto& [ key, descriptor ] : textureDescriptors ) {
+			auto& image = storage.images[key].data;
+			auto& texture = storage.images[key].handle;
+			bool visible = descriptor.references > 0;
+
+			if ( visible && (!texture.generated() || texture.aliased) ) {
+				meshUpdated = true;
+
+				// load image
+				if ( image.getPixels().empty() ) {
+					auto& imgStream = graph.streams.images[key];
+					uf::stl::vector<uint8_t> buf;
+
+					if (imgStream.buffer.length > 0) {
+						uf::io::readAsBuffer(buf, imgStream.buffer.filename, imgStream.buffer.offset, imgStream.buffer.length);
+					} else {
+						uf::io::readAsBuffer(buf, imgStream.buffer.filename);
+					}
+
+					uf::stl::string formatHint = uf::io::extension(image.getFilename());
+					if (imgStream.buffer.filename.find(".dtex") != uf::stl::string::npos) formatHint = "dtex";
+
+					uf::image::open(image, buf, formatHint, false);
+
+					// to-do: check against format instead
+					if ( key == "lightmap_atlas" ) {
+						::convertLightmap( image );
+					}
+				}
+
+				auto filter = uf::renderer::enums::Filter::LINEAR;
+				auto tag = ext::json::find( key, graphMetadataJson["tags"] );
+				if ( !ext::json::isObject( tag ) ) {
+					tag["renderer"] = graphMetadataJson["renderer"];
+				}
+				if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
+					const auto mode = uf::string::lowercase( tag["renderer"]["filter"].as<uf::stl::string>("linear") );
+					if ( mode == "linear" ) filter = uf::renderer::enums::Filter::LINEAR;
+					else if ( mode == "nearest" ) filter = uf::renderer::enums::Filter::NEAREST;
+				}
+
+				if ( texture.aliased ) {
+					texture.aliased = false;
+				#if UF_USE_OPENGL
+					texture.image = 0;
+				#else
+					texture.image = {};
+					texture.view = {};
+				#endif
+				}
+
+				texture.sampler.descriptor.filter.min = filter;
+				texture.sampler.descriptor.filter.mag = filter;
+				texture.layers = descriptor.layers;
+				texture.srgb = descriptor.srgb;
+
+				texture.loadFromImage( image );
+			#if UF_ENV_DREAMCAST
+				image.clear();
+			#endif
+			} else if ( !visible && (texture.generated() && !texture.aliased) ) {
+				meshUpdated = true;
+				image.clear();
+				texture.destroy( true );
+				texture.aliasTexture(uf::renderer::Texture2D::empty);
+			}
+		}
+		#undef INCREMENT_TEXTURE_REFCOUNT
 	}
 
 	if ( !meshUpdated ) return;
@@ -2458,6 +2487,8 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	// Vulkan doesn't care about the CPU-side mesh data
 #if UF_USE_OPENGL
 	uf::renderer::states::rebuild = true;
+	// to-do: fix
+	// mesh.interleave();
 #endif
 
 	storage.stale = true;
@@ -2503,19 +2534,21 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			if ( isMesh ) {
 				bool exists = entity.hasComponent<pod::PhysicsBody>();
 				if ( exists ) {
-					uf::physics::destroy( entity );
+					// re-initialize
+					auto& body = entity.getComponent<pod::PhysicsBody>();
+					uf::physics::initialize( body, mesh, type != "mesh" );
+				} else {
+					float mass = phyziks["mass"].as(0.0f);
+					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
+
+					auto& body = uf::physics::create( entity, mass, center );
+					uf::physics::initialize( body, mesh, type != "mesh" );
+
+					body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
+					body.material.restitution = phyziks["restitution"].as(body.material.restitution);
+					body.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], body.inverseInertiaTensor );
+					body.gravity = uf::vector::decode( phyziks["gravity"], body.gravity );
 				}
-				
-				float mass = phyziks["mass"].as(0.0f);
-				auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
-
-				auto& body = uf::physics::create( entity, mass, center );
-				uf::physics::initialize( body, mesh, type != "mesh" );
-
-				body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
-				body.material.restitution = phyziks["restitution"].as(body.material.restitution);
-				body.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], body.inverseInertiaTensor );
-				body.gravity = uf::vector::decode( phyziks["gravity"], body.gravity );
 			}
 		}
 	}

@@ -57,7 +57,7 @@ namespace ext {
 					uf::Mesh::Attribute indirect = {};
 				} attributes;
 				
-				struct {
+				struct Matrices {
 					const pod::Matrix4f* model = NULL;
 					const pod::Matrix4f* view = NULL;
 					const pod::Matrix4f* projection = NULL;

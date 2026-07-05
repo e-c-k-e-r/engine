@@ -330,17 +330,30 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["meshes"], graph.meshes.size() );
 
 		uf::stl::vector<uint8_t> meshesBuffer;
+		uf::stl::vector<uint8_t> interleavedBuffer;
+		
 		uf::stl::string binName = "meshes." + (settings.compression == "none" ? "bin" : settings.compression);
+		uf::stl::string interleavedBinName = "meshes.interleaved." + (settings.compression == "none" ? "bin" : settings.compression);
 
 		for ( auto& name : graph.meshes ) {
 			auto& mesh = storage.meshes.map.at(name);
+
 			auto json = encode(mesh, settings, graph, meshesBuffer, binName);
 			json["name"] = name;
+
+			uf::Mesh interleavedMesh = mesh.copy();
+			interleavedMesh.interleave();
+
+			json["interleaved"] = encode(interleavedMesh, settings, graph, interleavedBuffer, interleavedBinName);;
+
 			serializer["meshes"].emplace_back(json);
 		}
 
 		if ( !meshesBuffer.empty() ) {
 			uf::io::write(directory + "/" + binName, meshesBuffer);
+		}
+		if ( !interleavedBuffer.empty() ) {
+			uf::io::write(directory + "/" + interleavedBinName, interleavedBuffer);
 		}
 	});
 

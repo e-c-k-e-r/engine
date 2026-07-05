@@ -638,7 +638,7 @@ pod::Vector3f impl::aabbCenter( const pod::AABB& aabb ) {
 }
 // returns the half extents of an AABB
 pod::Vector3f impl::aabbExtent( const pod::AABB& aabb ) {
-	return ( aabb.max - aabb.min ) * 0.5f;
+	return uf::vector::abs( aabb.max - aabb.min ) * 0.5f;
 }
 // returns the min bound of an OBB
 pod::Vector3f impl::obbMin( const pod::OBB& obb ) {

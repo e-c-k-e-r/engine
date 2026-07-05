@@ -187,7 +187,7 @@ for ( auto& p : m.primitives ) {
 	meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 
 	meshlet.primitive.instance.bounds.center = (meshlet.primitive.instance.bounds.max + meshlet.primitive.instance.bounds.min) * 0.5f;
-	meshlet.primitive.instance.bounds.extent = (meshlet.primitive.instance.bounds.max - meshlet.primitive.instance.bounds.min) * 0.5f;
+	meshlet.primitive.instance.bounds.extent = uf::vector::abs(meshlet.primitive.instance.bounds.max - meshlet.primitive.instance.bounds.min) * 0.5f;
 
 	/* detect winding order */ if ( sanitizer.windingOrder.should ) {
 		sanitizer.windingOrder.corrected += uf::mesh::windingOrder( meshlet.vertices, meshlet.indices );

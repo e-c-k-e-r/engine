@@ -1,5 +1,5 @@
-#include <uf/ext/zlib/zlib.h>
 #if UF_USE_ZLIB
+#include <uf/ext/zlib/zlib.h>
 #include <uf/utils/io/file.h>
 #include <uf/utils/io/vfs.h>
 #include <uf/utils/userdata/userdata.h>

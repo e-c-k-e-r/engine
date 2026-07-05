@@ -170,3 +170,7 @@ ifneq (,$(findstring xz,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_XZ -DUF_USE_LZMA
 	DEPS  += -lxz -llzma
 endif
+
+ifneq (,$(findstring valve,$(REQ_DEPS)))
+	FLAGS += -DUF_USE_VALVE
+endif

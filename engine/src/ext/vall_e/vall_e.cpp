@@ -1,8 +1,8 @@
+#if UF_USE_VALL_E
 #include <uf/ext/vall_e/vall_e.h>
 #include <uf/utils/time/time.h>
 #include <uf/ext/audio/pcm.h>
 
-#if UF_USE_VALL_E
 namespace {
 	vall_e_context_t* ctx = NULL;
 }

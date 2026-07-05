@@ -1,6 +1,6 @@
+#if UF_USE_OPENVR
 #include <uf/ext/openvr/openvr.h>
 
-#if UF_USE_OPENVR
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/io.h>

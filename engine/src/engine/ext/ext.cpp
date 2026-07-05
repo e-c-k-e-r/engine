@@ -522,12 +522,14 @@ void UF_API uf::initialize() {
 		uf::console::initialize();
 	}
 
+#if UF_USE_VALVE
 	/* Load VPKs */ {
 		auto& vpks = uf::config["engine"]["ext"]["valve"]["vpks"];
 		ext::json::forEach( vpks, []( const uf::stl::string& uri ) {
 			ext::valve::mountVpk( uri );
 		});
 	}
+#endif
 
 	/* Create initial scene (kludge) */ {
 		uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>();

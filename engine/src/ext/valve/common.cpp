@@ -1,3 +1,4 @@
+#if UF_USE_VALVE
 #include <uf/ext/valve/common.h>
 
 bool impl::parseKeyValue( const uf::stl::string& line, uf::stl::string& key, uf::stl::string& value ) {
@@ -56,3 +57,4 @@ ext::json::Value impl::processValue( const uf::stl::string& v ) {
 
 	return ext::json::Value( v );
 }
+#endif

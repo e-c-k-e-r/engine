@@ -182,7 +182,7 @@ void uf::Mesh::generateIndices() {
 	}
 }
 uf::Mesh uf::Mesh::expand( ) {
-	 uf::Mesh res = copy();
+	uf::Mesh res = copy();
 
 	res.resizeVertices( index.count );
 	res.vertex.count = index.count;
@@ -229,6 +229,63 @@ uf::Mesh uf::Mesh::expand( ) {
 	res.updateDescriptor();
 
 	return res;
+}
+
+void uf::Mesh::interleave() {
+	if ( vertex.attributes.size() <= 1 || vertex.count == 0 ) return;
+
+	bool alreadyInterleaved = true;
+	int32_t firstBuffer = vertex.attributes.front().buffer;
+	for ( const auto& attr : vertex.attributes ) {
+		if ( attr.buffer != firstBuffer ) {
+			alreadyInterleaved = false;
+			break;
+		}
+	}
+	if ( alreadyInterleaved ) return;
+
+	size_t interleavedStride = 0;
+	for ( const auto& attr : vertex.attributes ) {
+		interleavedStride += attr.descriptor.size;
+	}
+
+	buffer_t interleavedBuffer( vertex.count * interleavedStride );
+
+	size_t currentOffset = 0;
+	for ( auto& attr : vertex.attributes ) {
+		const uint8_t* srcBase = buffers[attr.buffer].data() + attr.offset;
+		size_t srcStride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+
+		for ( size_t i = 0; i < vertex.count; ++i ) {
+			uint8_t* dst = interleavedBuffer.data() + (i * interleavedStride) + currentOffset;
+			const uint8_t* src = srcBase + (i * srcStride);
+			memcpy( dst, src, attr.descriptor.size );
+		}
+
+		attr.offset = currentOffset;
+		attr.stride = interleavedStride;
+		currentOffset += attr.descriptor.size;
+	}
+
+	uf::stl::vector<int32_t> oldBuffers;
+	for ( auto& attr : vertex.attributes ) {
+		if ( std::find(oldBuffers.begin(), oldBuffers.end(), attr.buffer) == oldBuffers.end() ) {
+			oldBuffers.push_back(attr.buffer);
+		}
+	}
+	for ( int32_t bufIdx : oldBuffers ) {
+		buffers[bufIdx].clear();
+		buffers[bufIdx].shrink_to_fit();
+	}
+
+	int32_t newBufferIndex = buffers.size();
+	buffers.push_back( std::move(interleavedBuffer) );
+
+	for ( auto& attr : vertex.attributes ) {
+		attr.buffer = newBufferIndex;
+	}
+
+	updateDescriptor();
 }
 
 void uf::Mesh::clearAttribute( uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) {
@@ -408,12 +465,20 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 			auto& buffer = buffers[attribute.buffer];
 			attribute.length = buffer.size();
 			attribute.pointer = buffer.data() + attribute.offset;
+		} else {
+			attribute.length = 0;
+			attribute.pointer = NULL;
 		}
 
-		if ( &input == &index || &input == &indirect ) input.size = attribute.descriptor.size;
-		else input.size += attribute.descriptor.size;
+		if ( &input == &index || &input == &indirect ) {
+			input.size = attribute.descriptor.size;
+		} else {
+			input.size += attribute.descriptor.size;
+		}
 
-		attribute.stride = attribute.descriptor.size;
+		if ( attribute.stride == 0 ) {
+			attribute.stride = attribute.descriptor.size;
+		}
 	}
 }
 void uf::Mesh::_updateViews() {

@@ -114,7 +114,7 @@ namespace {
 					instance.bounds.min = boundsMin;
 					instance.bounds.max = boundsMax;
 					instance.bounds.center = (boundsMax + boundsMin) * 0.5f;
-					instance.bounds.extent = (boundsMax - boundsMin) * 0.5f;
+					instance.bounds.extent = uf::vector::abs(boundsMax - boundsMin) * 0.5f;
 
 					if ( sourceDrawCommands ) {
 						drawCommand = sourceDrawCommands[drawCommandID];

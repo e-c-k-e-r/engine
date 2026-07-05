@@ -1,5 +1,5 @@
-#include <uf/ext/xatlas/xatlas.h>
 #if UF_USE_XATLAS
+#include <uf/ext/xatlas/xatlas.h>
 #include <xatlas/xatlas.h>
 
 #define UF_XATLAS_UNWRAP_MULTITHREAD 1

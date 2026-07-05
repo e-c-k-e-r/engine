@@ -260,6 +260,7 @@ namespace uf {
 		uf::Mesh copy() const;
 		uf::Mesh alias() const;
 		uf::Mesh expand();
+		void interleave();
 
 		void updateDescriptor();
 		
@@ -638,7 +639,7 @@ namespace uf {
 			return uf::mesh::getIndex<U>( indices.data(view.index.first), index );
 		}
 		template<typename U> inline U& getIndex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::getIndex<U>( view, view["indices"], index );
+			return uf::mesh::getIndex<U>( view, view["index"], index );
 		}
 		template<typename U> inline U& getIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
 			return uf::mesh::getIndex<U>( view, view[indices], index );
@@ -658,13 +659,13 @@ namespace uf {
 			return uf::mesh::fetchIndex( indices.data(view.index.first), indices.stride(), index );
 		}
 		static inline size_t fetchIndex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchIndex( view, view["indices"], index );
+			return uf::mesh::fetchIndex( view, view["index"], index );
 		}
 		static inline size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& indices, size_t index ) {
 			return uf::mesh::fetchIndex( view, view[indices], index );
 		}
 		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, size_t index ) {
-			return uf::mesh::fetchVertex( view, view["positions"], index );
+			return uf::mesh::fetchVertex( view, view["position"], index );
 		}
 		static inline pod::Vector3f fetchVertex( const uf::Mesh::View& view, const uf::stl::string& positions, size_t index ) {
 			return uf::mesh::fetchVertex( view, view[positions], index );
@@ -680,7 +681,7 @@ namespace uf {
 			return uf::mesh::setIndex( const_cast<void*>(indices.data(view.index.first)), indices.stride(), index, value );
 		}
 		static inline void setIndex( const uf::Mesh::View& view, size_t index, size_t value ) {
-			return uf::mesh::setIndex( view, view["indices"], index, value );
+			return uf::mesh::setIndex( view, view["index"], index, value );
 		}
 	}
 }
@@ -938,6 +939,7 @@ template<typename T, typename U> void uf::mesh::compile( uf::Mesh& mesh, const u
 	drawCommands.reserve( meshlets.size() );
 	primitives.reserve( primitives.size() + meshlets.size() );
 
+	// to-do: probably sync primitiveID
 	for ( auto& meshlet : meshlets ) {
 		if ( meshlet.indices.empty() ) continue;
 		auto& primitive = primitives.emplace_back(meshlet.primitive);

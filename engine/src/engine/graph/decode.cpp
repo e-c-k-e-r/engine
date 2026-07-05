@@ -224,6 +224,7 @@ namespace {
 		uf::stl::vector<pod::StreamRegion> localRegions;
 		localRegions.reserve( json["buffers"].size() );
 
+		bool defered = true; // graph.settings.stream.enabled;
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			uf::stl::string filename;
 			size_t offset = 0, length = 0;
@@ -239,7 +240,7 @@ namespace {
 			uf::stl::string fullPath = uf::io::directory( graph.name ) + "/" + filename;
 			pod::StreamRegion region = { fullPath, offset, length };
 
-			if ( graph.settings.stream.enabled ) {
+			if ( defered ) {
 				mesh.buffers.emplace_back();
 				meshStream.buffers.push_back(region);
 			} else {
@@ -257,7 +258,7 @@ namespace {
 		});
 
 		auto getRegion = [&](size_t bufferIdx) -> pod::StreamRegion {
-			if ( graph.settings.stream.enabled ) return meshStream.buffers[bufferIdx];
+			if ( defered ) return meshStream.buffers[bufferIdx];
 			return localRegions[bufferIdx];
 		};
 
@@ -274,25 +275,52 @@ namespace {
 			uf::io::readAsBuffer(mesh.buffers[attr.buffer], region.filename, region.offset, region.length);
 		}
 
-		#if 1 || UF_ENV_DREAMCAST
-		// remove extraneous buffers
-		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
 		{
 			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
-			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
+
+			uf::stl::vector<size_t> deadAttributes;
+			uf::stl::vector<int32_t> deadBuffers;
 
 			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
 				auto& attribute = mesh.vertex.attributes[i];
 				if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
-				remove.insert(remove.begin(), i);
+
+				deadAttributes.push_back(i);
+				deadBuffers.push_back(attribute.buffer);
 			}
-			for ( auto& i : remove ) {
-				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
-				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
-				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
+
+			std::sort(deadAttributes.rbegin(), deadAttributes.rend());
+			std::sort(deadBuffers.rbegin(), deadBuffers.rend());
+
+			for ( auto idx : deadAttributes ) {
+				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + idx);
 			}
+
+			for ( auto bufID : deadBuffers ) {
+				mesh.buffers.erase(mesh.buffers.begin() + bufID);
+
+				if ( graph.settings.stream.enabled ) {
+					meshStream.buffers.erase(meshStream.buffers.begin() + bufID);
+				} else {
+					localRegions.erase(localRegions.begin() + bufID);
+				}
+			}
+
+			auto remap_input = [&](uf::Mesh::Input& input) {
+				for (auto& attr : input.attributes) {
+					int32_t shift = 0;
+					for (int32_t db : deadBuffers) {
+						if (attr.buffer > db) shift++;
+					}
+					attr.buffer -= shift;
+				}
+			};
+
+			remap_input(mesh.vertex);
+			remap_input(mesh.index);
+			remap_input(mesh.instance);
+			remap_input(mesh.indirect);
 		}
-	#endif
 
 		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
 		{
@@ -346,9 +374,11 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		return ext::gltf::load( graph, filename, metadata );
 	}
 #endif
+#if UF_USE_VALVE
 	if ( extension == "bsp" ) {
 		return ext::valve::loadBsp( graph, filename, metadata );
 	}
+#endif
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
 	uf::Serializer serializer;
 	UF_DEBUG_TIMER_MULTITRACE_START("Reading {}", filename);
@@ -367,7 +397,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	auto& storage = uf::graph::getStorage( graph ); // will just fetch the above
 
 	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
-	#if UF_USE_OPENGL
+	#if 0 && UF_USE_OPENGL
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "uv", "st" });
 	#else
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "normal", "tangent", "joints", "weights" });
@@ -376,7 +406,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 	// failsafes
 	if ( graph.metadata["stream"]["enabled"].is<uf::stl::string>() && graph.metadata["stream"]["enabled"].as<uf::stl::string>() == "auto" ) {
-	#if UF_ENV_DREAMCAST
+	#if UF_USE_OPENGL
 		graph.metadata["stream"]["enabled"] = true;
 	#else
 		graph.metadata["stream"]["enabled"] = false;
@@ -399,8 +429,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		graph.settings.stream.radius = graph.metadata["stream"]["radius"].as(graph.settings.stream.radius);
 		graph.settings.stream.every = graph.metadata["stream"]["every"].as(graph.settings.stream.every);
 
-		graph.settings.stream.tag = graph.metadata["stream"]["tag"].as(graph.settings.stream.tag);
-		graph.settings.stream.player = graph.metadata["stream"]["player"].as(graph.settings.stream.player);
+	//	graph.settings.stream.world = graph.metadata["stream"]["tag"].as(graph.settings.stream.world);
+	//	graph.settings.stream.player = graph.metadata["stream"]["player"].as(graph.settings.stream.player);
 
 		graph.settings.stream.hash = graph.metadata["stream"]["hash"].as(graph.settings.stream.hash);
 		graph.settings.stream.lastUpdate = graph.metadata["stream"]["lastUpdate"].as(graph.settings.stream.lastUpdate);
@@ -562,16 +592,30 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		uf::stl::vector<uint8_t> megaBuffer;
 		bool bufferAttempted = false;
 
+	#if UF_USE_OPENGL
+		bool preferInterleaved = true;
+	#else
+		bool preferInterleaved = false;
+	#endif
+
+		if ( graph.settings.stream.enabled ) preferInterleaved = false;
+
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
-			if (!bufferAttempted && value["buffers"].size() > 0 && value["buffers"][0].isObject()) {
-				uf::stl::string binName = value["buffers"][0]["filename"].as<uf::stl::string>();
-				uf::io::readAsBuffer(megaBuffer, directory + binName);
+			bool hasInterleavedAsset = value["interleaved"].isObject();
+			ext::json::Value& json = ( preferInterleaved && hasInterleavedAsset ) ? value["interleaved"] : value;
+
+			if ( !bufferAttempted && json["buffers"].size() > 0 && json["buffers"][0].isObject() ) {
+				uf::stl::string binName = json["buffers"][0]["filename"].as<uf::stl::string>();
+				uf::io::readAsBuffer( megaBuffer, directory + "/" + binName );
 				bufferAttempted = true;
 			}
 
-			storage.meshes[name] = decodeMesh( value, graph, name, megaBuffer );
+			auto& mesh = (storage.meshes[name] = decodeMesh( json, graph, name, megaBuffer ));
+			if ( preferInterleaved && !hasInterleavedAsset && !graph.settings.stream.enabled ) {
+				mesh.interleave();
+			}
 			graph.meshes.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read meshes");

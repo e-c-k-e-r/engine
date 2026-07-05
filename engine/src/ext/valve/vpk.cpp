@@ -1,3 +1,4 @@
+#if UF_USE_VALVE
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
@@ -331,3 +332,4 @@ bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string
 
 	return true;
 }
+#endif

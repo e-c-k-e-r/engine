@@ -198,14 +198,14 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(pod::OBB,
 		},
 	#if OBB_EXTENT_CENTER
 		[]( pod::OBB& self, const pod::AABB& copy ) {
-			return self = pod::OBB{ .extent = (copy.max - copy.min) * 0.5f, .center = (copy.max + copy.min) * 0.5f };
+			return self = pod::OBB{ .extent = uf::vector::abs(copy.max - copy.min) * 0.5f, .center = (copy.max + copy.min) * 0.5f };
 		},
 		[]( pod::OBB& self, const pod::Vector3f& extent, const pod::Vector3f& center ) {
 			return self = pod::OBB{ .extent = extent, .center = center };
 		}
 	#else
 		[]( pod::OBB& self, const pod::AABB& copy ) {
-			return self = pod::OBB{ .center = (copy.max + copy.min) * 0.5f, .extent = (copy.max - copy.min) * 0.5f };
+			return self = pod::OBB{ .center = (copy.max + copy.min) * 0.5f, .extent = uf::vector::abs(copy.max - copy.min) * 0.5f };
 		},
 		[]( pod::OBB& self, const pod::Vector3f& center, const pod::Vector3f& extent ) {
 			return self = pod::OBB{ .center = center, .extent = extent };

@@ -1,3 +1,4 @@
+#if UF_USE_VALVE
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/valve/mdl.h>
 #include <uf/ext/valve/vtf.h>
@@ -357,7 +358,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 								}
 
 								vert.uv = srcVert.m_vecTexCoord;
-								vert.color = {1.0f, 1.0f, 1.0f, 1.0f};
+								vert.color = { 255, 255, 255, 255 };
 								vert.joints.x = srcVert.m_BoneWeights.numbones > 0 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[0]) : 0;
 								vert.joints.y = srcVert.m_BoneWeights.numbones > 1 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[1]) : 0;
 								vert.joints.z = srcVert.m_BoneWeights.numbones > 2 ? std::max<int8_t>(0, srcVert.m_BoneWeights.bone[2]) : 0;
@@ -401,7 +402,7 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 				{
 					auto& bounds = meshlet.primitive.instance.bounds;
 					bounds.center = ( bounds.max + bounds.min ) * 0.5f;
-					bounds.extent = ( bounds.max - bounds.min ) * 0.5f;
+					bounds.extent = uf::vector::abs( bounds.max - bounds.min ) * 0.5f;
 				}
 			}
 		}
@@ -423,3 +424,4 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	return true;
 }
+#endif

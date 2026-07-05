@@ -358,7 +358,7 @@ uf::stl::vector<pod::OBB> uf::graph::obbFromSkin( const pod::Graph& graph, const
 		auto& aabb = aabbs[i];
 		bounds[i] = pod::OBB{
 			.center = (aabb.max + aabb.min) * 0.5f,
-			.extent = (aabb.max - aabb.min) * 0.5f,
+			.extent = uf::vector::abs(aabb.max - aabb.min) * 0.5f,
 		};
 	}
 	return bounds;
