@@ -26,7 +26,7 @@ layout (binding = 0) uniform Camera {
 	Viewport viewport[6];
 } camera;
 
-layout (std140, binding = 1) readonly buffer DrawCommands {
+layout (std430, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
 layout (std140, binding = 2) readonly buffer Instances {

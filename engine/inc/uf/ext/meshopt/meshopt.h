@@ -10,6 +10,7 @@
 namespace ext {
 	namespace meshopt {
 		bool UF_API optimize( uf::Mesh&, float simplify = 1.0f, size_t = SIZE_MAX, bool verbose = false );
+		bool UF_API simplify( uf::Mesh&, float simplify = 1.0f );
 
 		uf::stl::vector<float> computeLODs( size_t count, size_t maxLODs = 4, size_t minIndices = 3 );
 		uf::stl::vector<pod::LODMetadata> UF_API generateLODs( uf::Mesh&, const uf::stl::vector<float>&, bool verbose = false );

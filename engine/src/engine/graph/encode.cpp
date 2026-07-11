@@ -330,10 +330,10 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["meshes"], graph.meshes.size() );
 
 		uf::stl::vector<uint8_t> meshesBuffer;
-		uf::stl::vector<uint8_t> interleavedBuffer;
+		uf::stl::vector<uint8_t> minBuffer;
 		
 		uf::stl::string binName = "meshes." + (settings.compression == "none" ? "bin" : settings.compression);
-		uf::stl::string interleavedBinName = "meshes.interleaved." + (settings.compression == "none" ? "bin" : settings.compression);
+		uf::stl::string minBinName = "meshes.min." + (settings.compression == "none" ? "bin" : settings.compression);
 
 		for ( auto& name : graph.meshes ) {
 			auto& mesh = storage.meshes.map.at(name);
@@ -341,10 +341,15 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			auto json = encode(mesh, settings, graph, meshesBuffer, binName);
 			json["name"] = name;
 
-			uf::Mesh interleavedMesh = mesh.copy();
-			interleavedMesh.interleave();
+			// to-do: properly flag this
+			if ( true ) {
+				uf::Mesh minMesh = mesh.copy();
+				minMesh.prune( { "position", "uv", "st" } );
+				minMesh.convert<float, uint16_t>();
+				minMesh.interleave();
 
-			json["interleaved"] = encode(interleavedMesh, settings, graph, interleavedBuffer, interleavedBinName);;
+				json["min"] = encode( minMesh, settings, graph, minBuffer, minBinName );
+			}
 
 			serializer["meshes"].emplace_back(json);
 		}
@@ -352,8 +357,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		if ( !meshesBuffer.empty() ) {
 			uf::io::write(directory + "/" + binName, meshesBuffer);
 		}
-		if ( !interleavedBuffer.empty() ) {
-			uf::io::write(directory + "/" + interleavedBinName, interleavedBuffer);
+		if ( !minBuffer.empty() ) {
+			uf::io::write(directory + "/" + minBinName, minBuffer);
 		}
 	});
 

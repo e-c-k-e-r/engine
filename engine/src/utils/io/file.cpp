@@ -170,6 +170,40 @@ bool uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer,  const uf::stl::str
 	return true;
 }
 
+bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
+#if UF_ENV_DREAMCAST
+	const size_t THRESHOLD = 2 * 1024 * 1024;
+#else
+	const size_t THRESHOLD = 16 * 1024 * 1024;
+#endif
+
+	uf::stl::string extension = uf::io::extension(filename);
+	bool isZlib = (extension == "gz");
+	size_t fileSize = uf::io::size(filename);
+
+	if ( 0 < fileSize && fileSize <= THRESHOLD ) {
+		uf::stl::vector<uint8_t> fullBuffer;
+		if ( isZlib ) ext::zlib::decompressFromFile(fullBuffer, filename);
+		else uf::vfs::read(filename, fullBuffer);
+
+		for ( auto& req : requests ) {
+			if ( req.start + req.len <= fullBuffer.size() ) {
+				std::memcpy(req.dest, fullBuffer.data() + req.start, req.len);
+			}
+		}
+		return true;
+	}
+
+	if ( isZlib ) return ext::zlib::decompressScatter(filename, requests);
+
+	for ( auto& req : requests ) {
+		uf::stl::vector<uint8_t> temp;
+		uf::vfs::readRange( filename, req.start, req.len, temp );
+		std::memcpy(req.dest, temp.data(), temp.size());
+	}
+	return true;
+}
+
 size_t uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" || extension == "lz4" ) return uf::io::compress( filename, buffer, size );

@@ -10,7 +10,7 @@ layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 #define COMPUTE 1
 #define QUERY_MIPMAPS 1
 #define DEPTH_BIAS 0.00005
-#define FRUSTUM_CULLING 1
+#define FRUSTUM_CULLING 0
 #define OCCLUSION_CULLING 0 // currently whack
 #define LODS 1
 #define MAX_LODS 4
@@ -111,6 +111,8 @@ void main() {
 
 	const DrawCommand drawCommand = drawCommands[gID];
 	if ( drawCommand.indices == 0 || drawCommand.vertices == 0 ) return;
+//	if ( drawCommand.instances > 1 ) return;
+
 
 	const Instance instance = instances[drawCommand.instanceID];
 	const Object object = objects[instance.objectID];
@@ -181,6 +183,9 @@ void main() {
 		}
 	}
 #endif
+#if FRUSTUM_CULLING || OCCLUSION_CULLING
+	drawCommands[gID].instances = isVisible ? 1 : 0;
+#endif
 #if LODS
 	if ( isVisible ) {
 		vec3 viewCenter = (camera.viewport[0].view * vec4(worldCenter, 1.0)).xyz;
@@ -189,6 +194,7 @@ void main() {
 		float projectedSize = (worldRadius * P11) / max(dist, 0.001);
 
 		uint lodLevel = 0;
+	/*
 		if ( projectedSize < 0.20 ) lodLevel = 1;
 		if ( projectedSize < 0.08 ) lodLevel = 2;
 		if ( projectedSize < 0.02 ) lodLevel = 3;
@@ -196,8 +202,9 @@ void main() {
 		while ( lodLevel > 0 && lodMetadata[drawCommand.instanceID].levels[lodLevel].indices == 0 ) {
 			lodLevel--;
 		}
+	*/
 
-		LOD lod = lodMetadata[drawCommand.instanceID].levels[lodLevel];
+		LOD lod = lodMetadata[gID].levels[lodLevel];
 
 		if ( lod.indices > 0 ) {
 			drawCommands[gID].indices = lod.indices;
@@ -207,5 +214,4 @@ void main() {
 		}
 	}
 #endif
-	drawCommands[gID].instances = isVisible ? 1 : 0;
 }

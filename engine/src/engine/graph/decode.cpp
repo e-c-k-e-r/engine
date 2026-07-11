@@ -12,7 +12,6 @@
 #include <uf/utils/io/fmt.h>
 
 #define UF_GRAPH_LOAD_MULTITHREAD 0
-#define UF_GRAPH_EXTENDED 1
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
@@ -25,12 +24,20 @@
 #endif
 
 namespace {
+	struct PendingImage {
+		uf::stl::string name;
+		uf::stl::vector<uint8_t> buffer;
+		uf::stl::string extension;
+		size_t layers;
+	};
+
 	size_t deduceFormat( const uf::stl::string& format ) {
 		if ( format == "ARGB4444" ) return uf::renderer::enums::Format::R4G4B4A4_UNORM_PACK16;
 		if ( format == "RGB565" ) return uf::renderer::enums::Format::R5G6B5_UNORM_PACK16;
 		return 0;
 	}
-	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName ) {
+	
+	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName, uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>>& scatterMap, uf::stl::vector<PendingImage>& pendingImages ) {
 		uf::Image image;
 
 		uf::stl::string filename = "";
@@ -82,24 +89,27 @@ namespace {
 			auto& storage = uf::graph::getStorage(graph);
 			graph.streams.images[imageName] = { fullPath, offset, length };
 		} else {
-			uf::stl::vector<uint8_t> buffer;
-			if ( length > 0 ) {
-				uf::io::readAsBuffer( buffer, fullPath, offset, length );
-			} else {
-				uf::io::readAsBuffer( buffer, fullPath );
-			}
+			pendingImages.push_back({ imageName, {}, extension, layers });
+			auto& pending = pendingImages.back();
 
-			uf::image::open( image, buffer, extension, false );
-			uf::image::layers( image, layers );
+			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
+			if ( readLen > 0 ) {
+				pending.buffer.resize(readLen);
+				scatterMap[fullPath].push_back({
+					offset,
+					readLen,
+					pending.buffer.data()
+				});
+			}
 		}
-		
+
 		image.setFilename( fullPath );
 		image.setFormat( format );
 
 		return image;
 	}
 
-	pod::Animation decodeAnimation( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& animName, const uf::stl::vector<uint8_t>& megaBuffer ) {
+	pod::Animation decodeAnimation( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& animName ) {
 		pod::Animation animation = {};
 		animation.name = json["name"].as(animation.name);
 		animation.start = json["start"].as<float>(0.0f);
@@ -113,7 +123,7 @@ namespace {
 		auto& storage = uf::graph::getStorage(graph);
 		auto& animStream = graph.streams.animations[animName];
 
-		 ext::json::forEach( json["samplers"], [&]( ext::json::Value& value ){
+		ext::json::forEach( json["samplers"], [&]( ext::json::Value& value ){
 			auto& sampler = animation.samplers.emplace_back();
 			sampler.interpolator = value["interpolator"].as(sampler.interpolator);
 
@@ -131,13 +141,17 @@ namespace {
 				sStream.outputs = { binPath, outputsOffset, outputsLen };
 				animStream.samplers.emplace_back(sStream);
 			} else {
-				if (inputsLen > 0 && !megaBuffer.empty()) {
+				if ( inputsLen > 0 ) {
+					uf::stl::vector<uint8_t> temp;
+					uf::io::readAsBuffer(temp, binPath, inputsOffset, inputsLen);
 					sampler.inputs.resize(inputsCount);
-					memcpy(sampler.inputs.data(), megaBuffer.data() + inputsOffset, inputsLen);
+					memcpy(sampler.inputs.data(), temp.data(), inputsLen);
 				}
-				if (outputsLen > 0 && !megaBuffer.empty()) {
+				if ( outputsLen > 0 ) {
+					uf::stl::vector<uint8_t> temp;
+					uf::io::readAsBuffer(temp, binPath, outputsOffset, outputsLen);
 					sampler.outputs.resize(outputsCount);
-					memcpy(sampler.outputs.data(), megaBuffer.data() + outputsOffset, outputsLen);
+					memcpy(sampler.outputs.data(), temp.data(), outputsLen);
 				}
 			}
 		});
@@ -152,7 +166,7 @@ namespace {
 		return animation;
 	}
 
-	pod::Skin decodeSkin( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& skinName, const uf::stl::vector<uint8_t>& megaBuffer ) {
+	pod::Skin decodeSkin( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& skinName ) {
 		pod::Skin skin;
 
 		skin.name = json["name"].as(skin.name);
@@ -162,7 +176,7 @@ namespace {
 			skin.joints.emplace_back( value.as<int32_t>() );
 		});
 
-		if (json["inverseBindMatrices"].isObject()) {
+		if ( json["inverseBindMatrices"].isObject() ) {
 			auto& invJson = json["inverseBindMatrices"];
 			size_t count = invJson["count"].as<size_t>();
 			size_t offset = invJson["offset"].as<size_t>();
@@ -175,9 +189,11 @@ namespace {
 			if ( graph.settings.stream.enabled ) {
 				skinStream.inverseBindMatrices = { binPath, offset, length };
 			} else {
-				if (length > 0 && !megaBuffer.empty()) {
+				if ( length > 0 ) {
+					uf::stl::vector<uint8_t> temp;
+					uf::io::readAsBuffer(temp, binPath, offset, length);
 					skin.inverseBindMatrices.resize(count);
-					memcpy(skin.inverseBindMatrices.data(), megaBuffer.data() + offset, length);
+					memcpy(skin.inverseBindMatrices.data(), temp.data(), length);
 				}
 			}
 		}
@@ -185,7 +201,7 @@ namespace {
 		return skin;
 	}
 
-	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName, const uf::stl::vector<uint8_t>& megaBuffer ) {
+	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName, uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>>& scatterMap ) {
 		uf::Mesh mesh;
 
 		#define DESERIALIZE_MESH(N) {\
@@ -220,129 +236,49 @@ namespace {
 		auto& meshStream = graph.streams.meshes[meshName];
 
 		mesh.buffers.reserve( json["buffers"].size() );
+		bool deferred = graph.settings.stream.enabled;
 
-		uf::stl::vector<pod::StreamRegion> localRegions;
-		localRegions.reserve( json["buffers"].size() );
-
-		bool defered = true; // graph.settings.stream.enabled;
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			uf::stl::string filename;
 			size_t offset = 0, length = 0;
 
-			if (value.isObject()) {
+			if ( value.isObject() ) {
 				filename = value["filename"].as<uf::stl::string>();
 				offset = value["offset"].as<size_t>();
 				length = value["length"].as<size_t>();
 			} else {
 				filename = value.as<uf::stl::string>();
 			}
-
+			
 			uf::stl::string fullPath = uf::io::directory( graph.name ) + "/" + filename;
-			pod::StreamRegion region = { fullPath, offset, length };
 
-			if ( defered ) {
-				mesh.buffers.emplace_back();
-				meshStream.buffers.push_back(region);
-			} else {
-				uf::stl::vector<uint8_t> buf;
-				if (length > 0 && !megaBuffer.empty()) {
-					buf.assign(megaBuffer.begin() + offset, megaBuffer.begin() + offset + length);
-				} else if (length > 0) {
-					uf::io::readAsBuffer(buf, fullPath, offset, length);
-				} else {
-					uf::io::readAsBuffer(buf, fullPath);
-				}
-				mesh.buffers.emplace_back(std::move(buf));
-				localRegions.push_back(region);
-			}
+			mesh.buffers.emplace_back();
+			meshStream.buffers.emplace_back(pod::StreamRegion{ fullPath, offset, length });
 		});
 
-		auto getRegion = [&](size_t bufferIdx) -> pod::StreamRegion {
-			if ( defered ) return meshStream.buffers[bufferIdx];
-			return localRegions[bufferIdx];
+		auto queue = [&]( auto& attributes ) {
+			for ( auto& attr : attributes ) {
+				if ( !mesh.buffers[attr.buffer].empty() ) continue;
+
+				auto region = meshStream.buffers[attr.buffer];
+				if ( region.length == 0 ) continue;
+
+				mesh.buffers[attr.buffer].resize(region.length);
+				scatterMap[region.filename].push_back({
+					region.offset,
+					region.length,
+					mesh.buffers[attr.buffer].data()
+				});
+			}
 		};
 
-		for ( size_t i = 0; i < mesh.instance.attributes.size(); ++i ) {
-			auto& attr = mesh.instance.attributes[i];
-			if ( !mesh.buffers[attr.buffer].empty() ) continue;
-			auto region = getRegion(attr.buffer);
-			uf::io::readAsBuffer(mesh.buffers[attr.buffer], region.filename, region.offset, region.length);
-		}
-		for ( size_t i = 0; i < mesh.indirect.attributes.size(); ++i ) {
-			auto& attr = mesh.indirect.attributes[i];
-			if ( !mesh.buffers[attr.buffer].empty() ) continue;
-			auto region = getRegion(attr.buffer);
-			uf::io::readAsBuffer(mesh.buffers[attr.buffer], region.filename, region.offset, region.length);
+		queue( mesh.instance.attributes );
+		queue( mesh.indirect.attributes );
+		if ( !deferred ) {
+			queue( mesh.vertex.attributes );
+			queue( mesh.index.attributes );
 		}
 
-		{
-			uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
-
-			uf::stl::vector<size_t> deadAttributes;
-			uf::stl::vector<int32_t> deadBuffers;
-
-			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
-				auto& attribute = mesh.vertex.attributes[i];
-				if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
-
-				deadAttributes.push_back(i);
-				deadBuffers.push_back(attribute.buffer);
-			}
-
-			std::sort(deadAttributes.rbegin(), deadAttributes.rend());
-			std::sort(deadBuffers.rbegin(), deadBuffers.rend());
-
-			for ( auto idx : deadAttributes ) {
-				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + idx);
-			}
-
-			for ( auto bufID : deadBuffers ) {
-				mesh.buffers.erase(mesh.buffers.begin() + bufID);
-
-				if ( graph.settings.stream.enabled ) {
-					meshStream.buffers.erase(meshStream.buffers.begin() + bufID);
-				} else {
-					localRegions.erase(localRegions.begin() + bufID);
-				}
-			}
-
-			auto remap_input = [&](uf::Mesh::Input& input) {
-				for (auto& attr : input.attributes) {
-					int32_t shift = 0;
-					for (int32_t db : deadBuffers) {
-						if (attr.buffer > db) shift++;
-					}
-					attr.buffer -= shift;
-				}
-			};
-
-			remap_input(mesh.vertex);
-			remap_input(mesh.index);
-			remap_input(mesh.instance);
-			remap_input(mesh.indirect);
-		}
-
-		// if ( graph.metadata["renderer"]["separate"].as<bool>() )
-		{
-		#if UF_ENV_DREAMCAST && GL_QUANTIZED_SHORT
-			mesh.convert<float, uint16_t>();
-		#else
-			auto conversion = graph.metadata["decode"]["conversion"].as<uf::stl::string>();
-			if ( conversion != "" ) {
-			#if UF_USE_FLOAT16
-				if ( conversion == "float16" ) mesh.convert<float, float16>();
-				else if ( conversion == "float" ) mesh.convert<float16, float>();
-			#endif
-			#if UF_USE_BFLOAT16
-				if ( conversion == "bfloat16" ) mesh.convert<float, bfloat16>();
-				else if ( conversion == "float" ) mesh.convert<bfloat16, float>();
-			#endif
-				if ( conversion == "uint16_t" ) mesh.convert<float, uint16_t>();
-				else if ( conversion == "float" ) mesh.convert<uint16_t, float>();
-			}
-		#endif
-		}
-		
 		mesh.updateDescriptor();
 		return mesh;
 	}
@@ -396,13 +332,15 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
 	auto& storage = uf::graph::getStorage( graph ); // will just fetch the above
 
+#if 0
 	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
-	#if 0 && UF_USE_OPENGL
+	#if UF_USE_OPENGL
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "uv", "st" });
 	#else
 		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "normal", "tangent", "joints", "weights" });
 	#endif
 	}
+#endif
 
 	// failsafes
 	if ( graph.metadata["stream"]["enabled"].is<uf::stl::string>() && graph.metadata["stream"]["enabled"].as<uf::stl::string>() == "auto" ) {
@@ -543,7 +481,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		uf::stl::vector<uint8_t> ioBuf;
 		pod::Primitive* allPrimitives = nullptr;
 
-		if (uf::io::readAsBuffer(ioBuf, directory + binName)) {
+		if ( uf::io::readAsBuffer(ioBuf, directory + binName) ) {
 			allPrimitives = reinterpret_cast<pod::Primitive*>(ioBuf.data());
 		}
 
@@ -557,7 +495,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 			bool hasOffset = !value["offset"].isNull();
 
-			if (allPrimitives && hasOffset) {
+			if ( allPrimitives && hasOffset ) {
 				size_t count = value["count"].as<size_t>();
 				size_t offsetBytes = value["offset"].as<size_t>();
 				size_t startIndex = offsetBytes / sizeof(pod::Primitive);
@@ -574,14 +512,34 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
+
+		uf::stl::vector<PendingImage> pendingImages;
+		pendingImages.reserve( serializer["images"].size() );
+		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> scatterMap;
+
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
+			UF_DEBUG_TIMER_MULTITRACE("Reading image={}", name);
 			storage.images[name] = {
-				.data = decodeImage( value, graph, name ),
+				.data = decodeImage( value, graph, name, scatterMap, pendingImages ),
 			};
 			graph.images.emplace_back(name);
 		});
+
+		for ( auto& [filename, requests] : scatterMap ) {
+			uf::io::readScatter( filename, requests );
+		}
+
+		for ( auto& pending : pendingImages ) {
+			auto& image = storage.images[pending.name].data;
+			if ( !pending.buffer.empty() ) {
+				uf::image::open( image, pending.buffer, pending.extension, false );
+				uf::image::layers( image, pending.layers );
+
+				pending.buffer.clear();
+			}
+		}
 		UF_DEBUG_TIMER_MULTITRACE("Read images");
 	});
 
@@ -589,35 +547,38 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading meshes...");
 		graph.meshes.reserve( serializer["meshes"].size() );
 
-		uf::stl::vector<uint8_t> megaBuffer;
-		bool bufferAttempted = false;
-
 	#if UF_USE_OPENGL
-		bool preferInterleaved = true;
+		bool preferMinified = true;
 	#else
-		bool preferInterleaved = false;
+		bool preferMinified = false;
 	#endif
 
-		if ( graph.settings.stream.enabled ) preferInterleaved = false;
+		if ( graph.settings.stream.enabled ) preferMinified = false;
+
+		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> scatterMap;
+		uf::stl::vector<uf::stl::string> meshesToMinify;
 
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
-			bool hasInterleavedAsset = value["interleaved"].isObject();
-			ext::json::Value& json = ( preferInterleaved && hasInterleavedAsset ) ? value["interleaved"] : value;
+			bool hasMinifiedAsset = value["min"].isObject();
+			ext::json::Value& json = ( preferMinified && hasMinifiedAsset ) ? value["min"] : value;
 
-			if ( !bufferAttempted && json["buffers"].size() > 0 && json["buffers"][0].isObject() ) {
-				uf::stl::string binName = json["buffers"][0]["filename"].as<uf::stl::string>();
-				uf::io::readAsBuffer( megaBuffer, directory + "/" + binName );
-				bufferAttempted = true;
-			}
-
-			auto& mesh = (storage.meshes[name] = decodeMesh( json, graph, name, megaBuffer ));
-			if ( preferInterleaved && !hasInterleavedAsset && !graph.settings.stream.enabled ) {
-				mesh.interleave();
-			}
+			storage.meshes[name] = decodeMesh( json, graph, name, scatterMap );
 			graph.meshes.emplace_back(name);
+
+			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled ) {
+				meshesToMinify.emplace_back( name );
+			}
 		});
+		for ( auto& [filename, requests] : scatterMap ) uf::io::readScatter( filename, requests );
+		for ( const auto& name : meshesToMinify ) {
+			auto& mesh = storage.meshes[name];
+			mesh.prune( { "position", "uv", "st" } );
+			mesh.convert<float, uint16_t>();
+			mesh.interleave();
+		}
+
 		UF_DEBUG_TIMER_MULTITRACE("Read meshes");
 	});
 
@@ -625,21 +586,11 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
 		auto& animNode = serializer["animations"];
 
-		uf::stl::vector<uint8_t> megaBuffer;
-		bool bufferAttempted = false;
-
 		if (animNode.isObject()) {
 			storage.animations.map.reserve( animNode.size() );
 			ext::json::forEach( animNode, [&]( const uf::stl::string& rawName, ext::json::Value& value ){
 				auto name = key + rawName;
-
-				if (!bufferAttempted && value["buffer"].is<uf::stl::string>()) {
-					uf::stl::string binName = value["buffer"].as<uf::stl::string>();
-					uf::io::readAsBuffer(megaBuffer, directory + binName);
-					bufferAttempted = true;
-				}
-
-				storage.animations[name] = decodeAnimation( value, graph, name, megaBuffer );
+				storage.animations[name] = decodeAnimation( value, graph, name );
 				graph.animations.emplace_back(name);
 			});
 		}
@@ -651,7 +602,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				json.readFromFile( path );
 				auto name = key + json["name"].as<uf::stl::string>();
 
-				storage.animations[name] = decodeAnimation( json, graph, name, megaBuffer );
+				storage.animations[name] = decodeAnimation( json, graph, name );
 				graph.animations.emplace_back(name);
 			});
 		}
@@ -662,19 +613,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading skinning information...");
 		graph.skins.reserve( serializer["skins"].size() );
 
-		uf::stl::vector<uint8_t> megaBuffer;
-		bool bufferAttempted = false;
-
 		ext::json::forEach( serializer["skins"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
-
-			if (!bufferAttempted && value["inverseBindMatrices"].isObject()) {
-				uf::stl::string binName = value["inverseBindMatrices"]["buffer"].as<uf::stl::string>();
-				uf::io::readAsBuffer(megaBuffer, directory + binName);
-				bufferAttempted = true;
-			}
-
-			storage.skins[name] = decodeSkin( value, graph, name, megaBuffer );
+			storage.skins[name] = decodeSkin( value, graph, name );
 			graph.skins.emplace_back(name);
 		});
 		UF_DEBUG_TIMER_MULTITRACE("Read skins");

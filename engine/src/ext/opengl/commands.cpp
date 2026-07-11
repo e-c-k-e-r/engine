@@ -142,6 +142,39 @@ namespace {
 
 		return true;
 	}
+
+	void remapAttribute( uint8_t*& ptr, size_t& stride, GLenum& type, uf::stl::vector<float>& remapBuffer, size_t compCount, uf::renderer::enums::Type::type_t enumType, size_t vertexCount ) {
+		remapBuffer.resize( vertexCount * compCount );
+		size_t inStride = stride > 0 ? stride : (compCount * sizeof(uint16_t));
+		for ( size_t v = 0; v < vertexCount; ++v ) {
+			uint8_t* basePtr = ptr + (v * inStride);
+			for ( size_t c = 0; c < compCount; ++c ) {
+				size_t outIdx = v * compCount + c;
+				switch ( enumType ) {
+					case uf::renderer::enums::Type::SHORT:
+					case uf::renderer::enums::Type::USHORT:
+						remapBuffer[outIdx] = uf::quant::dequantize( ((uint16_t*)basePtr)[c] );
+					break;
+				#if UF_USE_FLOAT16
+					case uf::renderer::enums::Type::HALF:
+						remapBuffer[outIdx] = ((float16*)basePtr)[c];
+					break;
+				#endif
+				#if UF_USE_BFLOAT16
+					case uf::renderer::enums::Type::BFLOAT:
+						remapBuffer[outIdx] = ((bfloat16*)basePtr)[c];
+					break;
+				#endif
+					default:
+						remapBuffer[outIdx] = 0.0f;
+					break;
+				}
+			}
+		}
+		ptr = (uint8_t*) remapBuffer.data();
+		type = GL_FLOAT;
+		stride = 0;
+	};
 }
 size_t ext::opengl::CommandBuffer::preallocate = 8;
 void ext::opengl::CommandBuffer::initialize( Device& device ) {
@@ -501,37 +534,21 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	uint8_t* vertexPtr = drawInfo.attributes.position.pointer ? (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first) : NULL;
 
 	auto vertexStride = drawInfo.attributes.position.stride;
+	auto normalStride = drawInfo.attributes.normal.stride;
+	auto uvStride = drawInfo.attributes.uv.stride;
+	auto stStride = drawInfo.attributes.st.stride;
+
 	STATIC_THREAD_LOCAL(uf::stl::vector<float>, vertexBufferRemap);
+	STATIC_THREAD_LOCAL(uf::stl::vector<float>, normalBufferRemap);
+	STATIC_THREAD_LOCAL(uf::stl::vector<float>, uvBufferRemap);
+	STATIC_THREAD_LOCAL(uf::stl::vector<float>, stBufferRemap);
 
+	// my copy of GLdc is already patched to handle these without needing a preprocessed buffer
 #if !UF_ENV_DREAMCAST
-	if ( vertexType != GL_FLOAT ) {
-		vertexBufferRemap.resize( drawInfo.descriptor.inputs.vertex.count * 3 );
-		for ( size_t i = 0; i < drawInfo.descriptor.inputs.vertex.count * 3; ++i ) {
-			switch ( drawInfo.attributes.position.descriptor.type ) {
-				case uf::renderer::enums::Type::SHORT:
-				case uf::renderer::enums::Type::USHORT:
-					vertexBufferRemap[i] = uf::quant::dequantize( ((uint16_t*) vertexPtr)[i] );
-				break;
-			#if UF_USE_FLOAT16
-				case uf::renderer::enums::Type::HALF:
-					vertexBufferRemap[i] = ((float16*) vertexPtr)[i];
-				break;
-			#endif
-			#if UF_USE_BFLOAT16
-				case uf::renderer::enums::Type::BFLOAT:
-					vertexBufferRemap[i] = ((bfloat16*) vertexPtr)[i];
-				break;
-			#endif
-				default:
-					vertexBufferRemap[i] = vertexPtr[i];
-				break;
-			}
-		}
-
-		vertexPtr = (uint8_t*) vertexBufferRemap.data();
-		vertexType = GL_FLOAT;
-		vertexStride = 0;
-	}
+	if ( vertexPtr && vertexType != GL_FLOAT ) ::remapAttribute( vertexPtr, vertexStride, vertexType, vertexBufferRemap, drawInfo.attributes.position.descriptor.components, drawInfo.attributes.position.descriptor.type, drawInfo.descriptor.inputs.vertex.count );
+	if ( normalPtr && normalType != GL_FLOAT ) ::remapAttribute( normalPtr, normalStride, normalType, normalBufferRemap, drawInfo.attributes.normal.descriptor.components, drawInfo.attributes.normal.descriptor.type, drawInfo.descriptor.inputs.vertex.count );
+	if ( uvPtr && uvType != GL_FLOAT ) ::remapAttribute( uvPtr, uvStride, uvType, uvBufferRemap, drawInfo.attributes.uv.descriptor.components, drawInfo.attributes.uv.descriptor.type, drawInfo.descriptor.inputs.vertex.count );
+	if ( stPtr && stType != GL_FLOAT ) ::remapAttribute( stPtr, stStride, stType, stBufferRemap, drawInfo.attributes.st.descriptor.components, drawInfo.attributes.st.descriptor.type, drawInfo.descriptor.inputs.vertex.count );
 #endif
 
 	if ( drawInfo.attributes.normal.pointer ) {
@@ -539,7 +556,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
 			::shadowState.normalArrayEnabled = true;
 		}
-		GL_ERROR_CHECK(glNormalPointer(normalType, drawInfo.attributes.normal.stride, normalPtr));
+		GL_ERROR_CHECK(glNormalPointer(normalType, normalStride, normalPtr));
 	} else if ( ::shadowState.normalArrayEnabled ) {
 		GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
 		::shadowState.normalArrayEnabled = false;
@@ -579,7 +596,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			::shadowState.boundTexture0 = drawInfo.textures.primary.image;
 		}
 
-		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, drawInfo.attributes.uv.stride, uvPtr));
+		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, uvStride, uvPtr));
 		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
 	} else {
 		if ( ::shadowState.tex0Enabled ) {
@@ -618,7 +635,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		}
 
 		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		GL_ERROR_CHECK(glTexCoordPointer(2, stType, drawInfo.attributes.st.stride, stPtr));
+		GL_ERROR_CHECK(glTexCoordPointer(2, stType, stStride, stPtr));
 	} else {
 		if ( ::shadowState.tex1Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));

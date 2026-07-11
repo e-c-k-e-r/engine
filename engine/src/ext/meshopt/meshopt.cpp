@@ -177,6 +177,107 @@ uf::stl::vector<float> ext::meshopt::computeLODs( size_t count, size_t maxLODs, 
 	return factors;
 }
 
+// basically just optimize with a simplify factor anyways
+bool ext::meshopt::simplify( uf::Mesh& mesh, float simplifyFactor ) {
+	if ( simplifyFactor >= 1.0f || simplifyFactor <= 0.0f ) return false;
+
+	mesh.updateDescriptor();
+	const auto& views = mesh.buffer_views;
+	if ( views.empty() ) return false;
+
+	pod::DrawCommand* drawCommands = mesh.indirect.count > 0 ? (pod::DrawCommand*)mesh.getBuffer(mesh.indirect).data() : nullptr;
+	const uint8_t* srcIndexData = mesh.index.count > 0 ? mesh.getBuffer(mesh.index).data() : nullptr;
+
+	uf::stl::vector<uint32_t> outIndices;
+	uf::stl::vector<uf::stl::vector<uint8_t>> outVertices(mesh.vertex.attributes.size());
+
+	int posAttrIdx = -1;
+	for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
+		if ( mesh.vertex.attributes[i].descriptor.name == "position" ) {
+			posAttrIdx = i; break;
+		}
+	}
+	if ( posAttrIdx == -1 ) return false;
+
+	for ( size_t viewIdx = 0; viewIdx < views.size(); ++viewIdx ) {
+		auto& view = views[viewIdx];
+		uint32_t cmdIdx = view.indirectIndex;
+
+		uint32_t srcVertexOffset = view.vertex.first;
+		uint32_t srcVertexCount  = view.vertex.count;
+		uint32_t srcIndexOffset  = view.index.first;
+		uint32_t srcIndexCount   = view.index.count;
+
+		if ( srcIndexCount == 0 ) continue;
+
+		uf::stl::vector<uint32_t> localIndices(srcIndexCount);
+		if ( srcIndexData ) {
+			for ( size_t i = 0; i < srcIndexCount; ++i ) {
+				localIndices[i] = readIndex(srcIndexData, srcIndexOffset + i, mesh.index.size);
+			}
+		} else {
+			for ( size_t i = 0; i < srcIndexCount; ++i ) localIndices[i] = i;
+		}
+
+		auto& posAttr = mesh.vertex.attributes[posAttrIdx];
+		const float* srcPositions = (const float*)((const uint8_t*)posAttr.pointer + srcVertexOffset * posAttr.stride);
+
+		uf::stl::vector<uint32_t> simplifiedIndices(srcIndexCount);
+		float targetError = FLT_MAX;
+		float realError = 0.0f;
+
+		size_t optimizedIndexCount = meshopt_simplify(
+			simplifiedIndices.data(), localIndices.data(), srcIndexCount,
+			srcPositions, srcVertexCount, posAttr.stride,
+			srcIndexCount * simplifyFactor, targetError, meshopt_SimplifyLockBorder, &realError
+		);
+		simplifiedIndices.resize(optimizedIndexCount);
+
+		uf::stl::vector<uint32_t> fetchRemap(srcVertexCount);
+		size_t finalVertexCount = meshopt_optimizeVertexFetchRemap(fetchRemap.data(), simplifiedIndices.data(), optimizedIndexCount, srcVertexCount);
+		meshopt_remapIndexBuffer(simplifiedIndices.data(), simplifiedIndices.data(), optimizedIndexCount, fetchRemap.data());
+
+		uint32_t newVertexOffset = outVertices[0].size() / mesh.vertex.attributes[0].stride;
+		uint32_t newIndexOffset = outIndices.size();
+
+		for ( uint32_t idx : simplifiedIndices ) {
+			outIndices.push_back(idx);
+		}
+
+		for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
+			auto& attr = mesh.vertex.attributes[a];
+			const uint8_t* srcBase = (const uint8_t*)attr.pointer + srcVertexOffset * attr.stride;
+
+			uf::stl::vector<uint8_t> remapped(finalVertexCount * attr.stride);
+			meshopt_remapVertexBuffer(remapped.data(), srcBase, srcVertexCount, attr.stride, fetchRemap.data());
+
+			outVertices[a].insert(outVertices[a].end(), remapped.begin(), remapped.end());
+		}
+
+		if ( drawCommands ) {
+			drawCommands[cmdIdx].indexID  = newIndexOffset;
+			drawCommands[cmdIdx].indices  = optimizedIndexCount;
+			drawCommands[cmdIdx].vertexID = newVertexOffset;
+			drawCommands[cmdIdx].vertices = finalVertexCount;
+		}
+	}
+
+	mesh.index.count = outIndices.size();
+	mesh.resizeIndices(mesh.index.count);
+	uint8_t* dstIdx = mesh.getBuffer(mesh.index).data();
+	for ( size_t i = 0; i < outIndices.size(); ++i ) writeIndex(dstIdx, i, mesh.index.size, outIndices[i]);
+
+	mesh.vertex.count = outVertices[0].size() / mesh.vertex.attributes[0].stride;
+	for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
+		auto& attr = mesh.vertex.attributes[a];
+		mesh.buffers[attr.buffer].swap(outVertices[a]);
+		attr.pointer = mesh.buffers[attr.buffer].data();
+	}
+
+	mesh.updateDescriptor();
+	return true;
+}
+
 uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, const uf::stl::vector<float>& lodFactors, bool verbose ) {
 	uf::stl::vector<pod::LODMetadata> lodMetadata;
 	mesh.updateDescriptor();

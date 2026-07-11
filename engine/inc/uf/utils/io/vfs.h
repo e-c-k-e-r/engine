@@ -25,6 +25,8 @@ namespace pod {
 
 		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
 		std::function<bool(pod::Mount&, const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
+		
+		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, std::function<bool(const uint8_t* data, size_t size)>)> stream;
 	};
 }
 
@@ -47,6 +49,8 @@ namespace uf {
 		
 		bool UF_API readRange( const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API readRanges( const uf::stl::string& path, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer );
+		
+		bool UF_API stream( const uf::stl::string& path, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback );
 
 		pod::Mount UF_API createDiskMount( const uf::stl::string& uri, int priority = 0 );
 		uf::stl::string UF_API resolveBase( const uf::stl::string& path );

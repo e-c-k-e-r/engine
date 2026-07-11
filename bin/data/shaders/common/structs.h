@@ -105,8 +105,8 @@ struct Bounds {
 
 struct LOD {
 	uint indices;
-	uint vertexID;
 	uint indexID;
+	uint vertexID;
 	uint vertices;
 };
 

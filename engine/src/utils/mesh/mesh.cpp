@@ -288,6 +288,48 @@ void uf::Mesh::interleave() {
 	updateDescriptor();
 }
 
+void uf::Mesh::prune( const uf::stl::vector<uf::stl::string>& keep ) {
+	uf::stl::vector<size_t> deadAttributes;
+	uf::stl::vector<int32_t> deadBuffers;
+
+	for ( size_t i = 0; i < vertex.attributes.size(); ++i ) {
+		auto& attribute = vertex.attributes[i];
+		if ( std::find( keep.begin(), keep.end(), attribute.descriptor.name ) != keep.end() ) continue;
+
+		deadAttributes.push_back(i);
+		deadBuffers.push_back(attribute.buffer);
+	}
+
+	std::sort(deadAttributes.rbegin(), deadAttributes.rend());
+	std::sort(deadBuffers.rbegin(), deadBuffers.rend());
+
+	for ( auto idx : deadAttributes ) {
+		vertex.attributes.erase(vertex.attributes.begin() + idx);
+	}
+
+	for ( auto bufID : deadBuffers ) {
+		buffers.erase(buffers.begin() + bufID);
+	}
+
+	// 
+	auto remap_input = [&](uf::Mesh::Input& input) {
+		for (auto& attr : input.attributes) {
+			int32_t shift = 0;
+			for (int32_t db : deadBuffers) {
+				if (attr.buffer > db) shift++;
+			}
+			attr.buffer -= shift;
+		}
+	};
+
+	remap_input(vertex);
+	remap_input(index);
+	remap_input(instance);
+	remap_input(indirect);
+
+	updateDescriptor();
+}
+
 void uf::Mesh::clearAttribute( uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) {
 	for ( size_t i = 0; i < input.attributes.size(); ++i ) if ( input.attributes[i].descriptor == attribute.descriptor ) return clearAttribute( input, i );
 }

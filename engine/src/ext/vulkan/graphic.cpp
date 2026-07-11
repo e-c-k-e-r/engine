@@ -420,12 +420,19 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
 
+	// to-do: properly dispatch the bind point to the pipeline because for some reason it is not
+	VkPipelineBindPoint bindPoint = (VkPipelineBindPoint) descriptor.bind.point;
+
 	bool bound = false;
 	for ( auto* shader : shaders ) {
 		// compute shaders
 		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) {
-			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) bound = true;
-			else continue;
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) {
+				bound = true;
+			} else {
+				bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+				continue;
+			}
 		// raytrace shaders
 		} else if (
 			shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ||
@@ -434,12 +441,20 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 			shader->descriptor.stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR ||
 			shader->descriptor.stage == VK_SHADER_STAGE_INTERSECTION_BIT_KHR
 		) {
-			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) bound = true;
-			else continue;
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
+				bound = true;
+			} else {
+				bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+				continue;
+			}
 		// anything else
 		} else {
-			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_GRAPHICS ) bound = true;
-			else continue;
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_GRAPHICS ) {
+				bound = true;
+			} else {
+				bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+				continue;
+			}
 		}
 
 		// automatically bind to our default push constants
@@ -459,9 +474,8 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 			}
 		}
 	}
-	// Bind the rendering pipeline
-	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-	vkCmdBindPipeline(commandBuffer, (VkPipelineBindPoint) descriptor.bind.point, pipeline);
+
+	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
 }
 void ext::vulkan::Pipeline::destroy() {
 	if ( aliased ) return;

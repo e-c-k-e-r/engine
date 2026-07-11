@@ -21,7 +21,7 @@ uvec4 uvec2_16x4( uvec2 i ) {
 
 layout (push_constant) uniform SkinningPush {
 	uint jointID;
-	uint vertexOffset;
+	uint triangleCount;
 } push;
 
 layout (std140, binding = 0) readonly buffer Joints {
@@ -45,18 +45,18 @@ layout (binding = 4) buffer VertexOutputPosition {
 void main() {
 	const uint i = gl_GlobalInvocationID.x;
 
-	if ( i * 3 >= verticesInPos.length() || i * 3 >= verticesOutPos.length() ) return;
+	if ( i >= push.triangleCount || i >= push.triangleCount ) return;
 
 	const vec3 inPos = vec3( verticesInPos[i * 3 + 0], verticesInPos[i * 3 + 1], verticesInPos[i * 3 + 2] );
 	const uvec4 inJoints = uvec2_16x4(verticesInJoints[i]);
 	const vec4 inWeights = verticesInWeights[i];
 
-	const mat4 skinned =  inWeights.x * joints[push.jointID + int(inJoints.x)]
-						+ inWeights.y * joints[push.jointID + int(inJoints.y)]
-						+ inWeights.z * joints[push.jointID + int(inJoints.z)]
-						+ inWeights.w * joints[push.jointID + int(inJoints.w)];
+	vec4 inPos4 = vec4(inPos, 1.0);
+    vec3 outPos = (joints[push.jointID + int(inJoints.x)] * inPos4).xyz * inWeights.x
+                + (joints[push.jointID + int(inJoints.y)] * inPos4).xyz * inWeights.y
+                + (joints[push.jointID + int(inJoints.z)] * inPos4).xyz * inWeights.z
+                + (joints[push.jointID + int(inJoints.w)] * inPos4).xyz * inWeights.w;
 
-	const vec3 outPos = vec3(skinned * vec4(inPos, 1));
 	verticesOutPos[i * 3 + 0] = outPos[0];
 	verticesOutPos[i * 3 + 1] = outPos[1];
 	verticesOutPos[i * 3 + 2] = outPos[2];

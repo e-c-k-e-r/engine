@@ -26,6 +26,7 @@ namespace ext {
 		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len );
 		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
 		bool UF_API decompressFromMemory( uf::stl::vector<uint8_t>&, const void*, size_t, size_t );
+		bool UF_API decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests );
 		
 		size_t UF_API compressToFile( const uf::stl::string&, const void*, size_t );
 		bool UF_API directory( const uf::stl::vector<uint8_t>& buffer, uf::stl::unordered_map<uf::stl::string, pod::ZipEntry>& entries );

@@ -261,6 +261,7 @@ namespace uf {
 		uf::Mesh alias() const;
 		uf::Mesh expand();
 		void interleave();
+		void prune( const uf::stl::vector<uf::stl::string>& keep );
 
 		void updateDescriptor();
 		
@@ -389,6 +390,8 @@ namespace uf {
 				
 				srcBuffer.swap( dstBuffer );
 
+				attribute.offset = 0;
+				attribute.stride = sizeof(To) * attribute.descriptor.components;
 				attribute.pointer = (uint8_t*) ( srcBuffer.data() );
 				attribute.descriptor.type = toEnum;
 				attribute.descriptor.size = sizeof(To) * attribute.descriptor.components;
@@ -417,6 +420,8 @@ namespace uf {
 					}
 				}
 			}
+
+			updateDescriptor();
 		}
 	};
 }

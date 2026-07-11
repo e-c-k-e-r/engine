@@ -26,34 +26,28 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	z_stream strm{};
 	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
 
-	size_t offset = 0;
 	uint8_t outBuffer[ext::zlib::bufferSize];
 
-	while (offset < fileSize) {
-		size_t bytesToRead = std::min(ext::zlib::bufferSize, fileSize - offset);
-		uf::stl::vector<uint8_t> temp;
-		if (!uf::vfs::readRange(filename, offset, bytesToRead, temp)) break;
-
-		strm.avail_in = (uInt)temp.size();
-		strm.next_in = temp.data();
-		offset += temp.size();
+	bool success = uf::vfs::stream(filename, ext::zlib::bufferSize, [&](const uint8_t* data, size_t size) -> bool {
+		strm.avail_in = (uInt)size;
+		strm.next_in = (Bytef*)data;
 
 		do {
 			strm.avail_out = sizeof(outBuffer);
 			strm.next_out = outBuffer;
 			int ret = inflate(&strm, Z_NO_FLUSH);
-			if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
-				UF_MSG_ERROR("Zlib: inflate error on file: {}", filename);
-				inflateEnd(&strm);
-				return false;
-			}
+			if ( ret < 0 && ret != Z_BUF_ERROR ) return false;
+
 			size_t have = sizeof(outBuffer) - strm.avail_out;
 			buffer.insert(buffer.end(), outBuffer, outBuffer + have);
+
 		} while (strm.avail_out == 0);
-	}
+
+		return true;
+	});
 
 	inflateEnd(&strm);
-	return true;
+	return success;
 }
 
 bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, size_t start, size_t len ) {
@@ -63,34 +57,24 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	z_stream strm{};
 	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
 
-	size_t offset = 0;
 	size_t uncompressedOffset = 0;
 	uint8_t outBuffer[ext::zlib::bufferSize];
 
-	while (offset < fileSize) {
-		size_t bytesToRead = std::min(ext::zlib::bufferSize, fileSize - offset);
-		uf::stl::vector<uint8_t> temp;
-		if (!uf::vfs::readRange(filename, offset, bytesToRead, temp)) break;
-
-		strm.avail_in = (uInt)temp.size();
-		strm.next_in = temp.data();
-		offset += temp.size();
+	bool success = uf::vfs::stream(filename, ext::zlib::bufferSize, [&](const uint8_t* data, size_t size) -> bool {
+		strm.avail_in = (uInt)size;
+		strm.next_in = (Bytef*)data;
 
 		do {
 			strm.avail_out = sizeof(outBuffer);
 			strm.next_out = outBuffer;
 			int ret = inflate(&strm, Z_NO_FLUSH);
-			if (ret == Z_STREAM_ERROR || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
-				inflateEnd(&strm);
-				return false;
-			}
-			size_t have = sizeof(outBuffer) - strm.avail_out;
+			if ( ret < 0 && ret != Z_BUF_ERROR ) return false;
 
-			// Calculate if this chunk overlaps with our requested range
+			size_t have = sizeof(outBuffer) - strm.avail_out;
 			size_t chunkStart = uncompressedOffset;
 			size_t chunkEnd = uncompressedOffset + have;
 
-			if (chunkEnd > start && chunkStart < start + len) {
+			if ( chunkEnd > start && chunkStart < start + len ) {
 				size_t copyStart = (chunkStart < start) ? (start - chunkStart) : 0;
 				size_t copyLen = std::min(have - copyStart, (start + len) - (chunkStart + copyStart));
 				buffer.insert(buffer.end(), outBuffer + copyStart, outBuffer + copyStart + copyLen);
@@ -98,16 +82,18 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 
 			uncompressedOffset += have;
 
-			// If we've reached the end of the requested length, we can abort early!
-			if (uncompressedOffset >= start + len) {
-				inflateEnd(&strm);
-				return true;
-			}
+			if ( uncompressedOffset >= start + len ) return false;
+
 		} while (strm.avail_out == 0);
-	}
+
+		return true;
+	});
 
 	inflateEnd(&strm);
-	return true;
+
+	if ( !success && uncompressedOffset >= start + len ) return true;
+
+	return success;
 }
 
 bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
@@ -122,34 +108,24 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	z_stream strm{};
 	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
 
-	size_t offset = 0;
 	size_t uncompressedOffset = 0;
-	uint8_t outBuffer[ext::zlib::bufferSize];
 	size_t currentRangeIdx = 0;
+	uint8_t outBuffer[ext::zlib::bufferSize];
 
-	while (offset < fileSize && currentRangeIdx < sortedRanges.size()) {
-		size_t bytesToRead = std::min(ext::zlib::bufferSize, fileSize - offset);
-		uf::stl::vector<uint8_t> temp;
-		if (!uf::vfs::readRange(filename, offset, bytesToRead, temp)) break;
-
-		strm.avail_in = (uInt)temp.size();
-		strm.next_in = temp.data();
-		offset += temp.size();
+	bool success = uf::vfs::stream(filename, ext::zlib::bufferSize, [&](const uint8_t* data, size_t size) -> bool {
+		strm.avail_in = (uInt)size;
+		strm.next_in = (Bytef*)data;
 
 		do {
 			strm.avail_out = sizeof(outBuffer);
 			strm.next_out = outBuffer;
 			int ret = inflate(&strm, Z_NO_FLUSH);
-			if (ret < 0 && ret != Z_BUF_ERROR) {
-				inflateEnd(&strm);
-				return false;
-			}
-			size_t have = sizeof(outBuffer) - strm.avail_out;
+			if ( ret < 0 && ret != Z_BUF_ERROR ) return false;
 
+			size_t have = sizeof(outBuffer) - strm.avail_out;
 			size_t chunkStart = uncompressedOffset;
 			size_t chunkEnd = uncompressedOffset + have;
 
-			// Check all remaining ranges against this chunk
 			for (size_t i = currentRangeIdx; i < sortedRanges.size(); ++i) {
 				const auto& r = sortedRanges[i];
 				if (chunkEnd > r.start && chunkStart < r.start + r.len) {
@@ -158,15 +134,19 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 					buffer.insert(buffer.end(), outBuffer + copyStart, outBuffer + copyStart + copyLen);
 				}
 				if (chunkEnd >= r.start + r.len) {
-					currentRangeIdx = i + 1; // Move past completed ranges
+					currentRangeIdx = i + 1;
 				}
 			}
 			uncompressedOffset += have;
+			if ( currentRangeIdx >= sortedRanges.size() ) return false;
+
 		} while (strm.avail_out == 0);
-	}
+
+		return true;
+	});
 
 	inflateEnd(&strm);
-	return true;
+	return success;
 }
 
 bool ext::zlib::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void* src, size_t size, size_t usize ) {
@@ -186,6 +166,60 @@ bool ext::zlib::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void*
 	inflateEnd(&strm);
 
 	return (ret == Z_STREAM_END || ret == Z_OK);
+}
+
+bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
+	if ( requests.empty() ) return true;
+
+	std::sort(requests.begin(), requests.end(), [](const pod::ScatterRequest& a, const pod::ScatterRequest& b) {
+		return a.start < b.start;
+	});
+
+	z_stream strm{};
+	if ( inflateInit2(&strm, 15 + 32) != Z_OK ) return false;
+
+	size_t uncompressedOffset = 0;
+	size_t currentReqIdx = 0;
+	uint8_t outBuffer[ext::zlib::bufferSize];
+
+	bool success = uf::vfs::stream(filename, ext::zlib::bufferSize, [&](const uint8_t* data, size_t size) -> bool {
+		strm.avail_in = (uInt)size;
+		strm.next_in = (Bytef*)data;
+
+		do {
+			strm.avail_out = sizeof(outBuffer);
+			strm.next_out = outBuffer;
+			int ret = inflate(&strm, Z_NO_FLUSH);
+			if ( ret < 0 && ret != Z_BUF_ERROR ) return false;
+
+			size_t have = sizeof(outBuffer) - strm.avail_out;
+			size_t chunkStart = uncompressedOffset;
+			size_t chunkEnd = uncompressedOffset + have;
+
+			for ( size_t i = currentReqIdx; i < requests.size(); ++i ) {
+				auto& req = requests[i];
+				if ( chunkEnd > req.start && chunkStart < req.start + req.len ) {
+					size_t copyStart = (chunkStart < req.start) ? (req.start - chunkStart) : 0;
+					size_t copyLen = std::min(have - copyStart, (req.start + req.len) - (chunkStart + copyStart));
+
+					size_t destOffset = (chunkStart + copyStart) - req.start;
+					std::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
+				}
+				if ( chunkEnd >= req.start + req.len && i == currentReqIdx ) {
+					currentReqIdx++;
+				}
+			}
+
+			uncompressedOffset += have;
+			if ( currentReqIdx >= requests.size() ) return false;
+
+		} while (strm.avail_out == 0);
+
+		return true;
+	});
+
+	inflateEnd(&strm);
+	return success;
 }
 
 size_t ext::zlib::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {

@@ -94,6 +94,22 @@ namespace {
 		buffer.resize(currentOffset);
 		return true;
 	}
+
+	bool vfs_stream( pod::Mount& mount, const uf::stl::string& file, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
+		uf::stl::string path = mount.path + file;
+		std::ifstream is(path, std::ios::binary);
+		if ( !is.is_open() ) return false;
+
+		uf::stl::vector<uint8_t> buffer(chunkSize);
+		while ( is.good() ) {
+			is.read((char*)buffer.data(), chunkSize);
+			size_t bytesRead = is.gcount();
+			if ( bytesRead == 0 ) break;
+
+			if ( !callback(buffer.data(), bytesRead) ) break;
+		}
+		return true;
+	}
 }
 
 pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
@@ -113,7 +129,8 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 		.write = ::vfs_write,
 		.mkdir = ::vfs_mkdir,
 		.readRange = ::vfs_readRange,
-		.readRanges = ::vfs_readRanges
+		.readRanges = ::vfs_readRanges,
+		.stream = ::vfs_stream
 	};
 }
 
@@ -277,6 +294,7 @@ bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, 
 			
 			uf::stl::vector<uint8_t> fullBuffer;
 			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+			UF_MSG_DEBUG("hitting fallback: {}", path);
 			
 			if ( start < fullBuffer.size() ) {
 				size_t actualLen = std::min(len, fullBuffer.size() - start);
@@ -302,6 +320,7 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 			
 			uf::stl::vector<uint8_t> fullBuffer;
 			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+			UF_MSG_DEBUG("hitting fallback: {}", path);
 
 			size_t totalBytes = 0;
 			for ( const auto& r : ranges ) {
@@ -319,6 +338,35 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 					buffer.insert(buffer.end(), fullBuffer.begin() + r.start, fullBuffer.begin() + r.start + actualLen);
 				}
 			}
+			return true;
+		}
+	}
+	return false;
+}
+bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
+	uf::stl::string prefix, relative;
+	uf::io::splitUri(path, prefix, relative);
+	for ( auto& mount : mounts ) {
+		if ( prefix.empty() && mount.priority < 0 ) continue;
+		if ( prefix.empty() || mount.prefix == prefix ) {
+			if ( !mount.exists( mount, relative ) ) continue;
+			if ( mount.stream ) return mount.stream( mount, relative, chunkSize, callback );
+
+			if ( !mount.read ) continue;
+			UF_MSG_DEBUG("hitting fallback: {}", path);
+
+			uf::stl::vector<uint8_t> fullBuffer;
+			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+
+			size_t offset = 0;
+			size_t totalSize = fullBuffer.size();
+
+			while ( offset < totalSize ) {
+				size_t currentChunkSize = std::min(chunkSize, totalSize - offset);
+				if ( !callback(fullBuffer.data() + offset, currentChunkSize) ) break;
+				offset += currentChunkSize;
+			}
+
 			return true;
 		}
 	}

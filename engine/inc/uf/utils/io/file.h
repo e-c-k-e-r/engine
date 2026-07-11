@@ -10,6 +10,11 @@ namespace pod {
 		size_t start;
 		size_t len;
 	};
+	struct ScatterRequest {
+		size_t start;
+		size_t len;
+		uint8_t* dest;
+	};
 }
 
 namespace uf {
@@ -53,6 +58,8 @@ namespace uf {
 			readAsBuffer( buffer, _filename, ranges, hash );
 			return buffer;
 		}
+
+		bool UF_API readScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests );
 
 		size_t UF_API write( const uf::stl::string& filename, const void*, size_t = SIZE_MAX );
 		template<typename T> inline size_t write( const uf::stl::string& filename, const uf::stl::vector<T>& buffer, size_t size = SIZE_MAX ) {
