@@ -14,14 +14,6 @@ namespace uf {
 	namespace asset {
 		typedef uf::Hooks::name_t callback_t;
 
-		struct UF_API Job {
-			typedef uf::stl::vector<Job> container_t;
-
-			uf::asset::callback_t callback = "";
-			uf::stl::string type = "";
-			uf::asset::Payload payload = {};
-		};
-
 	#if UF_COMPONENT_POINTERED_USERDATA
 		typedef pod::PointeredUserdata userdata_t;
 	#else
@@ -32,20 +24,21 @@ namespace uf {
 		extern UF_API bool asyncQueue;
 		
 		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> map;
-		extern UF_API Job::container_t jobs;
-		extern UF_API Job::container_t finishedJobs;
+
 		extern UF_API uf::Serializer metadata;
 	
-	//	extern UF_API uf::Serializer map;
-
 		uf::asset::Payload UF_API resolveToPayload( const uf::stl::string&, const uf::stl::string& = "" );
 		bool UF_API isExpected( const uf::asset::Payload&, uf::asset::Type expected );
 
 		// URL or file path
 		void UF_API processQueue();
+        void UF_API processIO();
 
 		void UF_API cache( const uf::asset::callback_t&, const uf::asset::Payload& );
 		void UF_API load( const uf::asset::callback_t&, const uf::asset::Payload& );
+
+		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback = {} );
+		void UF_API stream( const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback );
 
 		uf::stl::string UF_API cache( uf::asset::Payload& );
 		uf::stl::string UF_API load( uf::asset::Payload& );
@@ -96,7 +89,6 @@ namespace uf {
 		#endif
 			return uf::asset::get<T>( url );
 		}
-
 	}
 }
 

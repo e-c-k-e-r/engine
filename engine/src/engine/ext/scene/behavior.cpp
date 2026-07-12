@@ -282,7 +282,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	uf::asset::processQueue();
-//	auto& assetLoader = this->getComponent<uf::asset>();
+	uf::asset::processIO();
 	
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();

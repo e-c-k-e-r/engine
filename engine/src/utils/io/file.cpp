@@ -10,8 +10,7 @@
 #include <uf/utils/io/file.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/ext/zlib/zlib.h>
-// #include <uf/ext/lz4/lz4.h>
-// #include <uf/ext/xz/xz.h>
+#include <uf/ext/lz4/lz4.h>
 
 #ifdef WINDOWS
 	#include <direct.h>
@@ -86,7 +85,7 @@ bool uf::io::readAsString( uf::stl::string& buffer, const uf::stl::string& _file
 	uf::stl::string filename = uf::io::normalize( _filename );
 	uf::stl::string extension = uf::io::extension( filename );
 
-	if ( extension == "gz" ) {
+	if ( extension == "gz" || extension == "lz4" ) {
 		auto decompressed = uf::io::decompress( filename );
 		buffer.resize(decompressed.size());
 		buffer.assign(decompressed.begin(), decompressed.end());
@@ -178,12 +177,11 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 #endif
 
 	uf::stl::string extension = uf::io::extension(filename);
-	bool isZlib = (extension == "gz");
 	size_t fileSize = uf::io::size(filename);
 
 	if ( 0 < fileSize && fileSize <= THRESHOLD ) {
 		uf::stl::vector<uint8_t> fullBuffer;
-		if ( isZlib ) ext::zlib::decompressFromFile(fullBuffer, filename);
+		if ( extension == "gz" || extension == "lz4" ) uf::io::decompress(fullBuffer, filename);
 		else uf::vfs::read(filename, fullBuffer);
 
 		for ( auto& req : requests ) {
@@ -194,7 +192,8 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 		return true;
 	}
 
-	if ( isZlib ) return ext::zlib::decompressScatter(filename, requests);
+	if ( extension == "gz" ) return ext::zlib::decompressScatter(filename, requests);
+	if ( extension == "lz4" ) return ext::lz4::decompressScatter(filename, requests);
 
 	for ( auto& req : requests ) {
 		uf::stl::vector<uint8_t> temp;
@@ -215,28 +214,28 @@ size_t uf::io::write( const uf::stl::string& filename, const void* buffer, size_
 bool uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename );
+	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return false;
 }
 bool uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, size_t start, size_t len ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename, start, len );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, start, len );
+	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, start, len );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return false;
 }
 bool uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( buffer, filename, ranges );
-//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, ranges );
+	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( buffer, filename, ranges );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return false;
 }
 size_t uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
-//	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
+	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return 0;
 }

@@ -3,7 +3,7 @@ ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 	FLAGS 				+= -march=native -g # -flto # -g
 endif
 
-REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib luajit simd ctti gltf imgui fmt freetype openal ogg wav
+REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib lz4 luajit simd ctti gltf imgui fmt freetype openal ogg wav
 FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 DEPS 				+= -lgdi32 -ldwmapi
 LINKS 				+= #-Wl,-subsystem,windows

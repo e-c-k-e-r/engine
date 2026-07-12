@@ -345,6 +345,7 @@ namespace {
 		if ( entry.compressionMethod == 8 ) {
 			return ext::zlib::decompressFromMemory(buffer, fileData, entry.compressedSize, entry.uncompressedSize);
 		}
+		// ID for lz4
 		return false;
 	};
 }

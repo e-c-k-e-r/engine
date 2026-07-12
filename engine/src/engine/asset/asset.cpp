@@ -17,6 +17,7 @@
 #include <uf/ext/gltf/gltf.h>
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/scene/scene.h>
+#include <uf/ext/zlib/zlib.h>
 
 #include <mutex>
 
@@ -38,35 +39,67 @@ namespace {
 		return true;
 	}
 
-	std::mutex mutex;
-	uint64_t uid = 0;
-	struct Job {
-		typedef uf::stl::vector<Job> container_t;
+	namespace jobs {
+		struct Job {
+			typedef uf::stl::vector<Job> container_t;
 
-		uf::asset::callback_t callback;
-		uf::stl::string type;
-		uf::asset::Payload payload;
+			uf::asset::callback_t callback = "";
+			uf::stl::string type = "";
+			uf::asset::Payload payload = {};
+		};
+
+		std::mutex mutex;
+		Job::container_t queue;
+		Job::container_t finished;
+	};
+
+	namespace io_read {
+		struct Job {
+			typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<Job>> container_t;
+
+			size_t offset;
+			size_t length;
+			uint8_t* dest;
+			std::function<void()> callback;
+		};
+
+		std::mutex mutex;
+		Job::container_t queue;
+		Job::container_t finished;
+	};
+
+	namespace io_stream {
+		struct Job {
+			typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<Job>> container_t;
+
+			size_t offset;
+			size_t length;
+			size_t chunkSize;
+			std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback;
+		};
+
+		std::mutex mutex;
+		Job::container_t queue;
+		Job::container_t finished;
 	};
 }
 
 // uf::asset uf::asset::masterAssetLoader;
 bool uf::asset::assertionLoad = true;
 bool uf::asset::asyncQueue = true;
-uf::asset::Job::container_t uf::asset::jobs;
-uf::asset::Job::container_t uf::asset::finishedJobs;
 uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> uf::asset::map;
 uf::Serializer uf::asset::metadata;
 
 void uf::asset::processQueue() {
-	if ( uf::asset::jobs.empty() && uf::asset::finishedJobs.empty() ) return;
+	if ( ::jobs::queue.empty() && ::jobs::finished.empty() ) return;
 
-	STATIC_THREAD_LOCAL(uf::asset::Job::container_t, jobs);
-	uf::asset::Job::container_t finishedJobs;
+	STATIC_THREAD_LOCAL(::jobs::Job::container_t, jobs);
+	::jobs::Job::container_t finishedJobs;
 
-	mutex.lock();
-	std::swap( jobs, uf::asset::jobs );
-	std::swap( finishedJobs, uf::asset::finishedJobs );
-	mutex.unlock();
+	::jobs::mutex.lock();
+	std::swap( jobs, ::jobs::queue );
+	std::swap( finishedJobs, ::jobs::finished );
+	::jobs::mutex.unlock();
 
 	bool async = uf::asset::asyncQueue; // a bit buggy
 	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, !true);
@@ -88,25 +121,102 @@ void uf::asset::processQueue() {
 		uf::stl::string filename = type == "cache" ? uf::asset::cache(payload) : uf::asset::load(payload);
 		
 		if ( callback != "" && filename != "" ) {
-			mutex.lock();
-			uf::asset::finishedJobs.emplace_back( job );
-			mutex.unlock();
+			::jobs::mutex.lock();
+			::jobs::finished.emplace_back( job );
+			::jobs::mutex.unlock();
 		}
 	});
 
 	uf::thread::execute( tasks );
 }
+
+void uf::asset::processIO() {
+	STATIC_THREAD_LOCAL(::io_read::Job::container_t, pendingReads);
+	STATIC_THREAD_LOCAL(::io_stream::Job::container_t, pendingStreams);
+
+	::io_read::mutex.lock();
+	std::swap(pendingReads, ::io_read::queue);
+	::io_read::mutex.unlock();
+	::io_stream::mutex.lock();
+	std::swap(pendingStreams, ::io_stream::queue);
+	::io_stream::mutex.unlock();
+
+	if ( pendingReads.empty() && pendingStreams.empty() ) return;
+
+	bool async = uf::asset::asyncQueue;
+	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, false);
+
+	for ( auto& [filename, requests] : pendingReads ) {
+		tasks.queue([filename = filename, requests = std::move(requests)]() {
+			uf::stl::vector<pod::ScatterRequest> scatterReqs;
+			scatterReqs.reserve(requests.size());
+			for ( auto& req : requests ) scatterReqs.emplace_back(pod::ScatterRequest{ req.offset, req.length, req.dest });
+
+			uf::io::readScatter( filename, scatterReqs );
+
+			for ( auto& req : requests ) if ( req.callback ) req.callback();
+		});
+	}
+
+	for (auto& [filename, requests] : pendingStreams) {
+		tasks.queue([filename = filename, requests = std::move(requests)]() mutable {
+			size_t maxEndOffset = 0;
+			for ( auto& req : requests ) {
+				maxEndOffset = std::max(maxEndOffset, req.offset + req.length);
+			}
+
+			size_t readChunkSize = ext::zlib::bufferSize;
+			for ( auto& req : requests ) {
+				if ( req.chunkSize > 0 ) readChunkSize = std::min(readChunkSize, req.chunkSize);
+			}
+
+			size_t currentOffset = 0;
+			uf::vfs::stream( filename, readChunkSize, [&](const uint8_t* data, size_t size) -> bool {
+				size_t chunkStart = currentOffset;
+				size_t chunkEnd = currentOffset + size;
+				currentOffset += size;
+
+				bool anyActive = false;
+				for ( auto& req : requests ) {
+					if ( !req.callback ) continue;
+					anyActive = true;
+
+					if ( chunkEnd > req.offset && chunkStart < req.offset + req.length ) {
+						size_t copyStart = (chunkStart < req.offset) ? (req.offset - chunkStart) : 0;
+						size_t copyLen = std::min(size - copyStart, (req.offset + req.length) - (chunkStart + copyStart));
+
+						size_t absoluteFileOffset = chunkStart + copyStart;
+						if ( !req.callback(data + copyStart, copyLen, absoluteFileOffset) ) req.callback = nullptr;
+					}
+					if ( chunkEnd >= req.offset + req.length ) req.callback = nullptr;
+				}
+				if ( chunkEnd >= maxEndOffset || !anyActive ) return false;
+
+				return true;
+			});
+		});
+	}
+
+	uf::thread::execute(tasks);
+}
+
 void uf::asset::cache( const uf::asset::callback_t& callback, const uf::asset::Payload& payload ) {
-	mutex.lock();
-	auto& jobs = uf::asset::jobs;
-	jobs.emplace_back(Job{ callback, "cache", payload });
-	mutex.unlock();
+	std::lock_guard<std::mutex> lock(::jobs::mutex);
+	::jobs::queue.emplace_back(::jobs::Job{ callback, "cache", payload });
 }
 void uf::asset::load( const uf::asset::callback_t& callback, const uf::asset::Payload& payload ) {
-	mutex.lock();
-	auto& jobs = uf::asset::jobs;
-	jobs.emplace_back(Job{ callback, "load", payload });
-	mutex.unlock();
+	std::lock_guard<std::mutex> lock(::jobs::mutex);
+	::jobs::queue.emplace_back(::jobs::Job{ callback, "load", payload });
+}
+
+void uf::asset::read( const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback ) {
+	std::lock_guard<std::mutex> lock(::io_read::mutex);
+	::io_read::queue[filename].emplace_back(::io_read::Job{ offset, length, dest, callback });
+}
+
+void uf::asset::stream( const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback ) {
+	std::lock_guard<std::mutex> lock(::io_stream::mutex);
+	::io_stream::queue[filename].emplace_back(::io_stream::Job{ offset, length, chunkSize, callback });
 }
 
 uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, const uf::stl::string& mime ) {
