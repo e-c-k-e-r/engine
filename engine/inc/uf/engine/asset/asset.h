@@ -38,6 +38,7 @@ namespace uf {
 		void UF_API load( const uf::asset::callback_t&, const uf::asset::Payload& );
 
 		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback = {} );
+		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, std::function<void(uf::stl::vector<uint8_t>&&)> callback = {} );
 		void UF_API stream( const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback );
 
 		uf::stl::string UF_API cache( uf::asset::Payload& );

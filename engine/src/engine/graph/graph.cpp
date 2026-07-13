@@ -9,6 +9,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/memory/map.h>
+#include <uf/utils/memory/unordered_set.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/ffx/fsr.h>
 
@@ -31,10 +32,11 @@
 
 namespace {
 	struct PendingTexture {
-		uf::stl::string key;
-		uf::stl::string formatHint;
 		uf::stl::vector<uint8_t> buffer;
-		bool needsUpload;
+	};
+
+	struct PendingMesh {
+		uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> buffers;
 	};
 
 	struct TextureDescriptor {
@@ -2073,446 +2075,17 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 }
 
 void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
-	if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) return;
-	if ( !node.entity ) return;
-
 	auto& scene = uf::scene::getCurrentScene();
 	auto& storage = uf::graph::getStorage( graph );
+	auto& graphMetadataJson = graph.metadata;
 
 	auto& entity = node.entity->as<uf::Object>();
-
-	auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = entity.getComponent<uf::Serializer>();
-	auto& transform = entity.getComponent<pod::Transform<>>();
-
-	auto& graphMetadataJson = graph.metadata;
-	
-	ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
-
-	pod::Vector3f controllerPosition = {};
-	auto& controller = scene.getController(); {
-		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
-		controllerPosition = controllerTransform.position;
-	}
-
-	/*
-	if ( controller.getName() != "Scene" || graph.settings.stream.player == -1 ) {
-		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
-		controllerPosition = controllerTransform.position;
-	} else {
-		// find info_player_spawn
-		// to-do: deduce the node via tag that attaches the player
-		for ( auto& node : graph.nodes ) {
-			if ( node.name != graph.settings.stream.player ) continue;
-			auto& controllerTransform = node.entity->getComponent<pod::Transform<>>();
-			controllerPosition = controllerTransform.position;
-			break;
-		}
-	}
-	*/
-
-	bool meshUpdated = false;
-	auto model = uf::transform::model( transform );
+	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+	auto tag = ext::json::find( node.name, graphMetadataJson["tags"] );
 
 	auto meshName = graph.meshes[node.mesh];
 	auto& mesh = storage.meshes.map[meshName];
-	auto& meshStream = graph.streams.meshes[meshName];
-	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-
-	bool isStreamable = false;
-	float radius = graph.settings.stream.radius;
-	float radiusSquared = radius * radius;
-
-	// force update if entity isn't already bound to the graphic
-	if ( !entity.hasComponent<uf::renderer::Graphic>() ) {
-		meshUpdated = true;
-	}
-
-	// disable if not tagged for streaming
-	if ( node.index == graph.settings.stream.world ) {
-		isStreamable = true;
-	}/* else if ( ext::json::isObject(tag) && tag.has("stream") ) {
-		auto& streamTag = tag["stream"];
-		if ( streamTag.has("enabled") && streamTag["enabled"].as<bool>() ) {
-			isStreamable = true;
-			radius = streamTag["radius"].as<float>(radius);
-		}
-	}*/
-
-	if ( !isStreamable ) {
-		radius = 0;
-	}
-
-	if ( meshStream.buffers.empty() ) {
-		radius = 0;
-	}
-
-	uf::stl::unordered_set<int32_t> processedBuffers;
-	if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
-		// deduce draw command (indirect) buffer to write to
-		auto& attribute = mesh.indirect.attributes.front();
-		auto& buffer = mesh.buffers[attribute.buffer];
-		pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-		// queues
-		uf::stl::unordered_map<size_t, uf::stl::vector<pod::Range>> ranges;
-		uf::stl::vector<int8_t> queuedLODs( primitives.size(), -1 ); // this is to maintain draw command order because apparently my code requires draw commands to stay in order
-		// fallbacks for when no draw calls are requested (mainly for the collision mesh)
-		float closestDistance = std::numeric_limits<float>::max();
-		size_t closestDrawID = 0;
-		bool found = false;
-
-		// iterate through meshlets and cull if out of radius
-		for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
-			auto& primitive = primitives[drawID];
-			auto& instance = primitive.instance;
-			auto& drawCommand = primitive.drawCommand;
-
-			pod::Vector3f center = uf::matrix::multiply( model, instance.bounds.center, 1.0f ); // transform the center of the draw call
-			float distanceSquared = uf::vector::distanceSquared( center, controllerPosition ); // saves a sqrt()
-
-			// store closest draw call
-			if ( distanceSquared < closestDistance ) {
-				closestDistance = distanceSquared;
-				closestDrawID = drawID;
-			}
-			// queue if we're within the radius
-			if ( distanceSquared <= radiusSquared ) {
-				found = true;
-
-				int8_t lodLevel = 0;
-				// deduce a simple ratio [0.0 to 1.0] of how far we are into the streaming radius
-				float distRatio = distanceSquared / radiusSquared;
-				if ( distRatio > 0.6f ) 	 lodLevel = 3;
-				else if ( distRatio > 0.3f ) lodLevel = 2;
-				else if ( distRatio > 0.1f ) lodLevel = 1;
-
-				while ( lodLevel > 0 && primitive.lod.levels[lodLevel].indices == 0 ) {
-					lodLevel--;
-				}
-
-				queuedLODs[drawID] = lodLevel;
-			}
-		}
-
-		// insert closest primitive if all are out of range (because of cringe logic)
-		if ( !found /*&& node.index == graph.settings.stream.world*/ ) {
-			queuedLODs[closestDrawID] = 3;
-		}
-
-		// bail if no update is detected
-		auto drawCommandHash = uf::algo::fnv1a(queuedLODs);
-		graph.settings.stream.lastUpdate = uf::physics::time::current;
-
-		if ( drawCommandHash == graph.settings.stream.hash ) {
-			return;
-		}
-		graph.settings.stream.hash = drawCommandHash;
-		meshUpdated = true;
-
-	// read from disk
-	#if UF_GRAPH_SPARSE_READ_MESH
-		uint32_t currentVertexCount = 0;
-		uint32_t currentIndexCount = 0;
-
-		struct ActiveDraw {
-			size_t drawID;
-			int8_t lodLevel;
-			uint32_t fileVertexID;
-		};
-
-		static thread_local uf::stl::unordered_map<size_t, uf::stl::vector<pod::Range>> batchedRanges; batchedRanges.clear();
-		static thread_local uf::stl::unordered_map<size_t, size_t> bufferSizes; bufferSizes.clear();
-		static thread_local uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> scatterMap; scatterMap.clear();
-		static thread_local uf::stl::unordered_map<size_t, size_t> bufferWriteOffsets; bufferWriteOffsets.clear();
-		static thread_local uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> newBuffers; newBuffers.clear();
-
-		STATIC_THREAD_LOCAL(uf::stl::vector<ActiveDraw>, activeDraws);
-		activeDraws.reserve(queuedLODs.size());
-
-		for ( size_t drawID = 0; drawID < queuedLODs.size(); ++drawID ) {
-			auto lodLevel = queuedLODs[drawID];
-			if ( lodLevel >= 0 ) {
-				auto& lod = primitives[drawID].lod.levels[lodLevel];
-				activeDraws.emplace_back(ActiveDraw{drawID, lodLevel, lod.vertexID});
-			} else {
-				auto& drawCommand = drawCommands[drawID];
-				drawCommand.vertices = 0;
-				drawCommand.indices = 0;
-				drawCommand.vertexID = 0;
-				drawCommand.indexID = 0;
-				primitives[drawID].drawCommand = drawCommand;
-			}
-		}
-
-		std::sort(activeDraws.begin(), activeDraws.end(), [](const ActiveDraw& a, const ActiveDraw& b) {
-			return a.fileVertexID < b.fileVertexID;
-		});
-
-		for ( auto& active : activeDraws ) {
-			auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
-			for ( auto& attr : mesh.index.attributes ) {
-				size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
-				bufferSizes[attr.buffer] += lod.indices * stride;
-			}
-			for ( auto& attr : mesh.vertex.attributes ) {
-				size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
-				bufferSizes[attr.buffer] += lod.vertices * stride;
-			}
-		}
-
-		for ( auto& [b, size] : bufferSizes ) {
-			newBuffers[b].resize(size);
-		}
-
-		for ( auto& active : activeDraws ) {
-			auto& primitive = primitives[active.drawID];
-			auto& lod = primitive.lod.levels[active.lodLevel];
-			auto& drawCommand = drawCommands[active.drawID];
-
-			drawCommand.vertices = lod.vertices;
-			drawCommand.indices  = lod.indices;
-			drawCommand.vertexID = currentVertexCount;
-			drawCommand.indexID  = currentIndexCount;
-			primitive.drawCommand = drawCommand;
-
-			for ( auto& attr : mesh.index.attributes ) {
-				size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
-				auto& region = meshStream.buffers[attr.buffer];
-				size_t readBytes = lod.indices * stride;
-
-				scatterMap[region.filename].push_back({
-					region.offset + attr.offset + (lod.indexID * stride),
-					readBytes,
-					newBuffers[attr.buffer].data() + bufferWriteOffsets[attr.buffer]
-				});
-				bufferWriteOffsets[attr.buffer] += readBytes;
-			}
-
-			for ( auto& attr : mesh.vertex.attributes ) {
-				size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
-				auto& region = meshStream.buffers[attr.buffer];
-				size_t readBytes = lod.vertices * stride;
-
-				scatterMap[region.filename].push_back({
-					region.offset + attr.offset + (lod.vertexID * stride),
-					readBytes,
-					newBuffers[attr.buffer].data() + bufferWriteOffsets[attr.buffer]
-				});
-				bufferWriteOffsets[attr.buffer] += readBytes;
-			}
-
-			currentVertexCount += lod.vertices;
-			currentIndexCount  += lod.indices;
-		}
-
-		for ( auto& [filename, requests] : scatterMap ) {
-			uf::io::readScatter(filename, requests);
-		}
-
-		mesh.vertex.count = currentVertexCount;
-		mesh.index.count  = currentIndexCount;
-
-		for ( auto& [b, buf] : newBuffers ) mesh.buffers[b] = std::move(buf);
-
-		for ( auto& attr : mesh.vertex.attributes ) attr.offset = 0;
-		for ( auto& attr : mesh.index.attributes )  attr.offset = 0;
-
-	// keep the vertex data intact
-	#else
-		// disable remaining draw commands
-		for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
-			int8_t lodLevel = queuedLODs[drawID];
-			// reset from LOD0
-			//primitives[drawID].drawCommand.instances = 1;
-			primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
-			primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
-			primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
-			primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
-
-			// copy from primitive
-			drawCommands[drawID] = primitives[drawID].drawCommand;
-
-			if ( lodLevel < 0 ) {
-				//drawCommands[drawID].instances = 0;
-				drawCommands[drawID].vertices = 0;
-				drawCommands[drawID].indices = 0;
-				drawCommands[drawID].indexID = 0;
-				drawCommands[drawID].vertexID = 0;
-			} else {
-				auto& lod = primitives[drawID].lod.levels[lodLevel];
-
-				drawCommands[drawID].indexID  = lod.indexID;
-				drawCommands[drawID].indices  = lod.indices;
-				drawCommands[drawID].vertexID = lod.vertexID;
-				drawCommands[drawID].vertices = lod.vertices;
-			}
-
-			// synchronize primitive
-			primitives[drawID].drawCommand = drawCommands[drawID];
-		}
-
-		#define STREAM_MESH_DATA( N ) \
-			for ( auto& attribute : mesh.N.attributes ) {\
-				if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
-				auto& region = meshStream.buffers[attribute.buffer];\
-				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, region.offset, region.length );\
-			}
-
-		STREAM_MESH_DATA( index );
-		STREAM_MESH_DATA( vertex );
-	#endif
-	} else {
-		// load mesh if not already loaded
-		#define LOAD_MESH_DATA( N ) \
-			for ( auto& attribute : mesh.N.attributes ) {\
-				if ( processedBuffers.count(attribute.buffer) ) continue; \
-				if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
-				meshUpdated = true;\
-				processedBuffers.insert(attribute.buffer); \
-				auto& region = meshStream.buffers[attribute.buffer];\
-				uf::io::readAsBuffer( mesh.buffers[attribute.buffer], region.filename, region.offset, region.length );\
-			}
-
-		LOAD_MESH_DATA( index );
-		LOAD_MESH_DATA( vertex );
-	}
-
-	if ( graph.settings.stream.textures ) {
-		#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
-			auto& key = graph.textures[ID];\
-			textureDescriptors[key].srgb = isSRGB;\
-			textureDescriptors[key].references += visible ? 1 : 0;\
-			textureDescriptors[key].layers = 1;\
-		}
-
-		uf::stl::unordered_map<uf::stl::string, TextureDescriptor> textureDescriptors;
-		uf::stl::vector<PendingTexture> pendingTextures;
-		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> textureScatterMap;
-		pendingTextures.reserve( textureDescriptors.size() );
-
-		for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
-			auto& primitive = primitives[drawID];
-			auto& instance = primitive.instance;
-
-			bool visible = primitive.drawCommand.instances > 0;
-
-			INCREMENT_TEXTURE_REFCOUNT(instance.lightmapID, false);
-			if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) {
-				continue;
-			}
-			auto& material = storage.materials[graph.materials[instance.materialID]];
-			INCREMENT_TEXTURE_REFCOUNT(material.indexAlbedo, true);
-			INCREMENT_TEXTURE_REFCOUNT(material.indexNormal, true);
-			INCREMENT_TEXTURE_REFCOUNT(material.indexEmissive, true);
-			INCREMENT_TEXTURE_REFCOUNT(material.indexOcclusion, true);
-			INCREMENT_TEXTURE_REFCOUNT(material.indexMetallicRoughness, true);
-		}
-
-		// iterate through our ref counts
-		for ( auto& [ key, descriptor ] : textureDescriptors ) {
-			auto& image = storage.images[key].data;
-			auto& texture = storage.images[key].handle;
-			bool visible = descriptor.references > 0;
-
-			if ( visible && (!texture.generated() || texture.aliased) ) {
-				meshUpdated = true;
-
-				pendingTextures.push_back({ key, "", {}, true });
-				auto& pending = pendingTextures.back();
-
-				if ( image.getPixels().empty() ) {
-					auto& imgStream = graph.streams.images[key];
-
-					uf::stl::string formatHint = uf::io::extension(image.getFilename());
-					if (imgStream.buffer.filename.find(".dtex") != uf::stl::string::npos) formatHint = "dtex";
-					pending.formatHint = formatHint;
-
-					size_t readLen = imgStream.buffer.length > 0 ? imgStream.buffer.length : uf::io::size(imgStream.buffer.filename);
-					if (readLen > 0) {
-						pending.buffer.resize(readLen);
-						textureScatterMap[imgStream.buffer.filename].push_back({
-							imgStream.buffer.offset,
-							readLen,
-							pending.buffer.data()
-						});
-					}
-				}
-			} else if ( !visible && (texture.generated() && !texture.aliased) ) {
-				meshUpdated = true;
-				image.clear();
-				texture.destroy( true );
-				texture.aliasTexture(uf::renderer::Texture2D::empty);
-			}
-		}
-
-		for ( auto& [filename, requests] : textureScatterMap ) {
-			uf::io::readScatter( filename, requests );
-		}
-
-		for ( auto& pending : pendingTextures ) {
-			if ( !pending.needsUpload ) continue;
-
-			auto& image = storage.images[pending.key].data;
-			auto& texture = storage.images[pending.key].handle;
-			auto& descriptor = textureDescriptors[pending.key];
-
-			if ( !pending.buffer.empty() ) {
-				uf::image::open( image, pending.buffer, pending.formatHint, false );
-
-				if ( pending.key == "lightmap_atlas" ) {
-					::convertLightmap( image );
-				}
-				pending.buffer.clear();
-			}
-
-			auto filter = uf::renderer::enums::Filter::LINEAR;
-			auto tag = ext::json::find( pending.key, graphMetadataJson["tags"] );
-			if ( !ext::json::isObject( tag ) ) {
-				tag["renderer"] = graphMetadataJson["renderer"];
-			}
-			if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
-				const auto mode = uf::string::lowercase( tag["renderer"]["filter"].as<uf::stl::string>("linear") );
-				if ( mode == "linear" ) filter = uf::renderer::enums::Filter::LINEAR;
-				else if ( mode == "nearest" ) filter = uf::renderer::enums::Filter::NEAREST;
-			}
-
-			if ( texture.aliased ) {
-				texture.aliased = false;
-			#if UF_USE_OPENGL
-				texture.image = 0;
-			#else
-				texture.image = {};
-				texture.view = {};
-			#endif
-			}
-
-			texture.sampler.descriptor.filter.min = filter;
-			texture.sampler.descriptor.filter.mag = filter;
-			texture.layers = descriptor.layers;
-			texture.srgb = descriptor.srgb;
-
-			texture.loadFromImage( image );
-
-			#if UF_ENV_DREAMCAST
-				image.clear();
-			#endif
-		}
-		#undef INCREMENT_TEXTURE_REFCOUNT
-	}
-
-	if ( !meshUpdated ) return;
-
-	mesh.updateDescriptor();
-
-	// necessary for OpenGL because recorded descriptors have invalidated pointers
-	// Vulkan doesn't care about the CPU-side mesh data
-#if UF_USE_OPENGL
-	uf::renderer::states::rebuild = true;
-	// to-do: fix
-	// mesh.interleave();
-#endif
-
-	storage.stale = true;
 
 	bool graphicOwner = graphMetadataJson["renderer"]["render"].as<bool>();
 	bool isSkinned = graphMetadataJson["renderer"]["skinned"].as<bool>();
@@ -2543,6 +2116,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 			uf::graph::initializeGraphics( graph, entity, mesh, primitives );
 		}
 	}
+
 	// bind mesh to physics state
 	{
 		auto phyziks = tag["physics"];
@@ -2575,11 +2149,426 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 }
 void uf::graph::reload( pod::Graph& graph ) {
-	// update graphics
-	for ( auto& node : graph.nodes ) uf::graph::reload( graph, node );
+	auto& scene = uf::scene::getCurrentScene();
+	auto& storage = uf::graph::getStorage( graph );
+	auto& graphMetadataJson = graph.metadata;
 
-	// setup combined mesh if requested
-	// ::combineMesh( graph );
+	pod::Vector3f controllerPosition = {};
+	auto& controller = scene.getController(); {
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+		controllerPosition = controllerTransform.position;
+	}
+
+	uf::stl::unordered_map<int32_t, TextureDescriptor> textureDescriptors;
+
+	uf::stl::unordered_set<int32_t> pendingMeshNodes;
+	uf::stl::unordered_set<int32_t> pendingTextureNodes;
+	uf::stl::unordered_map<int32_t, PendingTexture> pendingTextures;
+	uf::stl::unordered_map<int32_t, PendingMesh> pendingMeshes;
+	auto oldHash = graph.settings.stream.hash;
+
+	for ( auto& node : graph.nodes ) {
+		if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+        if ( !node.entity ) continue;
+
+        bool isStreamable = false;
+		float radius = graph.settings.stream.radius;
+		float radiusSquared = radius * radius;
+
+		auto& entity = node.entity->as<uf::Object>();
+
+		auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
+		auto& metadataJson = entity.getComponent<uf::Serializer>();
+		auto& transform = entity.getComponent<pod::Transform<>>();
+		
+		auto model = uf::transform::model( transform );
+
+		auto meshName = graph.meshes[node.mesh];
+		auto& mesh = storage.meshes.map[meshName];
+		auto& meshStream = graph.streams.meshes[meshName];
+		auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+		auto tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+
+		// disable if not tagged for streaming
+		if ( node.index == graph.settings.stream.world ) {
+			isStreamable = true;
+		}
+
+		if ( !isStreamable ) {
+			radius = 0;
+		}
+
+		if ( meshStream.buffers.empty() ) {
+			radius = 0;
+		}
+
+		// force update if entity isn't already bound to the graphic
+		if ( !entity.hasComponent<uf::renderer::Graphic>() ) {
+			pendingMeshes[node.mesh] = {};
+			pendingMeshNodes.insert( node.index );
+		}
+
+		uf::stl::unordered_set<int32_t> processedBuffers;
+		if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
+			// deduce draw command (indirect) buffer to write to
+			auto& attribute = mesh.indirect.attributes.front();
+			auto& buffer = mesh.buffers[attribute.buffer];
+			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
+			uf::stl::vector<int8_t> queuedLODs( primitives.size(), -1 ); // this is to maintain draw command order because apparently my code requires draw commands to stay in order
+			// fallbacks for when no draw calls are requested (mainly for the collision mesh)
+			float closestDistance = std::numeric_limits<float>::max();
+			size_t closestDrawID = 0;
+			bool found = false;
+
+			// iterate through meshlets and cull if out of radius
+			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+				auto& primitive = primitives[drawID];
+				auto& instance = primitive.instance;
+				auto& drawCommand = primitive.drawCommand;
+
+				pod::Vector3f center = uf::matrix::multiply( model, instance.bounds.center, 1.0f ); // transform the center of the draw call
+				float distanceSquared = uf::vector::distanceSquared( center, controllerPosition ); // saves a sqrt()
+
+				// store closest draw call
+				if ( distanceSquared < closestDistance ) {
+					closestDistance = distanceSquared;
+					closestDrawID = drawID;
+				}
+				// queue if we're within the radius
+				if ( distanceSquared <= radiusSquared ) {
+					found = true;
+
+					int8_t lodLevel = 0;
+					// deduce a simple ratio [0.0 to 1.0] of how far we are into the streaming radius
+					float distRatio = distanceSquared / radiusSquared;
+					if ( distRatio > 0.6f ) 	 lodLevel = 3;
+					else if ( distRatio > 0.3f ) lodLevel = 2;
+					else if ( distRatio > 0.1f ) lodLevel = 1;
+
+					while ( lodLevel > 0 && primitive.lod.levels[lodLevel].indices == 0 ) {
+						lodLevel--;
+					}
+
+					queuedLODs[drawID] = lodLevel;
+				}
+			}
+
+			// insert closest primitive if all are out of range (because of cringe logic)
+			if ( !found /*&& node.index == graph.settings.stream.world*/ ) {
+				queuedLODs[closestDrawID] = 3;
+			}
+
+			// bail if no update is detected
+			auto drawCommandHash = uf::algo::fnv1a(queuedLODs);
+			graph.settings.stream.lastUpdate = uf::physics::time::current;
+
+			if ( drawCommandHash == oldHash ) {
+				continue;
+			}
+			graph.settings.stream.hash = drawCommandHash;
+			auto& pending = pendingMeshes[node.mesh];
+			pendingMeshNodes.insert( node.index );
+
+		// read from disk
+		#if UF_GRAPH_SPARSE_READ_MESH
+			uint32_t currentVertexCount = 0;
+			uint32_t currentIndexCount = 0;
+
+			struct ActiveDraw {
+				size_t drawID;
+				int8_t lodLevel;
+				uint32_t fileVertexID;
+			};
+
+			/*static thread_local*/ uf::stl::unordered_map<size_t, size_t> bufferSizes; /*bufferSizes.clear();*/
+			/*static thread_local*/ uf::stl::unordered_map<size_t, size_t> bufferWriteOffsets; /*bufferWriteOffsets.clear();*/
+
+			STATIC_THREAD_LOCAL(uf::stl::vector<ActiveDraw>, activeDraws);
+			activeDraws.reserve(queuedLODs.size());
+
+			for ( size_t drawID = 0; drawID < queuedLODs.size(); ++drawID ) {
+				auto lodLevel = queuedLODs[drawID];
+				if ( lodLevel >= 0 ) {
+					auto& lod = primitives[drawID].lod.levels[lodLevel];
+					activeDraws.emplace_back(ActiveDraw{drawID, lodLevel, lod.vertexID});
+				} else {
+					auto& drawCommand = drawCommands[drawID];
+					drawCommand.vertices = 0;
+					drawCommand.indices = 0;
+					drawCommand.vertexID = 0;
+					drawCommand.indexID = 0;
+					primitives[drawID].drawCommand = drawCommand;
+				}
+			}
+
+			std::sort(activeDraws.begin(), activeDraws.end(), [](const ActiveDraw& a, const ActiveDraw& b) {
+				return a.fileVertexID < b.fileVertexID;
+			});
+
+			for ( auto& active : activeDraws ) {
+				auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
+				for ( auto& attr : mesh.index.attributes ) {
+					size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+					bufferSizes[attr.buffer] += lod.indices * stride;
+				}
+				for ( auto& attr : mesh.vertex.attributes ) {
+					size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+					bufferSizes[attr.buffer] += lod.vertices * stride;
+				}
+			}
+
+			auto& buffers = mesh.buffers; // to-do: probably deduce when to mesh.buffers vs pending.buffers
+			for ( auto& [ b, size ] : bufferSizes ) buffers[b].resize( size );
+
+			for ( auto& active : activeDraws ) {
+				auto& primitive = primitives[active.drawID];
+				auto& lod = primitive.lod.levels[active.lodLevel];
+				auto& drawCommand = drawCommands[active.drawID];
+
+				drawCommand.vertices = lod.vertices;
+				drawCommand.indices  = lod.indices;
+				drawCommand.vertexID = currentVertexCount;
+				drawCommand.indexID  = currentIndexCount;
+				primitive.drawCommand = drawCommand;
+
+				for ( auto& attr : mesh.index.attributes ) {
+					size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+					auto& region = meshStream.buffers[attr.buffer];
+					size_t readBytes = lod.indices * stride;
+
+					uf::asset::read( region.filename, region.offset + attr.offset + (lod.indexID * stride), readBytes, buffers[attr.buffer].data() + bufferWriteOffsets[attr.buffer] );
+					bufferWriteOffsets[attr.buffer] += readBytes;
+				}
+
+				for ( auto& attr : mesh.vertex.attributes ) {
+					size_t stride = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+					auto& region = meshStream.buffers[attr.buffer];
+					size_t readBytes = lod.vertices * stride;
+
+					uf::asset::read( region.filename, region.offset + attr.offset + (lod.vertexID * stride), readBytes, buffers[attr.buffer].data() + bufferWriteOffsets[attr.buffer] );
+					bufferWriteOffsets[attr.buffer] += readBytes;
+				}
+
+				currentVertexCount += lod.vertices;
+				currentIndexCount  += lod.indices;
+			}
+
+			mesh.vertex.count = currentVertexCount;
+			mesh.index.count  = currentIndexCount;
+
+			for ( auto& attr : mesh.vertex.attributes ) attr.offset = 0;
+			for ( auto& attr : mesh.index.attributes )  attr.offset = 0;
+
+		// keep the vertex data intact
+		#else
+			// disable remaining draw commands
+			for ( auto drawID = 0; drawID < primitives.size(); ++drawID ) {
+				int8_t lodLevel = queuedLODs[drawID];
+				// reset from LOD0
+				//primitives[drawID].drawCommand.instances = 1;
+				primitives[drawID].drawCommand.indices = primitives[drawID].lod.levels[0].indices;
+				primitives[drawID].drawCommand.indexID = primitives[drawID].lod.levels[0].indexID;
+				primitives[drawID].drawCommand.vertexID = primitives[drawID].lod.levels[0].vertexID;
+				primitives[drawID].drawCommand.vertices = primitives[drawID].lod.levels[0].vertices;
+
+				// copy from primitive
+				drawCommands[drawID] = primitives[drawID].drawCommand;
+
+				if ( lodLevel < 0 ) {
+					//drawCommands[drawID].instances = 0;
+					drawCommands[drawID].vertices = 0;
+					drawCommands[drawID].indices = 0;
+					drawCommands[drawID].indexID = 0;
+					drawCommands[drawID].vertexID = 0;
+				} else {
+					auto& lod = primitives[drawID].lod.levels[lodLevel];
+
+					drawCommands[drawID].indexID  = lod.indexID;
+					drawCommands[drawID].indices  = lod.indices;
+					drawCommands[drawID].vertexID = lod.vertexID;
+					drawCommands[drawID].vertices = lod.vertices;
+				}
+
+				// synchronize primitive
+				primitives[drawID].drawCommand = drawCommands[drawID];
+			}
+
+			#define STREAM_MESH_DATA( N ) \
+				for ( auto& attribute : mesh.N.attributes ) {\
+					if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
+					auto& region = meshStream.buffers[attribute.buffer];\
+					mesh.buffers[attribute.buffer].resize( region.length );\
+					uf::asset::read( region.filename, region.offset, region.length, mesh.buffers[attribute.buffer].data() );\
+				}
+
+			STREAM_MESH_DATA( index );
+			STREAM_MESH_DATA( vertex );
+		#endif
+		} else {
+			// load mesh if not already loaded
+			#define LOAD_MESH_DATA( N ) \
+				for ( auto& attribute : mesh.N.attributes ) {\
+					if ( processedBuffers.count(attribute.buffer) ) continue; \
+					if ( !mesh.buffers[attribute.buffer].empty() || meshStream.buffers.empty() ) continue;\
+					pendingMeshes[node.mesh] = {};\
+					pendingMeshNodes.insert( node.index );\
+					processedBuffers.insert( attribute.buffer ); \
+					auto& region = meshStream.buffers[attribute.buffer];\
+					mesh.buffers[attribute.buffer].resize( region.length );\
+					uf::asset::read( region.filename, region.offset, region.length, mesh.buffers[attribute.buffer].data() );\
+				}
+
+			LOAD_MESH_DATA( index );
+			LOAD_MESH_DATA( vertex );
+		}
+
+		if ( graph.settings.stream.textures ) {
+			#define INCREMENT_TEXTURE_REFCOUNT( ID, isSRGB ) if ( 0 <= ID && ID < graph.textures.size() ) {\
+				auto& key = graph.textures[ID];\
+				textureDescriptors[ID].srgb = isSRGB;\
+				textureDescriptors[ID].references += visible ? 1 : 0;\
+				textureDescriptors[ID].layers = 1;\
+				auto& handle = storage.images[key].handle;\
+				if ( visible && (!handle.generated() || handle.aliased) ) pendingTextureNodes.insert(node.index);\
+				else if ( !visible && (handle.generated() && !handle.aliased) ) pendingTextureNodes.insert(node.index);\
+			}
+
+			for ( size_t drawID = 0; drawID < primitives.size(); ++drawID ) {
+				auto& primitive = primitives[drawID];
+				auto& instance = primitive.instance;
+
+				bool visible = primitive.drawCommand.instances > 0;
+
+				INCREMENT_TEXTURE_REFCOUNT(instance.lightmapID, false);
+				if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) {
+					continue;
+				}
+				auto& material = storage.materials[graph.materials[instance.materialID]];
+				INCREMENT_TEXTURE_REFCOUNT(material.indexAlbedo, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexNormal, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexEmissive, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexOcclusion, true);
+				INCREMENT_TEXTURE_REFCOUNT(material.indexMetallicRoughness, true);
+			}
+
+			#undef INCREMENT_TEXTURE_REFCOUNT
+		}
+	}
+
+	// iterate through our ref counts
+	for ( auto& [ imageID, descriptor ] : textureDescriptors ) {
+		auto& key = graph.images[imageID];
+		auto& image = storage.images[key].data;
+		auto& texture = storage.images[key].handle;
+		bool visible = descriptor.references > 0;
+
+		if ( visible && (!texture.generated() || texture.aliased) ) {
+			auto& pending = pendingTextures[imageID];
+
+			if ( image.getPixels().empty() ) {
+				auto& imgStream = graph.streams.images[key];
+
+				size_t readLen = imgStream.buffer.length > 0 ? imgStream.buffer.length : uf::io::size(imgStream.buffer.filename);
+				if ( readLen > 0 ) {
+					pending.buffer.resize( readLen );
+					uf::asset::read( imgStream.buffer.filename, imgStream.buffer.offset, readLen, pending.buffer.data() );
+			    }
+			}
+		} else if ( !visible && (texture.generated() && !texture.aliased) ) {
+			image.clear();
+			texture.destroy( true );
+			texture.aliasTexture( uf::renderer::Texture2D::empty );
+		}
+	}
+
+
+	storage.stale = true;
+	uf::asset::processIO();
+
+	for ( auto& [ imageID, pending ] : pendingTextures ) {
+		auto& key = graph.images[imageID];
+		auto& image = storage.images[key].data;
+		auto& texture = storage.images[key].handle;
+		auto& descriptor = textureDescriptors[imageID];
+		auto& imgStream = graph.streams.images[key];
+
+		if ( !pending.buffer.empty() ) {
+			uf::stl::string formatHint = uf::io::extension(image.getFilename());
+			if ( imgStream.buffer.filename.find(".dtex") != uf::stl::string::npos ) formatHint = "dtex";
+
+			uf::image::open( image, pending.buffer, formatHint, false );
+
+			if ( key == "lightmap_atlas" ) {
+				::convertLightmap( image );
+			}
+			pending.buffer.clear();
+		}
+
+		auto filter = uf::renderer::enums::Filter::LINEAR;
+		auto tag = ext::json::find( key, graphMetadataJson["tags"] );
+		if ( !ext::json::isObject( tag ) ) {
+			tag["renderer"] = graphMetadataJson["renderer"];
+		}
+		if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
+			const auto mode = uf::string::lowercase( tag["renderer"]["filter"].as<uf::stl::string>("linear") );
+			if ( mode == "linear" ) filter = uf::renderer::enums::Filter::LINEAR;
+			else if ( mode == "nearest" ) filter = uf::renderer::enums::Filter::NEAREST;
+		}
+
+		if ( texture.aliased ) {
+			texture.aliased = false;
+		#if UF_USE_OPENGL
+			texture.image = 0;
+		#else
+			texture.image = {};
+			texture.view = {};
+		#endif
+		}
+
+		texture.sampler.descriptor.filter.min = filter;
+		texture.sampler.descriptor.filter.mag = filter;
+		texture.layers = descriptor.layers;
+		texture.srgb = descriptor.srgb;
+
+		texture.loadFromImage( image );
+
+		#if UF_ENV_DREAMCAST
+			image.clear();
+		#endif
+	}
+
+	for ( auto& [ meshID, pending ] : pendingMeshes ) {
+		auto& key = graph.meshes[meshID];
+		auto& mesh = storage.meshes.map[key];
+
+		if ( !pending.buffers.empty() ) {
+			for ( auto& [b, buf] : pending.buffers ) mesh.buffers[b] = std::move( buf );
+		}
+
+		mesh.updateDescriptor();
+
+		// necessary for OpenGL because recorded descriptors have invalidated pointers
+		// Vulkan doesn't care about the CPU-side mesh data
+	#if UF_USE_OPENGL
+		uf::renderer::states::rebuild = true;
+	#endif
+
+	}
+	
+	for ( auto& nodeID : pendingMeshNodes ) {
+		auto& node = graph.nodes[nodeID];
+		uf::graph::reload( graph, node );
+	}
+
+	for ( auto& nodeID : pendingTextureNodes ) {
+		if ( pendingMeshNodes.count(nodeID) ) continue;
+
+		auto& node = graph.nodes[nodeID];
+		if ( !node.entity || !node.entity->hasComponent<uf::renderer::Graphic>() ) continue;
+
+		auto& graphic = node.entity->getComponent<uf::renderer::Graphic>();
+		::bindTextures( graph, graphic );
+	}
 }
 void uf::graph::reload() {
 	switch ( uf::graph::storageMode ) {

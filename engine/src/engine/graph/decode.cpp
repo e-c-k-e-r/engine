@@ -37,7 +37,7 @@ namespace {
 		return 0;
 	}
 	
-	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName, uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>>& scatterMap, uf::stl::vector<PendingImage>& pendingImages ) {
+	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName, uf::stl::vector<PendingImage>& pendingImages ) {
 		uf::Image image;
 
 		uf::stl::string filename = "";
@@ -94,13 +94,17 @@ namespace {
 
 			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
 			if ( readLen > 0 ) {
-				pending.buffer.resize(readLen);
-				scatterMap[fullPath].push_back({
-					offset,
-					readLen,
-					pending.buffer.data()
-				});
-			}
+	            pending.buffer.resize(readLen);
+            	uf::asset::read( fullPath, offset, readLen, pending.buffer.data()/*, [&graph, &pending]() {
+					auto& storage = uf::graph::getStorage(graph);
+					auto& image = storage.images[pending.name].data;
+
+					uf::image::open( image, pending.buffer, pending.extension, false );
+					uf::image::layers( image, pending.layers );
+
+					pending.buffer.clear();
+            	}*/ );
+        	}
 		}
 
 		image.setFilename( fullPath );
@@ -201,7 +205,7 @@ namespace {
 		return skin;
 	}
 
-	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName, uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>>& scatterMap ) {
+	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName ) {
 		uf::Mesh mesh;
 
 		#define DESERIALIZE_MESH(N) {\
@@ -264,11 +268,7 @@ namespace {
 				if ( region.length == 0 ) continue;
 
 				mesh.buffers[attr.buffer].resize(region.length);
-				scatterMap[region.filename].push_back({
-					region.offset,
-					region.length,
-					mesh.buffers[attr.buffer].data()
-				});
+				uf::asset::read( region.filename, region.offset, region.length, mesh.buffers[attr.buffer].data() );
 			}
 		};
 
@@ -387,6 +387,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) key += ":";
+	
+	uf::stl::vector<PendingImage> pendingImages;
+	uf::stl::vector<uf::stl::string> meshesToMinify;
 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading material information...");
@@ -513,33 +516,18 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
 
-		uf::stl::vector<PendingImage> pendingImages;
 		pendingImages.reserve( serializer["images"].size() );
-		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> scatterMap;
 
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
 			UF_DEBUG_TIMER_MULTITRACE("Reading image={}", name);
 			storage.images[name] = {
-				.data = decodeImage( value, graph, name, scatterMap, pendingImages ),
+				.data = decodeImage( value, graph, name, pendingImages ),
 			};
 			graph.images.emplace_back(name);
 		});
 
-		for ( auto& [filename, requests] : scatterMap ) {
-			uf::io::readScatter( filename, requests );
-		}
-
-		for ( auto& pending : pendingImages ) {
-			auto& image = storage.images[pending.name].data;
-			if ( !pending.buffer.empty() ) {
-				uf::image::open( image, pending.buffer, pending.extension, false );
-				uf::image::layers( image, pending.layers );
-
-				pending.buffer.clear();
-			}
-		}
 		UF_DEBUG_TIMER_MULTITRACE("Read images");
 	});
 
@@ -555,29 +543,18 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 		if ( graph.settings.stream.enabled ) preferMinified = false;
 
-		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<pod::ScatterRequest>> scatterMap;
-		uf::stl::vector<uf::stl::string> meshesToMinify;
-
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
 			bool hasMinifiedAsset = value["min"].isObject();
 			ext::json::Value& json = ( preferMinified && hasMinifiedAsset ) ? value["min"] : value;
 
-			storage.meshes[name] = decodeMesh( json, graph, name, scatterMap );
+			storage.meshes[name] = decodeMesh( json, graph, name );
 			graph.meshes.emplace_back(name);
 
-			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled ) {
+			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled )
 				meshesToMinify.emplace_back( name );
-			}
 		});
-		for ( auto& [filename, requests] : scatterMap ) uf::io::readScatter( filename, requests );
-		for ( const auto& name : meshesToMinify ) {
-			auto& mesh = storage.meshes[name];
-			mesh.prune( { "position", "uv", "st" } );
-			mesh.convert<float, uint16_t>();
-			mesh.interleave();
-		}
 
 		UF_DEBUG_TIMER_MULTITRACE("Read meshes");
 	});
@@ -586,7 +563,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
 		auto& animNode = serializer["animations"];
 
-		if (animNode.isObject()) {
+		if ( animNode.isObject() ) {
 			storage.animations.map.reserve( animNode.size() );
 			ext::json::forEach( animNode, [&]( const uf::stl::string& rawName, ext::json::Value& value ){
 				auto name = key + rawName;
@@ -594,7 +571,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				graph.animations.emplace_back(name);
 			});
 		}
-		else if (animNode.isArray()) {
+		else if ( animNode.isArray() ) {
 			storage.animations.map.reserve( animNode.size() );
 			ext::json::forEach( animNode, [&]( ext::json::Value& value ){
 				uf::stl::string path = directory + "/" + value.as<uf::stl::string>();
@@ -637,6 +614,25 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	});
 
 	uf::thread::execute( tasks );
+	uf::asset::processIO();
+
+	// process images
+	for ( auto& pending : pendingImages ) {
+		auto& image = storage.images[pending.name].data;
+
+		uf::image::open( image, pending.buffer, pending.extension, false );
+		uf::image::layers( image, pending.layers );
+
+		pending.buffer.clear();
+	}
+
+	// process meshes that need to be minified because I can't easily tie it to the callback
+	for ( auto& name : meshesToMinify ) {
+		auto& mesh = storage.meshes[name];
+		mesh.prune( { "position", "uv", "st" } );
+		mesh.convert<float, uint16_t>();
+		mesh.interleave();
+	}
 
 	// re-reference all transform parents
 	for ( auto& node : graph.nodes ) {

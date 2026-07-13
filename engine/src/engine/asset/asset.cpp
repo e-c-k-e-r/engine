@@ -61,6 +61,7 @@ namespace {
 			size_t length;
 			uint8_t* dest;
 			std::function<void()> callback;
+			std::function<void(uf::stl::vector<uint8_t>&&)> callbackBuffered;
 		};
 
 		std::mutex mutex;
@@ -148,13 +149,26 @@ void uf::asset::processIO() {
 
 	for ( auto& [filename, requests] : pendingReads ) {
 		tasks.queue([filename = filename, requests = std::move(requests)]() {
-			uf::stl::vector<pod::ScatterRequest> scatterReqs;
-			scatterReqs.reserve(requests.size());
-			for ( auto& req : requests ) scatterReqs.emplace_back(pod::ScatterRequest{ req.offset, req.length, req.dest });
+			uf::stl::vector<pod::ScatterRequest> scatters(requests.size());
+			uf::stl::vector<uf::stl::vector<uint8_t>> localBuffers(requests.size());
+			
+			for ( auto i = 0; i < requests.size(); ++i ) {
+				auto& req = requests[i];
+				scatters[i] = { req.offset, req.length, req.dest };
+				
+				if ( !req.dest && req.length > 0 ) {
+					localBuffers[i].resize( req.length );
+					scatters[i].dest = localBuffers[i].data();
+				}
+			}
 
-			uf::io::readScatter( filename, scatterReqs );
+			uf::io::readScatter( filename, scatters );
 
-			for ( auto& req : requests ) if ( req.callback ) req.callback();
+			for ( auto i = 0; i < requests.size(); ++i ) {
+				auto& req = requests[i];
+				if ( req.callback ) req.callback();
+				else if ( req.callbackBuffered ) req.callbackBuffered( std::move( localBuffers[i] ) );
+			}
 		});
 	}
 
@@ -212,6 +226,10 @@ void uf::asset::load( const uf::asset::callback_t& callback, const uf::asset::Pa
 void uf::asset::read( const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback ) {
 	std::lock_guard<std::mutex> lock(::io_read::mutex);
 	::io_read::queue[filename].emplace_back(::io_read::Job{ offset, length, dest, callback });
+}
+void uf::asset::read( const uf::stl::string& filename, size_t offset, size_t length, std::function<void(uf::stl::vector<uint8_t>&&)> callback ) {
+	std::lock_guard<std::mutex> lock(::io_read::mutex);
+	::io_read::queue[filename].emplace_back(::io_read::Job{ offset, length, nullptr, nullptr, callback });
 }
 
 void uf::asset::stream( const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback ) {
