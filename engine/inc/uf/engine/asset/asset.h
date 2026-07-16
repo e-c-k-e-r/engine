@@ -32,7 +32,7 @@ namespace uf {
 
 		// URL or file path
 		void UF_API processQueue();
-        void UF_API processIO();
+		void UF_API processIO();
 
 		void UF_API cache( const uf::asset::callback_t&, const uf::asset::Payload& );
 		void UF_API load( const uf::asset::callback_t&, const uf::asset::Payload& );

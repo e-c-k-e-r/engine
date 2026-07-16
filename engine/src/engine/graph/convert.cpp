@@ -222,6 +222,14 @@ pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 	return graph;
 }
 
+void uf::graph::preprocess( pod::Graph& graph, const uf::Serializer& metadata, const uf::stl::string& filename ) {
+	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
+	if ( !filename.empty() ) graph.name = filename;
+	if ( !metadata.isNull() ) graph.metadata = metadata;
+	graph.root.name = "%ROOT%";
+	graph.root.index = -1;
+}
+
 void uf::graph::postprocess( pod::Graph& graph ) {
 	auto& storage = uf::graph::getStorage( graph );
 	// post-processing

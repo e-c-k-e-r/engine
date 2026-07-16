@@ -9,6 +9,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/valve/bsp.h>
+#include <uf/ext/ttlg/mis.h>
 #include <uf/utils/io/fmt.h>
 
 #define UF_GRAPH_LOAD_MULTITHREAD 0
@@ -94,8 +95,8 @@ namespace {
 
 			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
 			if ( readLen > 0 ) {
-	            pending.buffer.resize(readLen);
-            	uf::asset::read( fullPath, offset, readLen, pending.buffer.data()/*, [&graph, &pending]() {
+				pending.buffer.resize(readLen);
+				uf::asset::read( fullPath, offset, readLen, pending.buffer.data()/*, [&graph, &pending]() {
 					auto& storage = uf::graph::getStorage(graph);
 					auto& image = storage.images[pending.name].data;
 
@@ -103,8 +104,8 @@ namespace {
 					uf::image::layers( image, pending.layers );
 
 					pending.buffer.clear();
-            	}*/ );
-        	}
+				}*/ );
+			}
 		}
 
 		image.setFilename( fullPath );
@@ -146,16 +147,12 @@ namespace {
 				animStream.samplers.emplace_back(sStream);
 			} else {
 				if ( inputsLen > 0 ) {
-					uf::stl::vector<uint8_t> temp;
-					uf::io::readAsBuffer(temp, binPath, inputsOffset, inputsLen);
 					sampler.inputs.resize(inputsCount);
-					memcpy(sampler.inputs.data(), temp.data(), inputsLen);
+					uf::asset::read( binPath, inputsOffset, inputsLen, (uint8_t*)(sampler.inputs.data()) );
 				}
 				if ( outputsLen > 0 ) {
-					uf::stl::vector<uint8_t> temp;
-					uf::io::readAsBuffer(temp, binPath, outputsOffset, outputsLen);
 					sampler.outputs.resize(outputsCount);
-					memcpy(sampler.outputs.data(), temp.data(), outputsLen);
+					uf::asset::read( binPath, outputsOffset, outputsLen, (uint8_t*)(sampler.outputs.data()) );
 				}
 			}
 		});
@@ -194,10 +191,8 @@ namespace {
 				skinStream.inverseBindMatrices = { binPath, offset, length };
 			} else {
 				if ( length > 0 ) {
-					uf::stl::vector<uint8_t> temp;
-					uf::io::readAsBuffer(temp, binPath, offset, length);
 					skin.inverseBindMatrices.resize(count);
-					memcpy(skin.inverseBindMatrices.data(), temp.data(), length);
+					uf::asset::read( binPath, offset, length, (uint8_t*)(skin.inverseBindMatrices.data()) );
 				}
 			}
 		}
@@ -304,17 +299,17 @@ namespace {
 }
 
 void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
-	const uf::stl::string extension = uf::io::extension( filename );
+	const uf::stl::string extension = uf::string::lowercase( uf::io::extension( filename ) );
 #if UF_USE_GLTF
-	if ( extension == "glb" || extension == "gltf" ) {
-		return ext::gltf::load( graph, filename, metadata );
-	}
+	if ( extension == "glb" || extension == "gltf" ) return ext::gltf::load( graph, filename, metadata );
 #endif
 #if UF_USE_VALVE
-	if ( extension == "bsp" ) {
-		return ext::valve::loadBsp( graph, filename, metadata );
-	}
+	if ( extension == "bsp" ) return ext::valve::loadBsp( graph, filename, metadata );
 #endif
+#if UF_USE_TTLG
+	if ( extension == "mis" ) return ext::ttlg::loadMis( graph, filename, metadata );
+#endif
+
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
 	uf::Serializer serializer;
 	UF_DEBUG_TIMER_MULTITRACE_START("Reading {}", filename);

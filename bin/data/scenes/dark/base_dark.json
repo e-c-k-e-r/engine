@@ -1,0 +1,19 @@
+{
+	"import": "/model.json",
+	"metadata": {
+		"graph": {
+			"renderer": { "separate": false },
+			"exporter": {
+				"optimize": { "simplify": 0, "lods": true, "print": true }
+			},
+			"baking": { "enabled": true },
+			"tags": {
+				"worldspawn": {
+					"physics": { "type": "mesh", "static": true, "mass": 0 },
+					"grid": { "size": [8,1,8], "epsilon": 0.001, "cleanup": true, "print": true, "clip": true },
+					"unwrap mesh": true
+				}
+			}
+		}	
+	}
+}

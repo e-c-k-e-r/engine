@@ -267,6 +267,7 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "mdl",  	uf::asset::Type::GRAPH },
 	#endif
 		{ "bsp",  	uf::asset::Type::GRAPH },
+		{ "mis",  	uf::asset::Type::GRAPH },
 	};
 
 	payload.filename = uri;

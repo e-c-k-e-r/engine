@@ -22,15 +22,18 @@ namespace ext {
 	namespace zlib {
 		extern UF_API size_t bufferSize;
 		
-		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& );
-		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len );
-		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges );
-		bool UF_API decompressFromMemory( uf::stl::vector<uint8_t>&, const void*, size_t, size_t );
-		bool UF_API decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests );
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string&, int = 15 + 32 );
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, size_t start, size_t len, int = 15 + 32 );
+		bool UF_API decompressFromFile( uf::stl::vector<uint8_t>&, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges, int = 15 + 32 );
+		bool UF_API decompressFromMemory( uf::stl::vector<uint8_t>&, const void*, size_t, size_t, int = 15 + 32 );
+		bool UF_API decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests, int = 15 + 32 );
 		
 		size_t UF_API compressToFile( const uf::stl::string&, const void*, size_t );
 		bool UF_API directory( const uf::stl::vector<uint8_t>& buffer, uf::stl::unordered_map<uf::stl::string, pod::ZipEntry>& entries );
+		
 		pod::Mount UF_API createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority = 0 );
+		pod::Mount UF_API createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>&& buffer, int priority = 0 );
+		pod::Mount UF_API createZipMount( const uf::stl::string& uri, const uf::stl::string& filename, int priority = 0 );
 
 		inline uf::stl::vector<uint8_t> decompressFromFile( const uf::stl::string& filename ) {
 			uf::stl::vector<uint8_t> buffer;

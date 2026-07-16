@@ -267,8 +267,25 @@ bool ext::valve::readVpk( const pod::VpkArchive& vpk, const uf::stl::string& pat
 	return true;
 }
 
-size_t ext::valve::mountVpk( const uf::stl::string& uri ) {
-	return uf::vfs::mount( ext::valve::createVpkMount( ::fmt::format( "valve://{}", uri ), 10 ) );
+uf::vfs::Mount ext::valve::mountVpk( const uf::stl::string& uri, bool temp ) {
+	return uf::vfs::mount( ext::valve::createVpkMount( ::fmt::format( "valve://{}", uri ), 10 ), temp );
+}
+uf::vfs::Mount ext::valve::mountGame( const uf::stl::string& uri, bool temp ) {
+	uf::stl::string path = "";
+	auto libraries = impl::getSteamLibraries();
+	for ( const auto& lib : libraries ) {
+		uf::stl::string fullPath = lib + "/" + uri;
+		if ( !uf::io::exists(fullPath) ) {
+			continue;
+		}
+		path = fullPath;
+		break;
+	}
+	if ( path.empty() ) {
+		UF_MSG_ERROR("Failed to mount game: {}", uri);
+		return { 0 };
+	}
+	return uf::vfs::mount( uf::vfs::createDiskMount( ::fmt::format( "game://{}", path ), 11 ), temp ); // for some reason a lower priority makes the footstep sound CS:S's
 }
 bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
 	auto it = vpk.files.find( path );

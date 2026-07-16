@@ -33,9 +33,15 @@ namespace pod {
 namespace uf {
 	namespace vfs {
 		extern UF_API uf::stl::vector<pod::Mount> mounts;
+		struct UF_API Mount {
+			size_t hash = {};
+			bool temp = false;
+			~Mount();
+		};
 
-		size_t UF_API mount( const pod::Mount& mount );
+		uf::vfs::Mount UF_API mount( const pod::Mount& mount, bool = false );
 		bool UF_API unmount( size_t );
+		bool UF_API unmount( const uf::vfs::Mount& );
 		bool UF_API unmount( const uf::stl::string& prefix, const uf::stl::string& base );
 
 		bool UF_API exists( const uf::stl::string& path );

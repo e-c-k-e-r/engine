@@ -174,3 +174,7 @@ endif
 ifneq (,$(findstring valve,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_VALVE
 endif
+
+ifneq (,$(findstring ttlg,$(REQ_DEPS)))
+	FLAGS += -DUF_USE_TTLG
+endif

@@ -622,6 +622,7 @@ namespace uf {
 		const pod::DrawCommand& UF_API fetchDrawCommand( const uf::Mesh& mesh, size_t triID );
 		const uf::Mesh::View* UF_API fetchView( const uf::Mesh& mesh, size_t& triID );
 
+		template<typename T> pod::Instance::Bounds bounds( uf::stl::vector<T>& vertices );
 		template<typename T> size_t windingOrder( uf::stl::vector<T>& vertices );
 		template<typename T, typename U> size_t windingOrder( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices );
 		template<typename T> void normals( uf::stl::vector<T>& vertices );
@@ -734,6 +735,22 @@ T uf::mesh::fetchVertexAttribute( const uf::Mesh::View& view, const uf::Mesh::At
 	}
 }
 
+template<typename T>
+pod::Instance::Bounds uf::mesh::bounds( uf::stl::vector<T>& vertices ) {
+	pod::Instance::Bounds bounds;
+
+	if ( !vertices.empty() ) {
+		bounds.min = bounds.max = vertices[0].position;
+		for ( const auto& v : vertices ) {
+			bounds.min = uf::vector::min(bounds.min, v.position);
+			bounds.max = uf::vector::max(bounds.max, v.position);
+		}
+	}
+
+	bounds.center = (bounds.max + bounds.min) * 0.5f;
+	bounds.extent = uf::vector::abs(bounds.max - bounds.min) * 0.5f;
+	return bounds;
+}
 template<typename T>
 size_t uf::mesh::windingOrder( uf::stl::vector<T>& vertices ) {
 	if constexpr ( !uf::mesh::has_normal<T>::value ) return 0;

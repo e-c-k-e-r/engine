@@ -1,0 +1,68 @@
+#pragma once
+
+#include <uf/config.h>
+#include <uf/utils/mesh/mesh.h>
+#include <uf/engine/graph/graph.h>
+
+namespace impl {	
+	const float darkToMeters = 0.75f;
+	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
+
+	template<typename T>
+	inline bool readStruct(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, T& outValue) {
+		if (offset + sizeof(T) > buffer.size()) return false;
+		std::memcpy(&outValue, buffer.data() + offset, sizeof(T));
+		offset += sizeof(T);
+		return true;
+	}
+
+	template<typename T>
+	inline bool readArray(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, size_t count, uf::stl::vector<T>& outArray) {
+		size_t bytes = count * sizeof(T);
+		if (offset + bytes > buffer.size()) return false;
+		outArray.resize(count);
+		std::memcpy(outArray.data(), buffer.data() + offset, bytes);
+		offset += bytes;
+		return true;
+	}
+
+	inline float findWrap( float x ) {
+		return -64.0f * std::floor(x / 64.0f);
+	};
+
+	inline void encodeRGBE(const pod::Vector3f& color, uint8_t* out) {
+		float maxColor = std::max({ color.x, color.y, color.z });
+
+		if ( maxColor < 1e-6f ) {
+			out[0] = 0;
+			out[1] = 0;
+			out[2] = 0;
+			out[3] = 0;
+			return;
+		}
+
+		int exponent;
+		float mantissa = std::frexp(maxColor, &exponent);
+
+		float scale = std::exp2(-(float)(exponent));
+		pod::Vector3f rgb = color * scale;
+
+		out[0] = (uint8_t)(std::clamp(rgb.x * 255.f, 0.f, 255.f));
+		out[1] = (uint8_t)(std::clamp(rgb.y * 255.f, 0.f, 255.f));
+		out[2] = (uint8_t)(std::clamp(rgb.z * 255.f, 0.f, 255.f));
+		out[3] = (uint8_t)(std::clamp(exponent + 128, 0, 255));
+	}
+
+	inline pod::Vector3f convertPos_NewDark( const pod::Vector3f& v, float scale = impl::darkToMeters ) {
+		return pod::Vector3f{ v.x, v.z, v.y } * scale;
+	}
+
+	inline bool getBit(const uint8_t* bitmap, int32_t bitIndex, int32_t minID) {
+		int32_t relativeBit = bitIndex - minID;
+		int32_t byteIndex = relativeBit >> 3;
+		int32_t bitOffset = relativeBit & 0x07;
+		return (bitmap[byteIndex] & (1 << bitOffset)) != 0;
+	}
+
+	uf::stl::string sanitizeString(const char* raw, size_t maxLength = 16);
+}

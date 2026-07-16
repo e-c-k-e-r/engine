@@ -1,9 +1,9 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SourceEngine",
+			"start": "Dark",
 			"lights": { "enabled": true,
-				"lightmaps": false,
+				"lightmaps": true,
 				"max": 32,
 				"shadows": {
 					"enabled": false,
@@ -307,7 +307,7 @@
 			},
 			"json": {
 				"encoding": "msgpack",
-				"compression": "gz"
+				"compression": "lz4"
 			},
 			"vall_e": {
 				"enabled": true
@@ -335,6 +335,9 @@
 					"Half-Life 2/hl2/hl2_sound_misc_dir.vpk", 
 					"Half-Life 2/hl2/hl2_misc_dir.vpk", 
 					"Counter-Strike Source/cstrike/cstrike_pak_dir.vpk"
+				],
+				"games": [
+					"SS2/"
 				]
 			}
 		},

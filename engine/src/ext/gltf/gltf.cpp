@@ -150,14 +150,11 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		return;
 	}
 
-	graph.name = filename;
-	graph.metadata = metadata;
-	
+	uf::graph::preprocess( graph, metadata, filename );
+	auto& storage = uf::graph::getStorage( graph );
+
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) key += ":";
-
-	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
-	auto& storage = uf::graph::getStorage( graph ); // will just fetch the above
 
 	// load images
 	{
@@ -458,9 +455,6 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	{
 		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
 		graph.nodes.resize( model.nodes.size() );
-
-		graph.root.name = "%ROOT%";
-		graph.root.index = -1;
 		graph.root.children.reserve( scene.nodes.size() );
 		for ( auto i : scene.nodes ) {
 			size_t childIndex = loadNode( model, graph, i, -1 );

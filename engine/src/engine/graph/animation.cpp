@@ -30,28 +30,28 @@ namespace {
 		auto& animation = storage.animations.map[name];
 		auto& animStream = graph.streams.animations[name];
 
+		bool needsIO = false;
+
 		for ( size_t i = 0; i < animation.samplers.size(); ++i ) {
 			auto& sampler = animation.samplers[i];
 			auto& stream = animStream.samplers[i];
 
 			if ( !sampler.inputs.empty() ) continue;
 
-			uf::stl::vector<uint8_t> ioBuf;
-
 			if ( stream.inputs.length > 0 ) {
-				if ( uf::io::readAsBuffer(ioBuf, stream.inputs.filename, stream.inputs.offset, stream.inputs.length) ) {
-					sampler.inputs.resize( stream.inputs.length / sizeof(float) );
-					memcpy( sampler.inputs.data(), ioBuf.data(), stream.inputs.length );
-				}
+				sampler.inputs.resize( stream.inputs.length / sizeof(float) );
+				uf::asset::read( stream.inputs.filename, stream.inputs.offset, stream.inputs.length, (uint8_t*)(sampler.inputs.data()) );
+				needsIO = true;
 			}
 
 			if ( stream.outputs.length > 0 ) {
-				if ( uf::io::readAsBuffer(ioBuf, stream.outputs.filename, stream.outputs.offset, stream.outputs.length) ) {
-					sampler.outputs.resize( stream.outputs.length / sizeof(pod::Vector4f) );
-					memcpy( sampler.outputs.data(), ioBuf.data(), stream.outputs.length );
-				}
+				sampler.outputs.resize( stream.outputs.length / sizeof(pod::Vector4f) );
+				uf::asset::read( stream.outputs.filename, stream.outputs.offset, stream.outputs.length, (uint8_t*)(sampler.outputs.data()) );
+				needsIO = true;
 			}
 		}
+
+		if ( needsIO ) uf::asset::processIO();
 	}
 
 	void unloadAnimation( pod::Graph& graph, const uf::stl::string& name ) {

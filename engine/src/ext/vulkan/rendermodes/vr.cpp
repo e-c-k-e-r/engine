@@ -164,9 +164,9 @@ void ext::vulkan::VrRenderMode::createCommandBuffers(const uf::stl::vector<ext::
 							descriptor.bind.depth = 1;
 							descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
 							descriptor.subpass = 0;
-                            descriptor.depth.test = false;
-                            descriptor.inputs.vertex.count = 6;
-                            descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+							descriptor.depth.test = false;
+							descriptor.inputs.vertex.count = 6;
+							descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
 							// to-do: transition attachment here
 

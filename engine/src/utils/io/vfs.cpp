@@ -112,6 +112,10 @@ namespace {
 	}
 }
 
+uf::vfs::Mount::~Mount() {
+	if ( temp ) uf::vfs::unmount( hash );
+}
+
 pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 	uf::stl::string prefix;
 	uf::stl::string path;
@@ -135,7 +139,7 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 }
 
 uf::stl::vector<pod::Mount> uf::vfs::mounts;
-size_t uf::vfs::mount( const pod::Mount& mount ) {
+uf::vfs::Mount uf::vfs::mount( const pod::Mount& mount, bool temp ) {
 	// compute hash
 	size_t hash = {};
 	uf::hash( hash, mount.prefix, mount.path );
@@ -144,8 +148,9 @@ size_t uf::vfs::mount( const pod::Mount& mount ) {
 	for ( auto& m : mounts ) {
 		size_t hash2 = {};
 		uf::hash( hash2, m.prefix, m.path );
+
 		if ( hash == hash2 ) {
-			return hash;
+			return uf::vfs::Mount{ hash, false }; // do not honor temp request to avoid breaking mounts in the future
 		}
 	}
 
@@ -157,7 +162,7 @@ size_t uf::vfs::mount( const pod::Mount& mount ) {
 		return a.priority > b.priority;
 	});
 
-	return hash;
+	return uf::vfs::Mount{ hash, temp };
 }
 
 bool uf::vfs::unmount( size_t hash ) {
@@ -174,6 +179,9 @@ bool uf::vfs::unmount( size_t hash ) {
 	}
 	mounts.erase( it, mounts.end() );
 	return true;
+}
+bool uf::vfs::unmount( const uf::vfs::Mount& mount ) {
+	return uf::vfs::unmount( mount.hash );
 }
 bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& base ) {
 	uf::stl::string cleanBase = base;
@@ -259,7 +267,7 @@ bool uf::vfs::read( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffe
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
 			bool res = mount.exists( mount, relative );
-			if ( mount.exists( mount, relative ) ) return mount.read( mount, relative, buffer );
+			if ( mount.exists( mount, relative ) && mount.read( mount, relative, buffer ) ) return true;;
 		}
 	}
 	return false;
@@ -272,7 +280,7 @@ size_t uf::vfs::write( const uf::stl::string& path, const void* buffer, size_t s
 	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.write ) return mount.write( mount, relative, buffer, size );
+			if ( mount.write && mount.write( mount, relative, buffer, size ) ) return true;
 		}
 	}
 	return 0;

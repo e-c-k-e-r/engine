@@ -603,168 +603,6 @@ namespace impl {
 		impl::extractLumpString( buffer, lump, str );
 		return str;
 	}
-
-	void processNodes( pod::Graph& graph, const impl::BspContext& context, float scale = impl::sourceToMeters ) {
-		size_t lights = 0;
-
-		int32_t spawnID = -1;
-		uf::stl::vector<size_t> spawns;
-		uf::stl::unordered_map<uf::stl::string, size_t> targets;
-
-		for ( auto nodeID : graph.root.children ) {
-			auto& node = graph.nodes[nodeID];
-			auto& metadata = node.metadata["valve"];
-
-			if ( !ext::json::isObject( metadata ) ) continue;
-
-			auto classname = metadata["classname"].as<uf::stl::string>("");
-			//UF_MSG_INFO("Entity found: {}", classname);
-			node.name = classname;
-			node.mesh = -1;
-			
-			// parse origin
-			auto origin = metadata["origin"].as<uf::stl::string>("");
-			if ( origin != "" ) {
-				auto position = impl::str2vec<pod::Vector3f>( origin );
-				node.transform.position = impl::convertPos( position, scale );
-			}
-
-			// parse angles
-			auto angles = metadata["angles"].as<uf::stl::string>("");
-			if ( angles != "" ) {
-				auto pyr = impl::str2vec<pod::Vector3f>( angles ) * -DEG_2_RAD;
-				node.transform.orientation = uf::quaternion::euler( pyr );
-			}
-
-			// parse model
-			auto model = metadata["model"].as<uf::stl::string>();
-			if ( classname == "worldspawn" ) {
-				node.mesh = context.modelToMesh[0]; // implicitly bind to model 0
-			} else if ( model.starts_with("*") ) {
-				int modelID = std::stoi( model.substr(1) );
-				if ( 0 <= modelID && modelID < context.modelToMesh.size() ) {
-					node.mesh = context.modelToMesh[modelID];
-				}
-			} else if ( model.length() > 4 && model.ends_with(".mdl") ) {
-				auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
-				if ( it == graph.meshes.end() ) {
-					auto meshID = graph.meshes.size();
-					if ( ext::valve::loadMdl(graph, model) ) {
-						node.mesh = meshID;
-					} else {
-						uf::stl::string model = "models/error.mdl";
-						auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
-
-						if ( it != graph.meshes.end() ) {
-							node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
-						} else if ( ext::valve::loadMdl( graph, model ) ) {
-							node.mesh = (int32_t)(graph.meshes.size() - 1);
-						} else {
-							node.mesh = -1;
-						}
-					}
-				} else {
-					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
-				}
-			}
-
-			// parse lighting info
-			if ( classname.starts_with("light") ) {
-				auto lightKeyName = ::fmt::format( "{}_{}", classname, nodeID );
-				auto& light = graph.lights[lightKeyName];
-				light.color = { 1.0f, 1.0f, 1.0f };
-				light.intensity = 200.0f;
-				light.range = 0.0f;
-
-				// read color and intensity
-				auto _light = metadata["_light"].as<uf::stl::string>("");
-				if ( _light != "" ) {
-					// to-do: do not use stringstream
-					std::istringstream stream(_light);
-					light.color = { 255.0f, 255.0f, 255.0f };
-					
-					stream >> light.color.x >> light.color.y >> light.color.z;
-					light.color /= 255.0f;
-
-					if (!(stream >> light.intensity)) light.intensity = 200.0f;
-				}
-				// to-do: read range
-				light.intensity *= 0.2f; // scale down
-			}
-
-			// parse door
-			if ( classname.starts_with("func_door") ) {
-				auto& metadataDoor = metadata["door"];
-
-				float scale = impl::sourceToMeters;
-				if ( classname == "func_door" ) {
-					auto movedirStr = metadata["movedir"].as<uf::stl::string>("");
-					if ( movedirStr == "" && metadata["angle"].as<float>() ) {
-						float ang = metadata["angle"].as<float>();
-						if ( ang == -1 ) movedirStr = "-90 0 0";
-						else if ( ang == -2 ) movedirStr = "90 0 0";
-						else movedirStr = ::fmt::format("0 {} 0", ang);
-					}
-
-					if ( movedirStr != "" ) {
-						auto pyr = impl::str2vec<pod::Vector3f>( movedirStr );
-
-						float pitch = pyr.x * DEG_2_RAD;
-						float yaw   = pyr.y * DEG_2_RAD;
-
-						pod::Vector3f slideDir;
-						slideDir.x = cos(yaw) * cos(pitch);
-						slideDir.z = -(sin(yaw) * cos(pitch));
-						slideDir.y = -sin(pitch);
-
-						metadataDoor["direction"] = uf::vector::encode( uf::vector::normalize(slideDir) );
-					}
-				} else if ( classname == "func_door_rotating" ) {
-					scale = 1.0f;
-					metadataDoor["distance"] = metadata["distance"].as<float>(90.0f);
-
-					int flags = metadataDoor["spawnflags"].as<int>();
-					pod::Vector3f axis = {0, 1, 0};
-					if ( flags & 64 ) axis = {0, 0, 1};
-					if ( flags & 128 ) axis = {1, 0, 0};
-
-					metadataDoor["axis"] = uf::vector::encode( axis );
-				}
-				
-				metadataDoor["speed"] = metadata["speed"].as<float>(100.0f) * scale;
-				metadataDoor["wait"] = metadata["wait"].as<float>(4.0f);
-				metadataDoor["lip"] = metadata["lip"].as<float>(8.0f) * scale;
-				metadataDoor["spawnflags"] = metadata["spawnflags"].as<int>(0);
-			}
-
-			// parse parent
-			auto targetname = metadata["targetname"].as<uf::stl::string>("");
-			if ( targetname != "" ) {
-				targets[targetname] = nodeID;
-			}
-
-			// to-do: add additional parsing
-		}
-
-		// re-parent entities
-		uf::stl::vector<int32_t> newChildren;
-		for ( auto nodeID : graph.root.children ) {
-			auto& node = graph.nodes[nodeID];
-			auto& metadata = node.metadata["valve"];
-
-			auto parentname = metadata["parentname"].as<uf::stl::string>("");
-			if ( parentname != "" && targets.count(parentname) > 0 ) {
-				auto parentID = targets[parentname];
-				auto& parentNode = graph.nodes[parentID];
-				parentNode.children.emplace_back(nodeID);
-
-				node.transform = uf::transform::relative( parentNode.transform, node.transform );
-			} else {
-				newChildren.emplace_back(nodeID);
-			}
-		}
-		graph.root.children = newChildren;
-	}
 }
 
 void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
@@ -780,12 +618,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		return;
 	}
 
-	if ( !graph.storage ) graph.storage = new pod::Graph::Storage();
+	uf::graph::preprocess( graph, metadata, filename );
 	auto& storage = uf::graph::getStorage( graph );
-	graph.name = filename;
-	graph.metadata = metadata;
-	graph.root.name = "%ROOT%";
-	graph.root.index = -1;
 
 	impl::BspContext context;
 	impl::extractLump<impl::BspVertex>(buffer, header->lumps[impl::BspLump::LUMP_VERTICES], context.vertices);
@@ -814,7 +648,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	context.texdataToMaterial.assign( context.texdatas.size(), -1 );
 
 	// mount pakfile
-	size_t pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(::fmt::format("pakfile://{}", filename), context.pakfile, 1000 ) );	
+	auto pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(::fmt::format("pakfile://{}", filename), context.pakfile, 1000 ), true );
 
 	// deduce mapname
 	uf::stl::string mapName = filename; {
@@ -1116,8 +950,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				auto mlets = uf::stl::values( meshlets );
 				auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
 				mesh.compile( partitioned, primitives );
-				UF_MSG_DEBUG("meshlets={}, partitioned={}, primitives={}", mlets.size(), partitioned.size(), primitives.size());
-				UF_ASSERT( !partitioned.empty() );
 			} else {
 				mesh.compile( meshlets, primitives );
 			}
@@ -1209,7 +1041,168 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 	}
 
-	impl::processNodes( graph, context );
+	// process nodes
+	{
+		size_t lights = 0;
+
+		int32_t spawnID = -1;
+		uf::stl::vector<size_t> spawns;
+		uf::stl::unordered_map<uf::stl::string, size_t> targets;
+
+		for ( auto nodeID : graph.root.children ) {
+			auto& node = graph.nodes[nodeID];
+			auto& metadata = node.metadata["valve"];
+
+			if ( !ext::json::isObject( metadata ) ) continue;
+
+			auto classname = metadata["classname"].as<uf::stl::string>("");
+			//UF_MSG_INFO("Entity found: {}", classname);
+			node.name = classname;
+			node.mesh = -1;
+			
+			// parse origin
+			auto origin = metadata["origin"].as<uf::stl::string>("");
+			if ( origin != "" ) {
+				auto position = impl::str2vec<pod::Vector3f>( origin );
+				node.transform.position = impl::convertPos( position );
+			}
+
+			// parse angles
+			auto angles = metadata["angles"].as<uf::stl::string>("");
+			if ( angles != "" ) {
+				auto pyr = impl::str2vec<pod::Vector3f>( angles ) * -DEG_2_RAD;
+				node.transform.orientation = uf::quaternion::euler( pyr );
+			}
+
+			// parse model
+			auto model = metadata["model"].as<uf::stl::string>();
+			if ( classname == "worldspawn" ) {
+				node.mesh = context.modelToMesh[0]; // implicitly bind to model 0
+			} else if ( model.starts_with("*") ) {
+				int modelID = std::stoi( model.substr(1) );
+				if ( 0 <= modelID && modelID < context.modelToMesh.size() ) {
+					node.mesh = context.modelToMesh[modelID];
+				}
+			} else if ( model.length() > 4 && model.ends_with(".mdl") ) {
+				auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
+				if ( it == graph.meshes.end() ) {
+					auto meshID = graph.meshes.size();
+					if ( ext::valve::loadMdl(graph, model) ) {
+						node.mesh = meshID;
+					} else {
+						uf::stl::string model = "models/error.mdl";
+						auto it = std::find(graph.meshes.begin(), graph.meshes.end(), model);
+
+						if ( it != graph.meshes.end() ) {
+							node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
+						} else if ( ext::valve::loadMdl( graph, model ) ) {
+							node.mesh = (int32_t)(graph.meshes.size() - 1);
+						} else {
+							node.mesh = -1;
+						}
+					}
+				} else {
+					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
+				}
+			}
+
+			// parse lighting info
+			if ( classname.starts_with("light") ) {
+				auto lightKeyName = ::fmt::format( "{}_{}", classname, nodeID );
+				auto& light = graph.lights[lightKeyName];
+				light.color = { 1.0f, 1.0f, 1.0f };
+				light.intensity = 200.0f;
+				light.range = 0.0f;
+
+				// read color and intensity
+				auto _light = metadata["_light"].as<uf::stl::string>("");
+				if ( _light != "" ) {
+					// to-do: do not use stringstream
+					std::istringstream stream(_light);
+					light.color = { 255.0f, 255.0f, 255.0f };
+					
+					stream >> light.color.x >> light.color.y >> light.color.z;
+					light.color /= 255.0f;
+
+					if (!(stream >> light.intensity)) light.intensity = 200.0f;
+				}
+				// to-do: read range
+				light.intensity *= 0.2f; // scale down
+			}
+
+			// parse door
+			if ( classname.starts_with("func_door") ) {
+				auto& metadataDoor = metadata["door"];
+
+				float scale = impl::sourceToMeters;
+				if ( classname == "func_door" ) {
+					auto movedirStr = metadata["movedir"].as<uf::stl::string>("");
+					if ( movedirStr == "" && metadata["angle"].as<float>() ) {
+						float ang = metadata["angle"].as<float>();
+						if ( ang == -1 ) movedirStr = "-90 0 0";
+						else if ( ang == -2 ) movedirStr = "90 0 0";
+						else movedirStr = ::fmt::format("0 {} 0", ang);
+					}
+
+					if ( movedirStr != "" ) {
+						auto pyr = impl::str2vec<pod::Vector3f>( movedirStr );
+
+						float pitch = pyr.x * DEG_2_RAD;
+						float yaw   = pyr.y * DEG_2_RAD;
+
+						pod::Vector3f slideDir;
+						slideDir.x = cos(yaw) * cos(pitch);
+						slideDir.z = -(sin(yaw) * cos(pitch));
+						slideDir.y = -sin(pitch);
+
+						metadataDoor["direction"] = uf::vector::encode( uf::vector::normalize(slideDir) );
+					}
+				} else if ( classname == "func_door_rotating" ) {
+					scale = 1.0f;
+					metadataDoor["distance"] = metadata["distance"].as<float>(90.0f);
+
+					int flags = metadataDoor["spawnflags"].as<int>();
+					pod::Vector3f axis = {0, 1, 0};
+					if ( flags & 64 ) axis = {0, 0, 1};
+					if ( flags & 128 ) axis = {1, 0, 0};
+
+					metadataDoor["axis"] = uf::vector::encode( axis );
+				}
+				
+				metadataDoor["speed"] = metadata["speed"].as<float>(100.0f) * scale;
+				metadataDoor["wait"] = metadata["wait"].as<float>(4.0f);
+				metadataDoor["lip"] = metadata["lip"].as<float>(8.0f) * scale;
+				metadataDoor["spawnflags"] = metadata["spawnflags"].as<int>(0);
+			}
+
+			// parse parent
+			auto targetname = metadata["targetname"].as<uf::stl::string>("");
+			if ( targetname != "" ) {
+				targets[targetname] = nodeID;
+			}
+
+			// to-do: add additional parsing
+		}
+
+		// re-parent entities
+		uf::stl::vector<int32_t> newChildren;
+		for ( auto nodeID : graph.root.children ) {
+			auto& node = graph.nodes[nodeID];
+			auto& metadata = node.metadata["valve"];
+
+			auto parentname = metadata["parentname"].as<uf::stl::string>("");
+			if ( parentname != "" && targets.count(parentname) > 0 ) {
+				auto parentID = targets[parentname];
+				auto& parentNode = graph.nodes[parentID];
+				parentNode.children.emplace_back(nodeID);
+
+				node.transform = uf::transform::relative( parentNode.transform, node.transform );
+			} else {
+				newChildren.emplace_back(nodeID);
+			}
+		}
+		graph.root.children = newChildren;
+	}
 
 	// load materials
 	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
@@ -1317,13 +1310,11 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
 	}
 
-	// disable exporting if loaded from a VPK
-	if ( filename.starts_with("valve://") ) graph.metadata["exporter"]["enabled"] = false;
-	graph.metadata["exporter"]["unwrap"] = false; // not necessary to unwrap
+	// disable postprocessing flags
+	if ( filename.starts_with("valve://") ) graph.metadata["exporter"]["enabled"] = false; // disable exporting if loaded from a VPK
+	graph.metadata["exporter"]["unwrap"] = false; // do not unwrap UVs for baking (we already have those)
+	graph.metadata["baking"]["enabled"] = false; // disable lightmap baking (we already have those)
 
 	uf::graph::postprocess( graph );
-
-	// unmount pakfile
-	uf::vfs::unmount( pakfileMount );
 }
 #endif

@@ -200,7 +200,8 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	auto& metadata = scene->getComponent<uf::SceneBehavior::Metadata>();
 	auto& metadataObject = scene->getComponent<uf::ObjectBehavior::Metadata>();
 	auto mountUri = ::fmt::format("://{}", uf::vfs::resolveBase( metadataObject.system.root ) );
-	metadata.mount.hash = uf::vfs::mount( uf::vfs::createDiskMount( mountUri, 200 ) );
+	auto mount = uf::vfs::mount( uf::vfs::createDiskMount( mountUri, 200 ) );
+	metadata.mount.hash = mount.hash;
 
 	auto& metadataJson = scene->getComponent<uf::Serializer>();
 	metadataJson["system"]["scene"] = name;

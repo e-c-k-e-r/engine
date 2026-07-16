@@ -523,6 +523,12 @@ void UF_API uf::initialize() {
 	}
 
 #if UF_USE_VALVE
+	/* Mount games */ {
+		auto& games = uf::config["engine"]["ext"]["valve"]["games"];
+		ext::json::forEach( games, []( const uf::stl::string& uri ) {
+			ext::valve::mountGame( uri );
+		});
+	}
 	/* Load VPKs */ {
 		auto& vpks = uf::config["engine"]["ext"]["valve"]["vpks"];
 		ext::json::forEach( vpks, []( const uf::stl::string& uri ) {

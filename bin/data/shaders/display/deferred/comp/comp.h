@@ -183,6 +183,18 @@ void postProcess() {
 /*
 	{
 		const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
+
+		if ( ( bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
+			vec4 light = sampleTexture( surface.instance.lightmapID, surface.st.xy, 0.0 );
+			outFragColor.rgb = light.rgb;
+		} else {
+			outFragColor.rgb = vec3(1,0,1);
+		}
+	}
+*/
+/*
+	{
+		const Material material = materials[surface.instance.materialID >= materials.length() ? 0 : surface.instance.materialID];
 		
 		int cubemapIndex = -1;
 		if ( 0 <= surface.instance.cubemapID ) cubemapIndex = surface.instance.cubemapID;

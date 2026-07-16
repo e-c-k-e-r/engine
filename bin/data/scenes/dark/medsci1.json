@@ -1,0 +1,8 @@
+{
+	"import": "./base_dark.json",
+	"assets": [	
+		{ "filename": "game://Data/MEDSCI1.MIS" }
+	//	{ "filename": "./maps/medsci1.mis" }
+	//	{ "filename": "./maps/medsci1/graph.json" }
+	]
+}

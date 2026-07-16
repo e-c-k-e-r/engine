@@ -1058,16 +1058,15 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 		if ( spawnID == -1 && !spawns.empty() ) spawnID = uf::stl::random( spawns );
-		if ( spawnID != -1 ) {
-			auto& node = graph.nodes[spawnID];
-			auto& child = /*graph.root.entity->*/node.entity->loadChild( "./player.json", false ); // to-do: do not hardcode this
-			auto& childTransform = child.getComponent<pod::Transform<>>();
+		
+		auto& node = spawnID == -1 ? graph.root : graph.nodes[spawnID];
+		auto& child = /*graph.root.entity->*/node.entity->loadChild( "./player.json", false ); // to-do: do not hardcode this
+		auto& childTransform = child.getComponent<pod::Transform<>>();
 
-			auto flatten = uf::transform::flatten( node.transform );
-			childTransform = flatten;
+		auto flatten = uf::transform::flatten( node.transform );
+		childTransform = flatten;
 
-			graph.settings.stream.player = spawnID;
-		}
+		graph.settings.stream.player = spawnID;
 	}
 
 	// patch materials/textures
@@ -2169,9 +2168,9 @@ void uf::graph::reload( pod::Graph& graph ) {
 
 	for ( auto& node : graph.nodes ) {
 		if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
-        if ( !node.entity ) continue;
+		if ( !node.entity ) continue;
 
-        bool isStreamable = false;
+		bool isStreamable = false;
 		float radius = graph.settings.stream.radius;
 		float radiusSquared = radius * radius;
 
@@ -2472,7 +2471,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				if ( readLen > 0 ) {
 					pending.buffer.resize( readLen );
 					uf::asset::read( imgStream.buffer.filename, imgStream.buffer.offset, readLen, pending.buffer.data() );
-			    }
+				}
 			}
 		} else if ( !visible && (texture.generated() && !texture.aliased) ) {
 			image.clear();

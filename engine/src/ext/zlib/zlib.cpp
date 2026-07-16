@@ -16,7 +16,7 @@
 
 size_t ext::zlib::bufferSize = 16384;
 
-bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename ) {
+bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, int flag ) {
 	size_t fileSize = uf::vfs::size(filename);
 	if (fileSize == 0) {
 		UF_MSG_ERROR("Zlib: file not found or empty: {}", filename);
@@ -24,7 +24,7 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	}
 
 	z_stream strm{};
-	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
+	if (inflateInit2(&strm, flag) != Z_OK) return false;
 
 	uint8_t outBuffer[ext::zlib::bufferSize];
 
@@ -50,12 +50,12 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	return success;
 }
 
-bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, size_t start, size_t len ) {
+bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, size_t start, size_t len, int flag ) {
 	size_t fileSize = uf::vfs::size(filename);
 	if (fileSize == 0) return false;
 
 	z_stream strm{};
-	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
+	if (inflateInit2(&strm, flag) != Z_OK) return false;
 
 	size_t uncompressedOffset = 0;
 	uint8_t outBuffer[ext::zlib::bufferSize];
@@ -96,7 +96,7 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	return success;
 }
 
-bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges ) {
+bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, const uf::stl::vector<pod::Range>& ranges, int flag ) {
 	if ( ranges.empty() ) return false;
 
 	uf::stl::vector<pod::Range> sortedRanges = ranges;
@@ -106,7 +106,7 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	if (fileSize == 0) return false;
 
 	z_stream strm{};
-	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
+	if (inflateInit2(&strm, flag) != Z_OK) return false;
 
 	size_t uncompressedOffset = 0;
 	size_t currentRangeIdx = 0;
@@ -149,11 +149,11 @@ bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::
 	return success;
 }
 
-bool ext::zlib::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void* src, size_t size, size_t usize ) {
+bool ext::zlib::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void* src, size_t size, size_t usize, int flag ) {
 	if (size == 0) return false;
 
 	z_stream strm{};
-	if (inflateInit2(&strm, 15 + 32) != Z_OK) return false;
+	if (inflateInit2(&strm, flag) != Z_OK) return false;
 
 	strm.avail_in = (uInt)size;
 	strm.next_in = (Bytef*)src;
@@ -165,10 +165,13 @@ bool ext::zlib::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void*
 	int ret = inflate(&strm, Z_FINISH);
 	inflateEnd(&strm);
 
-	return (ret == Z_STREAM_END || ret == Z_OK);
+	if ( ret != Z_STREAM_END && ret != Z_OK ) {
+		UF_MSG_ERROR("Decompress encountered error: {}", ret);
+	}
+	return true;
 }
 
-bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
+bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests, int flag ) {
 	if ( requests.empty() ) return true;
 
 	std::sort(requests.begin(), requests.end(), [](const pod::ScatterRequest& a, const pod::ScatterRequest& b) {
@@ -176,7 +179,7 @@ bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vec
 	});
 
 	z_stream strm{};
-	if ( inflateInit2(&strm, 15 + 32) != Z_OK ) return false;
+	if ( inflateInit2(&strm, flag) != Z_OK ) return false;
 
 	size_t uncompressedOffset = 0;
 	size_t currentReqIdx = 0;
@@ -343,7 +346,7 @@ namespace {
 			return true;
 		}
 		if ( entry.compressionMethod == 8 ) {
-			return ext::zlib::decompressFromMemory(buffer, fileData, entry.compressedSize, entry.uncompressedSize);
+			return ext::zlib::decompressFromMemory(buffer, fileData, entry.compressedSize, entry.uncompressedSize, -15);
 		}
 		// ID for lz4
 		return false;
@@ -351,6 +354,10 @@ namespace {
 }
 
 pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority ) {
+	return ext::zlib::createZipMount(uri, std::move(buffer), priority);
+}
+
+pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>&& buffer, int priority ) {
 	uf::stl::string prefix;
 	uf::stl::string path;
 	uf::io::splitUri( uri, prefix, path );
@@ -365,10 +372,28 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vecto
 	mount.read = ::vfs_read;
 	
 	auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
-	state.buffer = buffer; // should be a move?
+	state.buffer = buffer;
 	ext::zlib::directory( state.buffer, state.entries );
 
+	if ( mount.path.empty() ) {
+		mount.path = ::fmt::format( "{}/{}", uri, (void*) state.buffer.data() );
+	}
+
+//	for ( auto& [ k, v ] : state.entries ) UF_MSG_DEBUG("{} => {}{}", mount.path, uri, k);
 	return mount;
+}
+
+pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, const uf::stl::string& filename, int priority ) {
+	uf::stl::vector<uint8_t> buffer;
+	if ( !uf::io::exists( filename ) ) {
+		UF_MSG_ERROR("Does not exist: {}", filename);
+	}
+	if ( !uf::io::readAsBuffer(buffer, filename) ) {
+		UF_MSG_ERROR("Failed to load ZIP mount from disk: {}", filename);
+		return pod::Mount{};
+	}
+
+	return ext::zlib::createZipMount( ::fmt::format("{}/{}", uri, filename), std::move(buffer), priority );
 }
 
 #endif

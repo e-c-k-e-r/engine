@@ -209,6 +209,7 @@ namespace uf {
 		}
 
 		pod::Graph& UF_API convert( uf::Object&, bool = false ); // converts an object into a graph
+		void UF_API preprocess( pod::Graph&, const uf::Serializer& = ext::json::null(), const uf::stl::string& = "" ); // applies pre-processing for format importing
 		void UF_API postprocess( pod::Graph& ); // applies post-processing for format importing
 		void UF_API import( pod::Graph::Storage& to, pod::Graph::Storage& from, bool move = true  ); // moves storage from one to the other
 		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& ); // saves a graph to disk

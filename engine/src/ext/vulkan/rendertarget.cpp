@@ -385,7 +385,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependencies.resize(2);
 			dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 			dependencies[0].dstSubpass = 0;
-			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;            
+			dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 			dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;   
 			dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 			dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;

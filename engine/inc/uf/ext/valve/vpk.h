@@ -33,7 +33,8 @@ namespace ext {
 		bool UF_API readVpk( const pod::VpkArchive& vpk, const uf::stl::string& filename, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer );
 
-		size_t UF_API mountVpk( const uf::stl::string& uri );
-		pod::Mount UF_API createVpkMount( const uf::stl::string& uri, int priority = 0 );
+		uf::vfs::Mount UF_API mountVpk( const uf::stl::string& uri, bool temp = false );
+		uf::vfs::Mount UF_API mountGame( const uf::stl::string& uri, bool temp = false );
+		pod::Mount UF_API createVpkMount( const uf::stl::string& uri, int priority = 0 ); // exposed here in the weird twisted event non-Steam VPK files are shipped
 	}
 }
