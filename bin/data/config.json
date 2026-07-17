@@ -116,7 +116,7 @@
 					"deferred": true,
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
-					"hdr": false,
+					"hdr": true,
 					"vxgi": false, // to-do: fix issues
 					"culling": false,
 					"bloom": true,

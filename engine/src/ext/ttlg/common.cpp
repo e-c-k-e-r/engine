@@ -1,6 +1,8 @@
 #include <uf/ext/ttlg/common.h>
 
 uf::stl::string impl::sanitizeString( const char* raw, size_t maxLength ) {
+	return uf::stl::string( raw );
+/*
 	if (!raw || maxLength == 0) return "";
 
 	size_t len = 0;
@@ -19,4 +21,5 @@ uf::stl::string impl::sanitizeString( const char* raw, size_t maxLength ) {
 		}
 	}
 	return clean;
+*/
 }

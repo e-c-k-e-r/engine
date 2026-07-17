@@ -129,31 +129,32 @@ namespace impl {
 		uint16_t flavor;
 	};
 
-	struct sPositionProp {
+	// ordered in the way they're read per OpenDarkEngine
+	struct PropertyPosition {
 		pod::Vector3f position;
-		uint32_t cell;
-		uint16_t headingRaw;
-		uint16_t pitchRaw;
-		uint16_t rollRaw;
+		int32_t cell;
+		int16_t heading;
+		int16_t pitch;
+		int16_t bank;
 	};
 
-	struct sLightProp {
-		pod::Vector3f color;
-		float intensity;
-		float range;
-		uint8_t type;
-		uint8_t active;
-		uint8_t castShadows;
+	struct PropertyLight {
+		float brightness;
+		float hue;
+		float saturation;
+		float z_offset;
+		float radius;
 	};
 
-	struct sAmbientSoundProp {
+	struct PropertyAmbient {
 		char schemaName[16];
 		uint32_t flags;
 		float volume;
 		float radius;
 	};
 
-	struct sAnimLightProp {
+	// ?
+	struct PropertyAnimLight {
 		uint32_t mode;
 		float millis;
 		pod::Vector3f color;
@@ -176,8 +177,8 @@ namespace impl {
 		uf::stl::unordered_map<int32_t, int32_t> parentMap;
 		uf::stl::unordered_map<int32_t, uf::stl::string> modelNames;
 		uf::stl::unordered_map<int32_t, uf::stl::string> customNames;
-		uf::stl::unordered_map<int32_t, sLightProp> lightProps;
-		uf::stl::unordered_map<int32_t, sAmbientSoundProp> ambientSounds;
+		uf::stl::unordered_map<int32_t, PropertyLight> lightProps;
+		uf::stl::unordered_map<int32_t, PropertyAmbient> ambientSounds;
 		uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> scripts;
 
 		uf::stl::vector<LinkData> links;
@@ -219,7 +220,7 @@ namespace impl {
 
 		uint16_t flavorId = 1;
 		while ( offset + 32 <= endOffset ) {
-			uf::stl::string relName = impl::sanitizeString((const char*)(buffer.data() + offset), 32);
+			uf::stl::string relName = uf::stl::string((const char*)(buffer.data() + offset));
 			if ( !relName.empty() ) ctx.linkFlavorNames[flavorId] = relName;
 			flavorId++;
 			offset += 32;
@@ -273,43 +274,42 @@ namespace impl {
 			PropertyEntry entry;
 			if ( !impl::readStruct( buffer, offset, entry ) ) break;
 
-			uint32_t dataStart = offset;
+			uint32_t nextEntryOffset = offset + entry.size;
 
-			if ( propName == "Light" && entry.size >= sizeof(sLightProp) ) {
-				sLightProp light;
-				if ( impl::readStruct( buffer, dataStart, light ) ) ctx.lightProps[entry.objectId] = light;
-			/*
-				if ( std::isnan(light.color.x) || std::isinf(light.color.x) ) light.color = {1.f, 1.f, 1.f};
-				if ( std::isnan(light.intensity) || std::isinf(light.intensity) ) light.intensity = 100.f;
-			*/
-			}
-			else if ( propName == "Ambient" && entry.size >= sizeof(sAmbientSoundProp) ) {
-				sAmbientSoundProp sound;
-				if ( impl::readStruct( buffer, dataStart, sound ) ) {
-					auto schemaName = sanitizeString( sound.schemaName, 16 );
+			if ( propName == "Light" && entry.size >= sizeof(PropertyLight) ) {
+				PropertyLight light;
+				if ( impl::readStruct( buffer, offset, light ) ) {
+					ctx.lightProps[entry.objectId] = light;
+				}
+			} else if ( propName == "Ambient" && entry.size >= sizeof(PropertyAmbient) ) {
+				PropertyAmbient sound;
+				if ( impl::readStruct( buffer, offset, sound ) ) {
+					auto schemaName = uf::stl::string( sound.schemaName );
 					memset(sound.schemaName, 0, 16);
 					memcpy(sound.schemaName, schemaName.c_str(), std::min<size_t>(15, schemaName.size()));
 					ctx.ambientSounds[entry.objectId] = sound;
 				}
-			}
-			else if ( propName == "Scripts" ) {
-				const char* scriptCursor = (const char*)(buffer.data() + dataStart);
+			} else if ( propName == "Scripts" ) {
+				const char* scriptCursor = (const char*)(buffer.data() + offset);
 				size_t remainingBytes = entry.size;
+
 				for ( auto s = 0; s < 4; ++s ) {
 					if ( remainingBytes <= 0 || *scriptCursor == '\0' ) break;
 
-					auto script = sanitizeString( scriptCursor, remainingBytes );
+					auto script = uf::stl::string( scriptCursor );
 					if ( script.empty() ) break;
-					
+
 					ctx.scripts[entry.objectId].emplace_back(script);
+
 					size_t step = strnlen(scriptCursor, remainingBytes) + 1;
 					if ( step > remainingBytes ) break;
+
 					scriptCursor += step;
 					remainingBytes -= step;
 				}
 			}
 
-			offset = dataStart + entry.size;
+			offset = nextEntryOffset;
 		}
 	}
 
@@ -500,6 +500,8 @@ namespace impl {
 			uf::stl::vector<uf::stl::vector<uint8_t>> polyIndices;
 			uf::stl::vector<impl::WRPlane> planes;
 			uf::stl::vector<impl::WRLightInfo> lmInfos;
+			uf::stl::vector<int16_t> animLightList;
+			uf::stl::vector<uint16_t> lightIndices;
 		};
 		uf::stl::vector<ParsedCell> cells( header.numCells );
 
@@ -533,9 +535,9 @@ namespace impl {
 			impl::readArray( buffer, offset, cell.header.numPlanes, cell.planes );
 
 			// read animated lights
-			offset += cell.header.numAnimLights * sizeof(int16_t);
+			impl::readArray(buffer, offset, cell.header.numAnimLights, cell.animLightList);
 
-			// to-do: read lightmaps information
+			// read lightmaps information
 			impl::readArray(buffer, offset, cell.header.numTextured, cell.lmInfos);
 
 			// read lightmap
@@ -553,38 +555,57 @@ namespace impl {
 				uint32_t lmSizeBytes = w * h * lightPixelSize;
 
 				if ( lmSizeBytes > 0 && ( offset + lmSizeBytes * lmCount ) <= buffer.size()) {
-					pod::Image image;
-					image.size = { w, h };
-					image.channels = 4;
-					image.bpp = 32;
-					image.pixels.resize( w * h * 4 );
-
-					// read lightmap
 					uf::stl::vector<uint16_t> samples;
 					impl::readArray( buffer, offset, w * h * lmCount, samples );
 
-					// read pixels
-					for ( auto y = 0; y < h; ++y ) {
-						for ( auto x = 0; x < w; ++x ) {
-							uint16_t sample = samples[y * w + x];
-							auto color = pod::Vector3f{
-								(float)((sample >> 10) & 0x1F),
-								(float)((sample >>  5) & 0x1F),
-								(float)((sample	  ) & 0x1F),
-							} / 31.0f;
-							impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
+					for ( int layer = 0; layer < lmCount; ++layer ) {
+						pod::Image image;
+						image.size = { w, h };
+						image.channels = 4;
+						image.bpp = 32;
+						image.pixels.resize( w * h * 4 );
+
+						for ( auto y = 0; y < h; ++y ) {
+							for ( auto x = 0; x < w; ++x ) {
+								uint16_t sample = samples[(layer * w * h) + (y * w + x)];
+								auto color = pod::Vector3f{
+									(float)((sample >> 10) & 0x1F),
+									(float)((sample >>  5) & 0x1F),
+									(float)((sample   ) & 0x1F),
+								} / 31.0f;
+								impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
+							}
+						}
+
+						if ( layer == 0 ) {
+							uf::atlas::add( ctx.lightmapAtlas, image, impl::darkFaceHash(c, i) );
+						} else {
+							int currentLayer = 1;
+							int lightID = -1;
+							for ( int bit = 0; bit < 32; ++bit ) {
+								if ( cell.lmInfos[i].animflags & (1 << bit) ) {
+									if ( currentLayer == layer ) {
+										if ( bit < cell.animLightList.size() ) {
+											lightID = cell.animLightList[bit];
+										}
+										break;
+									}
+									currentLayer++;
+								}
+							}
+
+							pod::Atlas::hash_t animHash = ::fmt::format("c_{}_p_{}_anim_{}", c, i, lightID);
+							uf::atlas::add( ctx.lightmapAtlas, image, animHash );
 						}
 					}
-					uf::atlas::add( ctx.lightmapAtlas, image, impl::darkFaceHash(c, i) );
 				} else {
 					offset += ( lmSizeBytes * lmCount );
 				}
 			}
 
-			// to-do: read light information
 			uint32_t lightCount;
 			if ( impl::readStruct( buffer, offset, lightCount ) ) {
-				offset += ( lightCount * sizeof(uint16_t) ); // skip
+				impl::readArray( buffer, offset, lightCount, cell.lightIndices );
 			}
 		}
 
@@ -776,39 +797,41 @@ namespace impl {
 			}
 
 			// read position (and orientation) property
-			sPositionProp prop;
+			PropertyPosition prop;
 			if ( !impl::readStruct( buffer, offset, prop ) ) break;
 
 			auto nodeID = graph.nodes.size();
 			graph.root.children.emplace_back(nodeID);
 			auto& node = graph.nodes.emplace_back();
 			auto& metadata = node.metadata["dark"];
+			
+			node.transform.position = impl::convertPos_NewDark( prop.position );
 
-			auto facing = pod::Vector3f{ prop.pitchRaw, prop.headingRaw, -prop.rollRaw } * M_PI / 32768.0f;
+			// intentionally out of order so the struct can stay in the same order
+			auto facing = pod::Vector3f{ prop.heading, prop.bank, prop.pitch } * M_PI / 32768.0f;
 
-			node.transform.position = impl::convertPos_NewDark(prop.position);
-			node.transform.orientation = uf::quaternion::euler( impl::convertPos_NewDark( facing, 1.0f ) );
+			auto qPitch   = uf::quaternion::axisAngle(pod::Vector3f{1.0f, 0.0f, 0.0f}, -facing.x); // unknown if this needs to be negative?
+			auto qHeading = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 1.0f, 0.0f}, -facing.y);
+			auto qBank    = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 0.0f, 1.0f}, -facing.z);
+
+			node.transform.orientation = uf::quaternion::multiply(qHeading, uf::quaternion::multiply(qBank, qPitch));
 
 			// deduce name
 			if ( ctx.customNames.count(entry.objectId) ) {
-				node.name = impl::sanitizeString(ctx.customNames.at(entry.objectId).c_str(), 128);
+				node.name = uf::stl::string(ctx.customNames.at(entry.objectId).c_str());
 			} else {
 				uf::stl::string symName;
 				if ( ctx.findInheritedProperty(entry.objectId, ctx.archetypes, symName) ) {
-					node.name = impl::sanitizeString(symName.c_str(), 128);
+					node.name = uf::stl::string(symName.c_str());
 				}
-				if ( node.name.empty()) {
-					node.name = ::fmt::format("object_{}", entry.objectId);
-				} else {
-					node.name = ::fmt::format("{}_{}", node.name, entry.objectId);
-				}
+				if ( node.name.empty()) node.name = ::fmt::format("object #{}", entry.objectId);
 			}
 
 			// deduce model
 			node.mesh = -1;
 			uf::stl::string modelName;
 			if ( ctx.findInheritedProperty( entry.objectId, ctx.modelNames, modelName ) && !modelName.empty() ) {
-				uf::stl::string model = sanitizeString(modelName.c_str(), 64);
+				uf::stl::string model = uf::stl::string(modelName.c_str());
 				std::transform( model.begin(), model.end(), model.begin(), ::tolower );
 
 				if ( !model.ends_with(".bin") ) model += ".bin";
@@ -828,19 +851,17 @@ namespace impl {
 			}
 
 			// deduce light
-			sLightProp light;
-			if ( ctx.findInheritedProperty( entry.objectId, ctx.lightProps, light ) && light.active ) {
-				auto lightKey = ::fmt::format("light_{}", entry.objectId);
+			PropertyLight light;
+			if ( ctx.findInheritedProperty( entry.objectId, ctx.lightProps, light ) ) {
+				auto lightKey = ::fmt::format("{}_{}", node.name, nodeID);
 				auto& graphLight = graph.lights[lightKey];
-				graphLight.color = light.color;
-				graphLight.intensity = light.intensity;
-				graphLight.range = light.range;
-
-				metadata["light_source"] = lightKey;
+				graphLight.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f);
+				graphLight.intensity = light.brightness / M_PI;
+				graphLight.range = light.radius;
 			}
 
 			// deduce sound
-			sAmbientSoundProp ambient;
+			PropertyAmbient ambient;
 			if (ctx.findInheritedProperty(entry.objectId, ctx.ambientSounds, ambient)) {
 				metadata["sound"]["schema"] = uf::stl::string(ambient.schemaName);
 				metadata["sound"]["volume"] = ambient.volume;
@@ -892,9 +913,10 @@ namespace impl {
 		if ( !impl::readStruct( buffer, offset, chunkCount ) ) return;
 		for ( uint32_t i = 0; i < chunkCount; ++i ) {
 			impl::DarkDBInvItem item;
-			if ( !impl::readStruct(buffer, offset, item) ) break;
-			uf::stl::string name = impl::sanitizeString( item.name );
+			if ( !impl::readStruct( buffer, offset, item ) ) break;
+			uf::stl::string name = item.name;
 			inventory[name] = item;
+		//	UF_MSG_DEBUG("{}", name);
 		}
 
 		// parse strings

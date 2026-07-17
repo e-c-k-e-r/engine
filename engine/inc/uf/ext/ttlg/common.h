@@ -53,6 +53,27 @@ namespace impl {
 		out[3] = (uint8_t)(std::clamp(exponent + 128, 0, 255));
 	}
 
+	inline pod::Vector3f hsvToRgb(float h, float s, float v) {
+		if (s <= 0.0f) return {v, v, v};
+
+		h = std::fmod(h, 1.0f) * 6.0f;
+		int i = (int)std::floor(h);
+		float f = h - (float)i;
+
+		float p = v * (1.0f - s);
+		float q = v * (1.0f - s * f);
+		float t = v * (1.0f - s * (1.0f - f));
+
+		switch (i) {
+			case 0: return {v, t, p};
+			case 1: return {q, v, p};
+			case 2: return {p, v, t};
+			case 3: return {p, q, v};
+			case 4: return {t, p, v};
+			default: return {v, p, q};
+		}
+	}
+
 	inline pod::Vector3f convertPos_NewDark( const pod::Vector3f& v, float scale = impl::darkToMeters ) {
 		return pod::Vector3f{ v.x, v.z, v.y } * scale;
 	}

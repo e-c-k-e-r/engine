@@ -336,19 +336,19 @@ template<typename T> T uf::matrix::rotate( const T& matrix, const pod::Vector3t<
 	T res = matrix;
 
 	if (vector.x != 0) {
-		T Rx = uf::matrix::identity<T>();
+		T Rx = uf::matrix::identity<typename T::type_t>();
 		Rx(1,1) = cos(vector.x); Rx(1,2) = -sin(vector.x);
 		Rx(2,1) = sin(vector.x); Rx(2,2) = cos(vector.x);
 		res = uf::matrix::multiply(res, Rx);
 	}
 	if (vector.y != 0) {
-		T Ry = uf::matrix::identity<T>();
+		T Ry = uf::matrix::identity<typename T::type_t>();
 		Ry(0,0) = cos(vector.y); Ry(0,2) = sin(vector.y);
 		Ry(2,0) = -sin(vector.y); Ry(2,2) = cos(vector.y);
 		res = uf::matrix::multiply(res, Ry);
 	}
 	if (vector.z != 0) {
-		T Rz = uf::matrix::identity<T>();
+		T Rz = uf::matrix::identity<typename T::type_t>();
 		Rz(0,0) = cos(vector.z); Rz(0,1) = -sin(vector.z);
 		Rz(1,0) = sin(vector.z); Rz(1,1) = cos(vector.z);
 		res = uf::matrix::multiply(res, Rz);

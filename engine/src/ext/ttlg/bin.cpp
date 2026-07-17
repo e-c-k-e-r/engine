@@ -106,6 +106,7 @@ namespace impl {
 
 		bool hasRot = false;
 		for ( auto i = 0; i < 9; ++i) if ( std::abs(subObj.trans.rot[i]) > 0.0001f ) { hasRot = true; break; }
+		// to-do: verify if this is proper
 		if ( hasRot ) {
 			rot(0,0) = subObj.trans.rot[0]; rot(1,0) = subObj.trans.rot[1]; rot(2,0) = subObj.trans.rot[2];
 			rot(0,1) = subObj.trans.rot[3]; rot(1,1) = subObj.trans.rot[4]; rot(2,1) = subObj.trans.rot[5];
