@@ -8,6 +8,7 @@ namespace impl {
 	const float darkToMeters = 0.75f;
 	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
 
+	// could be dedicated functions in the engine
 	template<typename T>
 	inline bool readStruct(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, T& outValue) {
 		if (offset + sizeof(T) > buffer.size()) return false;
@@ -77,13 +78,4 @@ namespace impl {
 	inline pod::Vector3f convertPos_NewDark( const pod::Vector3f& v, float scale = impl::darkToMeters ) {
 		return pod::Vector3f{ v.x, v.z, v.y } * scale;
 	}
-
-	inline bool getBit(const uint8_t* bitmap, int32_t bitIndex, int32_t minID) {
-		int32_t relativeBit = bitIndex - minID;
-		int32_t byteIndex = relativeBit >> 3;
-		int32_t bitOffset = relativeBit & 0x07;
-		return (bitmap[byteIndex] & (1 << bitOffset)) != 0;
-	}
-
-	uf::stl::string sanitizeString(const char* raw, size_t maxLength = 16);
 }

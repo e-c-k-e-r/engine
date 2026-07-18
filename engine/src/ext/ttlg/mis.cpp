@@ -90,7 +90,7 @@ namespace impl {
 		float d;
 	};
 
-	struct DarkDBChunkTXLIST {
+	struct DarkDBTXLIST_Header {
 		uint32_t length;
 		uint32_t txt_count;
 		uint32_t fam_count;
@@ -107,8 +107,9 @@ namespace impl {
 		char name[16];
 	};
 
-	struct PropertyChunkHeader {
-		uint32_t numEntries;
+	struct DarkDBObjVec_Header {
+		int32_t minID;
+		int32_t maxID;
 	};
 
 	struct PropertyEntry {
@@ -170,6 +171,8 @@ namespace impl {
 	};
 
 	struct DarkContext {
+		uf::stl::vector<uint8_t> buffer;
+
 		uf::stl::unordered_map<uf::stl::string, impl::DarkDBInvItem> inventory;
 		uf::stl::vector<uf::stl::string> families;
 
@@ -177,9 +180,14 @@ namespace impl {
 		uf::stl::unordered_map<int32_t, int32_t> parentMap;
 		uf::stl::unordered_map<int32_t, uf::stl::string> modelNames;
 		uf::stl::unordered_map<int32_t, uf::stl::string> customNames;
-		uf::stl::unordered_map<int32_t, PropertyLight> lightProps;
-		uf::stl::unordered_map<int32_t, PropertyAmbient> ambientSounds;
-		uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> scripts;
+		
+		uf::stl::vector<bool> objects;
+		struct {
+			uf::stl::unordered_map<int32_t, PropertyPosition> position;
+			uf::stl::unordered_map<int32_t, PropertyLight> light;
+			uf::stl::unordered_map<int32_t, PropertyAmbient> ambient;
+			uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> script;
+		} properties;
 
 		uf::stl::vector<LinkData> links;
 		uf::stl::unordered_map<uint16_t, uf::stl::string> linkFlavorNames;
@@ -207,14 +215,15 @@ namespace impl {
 		return ::fmt::format("c_{}_p_{}", cellIdx, polyIdx);
 	}
 
-	uf::stl::string getStringFromOffsetSafe(const uf::stl::vector<uint8_t>& buffer, uint32_t offset, size_t maxScan = 128) {
+	uf::stl::string getStringFromOffset( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, size_t maxScan = 128 ) {
 		if ( offset >= buffer.size()) return "";
 		size_t max_len = std::min<size_t>(maxScan, buffer.size() - offset);
 		const char* ptr = (const char*)(buffer.data() + offset);
 		return uf::stl::string(ptr, strnlen( ptr, max_len ));
 	}
 
-	void parseRelations(impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& item) {
+	void parseRelations( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
 		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
 		uint32_t endOffset = item.offset + item.length;
 
@@ -227,7 +236,8 @@ namespace impl {
 		}
 	}
 
-	void parsePartitionedLinks(impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& item) {
+	void parsePartitionedLinks( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
 		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
 		uint32_t endOffset = item.offset + item.length;
 
@@ -240,33 +250,16 @@ namespace impl {
 		}
 	}
 
-	void parseProperty_Strings(impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& item, const uf::stl::string& propType) {
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t endOffset = item.offset + item.length;
+	void parseProperty( impl::DarkContext& ctx, const uf::stl::string& propName ) {
+		auto& buffer = ctx.buffer;
+		auto& inventory = ctx.inventory;
 
-		while ( offset < endOffset ) {
-			PropertyEntry entry;
-
-			if ( !impl::readStruct( buffer, offset, entry ) ) break;
-
-			uint32_t dataStart = offset;
-
-			if ( propType == "SymName" ) {
-				if ( entry.size > 4 ) {
-					auto symName = impl::getStringFromOffsetSafe( buffer, dataStart + 4, entry.size - 4 );
-					if ( !symName.empty() ) ctx.archetypes[entry.objectId] = symName;
-				}
-			}
-			else if ( propType == "ModelName" ) {
-				auto modelName = impl::getStringFromOffsetSafe(buffer, dataStart, entry.size);
-				if ( !modelName.empty() ) ctx.modelNames[entry.objectId] = modelName;
-			}
-
-			offset = dataStart + entry.size;
+		auto fullName = ::fmt::format( "P${}", propName );
+		if ( inventory.count( fullName ) == 0 ) {
+			return;
 		}
-	}
 
-	void parseGenericProperties(impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const uf::stl::string& propName, const impl::DarkDBInvItem& item ) {
+		const auto& item = inventory.at(fullName);
 		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
 		uint32_t endOffset = item.offset + item.length;
 
@@ -274,20 +267,22 @@ namespace impl {
 			PropertyEntry entry;
 			if ( !impl::readStruct( buffer, offset, entry ) ) break;
 
-			uint32_t nextEntryOffset = offset + entry.size;
+			uint32_t next = offset + entry.size;
 
-			if ( propName == "Light" && entry.size >= sizeof(PropertyLight) ) {
+			if ( propName == "Position" && entry.size >= sizeof(PropertyPosition) && entry.objectId >= 0 ) {
+				PropertyPosition position;
+				if ( impl::readStruct( buffer, offset, position ) ) {
+					ctx.properties.position[entry.objectId] = position;
+				}
+			} else if ( propName == "Light" && entry.size >= sizeof(PropertyLight) ) {
 				PropertyLight light;
 				if ( impl::readStruct( buffer, offset, light ) ) {
-					ctx.lightProps[entry.objectId] = light;
+					ctx.properties.light[entry.objectId] = light;
 				}
 			} else if ( propName == "Ambient" && entry.size >= sizeof(PropertyAmbient) ) {
 				PropertyAmbient sound;
 				if ( impl::readStruct( buffer, offset, sound ) ) {
-					auto schemaName = uf::stl::string( sound.schemaName );
-					memset(sound.schemaName, 0, 16);
-					memcpy(sound.schemaName, schemaName.c_str(), std::min<size_t>(15, schemaName.size()));
-					ctx.ambientSounds[entry.objectId] = sound;
+					ctx.properties.ambient[entry.objectId] = sound;
 				}
 			} else if ( propName == "Scripts" ) {
 				const char* scriptCursor = (const char*)(buffer.data() + offset);
@@ -299,7 +294,7 @@ namespace impl {
 					auto script = uf::stl::string( scriptCursor );
 					if ( script.empty() ) break;
 
-					ctx.scripts[entry.objectId].emplace_back(script);
+					ctx.properties.script[entry.objectId].emplace_back(script);
 
 					size_t step = strnlen(scriptCursor, remainingBytes) + 1;
 					if ( step > remainingBytes ) break;
@@ -307,16 +302,53 @@ namespace impl {
 					scriptCursor += step;
 					remainingBytes -= step;
 				}
+			} else if ( propName == "SymName" ) {
+				if ( entry.size > 4 ) {
+					auto symName = impl::getStringFromOffset( buffer, offset + 4, entry.size - 4 );
+					if ( !symName.empty() ) ctx.archetypes[entry.objectId] = symName;
+				}
+			} else if ( propName == "ModelName" ) {
+				auto modelName = impl::getStringFromOffset(buffer, offset, entry.size);
+				if ( !modelName.empty() ) ctx.modelNames[entry.objectId] = modelName;
 			}
 
-			offset = nextEntryOffset;
+			offset = next;
 		}
 	}
 
-	void parseTextures( pod::Graph& graph, impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& item ) {
+	void parseObjVec( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
+		DarkDBObjVec_Header header;
+		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+		if ( !impl::readStruct( buffer, offset, header ) ) return;
+
+		if ( header.maxID <= 0 ) return;
+		ctx.objects.assign( header.maxID, false );
+
+		const uint8_t* bitmap = buffer.data() + offset;
+		uint32_t bitArraySizeBytes = item.length - sizeof(impl::DarkDBChunkHeader) - 8;
+
+		if ( offset + bitArraySizeBytes > buffer.size() ) return;
+
+		for ( int32_t id = header.minID; id < header.maxID; ++id ) {
+			if ( id < 0 ) continue;
+
+			int32_t startByte = header.minID >> 3;
+			int32_t myByte = id >> 3;
+			int32_t byteIndex = myByte - startByte;
+			int32_t bitOffset = id & 0x07;
+
+			if ( byteIndex >= 0 && byteIndex < bitArraySizeBytes ) {
+				ctx.objects[id] = (bitmap[byteIndex] & (1 << bitOffset)) != 0;
+			}
+		}
+	}
+
+	void parseTextures( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
 		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
 		uint32_t size = item.length;
-		DarkDBChunkTXLIST header;
+		DarkDBTXLIST_Header header;
 		if ( !impl::readStruct( buffer, offset, header ) ) return;
 
 		uf::stl::vector<DarkDBTXLIST_fam> fams;
@@ -476,7 +508,8 @@ namespace impl {
 		}
 	}
 
-	void parseWorld( pod::Graph& graph, impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& item ) {
+	void parseWorld( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
 		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
 		impl::WRHeader header;
 		if ( !impl::readStruct( buffer, offset, header ) ) return;
@@ -571,7 +604,7 @@ namespace impl {
 								auto color = pod::Vector3f{
 									(float)((sample >> 10) & 0x1F),
 									(float)((sample >>  5) & 0x1F),
-									(float)((sample   ) & 0x1F),
+									(float)((sample	  ) & 0x1F),
 								} / 31.0f;
 								impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
 							}
@@ -769,68 +802,46 @@ namespace impl {
 		graph.root.children.emplace_back(nodeID);
 	}
 
-	void parseObjects( pod::Graph& graph, const impl::DarkContext& ctx, const uf::stl::vector<uint8_t>& buffer, const impl::DarkDBInvItem& objVecItem, const impl::DarkDBInvItem& posItem ) {
-		// read ObjVec
-		if ( objVecItem.length < 8 ) return;
-		
-		const uint8_t* bitmap = buffer.data();
-		int32_t minID, maxID;
-		{
-			uint32_t offset = objVecItem.offset + sizeof(impl::DarkDBChunkHeader);
-			if ( !impl::readStruct( buffer, offset, minID ) ) return;
-			if ( !impl::readStruct( buffer, offset, maxID ) ) return;
-			bitmap += offset;
-		}
-
-		// iterate through P$Position
-		uint32_t offset = posItem.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t end = offset + posItem.length;
-		while ( offset < end ) {
-			PropertyEntry entry;
-			if ( !impl::readStruct( buffer, offset, entry ) ) break;
-			uint32_t start = offset; // to reset the offset later
-
-			bool isActive = ( entry.objectId >= minID && entry.objectId < maxID && getBit( bitmap, entry.objectId, minID ) );
-			if ( !isActive || entry.objectId < 0 ) {
-				offset = start + entry.size;
-				continue;
-			}
-
-			// read position (and orientation) property
-			PropertyPosition prop;
-			if ( !impl::readStruct( buffer, offset, prop ) ) break;
+	void loadObjects( pod::Graph& graph, const impl::DarkContext& ctx ) {
+		for ( auto objectID = 0; objectID < ctx.objects.size(); ++objectID ) {
+			if ( !ctx.objects[objectID] ) continue; // inactive object
+			if ( ctx.properties.position.count(objectID) == 0 ) continue; // no position bound
 
 			auto nodeID = graph.nodes.size();
 			graph.root.children.emplace_back(nodeID);
-			auto& node = graph.nodes.emplace_back();
-			auto& metadata = node.metadata["dark"];
 			
-			node.transform.position = impl::convertPos_NewDark( prop.position );
+			auto& node = graph.nodes.emplace_back();
+			
+			auto& metadata = node.metadata["dark"];
 
-			// intentionally out of order so the struct can stay in the same order
-			auto facing = pod::Vector3f{ prop.heading, prop.bank, prop.pitch } * M_PI / 32768.0f;
-
-			auto qPitch   = uf::quaternion::axisAngle(pod::Vector3f{1.0f, 0.0f, 0.0f}, -facing.x); // unknown if this needs to be negative?
-			auto qHeading = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 1.0f, 0.0f}, -facing.y);
-			auto qBank    = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 0.0f, 1.0f}, -facing.z);
-
-			node.transform.orientation = uf::quaternion::multiply(qHeading, uf::quaternion::multiply(qBank, qPitch));
-
-			// deduce name
-			if ( ctx.customNames.count(entry.objectId) ) {
-				node.name = uf::stl::string(ctx.customNames.at(entry.objectId).c_str());
+			// bind name
+			if ( ctx.customNames.count(objectID) ) {
+				node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
 			} else {
 				uf::stl::string symName;
-				if ( ctx.findInheritedProperty(entry.objectId, ctx.archetypes, symName) ) {
+				if ( ctx.findInheritedProperty(objectID, ctx.archetypes, symName) ) {
 					node.name = uf::stl::string(symName.c_str());
 				}
-				if ( node.name.empty()) node.name = ::fmt::format("object #{}", entry.objectId);
+				if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
+			}
+			
+			// bind position
+			PropertyPosition position = ctx.properties.position.at(objectID); {
+				// intentionally out of order so the struct can stay in the same order
+				auto facing = pod::Vector3f{ position.heading, position.bank, position.pitch } * -M_PI / 32768.0f;
+
+				auto qPitch   = uf::quaternion::axisAngle(pod::Vector3f{1.0f, 0.0f, 0.0f}, facing.x);
+				auto qHeading = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 1.0f, 0.0f}, facing.y);
+				auto qBank	  = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 0.0f, 1.0f}, facing.z);
+
+				node.transform.position = impl::convertPos_NewDark( position.position );
+				node.transform.orientation = uf::quaternion::multiply(qHeading, uf::quaternion::multiply(qBank, qPitch));
+			
 			}
 
-			// deduce model
-			node.mesh = -1;
+			// bind model
 			uf::stl::string modelName;
-			if ( ctx.findInheritedProperty( entry.objectId, ctx.modelNames, modelName ) && !modelName.empty() ) {
+			if ( ctx.findInheritedProperty( objectID, ctx.modelNames, modelName ) && !modelName.empty() ) {
 				uf::stl::string model = uf::stl::string(modelName.c_str());
 				std::transform( model.begin(), model.end(), model.begin(), ::tolower );
 
@@ -850,36 +861,48 @@ namespace impl {
 				}
 			}
 
-			// deduce light
+			// bind light
 			PropertyLight light;
-			if ( ctx.findInheritedProperty( entry.objectId, ctx.lightProps, light ) ) {
-				auto lightKey = ::fmt::format("{}_{}", node.name, nodeID);
-				auto& graphLight = graph.lights[lightKey];
-				graphLight.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f);
-				graphLight.intensity = light.brightness / M_PI;
-				graphLight.range = light.radius;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.light, light ) ) {
+				// create new node
+				auto lightNodeID = graph.nodes.size();
+				auto& lightNode = graph.nodes.emplace_back();
+				lightNode.name = ::fmt::format("{}_light", node.name);
+				graph.nodes[nodeID].children.emplace_back(lightNodeID);
+
+				graph.lights[::fmt::format("{}_{}", lightNode.name, lightNodeID)] = {
+					.range = light.radius,
+					.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f),
+					.intensity = light.brightness / M_PI,
+				};
 			}
 
-			// deduce sound
+			// bind ambient sound
 			PropertyAmbient ambient;
-			if (ctx.findInheritedProperty(entry.objectId, ctx.ambientSounds, ambient)) {
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.ambient, ambient ) ) {
 				metadata["sound"]["schema"] = uf::stl::string(ambient.schemaName);
 				metadata["sound"]["volume"] = ambient.volume;
 				metadata["sound"]["radius"] = ambient.radius;
 				metadata["sound"]["flags"]  = ambient.flags;
 			}
 
-			// deduce
+			// bind script
 			uf::stl::vector<uf::stl::string> scripts;
-			if ( ctx.findInheritedProperty( entry.objectId, ctx.scripts, scripts ) ) {
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.script, scripts ) ) {
 				for ( const auto& s : scripts ) metadata["scripts"].emplace_back(s);
 			}
 
-			metadata["id"] = entry.objectId;
-			metadata["cell"] = prop.cell;
+			// fill out metadata
+			{
+				metadata["id"] = objectID;
+				metadata["cell"] = position.cell;
 
-
-			offset = start + entry.size;
+				// to-do: deduce whether this should have physics
+				if ( false ) {
+					node.metadata["physics"]["type"] = "bounding box";
+					node.metadata["physics"]["mass"] = 0;
+				}
+			}
 		}
 	}
 
@@ -907,7 +930,10 @@ namespace impl {
 		}
 	}
 
-	void readInventory( impl::DarkContext& ctx, uf::stl::unordered_map<uf::stl::string, impl::DarkDBInvItem>& inventory, uf::stl::vector<uint8_t>& buffer, const impl::DarkDBHeader& header ) {
+	void readInventory( impl::DarkContext& ctx, const impl::DarkDBHeader& header ) {
+		auto& buffer = ctx.buffer;
+		auto& inventory = ctx.inventory;
+
 		uint32_t chunkCount;
 		uint32_t offset = header.inv_offset;
 		if ( !impl::readStruct( buffer, offset, chunkCount ) ) return;
@@ -916,33 +942,23 @@ namespace impl {
 			if ( !impl::readStruct( buffer, offset, item ) ) break;
 			uf::stl::string name = item.name;
 			inventory[name] = item;
-		//	UF_MSG_DEBUG("{}", name);
 		}
 
 		// parse strings
-		if ( inventory.count("P$SymName") > 0 ) {
-			impl::parseProperty_Strings( ctx, buffer, inventory["P$SymName"], "SymName" );
-		}
-		if ( inventory.count("P$ModelName") > 0 ) {
-			impl::parseProperty_Strings( ctx, buffer, inventory["P$ModelName"], "ModelName" );
-		}
+		impl::parseProperty( ctx, "SymName" );
+		impl::parseProperty( ctx, "ModelName" );
 		// parse properties
-		if ( inventory.count("P$Light") > 0 ) {
-			impl::parseGenericProperties( ctx, buffer, "Light", inventory["P$Light"] );
-		}
-		if ( inventory.count("P$Ambient") > 0 ) {
-			impl::parseGenericProperties( ctx, buffer, "Ambient", inventory["P$Ambient"] );
-		}
-		if ( inventory.count("P$Scripts") > 0 ) {
-			impl::parseGenericProperties( ctx, buffer, "Scripts", inventory["P$Scripts"] );
-		}
+		impl::parseProperty( ctx, "Position" );
+		impl::parseProperty( ctx, "Light" );
+		impl::parseProperty( ctx, "Ambient" );
+		impl::parseProperty( ctx, "Scripts" );
 		// parse links
 		if ( inventory.count("Relations") > 0 ) {
-			impl::parseRelations( ctx, buffer, inventory["Relations"] );
+			impl::parseRelations( ctx, inventory["Relations"] );
 		}
 		for ( const auto& [ name, item ] : inventory ) {
 			if ( name.starts_with("L$") && !name.starts_with("LD$")) {
-				impl::parsePartitionedLinks( ctx, buffer, item );
+				impl::parsePartitionedLinks( ctx, item );
 			}
 		}
 
@@ -986,13 +1002,18 @@ namespace impl {
 			return;
 		}
 
-		uf::stl::unordered_map<uf::stl::string, impl::DarkDBInvItem> inventory; // temporary inventory, mainly parsing to load in archetypes
-		impl::readInventory( ctx, inventory, buffer, header );
+		uf::stl::unordered_map<uf::stl::string, impl::DarkDBInvItem> inventory;
+		std::swap( ctx.inventory, inventory );
+		std::swap( ctx.buffer, buffer );
+		impl::readInventory( ctx, header );
+		std::swap( ctx.buffer, buffer );
+		std::swap( ctx.inventory, inventory );
 	}
 }
 
 void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
-	uf::stl::vector<uint8_t> buffer;
+	impl::DarkContext ctx;
+	auto& buffer = ctx.buffer;
 	if ( !uf::io::readAsBuffer( buffer, filename ) ) {
 		UF_MSG_ERROR("Failed to read MIS data: {}", filename);
 		return;
@@ -1022,19 +1043,19 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 	auto bmpMount = uf::vfs::mount(ext::zlib::createZipMount("obj://", "game://Data/res/BITMAP.CRF", 1000), true);
 	auto objMount = uf::vfs::mount(ext::zlib::createZipMount("obj://", "game://Data/res/OBJ.CRF", 1000), true);
 	// load initial data
-	impl::DarkContext ctx;
 	impl::loadGam( ctx, /*metadata["game"].as<uf::stl::string>*/("game://Data/SHOCK2.GAM") ); // to-do: deduce path from metadata
-	impl::readInventory( ctx, ctx.inventory, buffer, header );
+	impl::readInventory( ctx, header );
 	// mission parsing
 	if ( ctx.inventory.count("TXLIST") > 0 ) {
-		impl::parseTextures( graph, ctx, buffer, ctx.inventory["TXLIST"] );
+		impl::parseTextures( graph, ctx, ctx.inventory["TXLIST"] );
 		impl::loadMaterials( graph, ctx );
 	}
 	if ( ctx.inventory.count("WRRGB") > 0 ) {
-		impl::parseWorld( graph, ctx, buffer, ctx.inventory["WRRGB"] );
+		impl::parseWorld( graph, ctx, ctx.inventory["WRRGB"] );
 	}
-	if ( ctx.inventory.count("ObjVec") > 0 && ctx.inventory.count("P$Position") > 0 ) {
-		impl::parseObjects( graph, ctx, buffer, ctx.inventory["ObjVec"], ctx.inventory["P$Position"] );
+	if ( ctx.inventory.count("ObjVec") > 0 ) {
+		impl::parseObjVec( graph, ctx, ctx.inventory["ObjVec"] );
+		impl::loadObjects( graph, ctx );
 		impl::loadMaterials( graph, ctx );
 	}
 	impl::processLinks( graph, ctx );

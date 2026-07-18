@@ -446,9 +446,9 @@ void ext::gltf::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				UF_MSG_DEBUG("Light: {}", l.name );
 			}
 
+			light.range = l.range;
 			light.color = { l.color[0], l.color[1], l.color[2], };
 			light.intensity = l.intensity;
-			light.range = l.range;
 		}
 	}
 	// load node information/meshes

@@ -106,11 +106,11 @@ namespace impl {
 
 		bool hasRot = false;
 		for ( auto i = 0; i < 9; ++i) if ( std::abs(subObj.trans.rot[i]) > 0.0001f ) { hasRot = true; break; }
-		// to-do: verify if this is proper
+		// to-do: verify if this is correct
 		if ( hasRot ) {
-			rot(0,0) = subObj.trans.rot[0]; rot(1,0) = subObj.trans.rot[1]; rot(2,0) = subObj.trans.rot[2];
-			rot(0,1) = subObj.trans.rot[3]; rot(1,1) = subObj.trans.rot[4]; rot(2,1) = subObj.trans.rot[5];
-			rot(0,2) = subObj.trans.rot[6]; rot(1,2) = subObj.trans.rot[7]; rot(2,2) = subObj.trans.rot[8];
+			rot(0,0) = subObj.trans.rot[0]; rot(0,1) = subObj.trans.rot[1]; rot(0,2) = subObj.trans.rot[2];
+			rot(1,0) = subObj.trans.rot[3]; rot(1,1) = subObj.trans.rot[4]; rot(1,2) = subObj.trans.rot[5];
+			rot(2,0) = subObj.trans.rot[6]; rot(2,1) = subObj.trans.rot[7]; rot(2,2) = subObj.trans.rot[8];
 		}
 
 		if ( parentIdx >= 0 ) {
@@ -189,7 +189,7 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 		if ( impl::readArray(buffer, matOffset, header.num_mats, binMats ) ) {
 			for ( uint32_t i = 0; i < header.num_mats; ++i ) {
-				uf::stl::string matName = impl::sanitizeString(binMats[i].name, 16);
+				uf::stl::string matName = uf::stl::string(binMats[i].name);
 				if ( matName.empty() ) {
 					matName = "missing_texture";
 				} else {
@@ -326,9 +326,14 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 			meshlet.primitive.instance.materialID = graphMatID;
 
 			uint32_t startVertIdx = meshlet.vertices.size();
+		/*
 			pod::Vector3f polyNormal = {0.f, 1.f, 0.f};
 			if (polyHeader.norm_index < normals.size()) polyNormal = normals[polyHeader.norm_index];
 			polyNormal = impl::convertPos_NewDark(uf::matrix::multiply<float>(transforms[objIdx], polyNormal, 0.0f));
+		*/
+			pod::Vector3f polyNormal = {0.f, 1.f, 0.f};
+			if (polyHeader.norm_index < normals.size()) polyNormal = normals[polyHeader.norm_index];
+			polyNormal = uf::matrix::multiply<float>(transforms[objIdx], polyNormal, 0.0f);
 
 			for (uint8_t v = 0; v < polyHeader.num_verts; ++v) {
 				auto& vert = meshlet.vertices.emplace_back();
