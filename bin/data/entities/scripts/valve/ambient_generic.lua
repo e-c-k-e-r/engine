@@ -20,14 +20,14 @@ local function playSound()
 
 	local url = "valve://sound/" .. soundFile
 
-    local payload = {
-        filename = string.resolveURI(url, metadata["system"]["root"]),
-        spatial = not playEverywhere,
-        streamed = true,
-        volume = volume,
-        unique = true
-    }
-    payload["wants loops"] = not isNotLooped
+	local payload = {
+		filename = string.resolveURI(url, metadata["system"]["root"]),
+		spatial = not playEverywhere,
+		streamed = true,
+		volume = volume,
+		unique = true
+	}
+	payload["wants loop"] = not isNotLooped
 	ent:callHook("sound:Emit.%UID%", payload)
 end
 
@@ -58,7 +58,7 @@ ent:addHook("io:Input.%UID%", function(payload)
 		local newVol = tonumber(payload.parameter)
 		if newVol then
 			volume = newVol / 10.0
-            -- to-do: update volume of currently playing sound
+			-- to-do: update volume of currently playing sound
 		end
 	end
 end)

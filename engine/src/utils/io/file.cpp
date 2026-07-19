@@ -58,6 +58,9 @@ uf::stl::string uf::io::extension( const uf::stl::string& str, int32_t count ) {
 uf::stl::string uf::io::directory( const uf::stl::string& str ) {
 	return str.substr( 0, str.find_last_of('/') ) + "/";
 }
+uf::stl::vector<uf::stl::string> uf::io::list( const uf::stl::string& dir, const uf::stl::string& extension ) {
+	return uf::vfs::list( uf::io::resolveURI(dir), extension );
+}
 size_t uf::io::size( const uf::stl::string& filename ) {
 	return uf::vfs::size( uf::io::resolveURI(filename) );
 }

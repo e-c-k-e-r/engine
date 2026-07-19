@@ -6,7 +6,7 @@ bool ext::ttlg::loadPalette( const uf::stl::string& family, uf::stl::vector<uint
 	if ( !palette.empty() ) return true;
 
 	uf::stl::vector<uint8_t> buffer;
-	if ( uf::io::readAsBuffer(buffer, "fam://" + family + "/full.pcx")) {
+	if ( uf::io::readAsBuffer(buffer, "FAM://" + family + "/full.pcx")) {
 		if ( buffer.size() >= 769 && buffer[buffer.size() - 769] == 0x0C ) {
 			palette.assign(buffer.end() - 768, buffer.end());
 			return true;
@@ -14,7 +14,7 @@ bool ext::ttlg::loadPalette( const uf::stl::string& family, uf::stl::vector<uint
 		buffer.clear();
 	}
 
-	if ( !uf::io::readAsBuffer(buffer, "fam://" + family + "/full.gif") )
+	if ( !uf::io::readAsBuffer(buffer, "FAM://" + family + "/full.gif") )
 		return false;
 	if ( buffer.size() < 13 || buffer[0] != 'G' || buffer[1] != 'I' || buffer[2] != 'F')
 		return false;

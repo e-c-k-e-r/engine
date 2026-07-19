@@ -47,6 +47,9 @@ namespace uf {
 		void UF_API destroy( pod::AudioClip& clip );
 		void UF_API bind( pod::AudioSource& source, pod::AudioClip* clip );
 		void UF_API play( pod::AudioSource& source );
+		void UF_API queue( pod::AudioSource& source, const uf::stl::string& );
+		void UF_API pause( pod::AudioSource& source );
+		bool UF_API paused( const pod::AudioSource& source );
 		void UF_API stop( pod::AudioSource& source );
 		void UF_API update( pod::AudioSource& source );
 		void UF_API update( pod::AudioSource& source, const pod::Vector3f& position, const pod::Quaternion<>& orientation );
@@ -56,6 +59,7 @@ namespace uf {
 		void UF_API loop( pod::AudioSource& source, bool state );
 		void UF_API position( pod::AudioSource& source, const pod::Vector3f& v );
 		void UF_API orientation( pod::AudioSource& source, const pod::Quaternion<>& q );
+		float UF_API time( pod::AudioSource& source ); // non-const because apparently it needs to mutate the timer?
 		float UF_API time( const pod::AudioSource& source );
 		void UF_API time( pod::AudioSource& source, float v );
 		float UF_API pitch( const pod::AudioSource& source );
@@ -67,6 +71,7 @@ namespace uf {
 		float UF_API maxDistance( const pod::AudioSource& source );
 		void UF_API maxDistance( pod::AudioSource& source, float v );
 
+		float UF_API distance( const pod::Vector3f& position );
 		float UF_API occlusion( const pod::Vector3f& position );
 		void UF_API occlude( pod::AudioSource& source, float factor );
 		void UF_API acoustics( const pod::Vector3f&, const pod::Quaternion<>&, float&, float&, int& );

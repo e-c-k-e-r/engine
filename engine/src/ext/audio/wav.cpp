@@ -59,13 +59,12 @@ namespace {
 		return 1;
 	}
 
+	// default to 16-bit audio
 	inline bool format( pod::AudioClip& clip, int channels, int bitDepth ) {
-		if (channels == 1 && bitDepth == 8) clip.info.format = AL_FORMAT_MONO8;
-		else if (channels == 1 && bitDepth == 16) clip.info.format = AL_FORMAT_MONO16;
-		else if (channels == 2 && bitDepth == 8) clip.info.format = AL_FORMAT_STEREO8;
-		else if (channels == 2 && bitDepth == 16) clip.info.format = AL_FORMAT_STEREO16;
+		if (channels == 1) clip.info.format = AL_FORMAT_MONO16;
+		else if (channels == 2) clip.info.format = AL_FORMAT_STEREO16;
 		else {
-			UF_MSG_ERROR("WAV: unrecognized format: {} channels, {} bps", channels, bitDepth);
+			UF_MSG_ERROR("WAV: unrecognized format: {} channels", channels);
 			return false;
 		}
 		return true;
@@ -85,9 +84,9 @@ void ext::wav::load( pod::AudioClip& clip ) {
 	}
 
 	drwav* wav = &ctx->wav;
-	clip.info.size = wav->totalPCMFrameCount * wav->channels * (wav->bitsPerSample / 8);
 	clip.info.channels = wav->channels;
-	clip.info.bitDepth = wav->bitsPerSample;
+	clip.info.bitDepth = 16; // wav->bitsPerSample;
+	clip.info.size = wav->totalPCMFrameCount * wav->channels * sizeof(uint16_t); // (wav->bitsPerSample / 8);
 	clip.info.frequency = wav->sampleRate;
 	clip.info.duration = (double) wav->totalPCMFrameCount / wav->sampleRate;
 	clip.info.loop.has = false;
@@ -107,16 +106,15 @@ void ext::wav::load( pod::AudioClip& clip ) {
 		}
 	}
 
-	if ( !format(clip, wav->channels, wav->bitsPerSample) ) {
+	if ( !format( clip, wav->channels, wav->bitsPerSample ) ) {
 		drwav_uninit(wav); delete ctx;
 		return;
 	}
 
 	if (!clip.streamed) {
-		uf::stl::vector<uint8_t> bytes(clip.info.size);
-		drwav_read_pcm_frames(wav, wav->totalPCMFrameCount, bytes.data());
-
-		clip.alBuffer.buffer(clip.info.format, bytes.data(), (ALsizei)bytes.size(), clip.info.frequency);
+		uf::stl::vector<int16_t> pcm(wav->totalPCMFrameCount * wav->channels);
+		drwav_read_pcm_frames_s16(wav, wav->totalPCMFrameCount, pcm.data());
+		clip.alBuffer.buffer(clip.info.format, pcm.data(), (ALsizei)(pcm.size() * sizeof(int16_t)), clip.info.frequency);
 		if ( clip.info.loop.has ) {
 			ALint loopPoints[2] = { (ALint) clip.info.loop.start, (ALint) clip.info.loop.end };
 			alBufferiv(clip.alBuffer.getIndex(0), 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints);
@@ -145,19 +143,19 @@ void ext::wav::open( pod::AudioSource& source ) {
 	source.streamState.handle = (void*) ctx;
 	drwav* wav = &ctx->wav;
 
-	size_t frameSize = wav->channels * (wav->bitsPerSample / 8);
+	size_t frameSize = wav->channels * sizeof(uint16_t); // (wav->bitsPerSample / 8);
 	size_t bufferFrames = uf::audio::bufferSize / frameSize;
 
-	char buffer[uf::audio::bufferSize];
+	int16_t buffer[uf::audio::bufferSize / 2];
 	uint8_t queuedBuffers = 0;
 
 	for ( ; queuedBuffers < source.settings.buffers; ++queuedBuffers ) {
-		drwav_uint64 framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
+		drwav_uint64 framesRead = drwav_read_pcm_frames_s16(wav, bufferFrames, buffer);
 
 		if ( framesRead == 0 ) {
 			if ( source.settings.loop ) {
 				drwav_seek_to_pcm_frame(wav, clip->info.loop.has ? clip->info.loop.start : 0);
-				framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
+				framesRead = drwav_read_pcm_frames_s16(wav, bufferFrames, buffer);
 			}
 		}
 		if ( framesRead == 0 ) break;
@@ -176,45 +174,105 @@ void ext::wav::update( pod::AudioSource& source ) {
 	pod::AudioClip* clip = source.clip;
 	if ( !clip || !clip->streamed || !source.streamState.handle ) return;
 
-	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_FALSE);
-
 	DrWavVfsContext* ctx = (DrWavVfsContext*) source.streamState.handle;
 	drwav* wav = &ctx->wav;
 
-	ALint state;
+	ALint state, processed, queued;
 	source.alSource.get(AL_SOURCE_STATE, state);
-	if ( state != AL_PLAYING ) {
-		if ( !source.settings.loop && ctx->currentOffset >= ctx->totalSize ) return;
+	source.alSource.get(AL_BUFFERS_PROCESSED, processed);
+	source.alSource.get(AL_BUFFERS_QUEUED, queued);
+
+	bool hasData = (ctx->currentOffset < ctx->totalSize) || !source.info.pending.empty() || source.settings.loop;
+#if 0 && !NO_FUN // if the engine cannot feed buffers, OpenAL will continue to loop the buffers
+	source.alSource.set(AL_LOOPING, hasData ? AL_TRUE : AL_FALSE);
+#else // consume buffers automatically
+	if ( source.settings.loopMode == 1 ) {
+		source.alSource.set(AL_LOOPING, AL_FALSE);
+		source.settings.loopMode = 0;
+	}
+#endif
+
+	size_t frameSize = wav->channels * sizeof(uint16_t);
+	size_t bufferFrames = uf::audio::bufferSize / frameSize;
+	int16_t buffer[uf::audio::bufferSize / 2];
+
+	auto fillAndQueueBuffer = [&](ALuint index) -> bool {
+		drwav_uint64 totalFramesRead = 0;
+		int16_t* bufferPtr = buffer;
+
+		while ( totalFramesRead < bufferFrames ) {
+			drwav_uint64 framesToRead = bufferFrames - totalFramesRead;
+			drwav_uint64 framesRead = drwav_read_pcm_frames_s16(wav, framesToRead, bufferPtr);
+
+			totalFramesRead += framesRead;
+			bufferPtr += (framesRead * wav->channels);
+
+			if ( framesRead == 0 ) {
+				if ( !source.info.pending.empty() ) {
+					uf::stl::string nextFile = source.info.pending.front();
+					source.info.pending.erase(source.info.pending.begin());
+
+					drwav_uninit(wav);
+					ctx->filename = uf::io::resolveURI(nextFile);
+					ctx->currentOffset = 0;
+					ctx->totalSize = uf::vfs::size(ctx->filename);
+
+					if ( !drwav_init(wav, drwav_vfs_read, drwav_vfs_seek, drwav_vfs_tell, ctx, nullptr) ) {
+						UF_MSG_ERROR("Transition failed! Could not open: {}", ctx->filename);
+						break;
+					}
+
+					clip->filename = nextFile;
+					clip->info.size = ctx->totalSize;
+					clip->info.duration = (double)wav->totalPCMFrameCount / wav->sampleRate;
+
+					source.info.elapsed = 0.0f;
+					source.info.timer.reset();
+					source.info.timer.start();
+				} else if ( source.settings.loop ) {
+					drwav_seek_to_pcm_frame(wav, clip->info.loop.has ? clip->info.loop.start : 0);
+				} else {
+					break;
+				}
+			}
+		}
+
+		if ( totalFramesRead > 0 ) {
+			AL_CHECK_RESULT(alBufferData(index, clip->info.format, buffer, (ALsizei)(totalFramesRead * frameSize), clip->info.frequency));
+			AL_CHECK_RESULT(alSourceQueueBuffers(source.alSource.getIndex(), 1, &index));
+			return true;
+		}
+		return false;
+	};
+
+	if ( queued == 0 ) {
+		if ( hasData ) {
+			for ( int i = 0; i < source.settings.buffers; ++i ) {
+				if ( !fillAndQueueBuffer(source.streamBuffers.getIndex(i)) ) break;
+			}
+		}
+	} else {
+		while ( processed > 0 ) {
+			ALuint index;
+			AL_CHECK_RESULT(alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &index));
+			processed--;
+
+			bool hasData = (ctx->currentOffset < ctx->totalSize) || !source.info.pending.empty() || source.settings.loop;
+
+			if ( hasData ) {
+				fillAndQueueBuffer(index);
+			} else {
+				// ensure AL_LOOPING is off
+			}
+		}
+	}
+
+	source.alSource.get(AL_SOURCE_STATE, state);
+	source.alSource.get(AL_BUFFERS_QUEUED, queued);
+
+	if ( state != AL_PLAYING && queued > 0 ) {
 		source.alSource.play();
 	}
-
-	ALint processed = 0;
-	source.alSource.get(AL_BUFFERS_PROCESSED, processed);
-	if ( processed <= 0 ) return;
-
-	size_t frameSize = wav->channels * (wav->bitsPerSample / 8);
-	size_t bufferFrames = uf::audio::bufferSize / frameSize;
-
-	ALuint index;
-	char buffer[uf::audio::bufferSize];
-
-	while ( processed-- ) {
-		AL_CHECK_RESULT(alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &index));
-
-		drwav_uint64 framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
-
-		if ( framesRead == 0 ) {
-			if ( !source.settings.loop ) break;
-			drwav_seek_to_pcm_frame(wav, clip->info.loop.has ? clip->info.loop.start : 0);
-			framesRead = drwav_read_pcm_frames(wav, bufferFrames, buffer);
-		}
-
-		if ( framesRead > 0 ) {
-			AL_CHECK_RESULT(alBufferData(index, clip->info.format, buffer, (ALsizei)(framesRead * frameSize), clip->info.frequency));
-			AL_CHECK_RESULT(alSourceQueueBuffers(source.alSource.getIndex(), 1, &index));
-		}
-	}
-	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_TRUE);
 }
 
 void ext::wav::close( pod::AudioClip& clip ) {

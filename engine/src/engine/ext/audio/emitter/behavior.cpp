@@ -19,9 +19,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
-	if ( !metadataJson["audio"]["epsilon"].is<float>() )
-		metadataJson["audio"]["epsilon"] = 0.001f;
-
 	this->addHook( "sound:Stop.%UID%", [&](ext::json::Value& json){
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		auto& pools = emitter.get();
@@ -71,11 +68,12 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["gain"].is<double>() ) uf::audio::gain(source, json["gain"].as<float>());
 		if ( json["rolloffFactor"].is<double>() ) uf::audio::rolloff(source, json["rolloffFactor"].as<float>());
 		if ( json["maxDistance"].is<double>() ) uf::audio::maxDistance(source, json["maxDistance"].as<float>());
-
 		if ( json["spatial"].is<bool>() ) source.settings.spatial = json["spatial"].as<bool>();
+
 		if ( json["loop"].is<bool>() ) uf::audio::loop(source, json["loop"].as<bool>());
-		if ( json["wants loop"].is<bool>() ) {
-			uf::audio::loop(source, json["wants loop"].as<bool>(true) && clip && clip->info.loop.has);
+		else if ( json["wants loop"].is<bool>() ) {
+			auto wants = json["wants loop"].as<bool>(true);
+			uf::audio::loop(source, wants && clip && clip->info.loop.has);
 		}
 
 		float volume = 1.0f;
@@ -95,18 +93,41 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		uf::audio::play(source);
 	});
 
+	this->addHook( "sound:QueueTrack.%UID%", [&](ext::json::Value& payload){
+		uf::stl::string filename = payload["filename"].as<uf::stl::string>();
+		int layer = payload["layer"].as<int>(1);
+		uf::stl::string channelName = "managed_bgm_channel_" + std::to_string(layer);
+		UF_MSG_DEBUG("filename={}, channelName={}", filename, channelName);
+
+		if ( emitter.has( channelName ) ) {
+			auto& source = emitter.get(channelName);
+			uf::audio::queue( source, filename );
+		}
+	});
+
 	this->addHook( "sound:PlayTrack.%UID%", [&](ext::json::Value& payload){
 		auto filename = payload["filename"].as<uf::stl::string>();
 
 		if ( filename == "" && !metadata.tracks.empty() ) {
 			filename = uf::stl::random_it( metadata.tracks.begin(), metadata.tracks.end() )->first;
 		}
-		if ( metadata.tracks.count( filename ) == 0 && filename != "" ) return;
+
+		if ( metadata.tracks.count( filename ) == 0 && filename != "" ) {
+			metadata.tracks[filename] = {};
+			metadata.tracks[filename].filename = filename;
+		}
 
 		auto& track = metadata.tracks[filename];
 		if ( track.intro != "" ) filename = track.intro;
+		track.epsilon = metadataJson["audio"]["epsilon"].as<float>(2.5f);
 
-		this->callHook( "asset:QueueLoad.%UID%", this->resolveToPayload( filename ) );
+		auto pload = this->resolveToPayload( filename );
+		pload.metadata["layer"] = payload["layer"];
+
+		if ( payload["loop"].is<bool>() ) pload.metadata["loop"] = payload["loop"];
+		if ( payload["notify"].is<bool>() ) pload.metadata["notify"] = payload["notify"];
+
+		this->callHook( "asset:QueueLoad.%UID%", pload );
 	});
 
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
@@ -116,8 +137,14 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( metadata.tracks.count(payload.uri) > 0 || metadata.tracks.count(metadata.current) > 0 ) {
 			auto& track = metadata.tracks[payload.uri];
 			pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( payload.filename );
+			
+			int layer = payload.metadata["layer"].as<int>(1);
+			uf::stl::string channelName = "managed_bgm_channel_" + std::to_string(layer);
 
-			pod::AudioSource& source = emitter.emit( "managed_bgm_channel", clip, true );
+			if ( emitter.has( channelName ) ) {
+				uf::audio::stop( emitter.get( channelName ) );
+			}
+			pod::AudioSource& source = emitter.emit( channelName, clip, true );
 
 		#if UF_AUDIO_MAPPED_VOLUMES
 			auto volume = uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0f;
@@ -125,12 +152,15 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 			auto volume = uf::audio::volumes::bgm;
 		#endif
 
+			bool shouldLoop = payload.metadata["loop"].as<bool>(payload.uri != track.intro);
 			uf::audio::gain(source, track.fade.x > 0 ? 0 : volume);
-			uf::audio::loop(source, payload.uri != track.intro);
+			uf::audio::loop(source, shouldLoop);
 			uf::audio::play(source);
 
 			metadata.current = payload.uri;
 			track.active = true;
+
+			UF_MSG_DEBUG("Playing: {} (epsilon: {})", metadata.current, track.epsilon);
 		} else {
 			ext::json::Value json = metadataJson["audio"];
 			json["filename"] = payload.filename;
@@ -154,34 +184,92 @@ void ext::AudioEmitterBehavior::tick( uf::Object& self ) {
 	metadata.deserialize(self, metadataJson);
 #endif
 
-	if ( !emitter.has("managed_bgm_channel") ) return;
-	pod::AudioSource& source = emitter.get("managed_bgm_channel");
+	auto& transform = this->getComponent<pod::Transform<>>();
+	float distance = uf::audio::distance( transform.position );
 
-#if UF_AUDIO_MAPPED_VOLUMES
-	auto volume = uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0f;
-#else
-	auto volume = uf::audio::volumes::bgm;
-#endif
+	bool bgmFound = false;
+
+	for ( auto& [ name, sources ] : emitter.get() ) {
+		for ( auto& source : sources ) {
+			if ( name.starts_with("managed_bgm_channel") ) {
+				bgmFound = true;
+			#if UF_AUDIO_MAPPED_VOLUMES
+				auto volume = uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0f;
+			#else
+				auto volume = uf::audio::volumes::bgm;
+			#endif
+
+				if ( source.clip ) {
+					float current = uf::audio::time(source);
+					float end = source.clip->info.duration;
+
+					bool fileChanged = (source.clip->filename != metadata.current);
+					bool timerWrapped = (metadata.tracks.count(metadata.current) && !metadata.tracks[metadata.current].active && current < 1.0f);
+
+					if ( fileChanged || timerWrapped ) {
+						metadata.current = source.clip->filename;
+						metadata.tracks[metadata.current].active = true;
+					}
+
+					if ( metadata.tracks.count( metadata.current ) > 0 ) {
+						auto& track = metadata.tracks[metadata.current];
+
+						if ( track.active ) {
+							bool isIntro = metadata.current == track.intro;
+
+							float a = volume;
+							if ( track.fade.x > 0.0f && current < track.fade.x ) {
+								a *= current / track.fade.x;
+							} else if ( track.fade.y > 0.0f && !source.settings.loop && end - current < track.fade.y ) {
+								a *= 1.0f - (end - current) / track.fade.y;
+							}
+							uf::audio::gain(source, a);
+
+							bool timeReached = (current + track.epsilon >= end);
+							bool stoppedPlaying = (!source.settings.loop && !source.alSource.playing());
+
+							if ( end > 0 && (timeReached || stoppedPlaying) ) {
+								track.active = false;
+								if ( isIntro ) {
+									auto payload = this->resolveToPayload( track.filename );
+									this->callHook( "asset:QueueLoad.%UID%", payload );
+								} else if ( !source.settings.loop ) {
+									ext::json::Value msg;
+									msg["filename"] = metadata.current;
+									this->callHook("sound:TrackEnded.%UID%", msg);
+								}
+							}
+						}
+					}
+				}
+				continue;
+			}
+
+			if ( source.settings.spatial ) {
+				float maxDist = uf::audio::maxDistance(source);
+				if ( distance > maxDist * 1.1f ) {
+					if ( source.alSource.playing() ) uf::audio::pause( source );
+				} else {
+					if ( uf::audio::paused(source) ) uf::audio::play( source );
+				}
+			}
+		}
+	}
 
 	if ( metadata.tracks.count( metadata.current ) > 0 ) {
 		auto& track = metadata.tracks[metadata.current];
-		if ( track.active && source.clip ) {
-			float current = uf::audio::time(source);
-			float end = source.clip->info.duration;
+		if ( track.active && !bgmFound ) {
+			UF_MSG_DEBUG("BGM source vanished! Firing TrackEnded natively.");
+			track.active = false;
+
 			bool isIntro = metadata.current == track.intro;
-
-			float a = volume;
-			if ( current < track.fade.x ) {
-				a *= current / track.fade.x;
-			} else if ( !source.settings.loop && end - current < track.fade.y ) {
-				a *= 1.0f - (end - current) / track.fade.y;
-			}
-
-			uf::audio::gain(source, a);
-
-			if ( isIntro && end > 0 && (current + track.epsilon >= end || !source.alSource.playing()) ) {
+			if ( isIntro ) {
 				auto payload = this->resolveToPayload( track.filename );
 				this->callHook( "asset:QueueLoad.%UID%", payload );
+			} else {
+				ext::json::Value msg;
+				msg["filename"] = metadata.current;
+				this->callHook("sound:TrackEnded.%UID%", msg);
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 {
-	"assets": ["./scripts/door.lua"],
+	"assets": ["./scripts/valve/door.lua"],
 	"behaviors": [
 		"AudioEmitterBehavior"
 	],

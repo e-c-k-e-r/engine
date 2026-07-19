@@ -202,6 +202,9 @@ namespace binds {
 		//	object.destroy();
 		//	delete &object;
 		};
+		uf::stl::vector<uf::Entity*> all() {
+			return uf::scene::getCurrentScene().getGraph();
+		}
 	}
 	namespace string {
 		uf::stl::string extension( const uf::stl::string& filename ) {
@@ -323,6 +326,7 @@ void ext::lua::initialize() {
 		entities.set("currentScene", UF_LUA_C_FUN(::binds::entities::currentScene));
 		entities.set("controller", UF_LUA_C_FUN(::binds::entities::controller));
 		entities.set("destroy", UF_LUA_C_FUN(::binds::entities::destroy));
+		entities.set("all", UF_LUA_C_FUN(::binds::entities::all));
 	}
 	// `string` table
 	{
@@ -331,7 +335,7 @@ void ext::lua::initialize() {
 		string.set("resolveURI", UF_LUA_C_FUN(::binds::string::resolveURI));
 		string.set("si", UF_LUA_C_FUN(::binds::string::si));
 		
-		string.set("match", UF_LUA_C_FUN(uf::string::match));
+	//	string.set("match", UF_LUA_C_FUN(uf::string::match));
 		string.set("matched", UF_LUA_C_FUN(uf::string::matched));
 	}
 	// `io` table

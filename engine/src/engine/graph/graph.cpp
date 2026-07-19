@@ -1167,8 +1167,10 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ) {
 			gpuIndexCube[i] = countCube++;
-		} else {
+		} else if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_2D ) {
 			gpuIndex2D[i] = count2D++;
+		} else {
+			UF_MSG_DEBUG("Invalid view type 0x{:x} for: {}", image.viewType, key );
 		}
 	}
 
@@ -1359,12 +1361,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		// bind io connectivity
 		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
 			node.metadata["connections"] = metadataValve["connections"];
-			loadJson["assets"].emplace_back("ent://scripts/io.lua");
+			loadJson["assets"].emplace_back("ent://scripts/valve/io.lua");
 		}
 
 		// bind ambient
 		if ( node.name.starts_with("ambient_") ) {
-			loadJson["assets"].emplace_back("ent://scripts/ambient_generic.lua");
+			loadJson["assets"].emplace_back("ent://scripts/valve/ambient_generic.lua");
 			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
 		// bind door script
 		} else if ( ext::json::isObject( metadataValve["door"] ) ) {
@@ -1404,7 +1406,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 		// check if trigger
 		if ( node.name.starts_with("trigger_") ) {
-			loadJson["assets"].emplace_back("ent://scripts/trigger.lua");
+			loadJson["assets"].emplace_back("ent://scripts/valve/trigger.lua");
 			// signal to assign a physics body
 			if ( ext::json::isNull( node.metadata["physics"] ) ) {
 				node.metadata["physics"]["type"] = "bounding box";
@@ -1418,7 +1420,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					auto& materialName = graph.materials[materialID];
 					// attach trigger script + physics body
 					if ( materialName == "tools/toolstrigger" ) {
-						loadJson["assets"].emplace_back("ent://scripts/trigger.lua");
+						loadJson["assets"].emplace_back("ent://scripts/valve/trigger.lua");
 						// signal to assign a physics body
 						if ( ext::json::isNull( node.metadata["physics"] ) ) {
 							node.metadata["physics"]["type"] = "bounding box";
@@ -1428,6 +1430,49 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					}
 				}
 			}
+		}
+	}
+
+	// convert metadata["dark"] into internal values:
+	auto& metadataDark = node.metadata["dark"];
+	if ( ext::json::isObject( metadataDark ) ) {
+
+		// bind io connectivity
+		if ( ext::json::isArray( metadataDark["connections"] ) || metadataDark["id"].is<int>() ) {
+			node.metadata["connections"] = metadataDark["connections"];
+			loadJson["assets"].emplace_back("ent://scripts/dark/io.lua");
+		}
+
+		// bind door
+		if ( ext::json::isObject( metadataDark["door"] ) ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/door.lua");
+			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+
+			node.metadata["dark"]["schema_db"] = graph.metadata["dark"]["schema_db"];
+		}
+
+		// bind songs
+		if ( ext::json::isObject( metadataDark["songs"] ) ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/music.lua");
+			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+		}
+
+		// bind ambient
+		if ( ext::json::isObject( metadataDark["sound"] ) ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/ambient.lua");
+			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+		}
+
+		// bind trap
+		if ( node.name.find("SoundTrap") != uf::stl::string::npos || node.name.find("Votrap") != uf::stl::string::npos ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/trap.lua");
+			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+		}
+
+		// bind trigger
+		auto& physMeta = node.metadata["physics"];
+		if ( ext::json::isObject( physMeta ) && physMeta["category"].as<uf::stl::string>("") == "trigger" ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/trigger.lua");
 		}
 	}
 

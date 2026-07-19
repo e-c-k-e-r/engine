@@ -351,6 +351,25 @@ namespace {
 		// ID for lz4
 		return false;
 	};
+	uf::stl::vector<uf::stl::string> vfs_list( pod::Mount& mount, const uf::stl::string& dir, const uf::stl::string& extension = "", bool recursive = false ) {
+		uf::stl::vector<uf::stl::string> files;
+		auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
+
+		for ( const auto& [filepath, entry] : state.entries ) {
+			if ( !dir.empty() && !filepath.starts_with(dir) ) continue;
+
+			if ( !recursive ) {
+				uf::stl::string remainder = filepath.substr(dir.length());
+				if ( remainder.find('/') != uf::stl::string::npos ) continue;
+			}
+
+			if ( !extension.empty() && !filepath.ends_with(extension) ) continue;
+
+			files.emplace_back(filepath);
+		}
+
+		return files;
+	}
 }
 
 pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority ) {
@@ -370,16 +389,15 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vecto
 	mount.exists = ::vfs_exists;
 	mount.size = ::vfs_size;
 	mount.read = ::vfs_read;
+	mount.list = ::vfs_list;
 	
 	auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
 	state.buffer = buffer;
 	ext::zlib::directory( state.buffer, state.entries );
 
-	if ( mount.path.empty() ) {
-		mount.path = ::fmt::format( "{}/{}", uri, (void*) state.buffer.data() );
-	}
+	if ( mount.path.empty() ) mount.path = ::fmt::format( "{}/{}", uri, (void*) state.buffer.data() );
+//	for ( auto& [ k, v ] : state.entries ) UF_MSG_DEBUG("{} => {}/{}", mount.path, uri, k);
 
-//	for ( auto& [ k, v ] : state.entries ) UF_MSG_DEBUG("{} => {}{}", mount.path, uri, k);
 	return mount;
 }
 

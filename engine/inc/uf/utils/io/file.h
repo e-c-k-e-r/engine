@@ -29,6 +29,7 @@ namespace uf {
 		uf::stl::string UF_API directory( const uf::stl::string& );
 		uf::stl::string UF_API normalize( const uf::stl::string& );
 		size_t UF_API size( const uf::stl::string& );
+		uf::stl::vector<uf::stl::string> list( const uf::stl::string&, const uf::stl::string& = "" );
 		
 		bool UF_API readAsString( uf::stl::string&, const uf::stl::string&, const uf::stl::string& = "" );
 		

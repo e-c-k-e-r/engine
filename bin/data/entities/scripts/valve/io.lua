@@ -73,7 +73,7 @@ ent:bind("tick", function(self)
 
 	for i = #pendingOutputs, 1, -1 do
 		local job = pendingOutputs[i]
-        if currentTime >= job.fireTime then
+		if currentTime >= job.fireTime then
 			local targetUIDs = _G.IOTargets[job.target]
 			if targetUIDs then
 				for _, targetUID in ipairs(targetUIDs) do
@@ -139,5 +139,5 @@ ent:addHook("entity:Use.%UID%", function(payload)
 	ent:callHook("io:FireOutput.%UID%", { output = "OnPlayerUse" })
 	ent:callHook("io:FireOutput.%UID%", { output = "OnUse" })
 	ent:callHook("io:FireOutput.%UID%", { output = "OnPressed" })
-    ent:callHook("io:FireOutput.%UID%", { output = "OnIn" })
+	ent:callHook("io:FireOutput.%UID%", { output = "OnIn" })
 end)

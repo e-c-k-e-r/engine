@@ -5,15 +5,20 @@
 #include <uf/engine/graph/graph.h>
 
 namespace impl {	
-	const float darkToMeters = 0.75f;
+	const float darkToMeters = 0.7f;
 	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
 
 	// could be dedicated functions in the engine
 	template<typename T>
-	inline bool readStruct(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, T& outValue) {
-		if (offset + sizeof(T) > buffer.size()) return false;
-		std::memcpy(&outValue, buffer.data() + offset, sizeof(T));
-		offset += sizeof(T);
+	inline bool readStruct(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, T& outValue, size_t readSize = sizeof(T)) {
+		if (offset + readSize > buffer.size()) return false;
+
+		if ( readSize < sizeof(T) ) std::memset(&outValue, 0, sizeof(T));
+
+		size_t copySize = std::min(sizeof(T), readSize);
+		std::memcpy(&outValue, buffer.data() + offset, copySize);
+
+		offset += readSize;
 		return true;
 	}
 

@@ -356,8 +356,8 @@
 				"max": 0.1 // 0.2
 			},
 			"debug draw": {
-				"static": true,
-				"dynamic": true,
+				"static": false,
+				"dynamic": false,
 				"trigger": false,
 				"contacts": false,
 				"constraints": false,

@@ -61,7 +61,7 @@ namespace impl {
 
 	struct BinPolyHeader {
 		uint16_t index;
-		int16_t data;
+		uint16_t data;
 		uint8_t type;
 		uint8_t num_verts;
 		uint16_t norm_index;
@@ -202,10 +202,12 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 
 				auto it = std::find(graph.materials.begin(), graph.materials.end(), matName);
+				int32_t matIndex = (mainHeader.version == 4) ? i : binMats[i].slot_num;
+
 				if ( it != graph.materials.end() ) {
-					textureToMaterialId[i] = (int32_t)(std::distance(graph.materials.begin(), it));
+					textureToMaterialId[matIndex] = (int32_t)(std::distance(graph.materials.begin(), it));
 				} else {
-					textureToMaterialId[i] = graph.materials.size();
+					textureToMaterialId[matIndex] = graph.materials.size();
 					graph.materials.emplace_back(matName);
 					storage.materials[matName].indexAlbedo = -1;
 				}
@@ -261,23 +263,29 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 				offset += 19;
 			} else if ( nodeType == 2 ) {
 				uint16_t nf1{}, nf2{};
-				impl::readStruct( buffer, offset += 17, nf1 );
-				impl::readStruct( buffer, offset += 4, nf2 );
+				offset += 17;
+				impl::readStruct( buffer, offset, nf1 );
+				offset += 2; 
+				impl::readStruct( buffer, offset, nf2 );
 
 				if ( impl::readArray( buffer, offset, nf1 + nf2, faces ) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert( subObjectPolys.back().end(), faces.begin(), faces.end() );
 				}
 			} else if (nodeType == 1) {
 				uint16_t nf1{}, nf2{};
-				impl::readStruct( buffer, offset += 17, nf1 );
-				impl::readStruct( buffer, offset += 12, nf2 );
+				offset += 17;
+				impl::readStruct( buffer, offset, nf1 );
+				offset += 10;
+				impl::readStruct( buffer, offset, nf2 );
 
 				if ( impl::readArray( buffer, offset, nf1 + nf2, faces ) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert( subObjectPolys.back().end(), faces.begin(), faces.end() );
 				}
 			} else if (nodeType == 0) {
 				uint16_t nf{};
-				impl::readStruct( buffer, offset += 17, nf );
+				offset += 17;
+				impl::readStruct( buffer, offset, nf );
+
 				if ( impl::readArray(buffer, offset, nf, faces) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert(subObjectPolys.back().end(), faces.begin(), faces.end());
 				}
@@ -316,21 +324,27 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 			bool hasUVs = ((polyHeader.type & 3) == 3);
 			if (hasUVs) impl::readArray(buffer, dataOffset, polyHeader.num_verts, uvIndices);
 
+			uint32_t localMatID = 0;
+			if ( mainHeader.version == 4 ) {
+				uint8_t matByte = 0;
+				impl::readStruct(buffer, dataOffset, matByte);
+				localMatID = matByte;
+			} else {
+				localMatID = polyHeader.data;
+			}
+
 			int32_t graphMatID = -1;
-			int32_t localMatID = polyHeader.data > 0 ? polyHeader.data - 1 : 0;
-			if (localMatID >= 0 && localMatID < textureToMaterialId.size()) {
+			if ( localMatID < textureToMaterialId.size() ) {
 				graphMatID = textureToMaterialId[localMatID];
+			}
+			if ( graphMatID == -1 ) {
+				graphMatID = 0;
 			}
 
 			auto& meshlet = meshlets[graphMatID];
 			meshlet.primitive.instance.materialID = graphMatID;
 
 			uint32_t startVertIdx = meshlet.vertices.size();
-		/*
-			pod::Vector3f polyNormal = {0.f, 1.f, 0.f};
-			if (polyHeader.norm_index < normals.size()) polyNormal = normals[polyHeader.norm_index];
-			polyNormal = impl::convertPos_NewDark(uf::matrix::multiply<float>(transforms[objIdx], polyNormal, 0.0f));
-		*/
 			pod::Vector3f polyNormal = {0.f, 1.f, 0.f};
 			if (polyHeader.norm_index < normals.size()) polyNormal = normals[polyHeader.norm_index];
 			polyNormal = uf::matrix::multiply<float>(transforms[objIdx], polyNormal, 0.0f);

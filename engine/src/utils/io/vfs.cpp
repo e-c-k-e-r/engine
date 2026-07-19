@@ -2,6 +2,7 @@
 #include <uf/utils/io/file.h>
 #include <uf/utils/math/hash.h>
 #include <algorithm>
+#include <filesystem>
 #include <sys/stat.h>
 
 namespace {
@@ -52,6 +53,38 @@ namespace {
 		output.write((const char*)buffer, size);
 		output.close();
 		return size;
+	}
+
+	uf::stl::vector<uf::stl::string> vfs_list( pod::Mount& mount, const uf::stl::string& dir, const uf::stl::string& extension = "", bool recursive = false ) {
+		uf::stl::vector<uf::stl::string> files;
+		uf::stl::string path = mount.path + dir;
+
+		if ( !std::filesystem::exists(path) ) return files;
+
+		if ( recursive ) {
+			for ( const auto& entry : std::filesystem::recursive_directory_iterator(path) ) {
+				if ( entry.is_regular_file() ) {
+					uf::stl::string fname = entry.path().filename().string();
+					if ( extension.empty() || fname.ends_with(extension) ) {
+						uf::stl::string relPath = entry.path().string().substr(mount.path.length());
+						std::replace(relPath.begin(), relPath.end(), '\\', '/');
+						files.emplace_back(relPath);
+					}
+				}
+			}
+		} else {
+			for ( const auto& entry : std::filesystem::directory_iterator(path) ) {
+				if ( entry.is_regular_file() ) {
+					uf::stl::string fname = entry.path().filename().string();
+					if ( extension.empty() || fname.ends_with(extension) ) {
+						uf::stl::string relPath = entry.path().string().substr(mount.path.length());
+						std::replace(relPath.begin(), relPath.end(), '\\', '/');
+						files.emplace_back(relPath);
+					}
+				}
+			}
+		}
+		return files;
 	}
 
 	bool vfs_mkdir( pod::Mount& mount, const uf::stl::string& file ) {
@@ -132,9 +165,10 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 		.read = ::vfs_read,
 		.write = ::vfs_write,
 		.mkdir = ::vfs_mkdir,
+		.list = ::vfs_list,
 		.readRange = ::vfs_readRange,
 		.readRanges = ::vfs_readRanges,
-		.stream = ::vfs_stream
+		.stream = ::vfs_stream,
 	};
 }
 
@@ -150,7 +184,7 @@ uf::vfs::Mount uf::vfs::mount( const pod::Mount& mount, bool temp ) {
 		uf::hash( hash2, m.prefix, m.path );
 
 		if ( hash == hash2 ) {
-			return uf::vfs::Mount{ hash, false }; // do not honor temp request to avoid breaking mounts in the future
+			return uf::vfs::Mount{ hash, NULL, false }; // do not honor temp request to avoid breaking mounts in the future
 		}
 	}
 
@@ -162,7 +196,7 @@ uf::vfs::Mount uf::vfs::mount( const pod::Mount& mount, bool temp ) {
 		return a.priority > b.priority;
 	});
 
-	return uf::vfs::Mount{ hash, temp };
+	return uf::vfs::Mount{ hash, &mount, temp };
 }
 
 bool uf::vfs::unmount( size_t hash ) {
@@ -218,6 +252,26 @@ bool uf::vfs::exists( const uf::stl::string& path ) {
 		}
 	}
 	return false;
+}
+
+uf::stl::vector<uf::stl::string> uf::vfs::list( const uf::stl::string& path, const uf::stl::string& extension, bool recursive ) {
+	uf::stl::vector<uf::stl::string> results;
+	uf::stl::string prefix, relative;
+	uf::io::splitUri(path, prefix, relative);
+
+	if ( !relative.empty() && relative.back() != '/' ) relative += '/';
+
+	for ( auto& mount : mounts ) {
+		if ( prefix.empty() && mount.priority < 0 ) continue;
+		if ( prefix.empty() || mount.prefix == prefix ) {
+			if ( mount.list ) {
+				auto files = mount.list( mount, relative, extension, recursive );
+				results.insert(results.end(), files.begin(), files.end());
+			}
+		}
+	}
+
+	return results;
 }
 
 bool uf::vfs::mkdir( const uf::stl::string& path ) {
@@ -302,7 +356,7 @@ bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, 
 			
 			uf::stl::vector<uint8_t> fullBuffer;
 			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-			UF_MSG_DEBUG("hitting fallback: {}", path);
+			//UF_MSG_DEBUG("hitting fallback: {}", path);
 			
 			if ( start < fullBuffer.size() ) {
 				size_t actualLen = std::min(len, fullBuffer.size() - start);
@@ -328,7 +382,7 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 			
 			uf::stl::vector<uint8_t> fullBuffer;
 			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-			UF_MSG_DEBUG("hitting fallback: {}", path);
+			//UF_MSG_DEBUG("hitting fallback: {}", path);
 
 			size_t totalBytes = 0;
 			for ( const auto& r : ranges ) {
@@ -361,7 +415,7 @@ bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::functi
 			if ( mount.stream ) return mount.stream( mount, relative, chunkSize, callback );
 
 			if ( !mount.read ) continue;
-			UF_MSG_DEBUG("hitting fallback: {}", path);
+			//UF_MSG_DEBUG("hitting fallback: {}", path);
 
 			uf::stl::vector<uint8_t> fullBuffer;
 			if ( !mount.read( mount, relative, fullBuffer ) ) continue;

@@ -25,7 +25,7 @@
 		// currently has issues with:
 		// * skinned meshes because I'm not applying joint transformations
 		// * this weird texture offsetting from movement despite having fixed this with the original camera buffers
-		#define BARYCENTRIC_CALCULATE 0
+		#define BARYCENTRIC_CALCULATE 1
 	#endif
 #endif
 

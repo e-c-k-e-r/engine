@@ -18,6 +18,7 @@ namespace ext {
 				uf::stl::string intro;
 				float epsilon = 0.0001f;
 				pod::Vector2f fade = {};
+				float prevTime = 0.0f;
 
 				bool active = false;
 			};

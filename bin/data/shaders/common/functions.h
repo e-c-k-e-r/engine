@@ -521,6 +521,12 @@ void populateSurface( InstanceAddresses addresses, uvec3 indices ) {
 	#elif BARYCENTRIC
 		ivec2 size = textureSize(samplerId, 0).xy;
 		int sampleIdx = 0;
+	#elif DEFERRED && MULTISAMPLING
+		ivec2 size = textureSize(samplerUv).xy;
+		int sampleIdx = msaa.currentID;
+	#elif DEFERRED
+		ivec2 size = textureSize(samplerUv, 0).xy;
+		int sampleIdx = 0;
 	#else
 		ivec2 size = imageSize(outImage).xy;
 		int sampleIdx = 0;

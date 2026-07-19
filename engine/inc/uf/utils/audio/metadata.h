@@ -62,6 +62,7 @@ namespace pod {
 		struct {
 			uf::Timer<> timer;
 			float elapsed = 0;
+			uf::stl::vector<uf::stl::string> pending;
 		} info;
 
 		struct {

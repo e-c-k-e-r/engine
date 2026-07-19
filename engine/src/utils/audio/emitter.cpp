@@ -25,12 +25,42 @@ pod::AudioSource& uf::AudioEmitter::emit( const uf::stl::string& key, pod::Audio
 	uf::audio::initialize( source );
 	uf::audio::bind( source, clip );
 	return source;
+/*
+	if ( unique && !pool.empty() ) {
+		pod::AudioSource& source = pool.front();
+		uf::audio::stop( source );
+		uf::audio::bind( source, clip );
+
+		return source;
+	}
+
+	for ( auto& source : pool ) {
+		if ( !source.alSource.playing() ) {
+			uf::audio::stop( source );
+			uf::audio::bind( source, clip );
+			return source;
+		}
+	}
+
+	pod::AudioSource& source = pool.emplace_back();
+	uf::audio::initialize( source );
+	uf::audio::bind( source, clip );
+	return source;
+*/
 }
 
 void uf::AudioEmitter::update() {
 	for ( auto& pair : this->m_container ) {
 		for ( auto& source : pair.second ) {
-			if ( source.alSource.playing() ) uf::audio::update( source );
+			bool isPlaying = source.alSource.playing();
+			bool hasPending = !source.info.pending.empty();
+
+			ALint queued = 0;
+			source.alSource.get(AL_BUFFERS_QUEUED, queued);
+
+			if ( isPlaying || hasPending || queued > 0 ) {
+				uf::audio::update( source );
+			}
 		}
 	}
 }
@@ -59,7 +89,13 @@ void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quatern
 
 	for ( auto& pair : this->m_container ) {
 		for ( auto& source : pair.second ) {
-			if ( !source.alSource.playing() ) continue;
+			bool isPlaying = source.alSource.playing();
+			bool hasPending = !source.info.pending.empty();
+
+			ALint queued = 0;
+			source.alSource.get(AL_BUFFERS_QUEUED, queued);
+
+			if ( !isPlaying && !hasPending && queued == 0 ) continue;
 
 			if ( source.settings.spatial ) {
 				uf::audio::position( source, position );
@@ -119,7 +155,12 @@ void uf::AudioEmitter::cleanup( bool purge ) {
 
 		for ( auto vecIt = pool.begin(); vecIt != pool.end(); ) {
 			auto& source = *vecIt;
-			if ( purge || (!source.alSource.playing() && !source.settings.loop) ) {
+
+			ALint state;
+			alGetSourcei( source.alSource.getIndex(), AL_SOURCE_STATE, &state );
+			bool active = (state == AL_PLAYING || state == AL_PAUSED);
+
+			if ( purge || (!active && !source.settings.loop) ) {
 				uf::audio::destroy( source );
 				vecIt = pool.erase(vecIt);
 			} else {

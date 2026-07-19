@@ -114,6 +114,30 @@ namespace {
 		auto archive = state.get();
 		return archive && ext::valve::readVpkRange(*archive, uf::string::lowercase( path ), start, len, buffer);
 	};
+	uf::stl::vector<uf::stl::string> list( pod::Mount& mount, const uf::stl::string& dir, const uf::stl::string& extension = "", bool recursive = false ) {
+		uf::stl::vector<uf::stl::string> results;
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		if ( !archive ) return results;
+
+		uf::stl::string searchDir = uf::string::lowercase(dir);
+		uf::stl::string searchExt = uf::string::lowercase(extension);
+
+		for ( const auto& [filePath, entry] : archive->files ) {
+			if ( !searchDir.empty() && !filePath.starts_with(searchDir) ) continue;
+
+			if ( !recursive ) {
+				uf::stl::string remainder = filePath.substr(searchDir.length());
+				if ( remainder.find('/') != uf::stl::string::npos ) continue;
+			}
+
+			if ( !searchExt.empty() && !filePath.ends_with(searchExt) ) continue;
+
+			results.emplace_back(filePath);
+		}
+
+		return results;
+	};
 }
 
 pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority ) {
@@ -128,6 +152,7 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	mount.userdata = uf::pointeredUserdata::create<VpkMountState>();
 	mount.exists = ::exists;
 	mount.size = ::size;
+	mount.list = ::list;
 	mount.mtime = ::mtime;
 	mount.read = ::read;
 	mount.readRange = ::readRange;

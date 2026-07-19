@@ -22,6 +22,7 @@ namespace pod {
 		std::function<bool(pod::Mount&, const uf::stl::string&, uf::stl::vector<uint8_t>&)> read;
 		std::function<size_t(pod::Mount&, const uf::stl::string&, const void*, size_t)> write;
 		std::function<bool(pod::Mount&, const uf::stl::string&)> mkdir;
+		std::function<uf::stl::vector<uf::stl::string>(pod::Mount&, const uf::stl::string&, const uf::stl::string&, bool)> list;
 
 		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
 		std::function<bool(pod::Mount&, const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
@@ -35,6 +36,7 @@ namespace uf {
 		extern UF_API uf::stl::vector<pod::Mount> mounts;
 		struct UF_API Mount {
 			size_t hash = {};
+			const pod::Mount* ptr = NULL;
 			bool temp = false;
 			~Mount();
 		};
@@ -52,6 +54,7 @@ namespace uf {
 		size_t UF_API write( const uf::stl::string& path, const void* data, size_t len );
 		size_t UF_API write( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API mkdir( const uf::stl::string& path );
+		uf::stl::vector<uf::stl::string> UF_API list( const uf::stl::string& path, const uf::stl::string& extension = "", bool recursive = false );
 		
 		bool UF_API readRange( const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API readRanges( const uf::stl::string& path, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer );

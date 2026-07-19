@@ -219,52 +219,113 @@ void ext::vorbis::update( pod::AudioSource& source ) {
 	pod::AudioClip* clip = source.clip;
 	if ( !clip || !clip->streamed || !source.streamState.handle ) return;
 
-	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_FALSE);
-
 	OggVorbis_File* vorbisFile = (OggVorbis_File*) source.streamState.handle;
 	VorbisVfsContext* ctx = (VorbisVfsContext*) source.streamState.context;
 
-	ALint state;
+	ALint state, processed, queued;
 	source.alSource.get(AL_SOURCE_STATE, state);
-	if ( state != AL_PLAYING ) {
-		if ( !source.settings.loop && ctx && ctx->currentOffset >= ctx->totalSize ) return;
-		source.alSource.play();
-	}
-
-	ALint processed = 0;
 	source.alSource.get(AL_BUFFERS_PROCESSED, processed);
-	if ( processed <= 0 ) return;
+	source.alSource.get(AL_BUFFERS_QUEUED, queued);
 
-	ALuint index;
-	char buffer[uf::audio::bufferSize];
+	bool hasData = (ctx->currentOffset < ctx->totalSize) || !source.info.pending.empty() || source.settings.loop;
+#if !NO_FUN // if the engine cannot feed buffers, OpenAL will continue to loop the buffers
+	source.alSource.set(AL_LOOPING, hasData ? AL_TRUE : AL_FALSE);
+#else // consume buffers automatically
+	if ( source.settings.loopMode == 1 ) {
+		source.alSource.set(AL_LOOPING, AL_FALSE);
+		source.settings.loopMode = 0;
+	}
+#endif
 
-	while ( processed-- ) {
-		memset(buffer, 0, uf::audio::bufferSize);
-		AL_CHECK_RESULT(alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &index));
-
+	auto fillAndQueueBuffer = [&](ALuint index) -> bool {
+		char buffer[uf::audio::bufferSize];
 		int totalRead = 0;
-		while (totalRead < uf::audio::bufferSize) {
+
+		while ( totalRead < uf::audio::bufferSize ) {
 			int result = OV_READ(vorbisFile, buffer + totalRead, uf::audio::bufferSize - totalRead, endian, 2, 1, &source.streamState.bitStream);
-			if (result <= 0) {
-				if (result == 0 && source.settings.loop) {
-					uint32_t seekTarget = clip->info.loop.has ? clip->info.loop.start : 0;
-					ov_pcm_seek(vorbisFile, seekTarget);
-					continue;
+
+			if ( result <= 0 ) {
+				if ( result == 0 ) {
+					if ( !source.info.pending.empty() ) {
+
+						uf::stl::string nextFile = source.info.pending.front();
+						source.info.pending.erase(source.info.pending.begin());
+
+						ov_clear(vorbisFile);
+
+						VorbisVfsContext* nextCtx = new VorbisVfsContext();
+						nextCtx->filename = uf::io::resolveURI(nextFile);
+						nextCtx->currentOffset = 0;
+						nextCtx->totalSize = uf::vfs::size(nextCtx->filename);
+
+						ov_callbacks callbacks = { funs::read, funs::seek, funs::close, funs::tell };
+
+						if ( ov_open_callbacks((void*) nextCtx, vorbisFile, NULL, -1, callbacks) < 0 ) {
+							UF_MSG_ERROR("Gapless Vorbis transition failed! Could not open: {}", nextCtx->filename);
+							delete nextCtx;
+							break;
+						}
+
+						clip->filename = nextFile;
+						clip->info.size = nextCtx->totalSize;
+						clip->info.duration = ov_time_total(vorbisFile, -1);
+
+						source.info.elapsed = 0.0f;
+						source.info.timer.reset();
+						source.info.timer.start();
+
+						ctx = nextCtx;
+						source.streamState.context = (void*) ctx;
+						continue;
+					}
+					else if ( source.settings.loop ) {
+						uint32_t seekTarget = clip->info.loop.has ? clip->info.loop.start : 0;
+						ov_pcm_seek(vorbisFile, seekTarget);
+						continue;
+					}
 				}
 				break;
 			}
 			totalRead += result;
 		}
 
-		if (totalRead > 0) {
+		if ( totalRead > 0 ) {
 			AL_CHECK_RESULT(alBufferData(index, clip->info.format, buffer, totalRead, clip->info.frequency));
 			AL_CHECK_RESULT(alSourceQueueBuffers(source.alSource.getIndex(), 1, &index));
+			return true;
+		}
+		return false;
+	};
+
+	if ( queued == 0 ) {
+		if ( hasData ) {
+			for ( int i = 0; i < source.settings.buffers; ++i ) {
+				if ( !fillAndQueueBuffer(source.streamBuffers.getIndex(i)) ) break;
+			}
+		}
+	} else {
+		while ( processed > 0 ) {
+			ALuint index;
+			AL_CHECK_RESULT(alSourceUnqueueBuffers(source.alSource.getIndex(), 1, &index));
+			processed--;
+
+			bool hasData = (ctx->currentOffset < ctx->totalSize) || !source.info.pending.empty() || source.settings.loop;
+
+			if ( hasData ) {
+				fillAndQueueBuffer(index);
+			} else {
+				// ensure AL_LOOPING is off
+			}
 		}
 	}
 
-	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_TRUE);
-}
+	source.alSource.get(AL_SOURCE_STATE, state);
+	source.alSource.get(AL_BUFFERS_QUEUED, queued);
 
+	if ( state != AL_PLAYING && queued > 0 ) {
+		source.alSource.play();
+	}
+}
 void ext::vorbis::close( pod::AudioClip& clip ) {
 	// ...
 }

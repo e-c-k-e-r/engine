@@ -66,6 +66,10 @@ bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename, boo
 // to-do: PCM audio load
 
 void uf::audio::bind( pod::AudioSource& source, pod::AudioClip* clip ) {
+	source.info.elapsed = 0.0f;
+	source.info.timer.stop();
+	source.info.timer.reset();
+
 	source.clip = clip;
 	if ( !clip ) return;
 
@@ -77,6 +81,10 @@ void uf::audio::bind( pod::AudioSource& source, pod::AudioClip* clip ) {
 		else if ( clip->extension == "wav" ) ext::wav::open( source );
 		else if ( clip->extension == "pcm" ) ext::pcm::open( source );
 	}
+}
+
+void uf::audio::queue( pod::AudioSource& source, const uf::stl::string& filename ) {
+	source.info.pending.emplace_back( filename );
 }
 
 void uf::audio::play( pod::AudioSource& source ) {
@@ -93,6 +101,17 @@ void uf::audio::stop( pod::AudioSource& source ) {
 	if ( source.clip && source.clip->streamed ) {
 		// to-do: reset stream cursor
 	}
+}
+
+void uf::audio::pause( pod::AudioSource& source ) {
+	AL_CHECK_RESULT(alSourcePause( source.alSource.getIndex() ));
+	source.info.timer.stop();
+}
+
+bool uf::audio::paused( const pod::AudioSource& source ) {
+	ALint state;
+	AL_CHECK_RESULT(alGetSourcei( source.alSource.getIndex(), AL_SOURCE_STATE, &state ));
+	return state == AL_PAUSED;
 }
 
 void uf::audio::update( pod::AudioSource& source ) {
@@ -167,6 +186,9 @@ void uf::audio::orientation( pod::AudioSource& source, const pod::Quaternion<>& 
 	source.transform.orientation = q;
 }
 
+float uf::audio::time( pod::AudioSource& source ) {
+	return source.info.elapsed + source.info.timer.elapsed().asDouble();
+}
 float uf::audio::time( const pod::AudioSource& source ) {
 	return source.info.elapsed + source.info.timer.elapsed().asDouble();
 }
@@ -207,6 +229,10 @@ void uf::audio::maxDistance( pod::AudioSource& source, float v ) {
 }
 
 //
+float uf::audio::distance( const pod::Vector3f& position ) {
+	return uf::vector::distance( ::listener.position, position );
+}
+
 float uf::audio::occlusion( const pod::Vector3f& position ) {
 	return uf::physics::occlusion( ::listener.position, position );
 }

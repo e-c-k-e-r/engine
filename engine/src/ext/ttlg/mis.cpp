@@ -8,6 +8,9 @@
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/memory/unordered_set.h>
 
+
+// to-do: split this into subcomponents
+
 namespace impl {
 #pragma pack(push, 1)
 	struct DarkDBHeader {
@@ -117,7 +120,7 @@ namespace impl {
 		uint32_t size;
 	};
 
-	struct LinkData {
+	struct DarkLinkData {
 		int32_t sourceId;
 		int32_t destId;
 		uint16_t flavor;
@@ -130,13 +133,10 @@ namespace impl {
 		uint16_t flavor;
 	};
 
-	// ordered in the way they're read per OpenDarkEngine
 	struct PropertyPosition {
 		pod::Vector3f position;
 		int32_t cell;
-		int16_t heading;
-		int16_t pitch;
-		int16_t bank;
+		int16_t facing[3]; // heading, pitch, bank
 	};
 
 	struct PropertyLight {
@@ -147,11 +147,28 @@ namespace impl {
 		float radius;
 	};
 
+	struct PropertyDoor {
+		int32_t type;
+		float closed;
+		float open;
+		float base_speed;
+		int32_t axis;
+		int32_t status;
+		int32_t hard_limits;
+		float sound_blocking;
+		int32_t vision_blocking;
+		float push_mass;
+		// ...
+	};
+
 	struct PropertyAmbient {
+		int32_t radius;
+		int32_t override_volume;
+		uint16_t flags;
+		uint16_t pad;
 		char schemaName[16];
-		uint32_t flags;
-		float volume;
-		float radius;
+		char auxSchema1[16];
+		char auxSchema2[16];
 	};
 
 	// ?
@@ -162,10 +179,174 @@ namespace impl {
 		float brightness;
 		float radius;
 	};
+
+	struct PropertyPhysType {
+		int32_t type; // 0 = OBB, 1 = Sphere, 2 = SphereHat, 3 = None
+		int32_t num_submodels;
+		int32_t remove_on_sleep;
+		int32_t special;
+	};
+
+	struct PropertyPhysAttr {
+		float gravity;
+		float mass;
+		float density;
+		float elasticity;
+		float base_friction;
+		pod::Vector3f cog_offset;
+		int32_t rot_axes;
+		int32_t rest_axes;
+		int32_t climbable_sides;
+		int32_t edge_trigger;
+		float pore_size;
+	};
+
+	struct PropertyPhysDims {
+		float radius[2];
+		pod::Vector3f offset[2];
+		pod::Vector3f size;
+		int32_t pt_vs_terrain;
+		int32_t pt_vs_not_special;
+	};
+
+	struct PropertyPhysState {
+		pod::Vector3f location;
+		pod::Vector3f facing;
+		pod::Vector3f velocity;
+		pod::Vector3f rot_velocity;
+	};
+
+	constexpr uint32_t SCH_PLAY_RETRIGGER = (1 << 0);
+	constexpr uint32_t SCH_PAN_POS		= (1 << 1);
+	constexpr uint32_t SCH_PAN_RANGE	  = (1 << 2);
+	constexpr uint32_t SCH_NO_REPEAT	  = (1 << 3);
+	constexpr uint32_t SCH_NO_CACHE	   = (1 << 4);
+	constexpr uint32_t SCH_STREAM		 = (1 << 5);
+	constexpr uint32_t SCH_PLAY_ONCE	  = (1 << 6);
+	constexpr uint32_t SCH_NO_COMBAT	  = (1 << 7);
+	constexpr uint32_t SCH_NET_AMBIENT	= (1 << 8);
+	constexpr uint32_t SCH_LOC_SPATIAL	= (1 << 9);
+
+	constexpr uint8_t SCHEMA_LOOP_POLY	= 0x01;
+	constexpr uint8_t SCHEMA_LOOP_COUNT   = 0x02;
+
+	struct PropertySchPlayParams {
+		uint32_t flags;
+		int32_t volume;
+		int32_t pan;
+		int32_t initialDelay;
+		int32_t fade;
+	};
+
+	struct PropertySchLoopParams {
+		uint8_t flags;
+		uint8_t maxSamples;
+		uint16_t count;
+		uint16_t intervalMin;
+		uint16_t intervalMax;
+	};
+
+	struct PropertySchSamp {
+		uf::stl::string name;
+		uint8_t weight;
+	};
+
+	struct PropertySongParams {
+		char songName[32];
+	};
+
+	constexpr size_t kSONG_MaxStringLen = 32;
+
+	struct sSongInfo {
+		char id[kSONG_MaxStringLen];
+	};
+
+	struct sSongSectionInfo {
+		char id[kSONG_MaxStringLen];
+		int32_t volume;
+		int32_t loopCount;
+	};
+
+	struct sSongSampleInfo {
+		char name[kSONG_MaxStringLen];
+	};
+
+	struct sSongEventInfo {
+		char eventString[kSONG_MaxStringLen];
+		uint32_t flags;
+	};
+
+	struct sSongGotoInfo {
+		int32_t sectionIndex;
+		int32_t probability;
+	};
+
+	struct sTagDBData {
+		int32_t objId;
+		float weight;
+	};
+
+	struct cTagDBKey {
+		uint32_t type;
+		union {
+			struct {
+				int32_t minVal;
+				int32_t maxVal;
+			};
+			uint8_t aEnum[8];
+		};
+	};
 #pragma pack(pop)
+
+	// pseudo-structs
+	struct DarkSchema {
+		uf::stl::string name;
+		uf::stl::vector<PropertySchSamp> wavs;
+		PropertySchPlayParams playParams{};
+		PropertySchLoopParams loopParams{};
+
+		uf::stl::string classTag;
+		uf::stl::string msg;
+		uf::stl::string action;
+
+		// can probably deduce without these
+		bool hasPlayParams = false;
+		bool hasLoopParams = false;
+	};
+
+	struct SongGoto {
+		int32_t sectionIndex;
+		int32_t probability;
+	};
+
+	struct SongEvent {
+		uf::stl::string eventString;
+		uint32_t flags;
+		uf::stl::vector<SongGoto> gotos;
+	};
+
+	struct SongSample {
+		uf::stl::string name;
+	};
+
+	struct SongSection {
+		uf::stl::string id;
+		int32_t volume;
+		int32_t loopCount;
+		uf::stl::vector<SongSample> samples;
+		uf::stl::vector<SongEvent> events;
+	};
+
+	struct Song {
+		uf::stl::string id;
+		uf::stl::vector<SongEvent> globalEvents;
+		uf::stl::vector<SongSection> sections;
+	};
+
 
 	// do not load these
 	uf::stl::unordered_set<uf::stl::string> modelBlacklist = {
+		"playbox.bin",
 		"fx_particle.bin",
 		"spark_.bin"
 	};
@@ -185,11 +366,30 @@ namespace impl {
 		struct {
 			uf::stl::unordered_map<int32_t, PropertyPosition> position;
 			uf::stl::unordered_map<int32_t, PropertyLight> light;
+			uf::stl::unordered_map<int32_t, PropertyDoor> rotDoor;
+			uf::stl::unordered_map<int32_t, PropertyDoor> transDoor;
+
+			uf::stl::unordered_map<int32_t, PropertyPhysType> physType;
+			uf::stl::unordered_map<int32_t, PropertyPhysAttr> physAttr;
+			uf::stl::unordered_map<int32_t, PropertyPhysDims> physDims;
+			uf::stl::unordered_map<int32_t, PropertyPhysState> physState;
+
 			uf::stl::unordered_map<int32_t, PropertyAmbient> ambient;
+
+			uf::stl::unordered_map<int32_t, PropertySchPlayParams> schPlayParams;
+			uf::stl::unordered_map<int32_t, PropertySchLoopParams> schLoopParams;
+			uf::stl::unordered_map<int32_t, uf::stl::vector<PropertySchSamp>> schSamps;
+			uf::stl::unordered_map<int32_t, uf::stl::string> classTag;
+			uf::stl::unordered_map<int32_t, uf::stl::string> schMsg;
+			uf::stl::unordered_map<int32_t, uf::stl::string> schAction;
+			
 			uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> script;
 		} properties;
 
-		uf::stl::vector<LinkData> links;
+		uf::stl::unordered_map<uf::stl::string, uf::stl::string> fileDatabase;
+
+		uf::stl::unordered_map<int32_t, DarkSchema> schemas;
+		uf::stl::vector<DarkLinkData> links;
 		uf::stl::unordered_map<uint16_t, uf::stl::string> linkFlavorNames;
 
 		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uint8_t>> palettes;
@@ -254,7 +454,7 @@ namespace impl {
 		auto& buffer = ctx.buffer;
 		auto& inventory = ctx.inventory;
 
-		auto fullName = ::fmt::format( "P${}", propName );
+		auto fullName = ::fmt::format( "P${}", propName ).substr(0, 11);
 		if ( inventory.count( fullName ) == 0 ) {
 			return;
 		}
@@ -269,50 +469,192 @@ namespace impl {
 
 			uint32_t next = offset + entry.size;
 
-			if ( propName == "Position" && entry.size >= sizeof(PropertyPosition) && entry.objectId >= 0 ) {
+			// to-do: clean up most of this redundancy
+			if ( propName == "Position" && entry.objectId >= 0 ) {
 				PropertyPosition position;
-				if ( impl::readStruct( buffer, offset, position ) ) {
+				if ( impl::readStruct( buffer, offset, position, entry.size ) ) {
 					ctx.properties.position[entry.objectId] = position;
 				}
-			} else if ( propName == "Light" && entry.size >= sizeof(PropertyLight) ) {
+			} else if ( propName == "Light" ) {
 				PropertyLight light;
-				if ( impl::readStruct( buffer, offset, light ) ) {
+				if ( impl::readStruct( buffer, offset, light, entry.size ) ) {
 					ctx.properties.light[entry.objectId] = light;
 				}
-			} else if ( propName == "Ambient" && entry.size >= sizeof(PropertyAmbient) ) {
+			} else if ( propName == "RotDoor" ) {
+				PropertyDoor p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.rotDoor[entry.objectId] = p;
+				}
+			} else if ( propName == "TransDoor" ) {
+				PropertyDoor p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.transDoor[entry.objectId] = p;
+				}
+			} else if ( propName == "Ambient" || propName == "AmbientHacked" ) {
 				PropertyAmbient sound;
-				if ( impl::readStruct( buffer, offset, sound ) ) {
+				if ( impl::readStruct( buffer, offset, sound, entry.size ) ) {
 					ctx.properties.ambient[entry.objectId] = sound;
 				}
+			} else if ( propName == "PhysType" ) {
+				PropertyPhysType p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.physType[entry.objectId] = p;
+				}
+			} else if ( propName == "PhysType" && entry.size >= 8 ) {
+				PropertyPhysType p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.physType[entry.objectId] = p;
+				}
+			} else if ( propName == "PhysAttr" && entry.size >= 48 ) {
+				PropertyPhysAttr p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.physAttr[entry.objectId] = p;
+				}
+			} else if ( propName == "PhysDims" && entry.size >= 48 ) {
+				PropertyPhysDims p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.physDims[entry.objectId] = p;
+				}
+			} else if ( propName == "PhysState" && entry.size >= 48 ) {
+				PropertyPhysState p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.physState[entry.objectId] = p;
+				}
+			} else if ( propName == "SchPlayParams" && entry.size >= sizeof(PropertySchPlayParams) ) {
+				PropertySchPlayParams p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.schPlayParams[entry.objectId] = p;
+				}
+			} else if ( propName == "SchLoopParams" && entry.size >= sizeof(PropertySchLoopParams) ) {
+				PropertySchLoopParams p;
+				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
+					ctx.properties.schLoopParams[entry.objectId] = p;
+				}
 			} else if ( propName == "Scripts" ) {
-				const char* scriptCursor = (const char*)(buffer.data() + offset);
+				const char* cursor = (const char*)(buffer.data() + offset);
 				size_t remainingBytes = entry.size;
 
 				for ( auto s = 0; s < 4; ++s ) {
-					if ( remainingBytes <= 0 || *scriptCursor == '\0' ) break;
+					if ( remainingBytes <= 0 || *cursor == '\0' ) break;
 
-					auto script = uf::stl::string( scriptCursor );
+					auto script = uf::stl::string( cursor );
 					if ( script.empty() ) break;
 
 					ctx.properties.script[entry.objectId].emplace_back(script);
 
-					size_t step = strnlen(scriptCursor, remainingBytes) + 1;
+					size_t step = strnlen(cursor, remainingBytes) + 1;
 					if ( step > remainingBytes ) break;
 
-					scriptCursor += step;
+					cursor += step;
 					remainingBytes -= step;
 				}
+			} else if ( propName == "Class Tag" || propName == "SchMsg" || propName == "SchAction" ) {
+				if ( entry.size > 4 && entry.objectId != 0 ) {
+					auto s = impl::getStringFromOffset( buffer, offset + 4, entry.size - 4 );
+					if ( propName == "Class Tag" ) ctx.properties.classTag[entry.objectId] = s;
+					if ( propName == "SchMsg" ) ctx.properties.schMsg[entry.objectId] = s;
+					if ( propName == "SchAction" ) ctx.properties.schAction[entry.objectId] = s;
+				}
+			} /*else if ( propName == "Class Tag" ) {
+				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
+				if ( !s.empty() ) ctx.properties.classTag[entry.objectId] = s;
+			} else if ( propName == "SchMsg" ) {
+				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
+				if ( !s.empty() ) ctx.properties.schMsg[entry.objectId] = s;
+			} else if ( propName == "SchAction" ) {
+				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
+				if ( !s.empty() ) ctx.properties.schAction[entry.objectId] = s;
+			} */ else if ( propName == "ModelName" ) {
+				auto modelName = impl::getStringFromOffset( buffer, offset, entry.size );
+				if ( !modelName.empty() ) ctx.modelNames[entry.objectId] = modelName;
 			} else if ( propName == "SymName" ) {
 				if ( entry.size > 4 ) {
 					auto symName = impl::getStringFromOffset( buffer, offset + 4, entry.size - 4 );
 					if ( !symName.empty() ) ctx.archetypes[entry.objectId] = symName;
 				}
-			} else if ( propName == "ModelName" ) {
-				auto modelName = impl::getStringFromOffset(buffer, offset, entry.size);
-				if ( !modelName.empty() ) ctx.modelNames[entry.objectId] = modelName;
 			}
 
 			offset = next;
+		}
+	}
+
+	void parseEnvSoundTree(
+		const uf::stl::vector<uint8_t>& buffer, uint32_t& offset,
+		const uf::stl::unordered_map<int32_t, uf::stl::string>& tagMap,
+		const uf::stl::unordered_map<int32_t, uf::stl::string>& valueMap,
+		uf::stl::string currentTags,
+		impl::DarkContext& ctx
+	) {
+		int32_t dataSize;
+		if (!impl::readStruct(buffer, offset, dataSize)) return;
+
+		for (int i = 0; i < dataSize; ++i) {
+			sTagDBData data;
+			if (!impl::readStruct(buffer, offset, data)) return;
+			ctx.properties.classTag[data.objId] = currentTags;
+		}
+
+		int32_t branchSize;
+		if (!impl::readStruct(buffer, offset, branchSize)) return;
+
+		for (int i = 0; i < branchSize; ++i) {
+			cTagDBKey key;
+			if (!impl::readStruct(buffer, offset, key)) return;
+
+			uf::stl::string newTags = currentTags;
+			if (!newTags.empty()) newTags += ", ";
+
+			uf::stl::string tagName = tagMap.count(key.type) ? tagMap.at(key.type) : ::fmt::format("UnknownTag_{}", key.type);
+			uf::stl::string valueNames = "";
+
+			bool isEnum = false;
+			for (int v = 0; v < 8; ++v) {
+				if (key.aEnum[v] == 255) isEnum = true;
+			}
+
+			if (isEnum || valueMap.count(key.aEnum[0])) {
+				for (int v = 0; v < 8; ++v) {
+					if (key.aEnum[v] != 255 && key.aEnum[v] != 0) {
+						if (!valueNames.empty()) valueNames += "|";
+						valueNames += valueMap.count(key.aEnum[v]) ? valueMap.at(key.aEnum[v]) : std::to_string(key.aEnum[v]);
+					}
+				}
+				newTags += tagName + " " + valueNames;
+			} else {
+				newTags += tagName + " [" + std::to_string(key.minVal) + "-" + std::to_string(key.maxVal) + "]";
+			}
+
+			parseEnvSoundTree(buffer, offset, tagMap, valueMap, newTags, ctx);
+		}
+	}
+
+	void parseSchSamp( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		auto& buffer = ctx.buffer;
+		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+		uint32_t endOffset = item.offset + item.length;
+
+		while ( offset < endOffset ) {
+			int32_t objId;
+			if ( !impl::readStruct( buffer, offset, objId ) ) break;
+
+			int32_t numSamples;
+			if ( !impl::readStruct( buffer, offset, numSamples ) ) break;
+
+			for ( int32_t i = 0; i < numSamples; ++i ) {
+				int32_t strLen;
+				if ( !impl::readStruct( buffer, offset, strLen ) ) break;
+
+				uf::stl::string sampleName = impl::getStringFromOffset( buffer, offset, strLen );
+				offset += strLen;
+
+				uint8_t freq;
+				if ( !impl::readStruct( buffer, offset, freq ) ) break;
+
+				ctx.properties.schSamps[objId].emplace_back(PropertySchSamp{
+					.name = sampleName,
+					.weight = freq,
+				});
+			}
 		}
 	}
 
@@ -392,92 +734,194 @@ namespace impl {
 		}
 	}
 
+	void parseSchemas( impl::DarkContext& ctx ) {
+		for ( const auto& [objId, wavs] : ctx.properties.schSamps ) {
+			uf::stl::string schemaName;
+
+			if ( ctx.customNames.count(objId) ) {
+				schemaName = ctx.customNames.at(objId);
+			} else if ( ctx.archetypes.count(objId) ) {
+				schemaName = ctx.archetypes.at(objId);
+			} else {
+				continue;
+			}
+
+			std::transform(schemaName.begin(), schemaName.end(), schemaName.begin(), ::tolower);
+
+			auto& schema = ctx.schemas[objId];
+			schema.name = schemaName;
+
+			ctx.findInheritedProperty(objId, ctx.properties.classTag, schema.classTag);
+			ctx.findInheritedProperty(objId, ctx.properties.schMsg, schema.msg);
+			ctx.findInheritedProperty(objId, ctx.properties.schAction, schema.action);
+
+			for ( const auto& sample : wavs ) {
+				uf::stl::string wavLower = sample.name;
+				std::transform(wavLower.begin(), wavLower.end(), wavLower.begin(), ::tolower);
+				if (!wavLower.ends_with(".wav")) wavLower += ".wav";
+
+				uf::stl::string baseName = wavLower;
+				size_t slashPos = baseName.find_last_of('/');
+				if (slashPos != uf::stl::string::npos) {
+					baseName = baseName.substr(slashPos + 1);
+				}
+
+				uf::stl::string resolvedPath = "SND://" + baseName;
+				if ( ctx.fileDatabase.count(baseName) ) {
+					resolvedPath = ctx.fileDatabase[baseName];
+				}
+
+				schema.wavs.emplace_back(PropertySchSamp{
+					.name = resolvedPath,
+					.weight = sample.weight,
+				});
+			}
+
+			schema.hasPlayParams = ctx.findInheritedProperty(objId, ctx.properties.schPlayParams, schema.playParams);
+			schema.hasLoopParams = ctx.findInheritedProperty(objId, ctx.properties.schLoopParams, schema.loopParams);
+		}
+	}
+
+	bool parseSong( const uf::stl::vector<uint8_t>& buffer, impl::Song& outSong ) {
+		uint32_t offset = 0;
+
+		uint32_t fileVersion;
+		if ( !impl::readStruct( buffer, offset, fileVersion ) ) return false;
+		if ( fileVersion != 1) {
+			UF_MSG_WARNING("Song file version mismatch (expected 1, got {})", fileVersion);
+		}
+
+		impl::sSongInfo songInfo;
+		if ( !impl::readStruct( buffer, offset, songInfo ) ) return false;
+		outSong.id = uf::stl::string(songInfo.id, strnlen(songInfo.id, kSONG_MaxStringLen));
+
+		uint32_t numGlobalEvents;
+		if ( !impl::readStruct( buffer, offset, numGlobalEvents ) ) return false;
+
+		for ( uint32_t i = 0; i < numGlobalEvents; ++i ) {
+			impl::sSongEventInfo evtInfo;
+			if ( !impl::readStruct( buffer, offset, evtInfo ) ) break;
+
+			auto& evt = outSong.globalEvents.emplace_back();
+			evt.eventString = uf::stl::string(evtInfo.eventString, strnlen(evtInfo.eventString, kSONG_MaxStringLen));
+			evt.flags = evtInfo.flags;
+
+			uint32_t numGotos;
+			if ( !impl::readStruct( buffer, offset, numGotos ) ) break;
+
+			for ( uint32_t j = 0; j < numGotos; ++j ) {
+				impl::sSongGotoInfo gotoInfo;
+				if ( !impl::readStruct( buffer, offset, gotoInfo ) ) break;
+				evt.gotos.push_back({ gotoInfo.sectionIndex, gotoInfo.probability });
+			}
+		}
+
+		uint32_t numSections;
+		if ( !impl::readStruct( buffer, offset, numSections ) ) return false;
+
+		for ( uint32_t i = 0; i < numSections; ++i ) {
+			impl::sSongSectionInfo secInfo;
+			if ( !impl::readStruct( buffer, offset, secInfo ) ) break;
+
+			auto& sec = outSong.sections.emplace_back();
+			sec.id = uf::stl::string(secInfo.id, strnlen(secInfo.id, kSONG_MaxStringLen));
+			sec.volume = secInfo.volume;
+			sec.loopCount = secInfo.loopCount;
+
+			uint32_t numSamples;
+			if ( !impl::readStruct( buffer, offset, numSamples ) ) break;
+
+			for ( uint32_t j = 0; j < numSamples; ++j ) {
+				impl::sSongSampleInfo sampInfo;
+				if ( !impl::readStruct( buffer, offset, sampInfo ) ) break;
+
+				uf::stl::string sampleName = uf::stl::string(sampInfo.name, strnlen(sampInfo.name, kSONG_MaxStringLen));
+				sec.samples.push_back({ sampleName });
+			}
+
+			uint32_t numSecEvents;
+			if ( !impl::readStruct( buffer, offset, numSecEvents ) ) break;
+
+			for ( uint32_t j = 0; j < numSecEvents; ++j ) {
+				impl::sSongEventInfo evtInfo;
+				if ( !impl::readStruct( buffer, offset, evtInfo ) ) break;
+
+				auto& evt = sec.events.emplace_back();
+				evt.eventString = uf::stl::string(evtInfo.eventString, strnlen(evtInfo.eventString, kSONG_MaxStringLen));
+				evt.flags = evtInfo.flags;
+
+				uint32_t numGotos;
+				if ( !impl::readStruct( buffer, offset, numGotos ) ) break;
+
+				for ( uint32_t k = 0; k < numGotos; ++k ) {
+					impl::sSongGotoInfo gotoInfo;
+					if ( !impl::readStruct( buffer, offset, gotoInfo ) ) break;
+					evt.gotos.push_back({ gotoInfo.sectionIndex, gotoInfo.probability });
+				}
+			}
+		}
+
+		return true;
+	}
+
 	void loadMaterials( pod::Graph& graph, impl::DarkContext& ctx ) {
 		auto& storage = uf::graph::getStorage(graph);
-		uf::stl::vector<uf::stl::string> extensions = { ".png", ".dds", ".tga", ".pcx", ".gif", ".bmp" };
 		uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
-
 		uf::stl::vector<uint8_t> buffer;
+
 		for ( const auto& matName : graph.materials ) {
 			auto& image = storage.images[matName].data;
 			if ( !image.getPixels().empty() ) continue; // already loaded
 
 			bool loaded = false;
-
-			// sanitize name and family
 			uf::stl::string family = "";
 			uf::stl::string texName = matName;
-			uf::stl::vector<uf::stl::string> searchDirs;
+
 			size_t slashPos = matName.find('/');
 			if ( slashPos != uf::stl::string::npos ) {
 				family = matName.substr(0, slashPos);
 				texName = matName.substr(slashPos + 1);
 			}
 
-			// family deduced, add it to search queue
-			if ( !family.empty() ) {
-				searchDirs.emplace_back("fam://" + family + "/");
-				searchDirs.emplace_back("fam://" + family + "/anim/");
-				for ( const auto& fam : ctx.families ) {
-					if ( fam != family && !fam.empty() ) searchDirs.emplace_back("fam://" + fam + "/");
-					if ( fam != family && !fam.empty() ) searchDirs.emplace_back("fam://" + fam + "/anim/");
-				}
-			// no family deduced, most likely an object
+			uf::stl::string targetPath = "";
+			if ( ctx.fileDatabase.count(matName) ) {
+				targetPath = ctx.fileDatabase[matName];
 			} else {
-				searchDirs.emplace_back("obj://txt16/");
-				searchDirs.emplace_back("obj://txt/");
-				searchDirs.emplace_back("obj://");
 				for ( const auto& fam : ctx.families ) {
-					if ( !fam.empty() ) {
-						searchDirs.emplace_back("fam://" + fam + "/");
-						searchDirs.emplace_back("fam://" + fam + "/anim/");
+					if ( ctx.fileDatabase.count(fam + "/" + texName) ) {
+						targetPath = ctx.fileDatabase[fam + "/" + texName];
+						family = fam;
+						break;
 					}
 				}
 			}
+			if ( targetPath.empty() && ctx.fileDatabase.count(texName) ) {
+				targetPath = ctx.fileDatabase[texName];
+			}
 
-			// search for target
-			for ( const auto& dir : searchDirs ) {
-				if ( loaded ) break;
+			if ( !targetPath.empty() && uf::io::readAsBuffer( buffer, targetPath ) ) {
+				uf::stl::string lowerTarget = targetPath;
+				std::transform(lowerTarget.begin(), lowerTarget.end(), lowerTarget.begin(), ::tolower);
 
-				if ( dir.starts_with("fam://") ) {
-					size_t fStart = 6;
-					size_t fEnd = dir.find('/', fStart);
-					if ( fEnd != uf::stl::string::npos ) family = dir.substr(fStart, fEnd - fStart);
-				}
-
-				for ( const auto& ext : extensions ) {
-					uf::stl::string target = dir + texName + ext;
-					// target doesn't exist
-					if ( !uf::io::exists( target ) ) continue;
-					// failed to read target
-					if ( !uf::io::readAsBuffer( buffer, target ) ) continue;
-
-					// is a PCX
-					if ( ext == ".pcx" ) {
-						if ( !family.empty() ) ext::ttlg::loadPalette( family, ctx.palettes[family] );
-						const uint8_t* palette = (!family.empty() && !ctx.palettes[family].empty()) ? ctx.palettes[family].data() : nullptr;
-						if ( !ext::ttlg::loadPcx( image, buffer, palette ) ) {
-							UF_MSG_ERROR("Failed to load PCX: {}", target);
-							continue;
-						}
-					// not a PCX, load it
-					} else if ( !uf::image::open(image, buffer, target ) ) {
-						continue;
+				if ( lowerTarget.ends_with(".pcx") ) {
+					if ( !family.empty() ) ext::ttlg::loadPalette( family, ctx.palettes[family] );
+					const uint8_t* palette = (!family.empty() && !ctx.palettes[family].empty()) ? ctx.palettes[family].data() : nullptr;
+					if ( !ext::ttlg::loadPcx( image, buffer, palette ) ) {
+						UF_MSG_ERROR("Failed to load PCX: {}", targetPath);
+					} else {
+						loaded = true;
 					}
-
-					// animated
-					if ( dir.find("/anim/") != uf::stl::string::npos ) {
-						UF_MSG_DEBUG("Animated texture found: {}", target);
-					}
-
+				} else if ( uf::image::open(image, buffer, targetPath ) ) {
 					loaded = true;
-					break;
+				}
+
+				if ( loaded && lowerTarget.find("/anim/") != uf::stl::string::npos ) {
+					UF_MSG_DEBUG("Animated texture found: {}", targetPath);
 				}
 			}
 
-			// did not load, fallback to missing_texture
 			if ( !loaded ) {
-				UF_MSG_DEBUG("Could not load material: {}", texName);
+				UF_MSG_DEBUG("Could not load material: {}", matName);
 				image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
 			}
 
@@ -501,7 +945,6 @@ namespace impl {
 			material.indexOcclusion = -1;
 			material.indexCubemap = -1;
 
-			// to-do: fill out
 			if ( matName.find("glass") != uf::stl::string::npos ) {
 				material.modeAlpha = pod::Material::AlphaMode::BLEND;
 			}
@@ -521,7 +964,8 @@ namespace impl {
 
 		auto& mesh = storage.meshes[meshName];
 		auto& primitives = storage.primitives[meshName];
-		uf::stl::unordered_map<int32_t, impl::Meshlet> meshlets;
+		//uf::stl::unordered_map<std::pair<size_t, size_t>, impl::Meshlet> meshlets;
+		uf::stl::unordered_map<uint64_t, impl::Meshlet> meshlets;
 
 		// cell information
 		struct ParsedCell {
@@ -642,11 +1086,14 @@ namespace impl {
 			}
 		}
 
-		// combine lightmap into atlas
-		auto atlasImageID = graph.images.size();
-		auto atlasTextureID = graph.textures.size();
+		auto atlasImageID = -1;
+		auto atlasTextureID = -1;
 
+		// combine lightmap into atlas
 		if ( !ctx.lightmapAtlas.tiles.empty() ) {
+			atlasImageID = graph.images.size();
+			atlasTextureID = graph.textures.size();
+
 			uf::atlas::generate(ctx.lightmapAtlas, 1);
 			auto& imageKey = graph.images.emplace_back("lightmap_atlas");
 			auto& textureKey = graph.textures.emplace_back("lightmap_atlas");
@@ -683,9 +1130,13 @@ namespace impl {
 						matName = graph.materials[materialID];
 					}
 				}
+				if ( materialID == -1 ) {
+					materialID = 0;
+				}
 
 				// prepare meshlet
-				auto& meshlet = meshlets[materialID];
+				//auto& meshlet = meshlets[std::make_pair(cell.cellIdx, materialID)];
+				auto& meshlet = meshlets[(static_cast<uint64_t>(cell.cellIdx) << 32) | static_cast<uint32_t>(materialID)];
 				meshlet.primitive.instance.materialID = materialID;
 				meshlet.primitive.instance.lightmapID = atlasTextureID;
 
@@ -774,25 +1225,22 @@ namespace impl {
 		if ( meshlets.empty()) return;
 
 		size_t primitiveID = 0;
-		for ( auto& [ matID, meshlet ] : meshlets ) {
+		for ( auto& [ meshletKey, meshlet ] : meshlets ) {
+		//	auto& [ auxID, matID ] = meshletKey;
+			uint32_t auxID = static_cast<uint32_t>(meshletKey >> 32);
+			uint32_t matID = static_cast<uint32_t>(meshletKey & 0xFFFFFFFF);
+
 			meshlet.primitive.drawCommand.indices = meshlet.indices.size();
 			meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 			meshlet.primitive.instance.materialID = matID;
+			meshlet.primitive.instance.auxID = auxID;
 			meshlet.primitive.instance.primitiveID = primitiveID++;
 			meshlet.primitive.instance.bounds = uf::mesh::bounds( meshlet.vertices );
 
 			uf::mesh::tangents( meshlet.vertices, meshlet.indices );
 		}
 
-		if ( false ) {
-			uf::meshgrid::Grid grid;
-			grid.divisions = {8, 1, 8};
-			auto mlets = uf::stl::values( meshlets );
-			auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
-			mesh.compile( partitioned, primitives );
-		} else {
-			mesh.compile( meshlets, primitives );
-		}
+		mesh.compile( meshlets, primitives );
 
 
 		auto nodeID = graph.nodes.size();
@@ -828,7 +1276,8 @@ namespace impl {
 			// bind position
 			PropertyPosition position = ctx.properties.position.at(objectID); {
 				// intentionally out of order so the struct can stay in the same order
-				auto facing = pod::Vector3f{ position.heading, position.bank, position.pitch } * -M_PI / 32768.0f;
+				// auto facing = pod::Vector3f{ position.heading, position.bank, position.pitch } * -M_PI / 32768.0f;
+				auto facing = pod::Vector3f{ position.facing[0], position.facing[2], position.facing[1] } * -M_PI / 32768.0f;
 
 				auto qPitch   = uf::quaternion::axisAngle(pod::Vector3f{1.0f, 0.0f, 0.0f}, facing.x);
 				auto qHeading = uf::quaternion::axisAngle(pod::Vector3f{0.0f, 1.0f, 0.0f}, facing.y);
@@ -847,7 +1296,7 @@ namespace impl {
 
 				if ( !model.ends_with(".bin") ) model += ".bin";
 
-				uf::stl::string path = "obj://" + model;
+				uf::stl::string path = "OBJ://" + model;
 				auto it = std::find( graph.meshes.begin(), graph.meshes.end(), path );
 				if ( it != graph.meshes.end() ) {
 					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
@@ -861,29 +1310,74 @@ namespace impl {
 				}
 			}
 
-			// bind light
-			PropertyLight light;
-			if ( ctx.findInheritedProperty( objectID, ctx.properties.light, light ) ) {
-				// create new node
-				auto lightNodeID = graph.nodes.size();
-				auto& lightNode = graph.nodes.emplace_back();
-				lightNode.name = ::fmt::format("{}_light", node.name);
-				graph.nodes[nodeID].children.emplace_back(lightNodeID);
+			// bind door
+			PropertyDoor doorProp;
+			bool isDoor = false;
 
-				graph.lights[::fmt::format("{}_{}", lightNode.name, lightNodeID)] = {
-					.range = light.radius,
-					.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f),
-					.intensity = light.brightness / M_PI,
-				};
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.rotDoor, doorProp ) ) {
+				metadata["door"]["is_rotating"] = true;
+				isDoor = true;
+			} else if ( ctx.findInheritedProperty( objectID, ctx.properties.transDoor, doorProp ) ) {
+				metadata["door"]["is_rotating"] = false;
+				isDoor = true;
+			}
+
+			if ( isDoor ) {
+				metadata["door"]["closed"] = doorProp.closed;
+				metadata["door"]["open"] = doorProp.open;
+				metadata["door"]["speed"] = doorProp.base_speed * impl::darkToMeters;
+				metadata["door"]["axis"] = doorProp.axis;
+				metadata["door"]["status"] = doorProp.status;
+			}
+
+			// bind class tags
+			uf::stl::string classTags;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.classTag, classTags ) ) {
+				UF_MSG_DEBUG("objectID={}, name={}, classTags={}", objectID, node.name, classTags);
+				metadata["class_tags"] = classTags;
 			}
 
 			// bind ambient sound
 			PropertyAmbient ambient;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.ambient, ambient ) ) {
-				metadata["sound"]["schema"] = uf::stl::string(ambient.schemaName);
-				metadata["sound"]["volume"] = ambient.volume;
-				metadata["sound"]["radius"] = ambient.radius;
+				uf::stl::string schemaName(ambient.schemaName, strnlen(ambient.schemaName, 16));
+
+				metadata["sound"]["schema"] = schemaName;
+				metadata["sound"]["volume"] = ambient.override_volume;
+				metadata["sound"]["radius"] = ambient.radius * impl::darkToMeters;
 				metadata["sound"]["flags"]  = ambient.flags;
+
+				uf::stl::string targetSchema = schemaName;
+				std::transform(targetSchema.begin(), targetSchema.end(), targetSchema.begin(), ::tolower);
+
+				int32_t schemaObjId = -1;
+				for ( const auto& [id, resolved] : ctx.schemas ) {
+					if ( resolved.name == targetSchema ) {
+						schemaObjId = id;
+						break;
+					}
+				}
+
+				if ( schemaObjId != -1 ) {
+					const auto& resolved = ctx.schemas.at(schemaObjId);
+
+					for ( const auto& wav : resolved.wavs ) {
+						auto& metadataWav = metadata["sound"]["wavs"].emplace_back();
+						metadataWav["uri"] = wav.name;
+						metadataWav["weight"] = wav.weight;
+					}
+
+					if ( resolved.hasPlayParams ) {
+						metadata["sound"]["schema_volume"] = resolved.playParams.volume;
+						metadata["sound"]["play_once"] = (resolved.playParams.flags & impl::SCH_PLAY_ONCE) != 0;
+						metadata["sound"]["stream"] = (resolved.playParams.flags & impl::SCH_STREAM) != 0;
+					}
+
+					if ( resolved.hasLoopParams ) {
+						metadata["sound"]["interval_min"] = resolved.loopParams.intervalMin;
+						metadata["sound"]["interval_max"] = resolved.loopParams.intervalMax;
+					}
+				}
 			}
 
 			// bind script
@@ -892,16 +1386,98 @@ namespace impl {
 				for ( const auto& s : scripts ) metadata["scripts"].emplace_back(s);
 			}
 
+			// bind physics
+			PropertyPhysType physType;
+			// to-do: optimize this as it cuts my FPS by ~30% with lots of small physics objects
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.physType, physType ) && physType.type != 3 ) {
+				auto& physMeta = node.metadata["physics"];
+
+				if ( physType.type == 0 ) {
+					physMeta["type"] = "obb";
+				} else if ( physType.type == 1 || physType.type == 2 ) {
+					physMeta["type"] = "sphere";
+					physMeta["radius"] = 0.5f;
+				} else {
+					physMeta["type"] = "mesh";
+				}
+
+				PropertyPhysAttr physAttr;
+				if ( ctx.findInheritedProperty( objectID, ctx.properties.physAttr, physAttr ) ) {
+					physMeta["mass"] = physAttr.mass;
+					physMeta["friction"] = physAttr.base_friction;
+					physMeta["restitution"] = physAttr.elasticity;
+
+					if ( physAttr.gravity == 0.0f ) {
+						physMeta["gravity"] = uf::vector::encode(pod::Vector3f{0.0f, 0.0f, 0.0f});
+					} else {
+						physMeta["gravity"] = uf::vector::encode(pod::Vector3f{0.0f, -0.0981f * physAttr.gravity, 0.0f});
+					}
+
+					if ( physAttr.edge_trigger != 0 ) {
+						physMeta["category"] = "trigger";
+						physMeta["inertia"] = false;
+						physMeta["mass"] = 0.0f;
+					}
+					if ( physType.type == 0 ) {
+						physMeta["mass"] = 0.0f;
+					}
+				}
+
+				PropertyPhysDims physDims;
+				if ( ctx.findInheritedProperty( objectID, ctx.properties.physDims, physDims ) ) {
+					if ( physType.type == 0 ) {
+						pod::Vector3f extent = impl::convertPos_NewDark(physDims.size) * 0.5f;
+						if ( extent.x > 0 && extent.y > 0 && extent.z > 0 ) {
+							physMeta["extent"] = uf::vector::encode(extent);
+						}
+
+						pod::Vector3f center = impl::convertPos_NewDark(physDims.offset[0]);
+						if ( center.x != 0.f || center.y != 0.f || center.z != 0.f ) {
+							physMeta["center"] = uf::vector::encode(center);
+						}
+					} else if ( physType.type == 1 || physType.type == 2 ) {
+						if ( physDims.radius[0] > 0 ) {
+							physMeta["radius"] = physDims.radius[0] * impl::darkToMeters;
+						}
+
+						pod::Vector3f offset = impl::convertPos_NewDark(physDims.offset[0]);
+						if ( offset.x != 0.f || offset.y != 0.f || offset.z != 0.f ) {
+							physMeta["offset"] = uf::vector::encode(offset);
+						}
+					}
+				}
+
+				PropertyPhysState physState;
+				if ( ctx.findInheritedProperty( objectID, ctx.properties.physState, physState ) ) {
+					pod::Vector3f vel = impl::convertPos_NewDark(physState.velocity, 1.0f);
+					if ( vel.x != 0.f || vel.y != 0.f || vel.z != 0.f ) physMeta["velocity"] = uf::vector::encode(vel);
+
+					pod::Vector3f angVel = { physState.rot_velocity.x, physState.rot_velocity.z, physState.rot_velocity.y };
+					if ( angVel.x != 0.f || angVel.y != 0.f || angVel.z != 0.f ) physMeta["angularVelocity"] = uf::vector::encode(angVel);
+				}
+			}
+
 			// fill out metadata
 			{
 				metadata["id"] = objectID;
 				metadata["cell"] = position.cell;
+			}
 
-				// to-do: deduce whether this should have physics
-				if ( false ) {
-					node.metadata["physics"]["type"] = "bounding box";
-					node.metadata["physics"]["mass"] = 0;
-				}
+			// bind light (at the end because we insert a new node)
+			PropertyLight light;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.light, light ) ) {
+				// create new node
+				auto lightNodeName = ::fmt::format("{}_light", node.name);
+				auto lightNodeID = graph.nodes.size();
+				auto& lightNode = graph.nodes.emplace_back();
+				lightNode.name = lightNodeName;
+				graph.nodes[nodeID].children.emplace_back(lightNodeID);
+
+				graph.lights[::fmt::format("{}_{}", lightNode.name, lightNodeID)] = {
+					.range = light.radius,
+					.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f),
+					.intensity = light.brightness / M_PI,
+				};
 			}
 		}
 	}
@@ -924,10 +1500,137 @@ namespace impl {
 			auto& srcNode = graph.nodes[sourceIdx];
 			auto& connection = srcNode.metadata["dark"]["connections"].emplace_back();
 
+			uf::stl::string flavor = "";
+			if ( ctx.linkFlavorNames.count(link.flavor) ) {
+				flavor = ctx.linkFlavorNames.at(link.flavor);
+			} else {
+				flavor = ::fmt::format("Unknown_{}", link.flavor);
+			}
+
+			connection["flavor"] = flavor;
 			connection["target_node"] = graph.nodes[destIdx].name;
 			connection["target_id"] = link.destId;
-			connection["flavor"] = link.flavor;
+
+			// bind sound descriptions
+			if ( flavor == "SoundDescription" ) {
+				if ( ctx.schemas.count(link.destId) ) {
+					const auto& schema = ctx.schemas.at(link.destId);
+					for (const auto& wav : schema.wavs) {
+						connection["wavs"].emplace_back(wav.name);
+					}
+				}
+			}
 		}
+	}
+
+	void processSongs( pod::Graph& graph, impl::DarkContext& ctx ) {
+		uf::stl::vector<uf::stl::string> songFiles = uf::vfs::list("SND://song/", ".snc");
+		if ( songFiles.empty() ) songFiles = uf::vfs::list("SND://", ".snc");
+
+		auto nodeID = graph.nodes.size();
+		auto& node = graph.nodes.emplace_back();
+		
+		graph.root.children.emplace_back( nodeID );
+		node.name = "Song";
+
+		 uf::stl::string missionSong = "";
+		if ( ctx.inventory.count("SONGPARAMS") > 0 ) {
+			const auto& item = ctx.inventory.at("SONGPARAMS");
+			uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+			impl::PropertySongParams params;
+			if ( impl::readStruct( ctx.buffer, offset, params ) ) {
+				missionSong = uf::stl::string(params.songName, strnlen(params.songName, 32));
+			}
+		}
+		node.metadata["dark"]["mission song"] = missionSong;
+
+		auto& musicMarkersMeta = node.metadata["dark"]["music markers"];
+		for ( auto& node : graph.nodes) {
+			auto& soundMeta = node.metadata["dark"]["sound"];
+			if ( !soundMeta.isObject() ) continue;
+			int flags = soundMeta["flags"].as<int>(0);
+			if ((flags & 16) != 0) {
+				auto& marker = musicMarkersMeta.emplace_back();
+
+				marker["position"] = uf::vector::encode(node.transform.position);
+				marker["radius"] = soundMeta["radius"].as<float>();
+				marker["theme"] = soundMeta["schema"].as<uf::stl::string>();
+			}
+		}
+
+		auto& songMeta = node.metadata["dark"]["songs"];
+		for ( const auto& sncPath : songFiles ) {
+			uf::stl::vector<uint8_t> sncBuf;
+			impl::Song song;
+
+			if ( !uf::io::readAsBuffer( sncBuf, sncPath ) || !impl::parseSong( sncBuf, song ) ) continue;
+
+			uf::stl::string songId = sncPath;
+
+			size_t slashPos = songId.find_last_of('/');
+			if ( slashPos != uf::stl::string::npos ) songId = songId.substr(slashPos + 1);
+
+			size_t dotPos = songId.find_last_of('.');
+			if ( dotPos != uf::stl::string::npos ) songId = songId.substr(0, dotPos);
+
+			std::transform(songId.begin(), songId.end(), songId.begin(), ::tolower);
+
+			auto& sm = songMeta[songId];
+
+			for ( const auto& evt : song.globalEvents ) {
+				auto& em = sm["events"].emplace_back();
+				em["event"] = evt.eventString;
+				em["flags"] = evt.flags;
+				for ( const auto& gt : evt.gotos ) {
+					auto& gm = em["gotos"].emplace_back();
+					gm["section"] = gt.sectionIndex;
+					gm["probability"] = gt.probability;
+				}
+			}
+
+			for ( const auto& sec : song.sections ) {
+				auto& secm = sm["sections"].emplace_back();
+				secm["id"] = sec.id;
+				secm["volume"] = sec.volume;
+				secm["loop_count"] = sec.loopCount;
+
+				for ( const auto& samp : sec.samples ) {
+					secm["samples"].emplace_back(samp.name);
+				}
+
+				for ( const auto& evt : sec.events ) {
+					auto& em = secm["events"].emplace_back();
+					em["event"] = evt.eventString;
+					em["flags"] = evt.flags;
+					for ( const auto& gt : evt.gotos ) {
+						auto& gm = em["gotos"].emplace_back();
+						gm["section"] = gt.sectionIndex;
+						gm["probability"] = gt.probability;
+					}
+				}
+			}
+		}
+	}
+
+	uf::stl::unordered_map<int32_t, uf::stl::string> parseNameMap(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset) {
+		uf::stl::unordered_map<int32_t, uf::stl::string> map;
+		int32_t upperBound, lowerBound, size;
+
+		if (!impl::readStruct(buffer, offset, upperBound)) return map;
+		if (!impl::readStruct(buffer, offset, lowerBound)) return map;
+		if (!impl::readStruct(buffer, offset, size)) return map;
+
+		for (int i = 0; i < size; ++i) {
+			char flag;
+			if (!impl::readStruct(buffer, offset, flag)) break;
+
+			if (flag == '+') {
+				uf::stl::vector<char> text;
+				if (!impl::readArray(buffer, offset, 16, text)) break;
+				map[i + lowerBound] = uf::stl::string(text.data(), strnlen(text.data(), 16));
+			}
+		}
+		return map;
 	}
 
 	void readInventory( impl::DarkContext& ctx, const impl::DarkDBHeader& header ) {
@@ -950,8 +1653,30 @@ namespace impl {
 		// parse properties
 		impl::parseProperty( ctx, "Position" );
 		impl::parseProperty( ctx, "Light" );
+		impl::parseProperty( ctx, "TransDoor" );
+		impl::parseProperty( ctx, "RotDoor" );
 		impl::parseProperty( ctx, "Ambient" );
+		impl::parseProperty( ctx, "AmbientHacked" );
 		impl::parseProperty( ctx, "Scripts" );
+		//	 physics
+		impl::parseProperty( ctx, "PhysType" );
+		impl::parseProperty( ctx, "PhysAttr" );
+		impl::parseProperty( ctx, "PhysDims" );
+		impl::parseProperty( ctx, "PhysState" );
+		//	schemas
+		impl::parseProperty( ctx, "SchPlayParams" );
+		impl::parseProperty( ctx, "SchLoopParams" );
+
+		impl::parseProperty( ctx, "Class Tag" );
+		impl::parseProperty( ctx, "SchMsg" );
+		impl::parseProperty( ctx, "SchAction" );
+
+		// parse schsamp
+		if ( inventory.count("SchSamp") > 0 ) {
+			impl::parseSchSamp( ctx, inventory["SchSamp"] );
+		}
+		impl::parseSchemas( ctx );
+
 		// parse links
 		if ( inventory.count("Relations") > 0 ) {
 			impl::parseRelations( ctx, inventory["Relations"] );
@@ -961,6 +1686,30 @@ namespace impl {
 				impl::parsePartitionedLinks( ctx, item );
 			}
 		}
+
+		// parse tags
+		if ( inventory.count("Speech_DB") > 0 ) {
+			const auto& item = inventory["Speech_DB"];
+			uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+			auto& buffer = ctx.buffer;
+
+			auto concepts = parseNameMap(buffer, offset);
+			auto tags = parseNameMap(buffer, offset);
+			auto values = parseNameMap(buffer, offset);
+
+			if ( inventory.count("ENV_SOUND") > 0 ) {
+				const auto& item = inventory["ENV_SOUND"];
+				uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+
+				int32_t numRequiredTags;
+				if ( impl::readStruct(buffer, offset, numRequiredTags) ) {
+					offset += numRequiredTags;
+
+					parseEnvSoundTree(buffer, offset, tags, values, "", ctx);
+				}
+			}
+		}
+
 
 		// bind hierarchy
 		{
@@ -1038,10 +1787,67 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 	auto& storage = uf::graph::getStorage( graph );
 
 	// mount files
-	auto famMount = uf::vfs::mount(ext::zlib::createZipMount("fam://", "game://Data/res/FAM.CRF", 1000), true);
-	auto mshMount = uf::vfs::mount(ext::zlib::createZipMount("obj://", "game://Data/res/MESH.CRF", 1000), true);
-	auto bmpMount = uf::vfs::mount(ext::zlib::createZipMount("obj://", "game://Data/res/BITMAP.CRF", 1000), true);
-	auto objMount = uf::vfs::mount(ext::zlib::createZipMount("obj://", "game://Data/res/OBJ.CRF", 1000), true);
+	auto famMount = uf::vfs::mount(ext::zlib::createZipMount("FAM://", "game://Data/res/FAM.CRF", 1000), true);
+	auto mshMount = uf::vfs::mount(ext::zlib::createZipMount("OBJ://", "game://Data/res/MESH.CRF", 1000), true);
+	auto bmpMount = uf::vfs::mount(ext::zlib::createZipMount("OBJ://", "game://Data/res/BITMAP.CRF", 1000), true);
+	auto objMount = uf::vfs::mount(ext::zlib::createZipMount("OBJ://", "game://Data/res/OBJ.CRF", 1000), true);
+
+	auto sndMount = uf::vfs::mount(ext::zlib::createZipMount("SND://", "game://Data/res/SND.CRF", 1000)); // not temp
+	auto snd2Mount = uf::vfs::mount(ext::zlib::createZipMount("SND://", "game://Data/res/SND2.CRF", 1000)); // not temp
+	auto songMount = uf::vfs::mount(ext::zlib::createZipMount("SND://", "game://Data/res/SONG.CRF", 1000)); // not temp
+
+	//
+	{
+		auto wavs = uf::vfs::list( "SND://", ".wav", true );
+		uf::stl::vector<uf::stl::string> imgExts = { ".png", ".dds", ".tga", ".pcx", ".gif", ".bmp" };
+		uf::stl::vector<uf::stl::string> texMounts = { "FAM://", "OBJ://" };
+
+		for ( const auto& path : wavs ) {
+			uf::stl::string filename = path;
+
+			size_t slashPos = filename.find_last_of('/');
+			if (slashPos != uf::stl::string::npos) filename = filename.substr(slashPos + 1);
+
+			std::transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
+
+			uf::stl::string absolutePath = path;
+			if ( !absolutePath.starts_with("SND://") && !absolutePath.starts_with("snd://") ) {
+				if ( absolutePath.starts_with("/") ) absolutePath = "SND:/" + absolutePath;
+				else absolutePath = "SND://" + absolutePath;
+			}
+
+			ctx.fileDatabase[filename] = absolutePath;
+		}
+
+
+		for ( const auto& mount : texMounts ) {
+			for ( const auto& ext : imgExts ) {
+				auto files = uf::vfs::list(mount, ext, true);
+				for ( const auto& path : files ) {
+					uf::stl::string lowerPath = path;
+					std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
+
+					uf::stl::string filename = lowerPath;
+					size_t slashPos = filename.find_last_of('/');
+					if (slashPos != uf::stl::string::npos) filename = filename.substr(slashPos + 1);
+					uf::stl::string baseName = filename.substr(0, filename.find_last_of('.'));
+
+					if (ctx.fileDatabase.count(baseName) == 0) {
+						ctx.fileDatabase[baseName] = path;
+					}
+
+					if (lowerPath.starts_with("fam://")) {
+						size_t famEnd = lowerPath.find('/', 6);
+						if (famEnd != uf::stl::string::npos) {
+							uf::stl::string family = lowerPath.substr(6, famEnd - 6);
+							ctx.fileDatabase[family + "/" + baseName] = path;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// load initial data
 	impl::loadGam( ctx, /*metadata["game"].as<uf::stl::string>*/("game://Data/SHOCK2.GAM") ); // to-do: deduce path from metadata
 	impl::readInventory( ctx, header );
@@ -1059,6 +1865,24 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 		impl::loadMaterials( graph, ctx );
 	}
 	impl::processLinks( graph, ctx );
+	impl::processSongs( graph, ctx );
+
+	// needs a home
+	auto& schemaDbMeta = graph.metadata["dark"]["schema_db"];
+	for ( const auto& [id, schema] : ctx.schemas ) {
+		if ( schema.wavs.empty() ) continue;
+
+		auto& entry = schemaDbMeta.emplace_back();
+		entry["name"] = schema.name;
+		entry["tags"] = schema.classTag;
+		entry["msg"]  = schema.msg;
+		entry["action"] = schema.action;
+
+		for (const auto& wav : schema.wavs) {
+			entry["wavs"].emplace_back(wav.name);
+		}
+	}
+
 	// disable postprocessing flags
 	if ( filename.starts_with("game://") ) graph.metadata["exporter"]["enabled"] = false; // disable exporting if loaded from a VPK
 	graph.metadata["exporter"]["unwrap"] = false; // do not unwrap UVs for baking (we already have those)
