@@ -6,7 +6,6 @@ local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
 local darkMeta = metadata["dark"] or {}
 local doorMeta = darkMeta["door"] or {}
-local schemaDb = darkMeta["schema_db"] or {}
 local classTags = doorMeta["class_tags"] or (darkMeta["class_tags"] or "")
 
 local state = 0
@@ -49,6 +48,9 @@ end
 
 local polarity = (openPos > closedPos) and 1 or -1
 
+local status = tonumber(doorMeta["status"]) or 0
+local oldStateString = (status == 1) and "Open" or "Closed"
+
 local function stopCurrentSound()
 	if currentWav ~= "" then
 		ent:callHook("sound:Stop.%UID%", { filename = currentWav })
@@ -57,76 +59,37 @@ local function stopCurrentSound()
 end
 
 local function playEnvSchema(newState)
-	local bestMatch = nil
-	local bestScore = -1
+	local queryTags = classTags
+	if queryTags ~= "" then queryTags = queryTags .. ", " end
+	queryTags = queryTags .. "Event StateChange, OpenState " .. newState .. ", OldOpenState " .. oldStateString
 
+	local resolvedUrl, schemaName = _G.DarkUtils.playSound(ent, queryTags, nil, {
+		spatial = true,
+		volume = 1.0,
+		maxDistance = 15.0,
+		rolloffFactor = 1.0,
+		unique = true
+	})
 
-	local myDoorType = nil
-	if classTags and classTags ~= "" then
-		myDoorType = string.match(classTags, "DoorType%s+([^%s,]+)")
-	end
-
-
-	for _, schema in ipairs(schemaDb) do		
-		local sTags = schema.tags or ""
-
-		local isStateChange = string.find(sTags, "Event StateChange")
-		local openStateVals = string.match(sTags, "OpenState%s+([^,]+)")
-		local matchesState = openStateVals and string.find(openStateVals, newState)
-
-		if isStateChange and matchesState then
-			local score = 0
-
-			if myDoorType then
-				if string.find(sTags, myDoorType) then
-					score = score + 10
-				elseif string.find(sTags, "DoorType") then
-					score = score - 10
-				end
-			else
-				if string.find(sTags, "DoorType") then
-					score = score - 5
-				end
-			end
-
-			if score > bestScore then
-				bestScore = score
-				bestMatch = schema
-			end
-		end
-	end
-
-	if bestMatch then
-		if (newState == "Open" or newState == "Closed") and bestMatch.name == currentSchemaName then
+	if resolvedUrl then
+		if (newState == "Open" or newState == "Closed") and schemaName == currentSchemaName then
 			return
 		end
-
-		currentSchemaName = bestMatch.name
-
-		if bestMatch.wavs and #bestMatch.wavs > 0 then
-			local pick = bestMatch.wavs[math.random(#bestMatch.wavs)]
-			local resolvedUrl = string.resolveURI(pick, metadata["system"]["root"])
-
-			stopCurrentSound()
-			currentWav = resolvedUrl
-
-			ent:callHook("sound:Emit.%UID%", {
-				filename = resolvedUrl,
-				spatial = true,
-				volume = 1.0,
-				maxDistance = 15.0,
-				rolloffFactor = 1.0,
-				unique = true
-			})
-		end
+		stopCurrentSound()
+		currentSchemaName = schemaName
+		currentWav = resolvedUrl
 	end
 end
 
+
 local function setDoorState(newState)
 	if newState == "Open" and (state == 0 or state == 3) then
+		oldStateString = (state == 0) and "Closed" or "Closing"
 		state = 1
 		playEnvSchema("Opening")
+
 	elseif newState == "Close" and (state == 2 or state == 1) then
+		oldStateString = (state == 2) and "Open" or "Opening"
 		state = 3
 		playEnvSchema("Closing")
 	end
@@ -145,9 +108,8 @@ ent:bind("tick", function(self)
 			currentDistance = targetDistance
 			state = 2
 
-			-- Stop the "Opening" sound
 			ent:callHook("sound:Stop.%UID%", {})
-			-- Play the "Open" (Latch) sound!
+			oldStateString = "Opening"
 			playEnvSchema("Open")
 		end
 
@@ -160,9 +122,8 @@ ent:bind("tick", function(self)
 			currentDistance = 0
 			state = 0
 
-			-- Stop the "Closing" sound
 			ent:callHook("sound:Stop.%UID%", {})
-			-- Play the "Closed" (Latch) sound!
+			oldStateString = "Closing"
 			playEnvSchema("Closed")
 		end
 	end

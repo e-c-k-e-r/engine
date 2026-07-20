@@ -1,52 +1,34 @@
 local ent = ent
-local scene = entities.currentScene()
-
 local metadata = ent:getComponent("Metadata")
 local darkMeta = metadata["dark"] or {}
 local soundMeta = darkMeta["sound"] or {}
-local schemaDb = darkMeta["schema_db"] or {}
 local connections = darkMeta["connections"] or {}
 
 local isPlaying = false
-
 local nativeSchema = soundMeta["schema"] or ""
 
 ent:addHook("link:Message.%UID%", function(payload)
 	local msg = payload.message
 
 	if msg == "TurnOn" and not isPlaying then
-		local urlToPlay = ""
+		local explicitSchema = ""
 
 		for _, conn in ipairs(connections) do
-			if conn.flavor == "SoundDescription" and conn.wavs and #conn.wavs > 0 then
-				urlToPlay = conn.wavs[math.random(#conn.wavs)]
+			if conn.flavor == "SoundDescription" and conn.target_node and conn.target_node ~= "UnknownSchema" then
+				explicitSchema = conn.target_node
 				break
 			end
 		end
 
-		if urlToPlay == "" and nativeSchema ~= "" then
-			for _, entry in ipairs(schemaDb) do
-				if entry.name:lower() == nativeSchema:lower() then
-					if entry.wavs and #entry.wavs > 0 then
-						urlToPlay = entry.wavs[math.random(#entry.wavs)]
-					end
-					break
-				end
-			end
+		if explicitSchema == "" and nativeSchema ~= "" then
+			explicitSchema = nativeSchema
 		end
 
-		if urlToPlay ~= "" then
-			local resolvedUrl = string.resolveURI(urlToPlay, metadata["system"]["root"])
-			isPlaying = true
-
-			ent:callHook("sound:Emit.%UID%", {
-				filename = resolvedUrl,
-				spatial = false,
-				streamed = true,
-				volume = 1.0,
-				unique = true,
-				loop = false
+		if explicitSchema ~= "" then
+			local resolvedUrl = _G.DarkUtils.playSound(ent, "", explicitSchema, {
+				spatial = false, streamed = true, volume = 1.0, unique = true, loop = false
 			})
+			if resolvedUrl then isPlaying = true end
 		end
 
 	elseif msg == "TurnOff" and isPlaying then

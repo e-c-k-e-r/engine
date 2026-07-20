@@ -1438,7 +1438,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	auto& metadataDark = node.metadata["dark"];
 	if ( ext::json::isObject( metadataDark ) ) {
 		bool emitsAudio = false;
-
+	
 		// bind elevator
 		bool isElevator = false;
 		if ( ext::json::isArray( metadataDark["scripts"] ) ) {
@@ -1454,10 +1454,17 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			emitsAudio = true;
 		}
 
+		// bind schema DB
+		if ( ext::json::isArray( metadataDark["schema_db"] ) ) {
+			UF_MSG_DEBUG("Binding schema DB: {}", node.name);
+			loadJson["assets"].emplace_back("ent://scripts/dark/schema_db.lua");
+		}
+
 		// bind io connectivity
 		if ( ext::json::isArray( metadataDark["connections"] ) || metadataDark["id"].is<int>() ) {
 			node.metadata["connections"] = metadataDark["connections"];
 			loadJson["assets"].emplace_back("ent://scripts/dark/io.lua");
+			loadJson["assets"].emplace_back("ent://scripts/dark/osm.lua");
 		}
 
 		// bind door
@@ -1491,53 +1498,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		auto& physMeta = node.metadata["physics"];
 		if ( ext::json::isObject( physMeta ) && physMeta["category"].as<uf::stl::string>("") == "trigger" ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/trigger.lua");
-		}
-
-		// bind schema based on what we need
-		uf::stl::string classTags = metadataDark["class_tags"].as<uf::stl::string>("");
-		uf::stl::string explicitSchema = "";
-		if ( metadataDark["sound"].isObject() ) {
-			explicitSchema = metadataDark["sound"]["schema"].as<uf::stl::string>("");
-		}
-
-		if ( !classTags.empty() || !explicitSchema.empty() ) {
-			auto& localDb = node.metadata["dark"]["schema_db"];
-
-			uf::stl::vector<uf::stl::string> searchTerms;
-			auto extractTerm = [&](const uf::stl::string& prefix) {
-				size_t p = classTags.find(prefix);
-				if ( p != uf::stl::string::npos ) {
-					p += prefix.length();
-					size_t end = classTags.find_first_of(" ,", p);
-					if ( end == uf::stl::string::npos ) end = classTags.length();
-					uf::stl::string term = classTags.substr(p, end - p);
-					if ( !term.empty() ) searchTerms.push_back(term);
-				}
-			};
-
-			extractTerm("DeviceType ");
-			extractTerm("DoorType ");
-
-			ext::json::forEach( graph.metadata["dark"]["schema_db"], [&]( ext::json::Value& sch ){
-				uf::stl::string sName = sch["name"].as<uf::stl::string>("");
-				uf::stl::string sTags = sch["tags"].as<uf::stl::string>("");
-				bool keep = false;
-
-				if ( !explicitSchema.empty() && sName == explicitSchema ) {
-					keep = true;
-				} else {
-					for ( const auto& term : searchTerms ) {
-						if ( sTags.find(term) != uf::stl::string::npos ) {
-							keep = true;
-							break;
-						}
-					}
-				}
-
-				if ( keep ) {
-					localDb.emplace_back(sch);
-				}
-			});
 		}
 
 		if ( emitsAudio ) loadJson["behaviors"].emplace_back("AudioEmitterBehavior");

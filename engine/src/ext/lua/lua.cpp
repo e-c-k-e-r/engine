@@ -159,24 +159,58 @@ void ext::lua::onInitialization( const std::function<void()>& function ) {
 
 namespace binds {
 	namespace hook {
-		void add( const uf::stl::string& name, LUA_FUN function ) {
-			uf::hooks.addHook( name, [function](ext::json::Value& json){
-				sol::table table = ext::lua::decode(json).value_or(ext::lua::state.create_table());
-				auto result = function( table );
-				// ???
-			#if UF_LUA_PCALLS
-				if ( !result.valid() ) {
-					sol::error err = result;
-					UF_MSG_ERROR("{}", err.what())
+		void add( const uf::stl::string& name, sol::protected_function function ) {
+		uf::hooks.addHook( name, [function]( const pod::Hook::userdata_t& payload ) -> pod::Hook::userdata_t {
+			ext::json::Value jsonPayload;
+			if ( payload.is<ext::json::Value>() ) {
+				jsonPayload = payload.get<ext::json::Value>();
+			}
+			sol::table table = ext::lua::decode(jsonPayload).value_or(ext::lua::state.create_table());
+
+			auto result = function( table );
+
+		#if UF_LUA_PCALLS
+			if ( !result.valid() ) {
+				sol::error err = result;
+				UF_MSG_ERROR("{}", err.what());
+				return pod::Hook::userdata_t();
+			}
+		#endif
+
+			sol::object retObj = result;
+			if ( retObj.get_type() != sol::type::lua_nil && retObj.is<sol::table>() ) {
+				auto encodedOpt = ext::lua::encode(retObj.as<sol::table>());
+				if (encodedOpt.has_value()) {
+					pod::Hook::userdata_t ret;
+					ret.create<ext::json::Value>(encodedOpt.value());
+					return ret;
 				}
-			#endif
-			});
-		};
-		void call( const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
-			ext::json::Value payload = uf::Serializer(table);
-			uf::hooks.call( name, payload );
-			return;
-		};
+			}
+
+			return pod::Hook::userdata_t();
+		}, pod::Hook::Type{UF_USERDATA_CTTI(ext::json::Value), sizeof(ext::json::Value)});
+	};
+
+	sol::object call( const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
+		auto encodedOpt = ext::lua::encode(table);
+		ext::json::Value payload = encodedOpt.has_value() ? encodedOpt.value() : ext::json::Value();
+
+		pod::Hook::userdata_t ud;
+		ud.create<ext::json::Value>(payload);
+
+		auto results = uf::hooks.call( name, ud );
+
+		if ( results.empty() ) return sol::lua_nil;
+
+		for ( auto& res : results ) {
+			if ( !res.is<ext::json::Value>() ) continue;
+			auto decodedOpt = ext::lua::decode( res.get<ext::json::Value>() );
+			if ( decodedOpt.has_value() ) {
+				return decodedOpt.value();
+			}
+		}
+		return sol::lua_nil;
+	};
 	}
 	namespace entities {
 		uf::Object& get(const uint& uid) {

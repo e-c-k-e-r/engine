@@ -1158,7 +1158,6 @@ namespace impl {
 			// fill indices
 			cell.polyIndices.resize( cell.header.numPolygons );
 			for ( uint8_t i = 0; i < cell.header.numPolygons; ++i ) {
-				// The reader can populate the vector directly!
 				reader.read( cell.polys[i].count, cell.polyIndices[i] );
 			}
 
@@ -1418,12 +1417,12 @@ namespace impl {
 			uf::stl::string archetype = "Unknown";
 			ctx.findInheritedProperty(objectID, ctx.archetypes, archetype);
 
-            if ( ctx.customNames.count(objectID) ) {
-                node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
-            } else {
-                if ( archetype != "Unknown" ) node.name = uf::stl::string(archetype.c_str());
-                if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
-            }
+			if ( ctx.customNames.count(objectID) ) {
+				node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
+			} else {
+				if ( archetype != "Unknown" ) node.name = uf::stl::string(archetype.c_str());
+				if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
+			}
 			
 			// bind position
 			PropertyPosition position = ctx.properties.position.at(objectID); {
@@ -1518,38 +1517,6 @@ namespace impl {
 				metadata["sound"]["volume"] = ambient.override_volume;
 				metadata["sound"]["radius"] = ambient.radius * impl::darkToMeters;
 				metadata["sound"]["flags"]  = ambient.flags;
-
-				uf::stl::string targetSchema = schemaName;
-				std::transform(targetSchema.begin(), targetSchema.end(), targetSchema.begin(), ::tolower);
-
-				int32_t schemaObjId = -1;
-				for ( const auto& [id, resolved] : ctx.schemas ) {
-					if ( resolved.name == targetSchema ) {
-						schemaObjId = id;
-						break;
-					}
-				}
-
-				if ( schemaObjId != -1 ) {
-					const auto& resolved = ctx.schemas.at(schemaObjId);
-
-					for ( const auto& wav : resolved.wavs ) {
-						auto& metadataWav = metadata["sound"]["wavs"].emplace_back();
-						metadataWav["uri"] = wav.name;
-						metadataWav["weight"] = wav.weight;
-					}
-
-					if ( resolved.hasPlayParams ) {
-						metadata["sound"]["schema_volume"] = resolved.playParams.volume;
-						metadata["sound"]["play_once"] = (resolved.playParams.flags & PropertySchPlayParams::SCH_PLAY_ONCE) != 0;
-						metadata["sound"]["stream"] = (resolved.playParams.flags & PropertySchPlayParams::SCH_STREAM) != 0;
-					}
-
-					if ( resolved.hasLoopParams ) {
-						metadata["sound"]["interval_min"] = resolved.loopParams.intervalMin;
-						metadata["sound"]["interval_max"] = resolved.loopParams.intervalMax;
-					}
-				}
 			}
 
 			// bind script
@@ -1588,7 +1555,7 @@ namespace impl {
 
 				PropertyPhysAttr physAttr;
 				if ( ctx.findInheritedProperty( objectID, ctx.properties.physAttr, physAttr ) ) {
-					physMeta["mass"] = (physType.type == impl::PropertyPhysType::OBB || physAttr.edge_trigger != 0) ? 0.0f : physAttr.mass;
+					physMeta["mass"] = 0.0f; // (physType.type == impl::PropertyPhysType::OBB || physAttr.edge_trigger != 0) ? 0.0f : physAttr.mass;
 					physMeta["friction"] = physAttr.base_friction;
 					physMeta["restitution"] = physAttr.elasticity;
 					physMeta["gravity"] = uf::vector::encode( pod::Vector3f{0.0f, -0.0981f * physAttr.gravity, 0.0f} );
@@ -1677,23 +1644,6 @@ namespace impl {
 
 			size_t sourceIdx = objectToNode[link.sourceId];
 			auto& srcNode = graph.nodes[sourceIdx];
-
-			if ( flavor == "SoundDescription" ) {
-				auto& connection = srcNode.metadata["dark"]["connections"].emplace_back();
-				connection["flavor"] = flavor;
-				connection["target_id"] = link.destId;
-
-				if ( ctx.schemas.count(link.destId) ) {
-					const auto& schema = ctx.schemas.at(link.destId);
-					connection["target_node"] = schema.name;
-					for (const auto& wav : schema.wavs) {
-						connection["wavs"].emplace_back(wav.name);
-					}
-				} else {
-					connection["target_node"] = "UnknownSchema";
-				}
-				continue;
-			}
 
 			if ( !objectToNode.count(link.destId) ) continue;
 
@@ -1800,6 +1750,41 @@ namespace impl {
 				}
 			}
 		}
+	}
+	void processSchema( pod::Graph& graph, impl::DarkContext& ctx ) {
+		auto nodeID = graph.nodes.size();
+		auto& node = graph.nodes.emplace_back();
+		
+		graph.root.children.emplace_back( nodeID );
+		node.name = "Schema DB";
+
+		auto& schemaDbMeta = node.metadata["dark"]["schema_db"];
+		for ( const auto& [id, schema] : ctx.schemas ) {
+			if ( schema.wavs.empty() ) continue;
+
+			auto& entry = schemaDbMeta.emplace_back();
+			entry["name"] = schema.name;
+			entry["tags"] = schema.classTag;
+			entry["msg"]  = schema.msg;
+			entry["action"] = schema.action;
+
+			for (const auto& wav : schema.wavs) {
+				entry["wavs"].emplace_back(wav.name);
+			}
+
+			if ( schema.hasPlayParams ) {
+				entry["schema_volume"] = schema.playParams.volume;
+				entry["play_once"] = (schema.playParams.flags & impl::PropertySchPlayParams::SCH_PLAY_ONCE) != 0;
+				entry["stream"] = (schema.playParams.flags & impl::PropertySchPlayParams::SCH_STREAM) != 0;
+			}
+
+			if ( schema.hasLoopParams ) {
+				entry["interval_min"] = schema.loopParams.intervalMin;
+				entry["interval_max"] = schema.loopParams.intervalMax;
+			}
+		}
+
+		UF_MSG_DEBUG("Processed schema: {}", schemaDbMeta.size());
 	}
 
 	uf::stl::unordered_map<int32_t, uf::stl::string> parseNameMap( uf::stl::reader& reader ) {
@@ -2060,22 +2045,7 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 	}
 	impl::processLinks( graph, ctx );
 	impl::processSongs( graph, ctx );
-
-	// needs a home
-	auto& schemaDbMeta = graph.metadata["dark"]["schema_db"];
-	for ( const auto& [id, schema] : ctx.schemas ) {
-		if ( schema.wavs.empty() ) continue;
-
-		auto& entry = schemaDbMeta.emplace_back();
-		entry["name"] = schema.name;
-		entry["tags"] = schema.classTag;
-		entry["msg"]  = schema.msg;
-		entry["action"] = schema.action;
-
-		for (const auto& wav : schema.wavs) {
-			entry["wavs"].emplace_back(wav.name);
-		}
-	}
+	impl::processSchema( graph, ctx );
 
 	// disable postprocessing flags
 	if ( filename.starts_with("game://") ) graph.metadata["exporter"]["enabled"] = false; // disable exporting if loaded from a VPK
