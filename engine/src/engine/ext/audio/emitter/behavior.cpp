@@ -44,6 +44,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( ext::json::isNull(json["gain"]) ) json["gain"] = metadataJson["audio"]["gain"];
 		if ( ext::json::isNull(json["rolloffFactor"]) ) json["rolloffFactor"] = metadataJson["audio"]["rolloffFactor"];
 		if ( ext::json::isNull(json["maxDistance"]) ) json["maxDistance"] = metadataJson["audio"]["maxDistance"];
+		if ( ext::json::isNull(json["referenceDistance"]) ) json["referenceDistance"] = metadataJson["audio"]["referenceDistance"];
 		if ( ext::json::isNull(json["epsilon"]) ) json["epsilon"] = metadataJson["audio"]["epsilon"];
 		if ( ext::json::isNull(json["loop"]) ) json["loop"] = metadataJson["audio"]["loop"];
 		if ( ext::json::isNull(json["streamed"]) ) json["streamed"] = metadataJson["audio"]["streamed"];
@@ -68,6 +69,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["gain"].is<double>() ) uf::audio::gain(source, json["gain"].as<float>());
 		if ( json["rolloffFactor"].is<double>() ) uf::audio::rolloff(source, json["rolloffFactor"].as<float>());
 		if ( json["maxDistance"].is<double>() ) uf::audio::maxDistance(source, json["maxDistance"].as<float>());
+		if ( json["referenceDistance"].is<double>() ) uf::audio::referenceDistance(source, json["referenceDistance"].as<float>());
 		if ( json["spatial"].is<bool>() ) source.settings.spatial = json["spatial"].as<bool>();
 
 		if ( json["loop"].is<bool>() ) uf::audio::loop(source, json["loop"].as<bool>());
@@ -97,7 +99,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		uf::stl::string filename = payload["filename"].as<uf::stl::string>();
 		int layer = payload["layer"].as<int>(1);
 		uf::stl::string channelName = "managed_bgm_channel_" + std::to_string(layer);
-		UF_MSG_DEBUG("filename={}, channelName={}", filename, channelName);
 
 		if ( emitter.has( channelName ) ) {
 			auto& source = emitter.get(channelName);
@@ -159,8 +160,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 
 			metadata.current = payload.uri;
 			track.active = true;
-
-			UF_MSG_DEBUG("Playing: {} (epsilon: {})", metadata.current, track.epsilon);
 		} else {
 			ext::json::Value json = metadataJson["audio"];
 			json["filename"] = payload.filename;
@@ -259,7 +258,6 @@ void ext::AudioEmitterBehavior::tick( uf::Object& self ) {
 	if ( metadata.tracks.count( metadata.current ) > 0 ) {
 		auto& track = metadata.tracks[metadata.current];
 		if ( track.active && !bgmFound ) {
-			UF_MSG_DEBUG("BGM source vanished! Firing TrackEnded natively.");
 			track.active = false;
 
 			bool isIntro = metadata.current == track.intro;

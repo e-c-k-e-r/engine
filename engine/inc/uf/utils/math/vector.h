@@ -104,6 +104,7 @@ namespace uf {
 		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ copy( const pod::Vector<T, N>& = {}); // creates a copy of a vector (for whatever reason)
 		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ copy( const T* ); // creates a copy of a vector (for whatever reason)
 		template<typename T, size_t N, typename U> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ cast( const U& from ); // casts one vector of one type to another (of the same size)
+		template<typename T, size_t N> /*FORCE_INLINE*/ pod::Vector<T, N> /*UF_API*/ fill( const T ); // 
 	// 	Equality checking
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ equals( const T& left, const T& right ); // equality check between two vectors (==)
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ notEquals( const T& left, const T& right ); // equality check between two vectors (==)
@@ -111,6 +112,14 @@ namespace uf {
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ lessEquals( const T& left, const T& right ); // equality check between two vectors (<=)
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greater( const T& left, const T& right ); // equality check between two vectors (>)
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greaterEquals( const T& left, const T& right ); // equality check between two vectors (>=)
+
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ equals( const T& left, const typename T::type_t right ); // equality check between a vector's components (==)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ notEquals( const T& left, const typename T::type_t right ); // equality check between a vector's components (==)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ less( const T& left, const typename T::type_t right ); // equality check between a vector's components (<)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ lessEquals( const T& left, const typename T::type_t right ); // equality check between a vector's components (<=)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greater( const T& left, const typename T::type_t right ); // equality check between a vector's components (>)
+		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ greaterEquals( const T& left, const typename T::type_t right ); // equality check between a vector's components (>=)
+
 
 		template<typename T> /*FORCE_INLINE*/ bool /*UF_API*/ isValid( const T& v ); // checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
@@ -220,6 +229,12 @@ namespace uf {
 	FORCE_INLINE bool operator<=(const Vector<T,N>& rhs) const { return uf::vector::lessEquals(*this, rhs); } \
 	FORCE_INLINE bool operator>(const Vector<T,N>& rhs) const { return uf::vector::greater(*this, rhs); } \
 	FORCE_INLINE bool operator>=(const Vector<T,N>& rhs) const { return uf::vector::greaterEquals(*this, rhs); } \
+	FORCE_INLINE bool operator==(const T rhs) const { return uf::vector::equals(*this, rhs); } \
+	FORCE_INLINE bool operator!=(const T rhs) const { return uf::vector::notEquals(*this, rhs); } \
+	FORCE_INLINE bool operator<(const T rhs) const { return uf::vector::less(*this, rhs); } \
+	FORCE_INLINE bool operator<=(const T rhs) const { return uf::vector::lessEquals(*this, rhs); } \
+	FORCE_INLINE bool operator>(const T rhs) const { return uf::vector::greater(*this, rhs); } \
+	FORCE_INLINE bool operator>=(const T rhs) const { return uf::vector::greaterEquals(*this, rhs); } \
 	FORCE_INLINE explicit operator bool() const { return uf::vector::notEquals(*this, Vector<T,N>{}); } \
 	template<typename U, size_t M> FORCE_INLINE operator Vector<U,M>() const { return uf::vector::cast<U,M>(*this); }
 

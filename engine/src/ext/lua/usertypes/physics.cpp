@@ -44,8 +44,8 @@ namespace binds {
 			return sol::as_table( events );
 		}
 
-		std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
-			pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ) );
+		std::tuple<uf::Object*, float> rayCast( pod::PhysicsBody& self, const pod::Vector3f& center, const pod::Vector3f& direction, sol::optional<uint32_t> mask ) {
+			pod::RayQuery query = uf::physics::rayCast( pod::Ray{center, uf::vector::normalize( direction )}, self, uf::vector::norm( direction ), mask.value_or(pod::Collider::MASK_PHYSICAL) );
 			uf::Object* object = query.hit ? query.body->object : NULL;
 			float depth = query.hit ? query.contact.penetration : -1;		
 			return std::make_tuple( object, depth );

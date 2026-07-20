@@ -823,6 +823,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& graphMetadataJson = graph.metadata;
 	auto& graphMetadataValve = graphMetadataJson["valve"];
+	auto& graphMetadataDark = graphMetadataJson["dark"];
 	auto& storage = uf::graph::getStorage( graph );
 	
 	std::lock_guard<std::mutex> lock(*storage.mutex);
@@ -1436,6 +1437,22 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// convert metadata["dark"] into internal values:
 	auto& metadataDark = node.metadata["dark"];
 	if ( ext::json::isObject( metadataDark ) ) {
+		bool emitsAudio = false;
+
+		// bind elevator
+		bool isElevator = false;
+		if ( ext::json::isArray( metadataDark["scripts"] ) ) {
+			ext::json::forEach( metadataDark["scripts"], [&]( ext::json::Value& value ){
+				auto script = value.as<uf::stl::string>();
+				if ( script == "BaseElevator" || script == "Elevator" ) isElevator = true;
+			});
+		}
+
+		if ( metadataDark["class_tags"].is<uf::stl::string>() ) {
+			emitsAudio = true;
+		} else if ( ext::json::isObject( metadataDark["sound"] ) ) {
+			emitsAudio = true;
+		}
 
 		// bind io connectivity
 		if ( ext::json::isArray( metadataDark["connections"] ) || metadataDark["id"].is<int>() ) {
@@ -1446,27 +1463,28 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		// bind door
 		if ( ext::json::isObject( metadataDark["door"] ) ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/door.lua");
-			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+			emitsAudio = true;
+		}
 
-			node.metadata["dark"]["schema_db"] = graph.metadata["dark"]["schema_db"];
+		if ( isElevator ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/elevator.lua");
+			emitsAudio = true;
 		}
 
 		// bind songs
 		if ( ext::json::isObject( metadataDark["songs"] ) ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/music.lua");
-			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
-		}
-
-		// bind ambient
-		if ( ext::json::isObject( metadataDark["sound"] ) ) {
-			loadJson["assets"].emplace_back("ent://scripts/dark/ambient.lua");
-			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+			emitsAudio = true;
 		}
 
 		// bind trap
-		if ( node.name.find("SoundTrap") != uf::stl::string::npos || node.name.find("Votrap") != uf::stl::string::npos ) {
+		if ( node.name == "Sound Trap" || node.name == "VO Trap" ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/trap.lua");
-			loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
+			emitsAudio = true;
+		// bind ambient
+		} else if ( ext::json::isObject( metadataDark["sound"] ) ) {
+			loadJson["assets"].emplace_back("ent://scripts/dark/ambient.lua");
+			emitsAudio = true;
 		}
 
 		// bind trigger
@@ -1474,6 +1492,55 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( ext::json::isObject( physMeta ) && physMeta["category"].as<uf::stl::string>("") == "trigger" ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/trigger.lua");
 		}
+
+		// bind schema based on what we need
+		uf::stl::string classTags = metadataDark["class_tags"].as<uf::stl::string>("");
+		uf::stl::string explicitSchema = "";
+		if ( metadataDark["sound"].isObject() ) {
+			explicitSchema = metadataDark["sound"]["schema"].as<uf::stl::string>("");
+		}
+
+		if ( !classTags.empty() || !explicitSchema.empty() ) {
+			auto& localDb = node.metadata["dark"]["schema_db"];
+
+			uf::stl::vector<uf::stl::string> searchTerms;
+			auto extractTerm = [&](const uf::stl::string& prefix) {
+				size_t p = classTags.find(prefix);
+				if ( p != uf::stl::string::npos ) {
+					p += prefix.length();
+					size_t end = classTags.find_first_of(" ,", p);
+					if ( end == uf::stl::string::npos ) end = classTags.length();
+					uf::stl::string term = classTags.substr(p, end - p);
+					if ( !term.empty() ) searchTerms.push_back(term);
+				}
+			};
+
+			extractTerm("DeviceType ");
+			extractTerm("DoorType ");
+
+			ext::json::forEach( graph.metadata["dark"]["schema_db"], [&]( ext::json::Value& sch ){
+				uf::stl::string sName = sch["name"].as<uf::stl::string>("");
+				uf::stl::string sTags = sch["tags"].as<uf::stl::string>("");
+				bool keep = false;
+
+				if ( !explicitSchema.empty() && sName == explicitSchema ) {
+					keep = true;
+				} else {
+					for ( const auto& term : searchTerms ) {
+						if ( sTags.find(term) != uf::stl::string::npos ) {
+							keep = true;
+							break;
+						}
+					}
+				}
+
+				if ( keep ) {
+					localDb.emplace_back(sch);
+				}
+			});
+		}
+
+		if ( emitsAudio ) loadJson["behaviors"].emplace_back("AudioEmitterBehavior");
 	}
 
 	if ( ext::json::isObject( tag ) ) {
@@ -1579,7 +1646,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	auto& transform = entity.getComponent<pod::Transform<>>();
 	{
 		transform = node.transform;
-		transform.reference = &parent.getComponent<pod::Transform<>>();
+		if ( node.metadata["debug"]["parent node transforms"].as<bool>(true) ) {
+			transform.reference = &parent.getComponent<pod::Transform<>>();
+		}
 		// override transform
 		if ( tag["transform"]["offset"].as<bool>() ) {
 			auto parsed = uf::transform::decode( tag["transform"], pod::Transform<>{} );

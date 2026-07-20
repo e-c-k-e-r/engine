@@ -309,13 +309,13 @@ void impl::drawRay( const pod::Ray& ray, const pod::RayQuery& query ) {
 	uf::debug::addLine( start, end, query.hit ? pod::Vector4f{ 0, 1, 0, 1 } : pod::Vector4f{ 1, 0, 0, 1 } );
 }
 
-pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance ) {
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance, uint32_t mask ) {
 	return rayCast( ray, body.world ? *body.world : uf::physics::getWorld(), &body, maxDistance );
 }
-pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, float maxDistance ) {
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, float maxDistance, uint32_t mask ) {
 	return rayCast( ray, world, NULL, maxDistance );
 }
-pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance ) {
+pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance, uint32_t mask ) {
 	pod::RayQuery rayHit;
 	rayHit.invoker = body;
 	rayHit.contact.penetration = maxDistance;
@@ -333,6 +333,8 @@ pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world
 		auto* b = bodies[i];
 		
 		if ( body == b ) continue;
+
+		if ( !(b->collider.category & mask) ) continue;
 
 		switch ( b->collider.type ) {
 			case pod::ShapeType::AABB: impl::rayAabb( ray, *b, rayHit ); break;
@@ -361,7 +363,7 @@ float uf::physics::occlusion( const pod::Vector3f& to, const pod::Vector3f& from
 	ray.origin = from;
 	ray.direction = dir;
 
-	pod::RayQuery hit = uf::physics::rayCast( ray, uf::physics::getWorld(), dist );
+	pod::RayQuery hit = uf::physics::rayCast( ray, uf::physics::getWorld(), dist, pod::Collider::MASK_PHYSICAL );
 
 	if ( hit.contact.penetration >= dist ) return 1.0f;
 
@@ -379,7 +381,7 @@ pod::AcousticBounce uf::physics::acousticReflection( const pod::Vector3f& source
 	primaryRay.origin = sourcePos;
 	primaryRay.direction = rayDirection;
 
-	pod::RayQuery firstHit = uf::physics::rayCast( primaryRay, uf::physics::getWorld(), maxDistance );
+	pod::RayQuery firstHit = uf::physics::rayCast( primaryRay, uf::physics::getWorld(), maxDistance, pod::Collider::MASK_PHYSICAL );
 
 	if ( firstHit.contact.penetration >= maxDistance ) return result;
 
@@ -403,7 +405,7 @@ pod::AcousticBounce uf::physics::acousticReflection( const pod::Vector3f& source
 	secondaryRay.origin = bounceOrigin;
 	secondaryRay.direction = toListener / distToListener;
 
-	pod::RayQuery secondHit = uf::physics::rayCast( secondaryRay, uf::physics::getWorld(), distToListener );
+	pod::RayQuery secondHit = uf::physics::rayCast( secondaryRay, uf::physics::getWorld(), distToListener, pod::Collider::MASK_PHYSICAL );
 
 	if ( secondHit.contact.penetration >= distToListener ) {
 		result.valid = true;

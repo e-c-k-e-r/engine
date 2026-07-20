@@ -1,3 +1,4 @@
+local ent = ent
 local scene = entities.currentScene()
 local metadata = ent:getComponent("Metadata")
 local activeSongId = metadata["dark"]["mission song"] or "song02"
@@ -13,11 +14,8 @@ local currentLoopCount = 0
 local initializedPlayer = false
 
 if not songData then
-	print("[Music Manager] ERROR: Active song '" .. tostring(activeSongId) .. "' not found!")
 	return
 end
-
-print("[Music Manager] Bound Mission Song: " .. activeSongId)
 
 for _, markerData in ipairs(bakedMarkers) do
 	table.insert(musicMarkers, {
@@ -27,7 +25,6 @@ for _, markerData in ipairs(bakedMarkers) do
 	})
 end
 
-print("[Music Manager] Pre-caching song assets...")
 for _, section in ipairs(songData.sections or {}) do
 	if section.samples then
 		for _, sampleName in ipairs(section.samples) do
@@ -83,19 +80,15 @@ local function playSection(sectionIdx, isQueue)
 	local url = getSampleUrl(section)
 	if url then
 		if isQueue then
-			print(string.format("[Music Manager] Queuing section: %s", section.id))
 			ent:callHook("sound:QueueTrack.%UID%", { filename = url, layer = 1 })
 		else
-			print(string.format("[Music Manager] Forcing immediate section: %s", section.id))
 			ent:callHook("sound:PlayTrack.%UID%", { filename = url, layer = 1, loop = false })
 
-			-- Immediately predict and queue the next track to prevent gaps!
 			local nextIdx, nextLoop = predictNextSection(currentSectionIdx, currentLoopCount)
 			if nextIdx then
 				local nextSec = songData.sections[nextIdx + 1]
 				local nextUrl = getSampleUrl(nextSec)
 				if nextUrl then
-					print(string.format("[Music Manager] Pre-queuing next section: %s", nextSec.id))
 					ent:callHook("sound:QueueTrack.%UID%", { filename = nextUrl, layer = 1 })
 				end
 			end
@@ -141,16 +134,12 @@ local function processEvent(eventName)
 			end
 		end
 
-		print(string.format("[Music Manager] Event '%s' triggered transition to section %d", eventFound.event, targetSection))
-
 		if eventName ~= "" then
 			currentLoopCount = 0
 			playSection(targetSection, false)
 		else
 			playSection(targetSection, true)
 		end
-	else
-		print(string.format("[Music Manager] WARNING: Event '%s' ignored (not valid from section %d)", eventName, currentSectionIdx))
 	end
 end
 

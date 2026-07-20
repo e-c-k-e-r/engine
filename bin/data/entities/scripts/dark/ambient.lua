@@ -1,3 +1,4 @@
+local ent = ent
 local metadata = ent:getComponent("Metadata")
 local darkMeta = metadata["dark"] or {}
 local soundMeta = darkMeta["sound"] or {}
@@ -7,9 +8,15 @@ local flags = soundMeta["flags"] or 0
 local baseVolume = tonumber(soundMeta["volume"]) or 1.0
 local radius = tonumber(soundMeta["radius"]) or 0.0
 
-local startOn = (math.floor(flags / 1) % 2) ~= 0
-local environmental = (math.floor(flags / 2) % 2) ~= 0
+local environmental = (math.floor(flags / 1) % 2) ~= 0
+local isTurnedOff = (math.floor(flags / 4) % 2) ~= 0
 local isMusic = (math.floor(flags / 16) % 2) ~= 0
+
+if isMusic then return end
+if schemaName == "" then return end
+
+local isTurnedOff = (math.floor(flags / 4) % 2) ~= 0
+local startOn = not isTurnedOff
 
 local isPlaying = false
 
@@ -42,7 +49,7 @@ local function playSound()
 	local schemaVol = tonumber(soundMeta["schema_volume"]) or 0
 	local overrideVol = tonumber(soundMeta["volume"]) or 0
 
-	local baseVolume = 1.0
+	local baseVolume = 0.2
 	if overrideVol ~= 0 then baseVolume = math.pow(10, overrideVol / 2000.0) end
 	local finalVolume = baseVolume * math.pow(10, schemaVol / 2000.0)
 
@@ -57,6 +64,7 @@ local function playSound()
 
 	if radius > 0 and not environmental then
 		payload.maxDistance = radius
+		payload.referenceDistance = 1.0
 		payload.rolloffFactor = 1.0
 	end
 
@@ -71,7 +79,7 @@ local function stopSound()
 	})
 end
 
-ent:addHook("dark:Message.%UID%", function(payload)
+ent:addHook("link:Message.%UID%", function(payload)
 	local msg = payload.message
 
 	if msg == "TurnOn" then

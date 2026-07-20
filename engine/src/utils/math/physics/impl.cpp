@@ -323,6 +323,7 @@ void uf::physics::setColliderCategory( pod::PhysicsBody& body, const uf::stl::st
 	if ( c == "NPC" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_NPC );
 	if ( c == "TRIGGER" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_TRIGGER );
 	if ( c == "PROJECTILE" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_PROJECTILE );
+	if ( c == "INTERACTABLE" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_INTERACTABLE );
 	if ( c == "CHARACTER" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_CHARACTER );
 	if ( c == "ALL" ) return uf::physics::setColliderCategory( body, pod::Collider::CATEGORY_ALL );
 }
@@ -339,6 +340,7 @@ void uf::physics::setColliderMask( pod::PhysicsBody& body, const uf::stl::string
 	if ( m == "TRIGGER" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_TRIGGER );
 	if ( m == "PROJECTILE" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_PROJECTILE );
 	if ( m == "CHARACTER" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_CHARACTER );
+	if ( m == "PHYSICAL" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_PHYSICAL );
 	if ( m == "ALL" ) return uf::physics::setColliderMask( body, pod::Collider::MASK_ALL );
 }
 void uf::physics::setGravity( pod::PhysicsBody& body, const pod::Vector3f& gravity ) {

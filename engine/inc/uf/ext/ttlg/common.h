@@ -8,30 +8,6 @@ namespace impl {
 	const float darkToMeters = 0.7f;
 	typedef uf::Meshlet_T<uf::graph::mesh::Skinned, uint32_t> Meshlet;
 
-	// could be dedicated functions in the engine
-	template<typename T>
-	inline bool readStruct(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, T& outValue, size_t readSize = sizeof(T)) {
-		if (offset + readSize > buffer.size()) return false;
-
-		if ( readSize < sizeof(T) ) std::memset(&outValue, 0, sizeof(T));
-
-		size_t copySize = std::min(sizeof(T), readSize);
-		std::memcpy(&outValue, buffer.data() + offset, copySize);
-
-		offset += readSize;
-		return true;
-	}
-
-	template<typename T>
-	inline bool readArray(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset, size_t count, uf::stl::vector<T>& outArray) {
-		size_t bytes = count * sizeof(T);
-		if (offset + bytes > buffer.size()) return false;
-		outArray.resize(count);
-		std::memcpy(outArray.data(), buffer.data() + offset, bytes);
-		offset += bytes;
-		return true;
-	}
-
 	inline float findWrap( float x ) {
 		return -64.0f * std::floor(x / 64.0f);
 	};

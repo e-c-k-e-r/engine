@@ -56,6 +56,14 @@ pod::Vector<T, N> uf::vector::cast( const U& from ) {
 		to[i] = from[i];
 	return to;
 }
+template<typename T, size_t N>
+pod::Vector<T, N> uf::vector::fill( const T v ) {
+	pod::Vector<T, N> res;
+	FOR_EACH(T::size, {
+		res[i] = v;
+	});
+	return res;
+}
 template<typename T>
 bool uf::vector::equals( const T& left, const T& right ) {
 #if UF_USE_SIMD
@@ -134,6 +142,86 @@ bool uf::vector::greaterEquals( const T& left, const T& right ) {
 	});
 	return result;
 }
+//
+template<typename T>
+bool uf::vector::equals( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::equals( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] == right) ) result = false;
+	});
+	return result;
+}
+template<typename T>
+bool uf::vector::notEquals( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::notEquals( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] != right) ) result = false;
+	});
+	return result;
+}
+template<typename T>
+bool uf::vector::less( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::less( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] < right) ) result = false;
+	});
+	return result;
+}
+template<typename T>
+bool uf::vector::lessEquals( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::lessEquals( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] <= right) ) result = false;
+	});
+	return result;
+}
+template<typename T>
+bool uf::vector::greater( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::greater( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] > right) ) result = false;
+	});
+	return result;
+}
+template<typename T>
+bool uf::vector::greaterEquals( const T& left, const typename T::type_t right ) {
+#if UF_USE_SIMD
+	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
+		return uf::simd::all( uf::simd::greaterEquals( left, right ) );
+	}
+#endif
+	bool result = true;
+	FOR_EACH(T::size, {
+		if ( !(left[i] >= right) ) result = false;
+	});
+	return result;
+}
+//
 template<typename T>
 bool uf::vector::isValid( const T& v ) {
 	return uf::vector::equals( v, v );
@@ -274,7 +362,7 @@ T uf::vector::divide( const T& vector, typename T::type_t scalar ) {
 	}
 #endif
 	T res;
-	float recip = static_cast<typename T::type_t>(1) / scalar;
+	float recip = 1.0f / static_cast<float>(scalar);
 	FOR_EACH(T::size, {
 		res[i] = vector[i] * recip;
 	});
@@ -505,10 +593,10 @@ T uf::vector::min( const T& left, const T& right ) {
 	return res;
 }
 template<typename T>
-T uf::vector::min( const T& vector, typename T::type_t min ) {
+T uf::vector::min( const T& vector, typename T::type_t right ) {
 	T res = vector;
 	FOR_EACH(T::size, {
-		res[i] = std::min( res[i], min );
+		res[i] = std::min( res[i], right );
 	});
 	return res;
 }
@@ -534,10 +622,10 @@ T uf::vector::max( const T& left, const T& right ) {
 	return res;
 }
 template<typename T>
-T uf::vector::max( const T& vector, typename T::type_t max ) {
+T uf::vector::max( const T& vector, typename T::type_t right ) {
 	T res = vector;
 	FOR_EACH(T::size, {
-		res[i] = std::max( res[i], max );
+		res[i] = std::max( res[i], right );
 	});
 	return res;
 }
@@ -728,8 +816,8 @@ typename T::type_t uf::vector::norm( const T& vector ) {
 }
 template<typename T>
 T uf::vector::normalize( const T& vector ) {
-#if UF_USE_SIMD
-	if constexpr ( std::is_same_v<T,float> ) {
+#if 0 && UF_USE_SIMD // causes massive frame drops
+	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
 		return uf::simd::normalize( vector );
 	}
 #endif
@@ -745,13 +833,12 @@ T uf::vector::normalize( const T& vector ) {
 
 template<typename T>
 T uf::vector::clampMagnitude( const T& v, float maxMag ) {
-	T res = v;
-	float mag = uf::vector::magnitude( res );
-	if ( mag > maxMag ) {
-		res /= (maxMag / sqrt(mag));
-	}
-
-	return res;
+    T res = v;
+    float magSq = uf::vector::magnitude( res );
+    if ( magSq > (maxMag * maxMag) ) {
+        res *= (maxMag / sqrt(magSq));
+    }
+    return res;
 }
 
 template<typename T>

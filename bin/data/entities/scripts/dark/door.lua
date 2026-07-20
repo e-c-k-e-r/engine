@@ -6,7 +6,7 @@ local physicsBody = ent:getComponent("PhysicsBody")
 local metadata = ent:getComponent("Metadata")
 local darkMeta = metadata["dark"] or {}
 local doorMeta = darkMeta["door"] or {}
-local schemaDb = doorMeta["schema_db"] or (darkMeta["schema_db"] or {})
+local schemaDb = darkMeta["schema_db"] or {}
 local classTags = doorMeta["class_tags"] or (darkMeta["class_tags"] or "")
 
 local state = 0
@@ -192,7 +192,7 @@ ent:bind("tick", function(self)
 	end
 end)
 
-ent:addHook("dark:Message.%UID%", function(payload)
+ent:addHook("link:Message.%UID%", function(payload)
 	local msg = payload.message
 
 	if msg == "TurnOn" then

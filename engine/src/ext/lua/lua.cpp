@@ -282,11 +282,18 @@ namespace binds {
 void ext::lua::initialize() {
 	if ( !ext::lua::enabled ) return;
 
+	state.open_libraries(
+		 sol::lib::base
+		,sol::lib::package
+		,sol::lib::table
+		,sol::lib::math
+		,sol::lib::string
+		,sol::lib::bit32
 #if UF_USE_LUAJIT
-	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string, sol::lib::ffi, sol::lib::jit);
-#else
-	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string);
+		,sol::lib::ffi
+		,sol::lib::jit
 #endif
+	);
 
 	// load modules
 	for ( auto pair : modules ) {

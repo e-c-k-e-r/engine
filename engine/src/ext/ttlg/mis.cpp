@@ -7,6 +7,7 @@
 #include <uf/ext/zlib/zlib.h>
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/memory/unordered_set.h>
+#include <uf/utils/memory/reader.h>
 
 
 // to-do: split this into subcomponents
@@ -21,17 +22,21 @@ namespace impl {
 		uint32_t dead_beef;  // 0xEFBEADDE
 	};
 
-	struct DarkDBInvItem {
-		char name[12];
-		uint32_t offset;
-		uint32_t length;
-	};
-
 	struct DarkDBChunkHeader {
 		char name[12];
 		uint32_t version_high;
 		uint32_t version_low;
 		uint32_t zero;
+
+	};
+
+	struct DarkDBInvItem {
+		char name[12];
+		uint32_t offset;
+		uint32_t length;
+		
+		inline uint32_t start() const { return offset + sizeof(impl::DarkDBChunkHeader); }
+		inline uint32_t len() const { return length >= sizeof(impl::DarkDBChunkHeader) ? length - sizeof(impl::DarkDBChunkHeader) : 0; }
 	};
 
 	struct WRHeader {
@@ -180,8 +185,21 @@ namespace impl {
 		float radius;
 	};
 
+	struct PropertyFrobInfo {
+		uint32_t world_action;
+		uint32_t inv_action;
+		uint32_t tool_action;
+		uint32_t pad;
+	};
+
 	struct PropertyPhysType {
-		int32_t type; // 0 = OBB, 1 = Sphere, 2 = SphereHat, 3 = None
+		enum int32_t {
+			OBB	  		= 0,
+			SPHERE   	= 1,
+			SPHERE_HAT	= 2,
+			NONE	 	= 3,
+		};
+		int32_t type;
 		int32_t num_submodels;
 		int32_t remove_on_sleep;
 		int32_t special;
@@ -216,21 +234,23 @@ namespace impl {
 		pod::Vector3f rot_velocity;
 	};
 
-	constexpr uint32_t SCH_PLAY_RETRIGGER = (1 << 0);
-	constexpr uint32_t SCH_PAN_POS		= (1 << 1);
-	constexpr uint32_t SCH_PAN_RANGE	  = (1 << 2);
-	constexpr uint32_t SCH_NO_REPEAT	  = (1 << 3);
-	constexpr uint32_t SCH_NO_CACHE	   = (1 << 4);
-	constexpr uint32_t SCH_STREAM		 = (1 << 5);
-	constexpr uint32_t SCH_PLAY_ONCE	  = (1 << 6);
-	constexpr uint32_t SCH_NO_COMBAT	  = (1 << 7);
-	constexpr uint32_t SCH_NET_AMBIENT	= (1 << 8);
-	constexpr uint32_t SCH_LOC_SPATIAL	= (1 << 9);
 
 	constexpr uint8_t SCHEMA_LOOP_POLY	= 0x01;
-	constexpr uint8_t SCHEMA_LOOP_COUNT   = 0x02;
+	constexpr uint8_t SCHEMA_LOOP_COUNT = 0x02;
 
 	struct PropertySchPlayParams {
+		enum uint32_t {
+			SCH_PLAY_RETRIGGER 	= (1 << 0),
+			SCH_PAN_POS 		= (1 << 1),
+			SCH_PAN_RANGE	  	= (1 << 2),
+			SCH_NO_REPEAT	  	= (1 << 3),
+			SCH_NO_CACHE	   	= (1 << 4),
+			SCH_STREAM		 	= (1 << 5),
+			SCH_PLAY_ONCE	  	= (1 << 6),
+			SCH_NO_COMBAT	  	= (1 << 7),
+			SCH_NET_AMBIENT		= (1 << 8),
+			SCH_LOC_SPATIAL		= (1 << 9),
+		};
 		uint32_t flags;
 		int32_t volume;
 		int32_t pan;
@@ -343,6 +363,45 @@ namespace impl {
 		uf::stl::vector<SongSection> sections;
 	};
 
+	struct DarkRoomPortal {
+		int32_t portalId;
+		int32_t index;
+		impl::WRPlane portalPlane;
+		uf::stl::vector<impl::WRPlane> edgePlanes;
+		int32_t farRoomId;
+		int32_t nearRoomId;
+		pod::Vector3f center;
+		int32_t farPortalId;
+	};
+
+	struct DarkRoom {
+		int32_t objId;
+		int16_t roomId;
+		pod::Vector3f center;
+		impl::WRPlane planes[6];
+
+		uf::stl::vector<DarkRoomPortal> portals;
+		uf::stl::vector<uf::stl::vector<float>> portalDists;
+		uf::stl::vector<uf::stl::vector<int32_t>> watchList;
+
+		pod::Vector3f getSize() const {
+			pod::Vector3f size;
+			size.x = -(uf::vector::dot(planes[0].normal, center) + planes[0].d);
+			size.y = -(uf::vector::dot(planes[1].normal, center) + planes[1].d);
+			size.z = -(uf::vector::dot(planes[2].normal, center) + planes[2].d);
+			return size;
+		}
+
+		bool contains( const pod::Vector3f& pt ) const {
+			for (int i = 0; i < 6; ++i) {
+				if ( uf::vector::dot(planes[i].normal, pt) + planes[i].d > 0.001f ) {
+					return false;
+				}
+			}
+			return true;
+		}
+	};
+
 
 	// do not load these
 	uf::stl::unordered_set<uf::stl::string> modelBlacklist = {
@@ -368,17 +427,16 @@ namespace impl {
 			uf::stl::unordered_map<int32_t, PropertyLight> light;
 			uf::stl::unordered_map<int32_t, PropertyDoor> rotDoor;
 			uf::stl::unordered_map<int32_t, PropertyDoor> transDoor;
-
+			uf::stl::unordered_map<int32_t, PropertyFrobInfo> frobInfo;
 			uf::stl::unordered_map<int32_t, PropertyPhysType> physType;
 			uf::stl::unordered_map<int32_t, PropertyPhysAttr> physAttr;
 			uf::stl::unordered_map<int32_t, PropertyPhysDims> physDims;
 			uf::stl::unordered_map<int32_t, PropertyPhysState> physState;
-
 			uf::stl::unordered_map<int32_t, PropertyAmbient> ambient;
-
 			uf::stl::unordered_map<int32_t, PropertySchPlayParams> schPlayParams;
 			uf::stl::unordered_map<int32_t, PropertySchLoopParams> schLoopParams;
 			uf::stl::unordered_map<int32_t, uf::stl::vector<PropertySchSamp>> schSamps;
+			uf::stl::unordered_map<int32_t, uf::stl::string> objSoundName;
 			uf::stl::unordered_map<int32_t, uf::stl::string> classTag;
 			uf::stl::unordered_map<int32_t, uf::stl::string> schMsg;
 			uf::stl::unordered_map<int32_t, uf::stl::string> schAction;
@@ -391,6 +449,10 @@ namespace impl {
 		uf::stl::unordered_map<int32_t, DarkSchema> schemas;
 		uf::stl::vector<DarkLinkData> links;
 		uf::stl::unordered_map<uint16_t, uf::stl::string> linkFlavorNames;
+
+		uf::stl::unordered_map<int16_t, size_t> roomNodes;
+		uf::stl::vector<int32_t> roomEAX;
+		uf::stl::vector<DarkRoom> rooms;
 
 		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uint8_t>> palettes;
 		uf::stl::vector<int32_t> textureToMaterialId;
@@ -415,124 +477,84 @@ namespace impl {
 		return ::fmt::format("c_{}_p_{}", cellIdx, polyIdx);
 	}
 
-	uf::stl::string getStringFromOffset( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, size_t maxScan = 128 ) {
-		if ( offset >= buffer.size()) return "";
-		size_t max_len = std::min<size_t>(maxScan, buffer.size() - offset);
-		const char* ptr = (const char*)(buffer.data() + offset);
-		return uf::stl::string(ptr, strnlen( ptr, max_len ));
-	}
+	template<typename T>
+	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& name, uf::stl::unordered_map<int32_t, T>& map, size_t prefixSkip = 0 ) {
+		auto invName = ::fmt::format("P${}", name).substr(0, 11);
+		if ( ctx.inventory.count(invName) == 0 ) return;
 
-	void parseRelations( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t endOffset = item.offset + item.length;
+		const auto& item = ctx.inventory.at( invName );
+		uf::stl::reader reader( ctx.buffer, item.start(), item.len());
 
-		uint16_t flavorId = 1;
-		while ( offset + 32 <= endOffset ) {
-			uf::stl::string relName = uf::stl::string((const char*)(buffer.data() + offset));
-			if ( !relName.empty() ) ctx.linkFlavorNames[flavorId] = relName;
-			flavorId++;
-			offset += 32;
+		while ( !reader.eof() ) {
+			const auto* entry = reader.read<PropertyEntry>();
+			if ( !entry ) break;
+
+			if ( entry->size <= 0 ) {
+				reader.skip( entry->size );
+				continue;
+			}
+
+			T copy{};
+			size_t len = std::min<size_t>(entry->size, sizeof(T));
+			const void* data = reader.read< char >(len);
+			if ( data ) {
+				std::memcpy(&copy, data, len);
+				map[entry->objectId] = copy;
+			}
+
+			if ( entry->size > len ) {
+				reader.skip( entry->size - len );
+			}
 		}
 	}
 
-	void parsePartitionedLinks( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t endOffset = item.offset + item.length;
+	template<>
+	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& propName, uf::stl::unordered_map<int32_t, uf::stl::string>& map, size_t prefixSkip ) {
+		auto fullName = ::fmt::format("P${}", propName).substr(0, 11);
+		if (ctx.inventory.count(fullName) == 0) return;
 
-		size_t count = (endOffset - offset) / sizeof(impl::DarkPartitionedLink);
+		const auto& item = ctx.inventory.at(fullName);
 
-		uf::stl::vector<impl::DarkPartitionedLink> chunkLinks;
-		if ( !impl::readArray( buffer, offset, count, chunkLinks ) ) return;
-		for ( const auto& l : chunkLinks ) {
-			ctx.links.push_back({l.src, l.dest, l.flavor}); // to-do: emplace_back
+		uf::stl::reader reader( ctx.buffer, item.start(), item.len());
+
+		while ( !reader.eof() ) {
+			const auto* entry = reader.read<PropertyEntry>();
+			if ( !entry ) break;
+
+			if ( entry->objectId == 0 || entry->size <= prefixSkip ) {
+				reader.skip(entry->size);
+				continue;
+			}
+			reader.skip( prefixSkip );
+			size_t len = entry->size - prefixSkip;
+			const char* data = reader.read< char >(len);
+			if ( data ) map[entry->objectId] = uf::stl::string(data, strnlen(data, len));
 		}
 	}
 
-	void parseProperty( impl::DarkContext& ctx, const uf::stl::string& propName ) {
-		auto& buffer = ctx.buffer;
-		auto& inventory = ctx.inventory;
+	template<>
+	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& propName, uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>>& map, size_t prefixSkip ) {
+		auto fullName = ::fmt::format("P${}", propName).substr(0, 11);
+		if (ctx.inventory.count(fullName) == 0) return;
 
-		auto fullName = ::fmt::format( "P${}", propName ).substr(0, 11);
-		if ( inventory.count( fullName ) == 0 ) {
-			return;
-		}
+		const auto& item = ctx.inventory.at(fullName);
+		uf::stl::reader reader( ctx.buffer, item.start(), item.len());
 
-		const auto& item = inventory.at(fullName);
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t endOffset = item.offset + item.length;
+		while ( !reader.eof() ) {
+			const auto* entry = reader.read<PropertyEntry>();
+			if ( !entry ) break;
 
-		while ( offset < endOffset ) {
-			PropertyEntry entry;
-			if ( !impl::readStruct( buffer, offset, entry ) ) break;
+			if ( entry->objectId == 0 || entry->size <= prefixSkip ) {
+				reader.skip(entry->size);
+				continue;
+			}
+			reader.skip( prefixSkip );
+			size_t len = entry->size - prefixSkip;
+			const char* data = reader.read< char >(len);
 
-			uint32_t next = offset + entry.size;
-
-			// to-do: clean up most of this redundancy
-			if ( propName == "Position" && entry.objectId >= 0 ) {
-				PropertyPosition position;
-				if ( impl::readStruct( buffer, offset, position, entry.size ) ) {
-					ctx.properties.position[entry.objectId] = position;
-				}
-			} else if ( propName == "Light" ) {
-				PropertyLight light;
-				if ( impl::readStruct( buffer, offset, light, entry.size ) ) {
-					ctx.properties.light[entry.objectId] = light;
-				}
-			} else if ( propName == "RotDoor" ) {
-				PropertyDoor p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.rotDoor[entry.objectId] = p;
-				}
-			} else if ( propName == "TransDoor" ) {
-				PropertyDoor p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.transDoor[entry.objectId] = p;
-				}
-			} else if ( propName == "Ambient" || propName == "AmbientHacked" ) {
-				PropertyAmbient sound;
-				if ( impl::readStruct( buffer, offset, sound, entry.size ) ) {
-					ctx.properties.ambient[entry.objectId] = sound;
-				}
-			} else if ( propName == "PhysType" ) {
-				PropertyPhysType p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.physType[entry.objectId] = p;
-				}
-			} else if ( propName == "PhysType" && entry.size >= 8 ) {
-				PropertyPhysType p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.physType[entry.objectId] = p;
-				}
-			} else if ( propName == "PhysAttr" && entry.size >= 48 ) {
-				PropertyPhysAttr p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.physAttr[entry.objectId] = p;
-				}
-			} else if ( propName == "PhysDims" && entry.size >= 48 ) {
-				PropertyPhysDims p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.physDims[entry.objectId] = p;
-				}
-			} else if ( propName == "PhysState" && entry.size >= 48 ) {
-				PropertyPhysState p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.physState[entry.objectId] = p;
-				}
-			} else if ( propName == "SchPlayParams" && entry.size >= sizeof(PropertySchPlayParams) ) {
-				PropertySchPlayParams p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.schPlayParams[entry.objectId] = p;
-				}
-			} else if ( propName == "SchLoopParams" && entry.size >= sizeof(PropertySchLoopParams) ) {
-				PropertySchLoopParams p;
-				if ( impl::readStruct( buffer, offset, p, entry.size ) ) {
-					ctx.properties.schLoopParams[entry.objectId] = p;
-				}
-			} else if ( propName == "Scripts" ) {
-				const char* cursor = (const char*)(buffer.data() + offset);
-				size_t remainingBytes = entry.size;
+			if ( data ) {
+				const char* cursor = data;
+				size_t remainingBytes = len;
 
 				for ( auto s = 0; s < 4; ++s ) {
 					if ( remainingBytes <= 0 || *cursor == '\0' ) break;
@@ -540,7 +562,7 @@ namespace impl {
 					auto script = uf::stl::string( cursor );
 					if ( script.empty() ) break;
 
-					ctx.properties.script[entry.objectId].emplace_back(script);
+					map[entry->objectId].emplace_back(script);
 
 					size_t step = strnlen(cursor, remainingBytes) + 1;
 					if ( step > remainingBytes ) break;
@@ -548,107 +570,240 @@ namespace impl {
 					cursor += step;
 					remainingBytes -= step;
 				}
-			} else if ( propName == "Class Tag" || propName == "SchMsg" || propName == "SchAction" ) {
-				if ( entry.size > 4 && entry.objectId != 0 ) {
-					auto s = impl::getStringFromOffset( buffer, offset + 4, entry.size - 4 );
-					if ( propName == "Class Tag" ) ctx.properties.classTag[entry.objectId] = s;
-					if ( propName == "SchMsg" ) ctx.properties.schMsg[entry.objectId] = s;
-					if ( propName == "SchAction" ) ctx.properties.schAction[entry.objectId] = s;
-				}
-			} /*else if ( propName == "Class Tag" ) {
-				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
-				if ( !s.empty() ) ctx.properties.classTag[entry.objectId] = s;
-			} else if ( propName == "SchMsg" ) {
-				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
-				if ( !s.empty() ) ctx.properties.schMsg[entry.objectId] = s;
-			} else if ( propName == "SchAction" ) {
-				auto s = impl::getStringFromOffset( buffer, offset, entry.size );
-				if ( !s.empty() ) ctx.properties.schAction[entry.objectId] = s;
-			} */ else if ( propName == "ModelName" ) {
-				auto modelName = impl::getStringFromOffset( buffer, offset, entry.size );
-				if ( !modelName.empty() ) ctx.modelNames[entry.objectId] = modelName;
-			} else if ( propName == "SymName" ) {
-				if ( entry.size > 4 ) {
-					auto symName = impl::getStringFromOffset( buffer, offset + 4, entry.size - 4 );
-					if ( !symName.empty() ) ctx.archetypes[entry.objectId] = symName;
-				}
 			}
+		}
+	}
 
-			offset = next;
+	void parseRelations( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		uint16_t flavorId = 1;
+		while ( reader.remaining() >= 32 ) {
+			const char* relNameData = reader.read< char >(32);
+			if ( relNameData ) {
+				uf::stl::string relName(relNameData, strnlen(relNameData, 32));
+				if ( !relName.empty() ) ctx.linkFlavorNames[flavorId] = relName;
+			}
+			flavorId++;
+		}
+	}
+
+	void parsePartitionedLinks( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		size_t count = item.len() / sizeof(impl::DarkPartitionedLink);
+		uf::stl::vector<impl::DarkPartitionedLink> chunkLinks;
+
+		if ( reader.read(count, chunkLinks) ) {
+			for ( const auto& l : chunkLinks ) {
+				ctx.links.push_back({l.src, l.dest, l.flavor});
+			}
+		}
+	}
+
+	bool parseRoom(uf::stl::reader& reader, DarkRoom& outRoom) {
+		const auto* pObjId = reader.read<int32_t>();
+		const auto* pRoomId = reader.read<int16_t>();
+		// reader.skip(2);
+		const auto* pCenter = reader.read<pod::Vector3f>();
+		if ( !pObjId || !pRoomId || !pCenter ) return false;
+
+		outRoom.objId = *pObjId;
+		outRoom.roomId = *pRoomId;
+		outRoom.center = *pCenter;
+
+		for ( int i = 0; i < 6; ++i ) {
+			const auto* pPlane = reader.read<impl::WRPlane>();
+			if (!pPlane) return false;
+			outRoom.planes[i] = *pPlane;
+		}
+
+		const auto* numPortals = reader.read<int32_t>();
+		if (!numPortals) return false;
+
+		outRoom.portals.resize(*numPortals);
+		for ( int i = 0; i < *numPortals; ++i ) {
+			auto& portal = outRoom.portals[i];
+
+			portal.portalId = *reader.read<int32_t>();
+			portal.index = *reader.read<int32_t>();
+			portal.portalPlane = *reader.read<impl::WRPlane>();
+
+			int32_t numEdges = *reader.read<int32_t>();
+			reader.read(numEdges, portal.edgePlanes);
+
+			portal.farRoomId = *reader.read<int32_t>();
+			portal.nearRoomId = *reader.read<int32_t>();
+			portal.center = *reader.read<pod::Vector3f>();
+			portal.farPortalId = *reader.read<int32_t>();
+		}
+
+		outRoom.portalDists.resize(*numPortals);
+		for ( int i = 0; i < *numPortals; ++i ) {
+			reader.read(*numPortals, outRoom.portalDists[i]);
+		}
+
+		const auto* numWatches = reader.read<int32_t>();
+		if ( !numWatches ) return false;
+
+		outRoom.watchList.resize(*numWatches);
+		for ( int i = 0; i < *numWatches; ++i ) {
+			int32_t watchSize = *reader.read<int32_t>();
+			reader.read(watchSize, outRoom.watchList[i]);
+		}
+
+		return true;
+	}
+
+	void parseRoomEAX( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		const auto* versionMajor = reader.read<int32_t>();
+		const auto* versionMinor = reader.read<int32_t>();
+
+		const auto* size = reader.read<int32_t>();
+		if ( !size || *size <= 0 || *size > 10000 ) {
+			UF_MSG_ERROR("Invalid EAX size");
+			return;
+		}
+
+		reader.read( *size, ctx.roomEAX );
+	}
+
+	void parseRooms( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		const auto* roomsOK = reader.read<int32_t>();
+		if ( !roomsOK || *roomsOK == 0 ) return;
+
+		const auto* numRooms = reader.read<int32_t>();
+		if ( !numRooms ) return;
+
+		for ( int32_t i = 0; i < *numRooms; ++i ) {
+			impl::DarkRoom room;
+			if ( impl::parseRoom( reader, room ) ) {
+				ctx.rooms.push_back( room );
+			} else {
+				if ( i == *numRooms - 1 ) {
+					//UF_MSG_DEBUG("Room {} truncated at EOF", i);
+				} else {
+					UF_MSG_WARNING("Failed to parse room {} of {}", i, *numRooms);
+				}
+				break;
+			}
+		}
+	}
+
+	void processRooms( pod::Graph& graph, impl::DarkContext& ctx ) {
+		for ( const auto& room : ctx.rooms ) {
+			auto nodeID = graph.nodes.size();
+			graph.root.children.emplace_back(nodeID);
+			auto& node = graph.nodes.emplace_back();
+			ctx.roomNodes[room.roomId] = nodeID;
+
+			node.name = ::fmt::format("room_{}", room.roomId);
+
+			node.transform.position = impl::convertPos_NewDark( room.center );
+
+			pod::Vector3f localExtents = room.getSize();
+
+			auto& metadata = node.metadata["dark"];
+			metadata["id"] = room.objId;
+			metadata["room_id"] = room.roomId;
+			metadata["is_room"] = true;
+
+			auto& physMeta = node.metadata["physics"];
+			physMeta["type"] = "obb";
+			physMeta["category"] = "trigger";
+			physMeta["inertia"] = false;
+			physMeta["mass"] = 0.0f;
+
+			// extents seem wrong......
+			pod::Vector3f worldExtents = impl::convertPos_NewDark(localExtents);
+			physMeta["extent"] = uf::vector::encode( uf::vector::abs(worldExtents) );
+
+			if ( room.roomId >= 0 && room.roomId < ctx.roomEAX.size() ) {
+				int32_t eaxType = ctx.roomEAX[room.roomId];
+				metadata["sound"]["eax_type"] = eaxType;
+			}
 		}
 	}
 
 	void parseEnvSoundTree(
-		const uf::stl::vector<uint8_t>& buffer, uint32_t& offset,
+		uf::stl::reader& reader,
 		const uf::stl::unordered_map<int32_t, uf::stl::string>& tagMap,
 		const uf::stl::unordered_map<int32_t, uf::stl::string>& valueMap,
 		uf::stl::string currentTags,
 		impl::DarkContext& ctx
 	) {
-		int32_t dataSize;
-		if (!impl::readStruct(buffer, offset, dataSize)) return;
+		const auto* dataSize = reader.read<int32_t>();
+		if (!dataSize) return;
 
-		for (int i = 0; i < dataSize; ++i) {
-			sTagDBData data;
-			if (!impl::readStruct(buffer, offset, data)) return;
-			ctx.properties.classTag[data.objId] = currentTags;
+		for (int i = 0; i < *dataSize; ++i) {
+			const auto* data = reader.read<sTagDBData>();
+			if (!data) return;
+			ctx.properties.classTag[data->objId] = currentTags;
 		}
 
-		int32_t branchSize;
-		if (!impl::readStruct(buffer, offset, branchSize)) return;
+		const auto* branchSize = reader.read<int32_t>();
+		if (!branchSize) return;
 
-		for (int i = 0; i < branchSize; ++i) {
-			cTagDBKey key;
-			if (!impl::readStruct(buffer, offset, key)) return;
+		for (int i = 0; i < *branchSize; ++i) {
+			const auto* key = reader.read<cTagDBKey>();
+			if (!key) return;
 
 			uf::stl::string newTags = currentTags;
 			if (!newTags.empty()) newTags += ", ";
 
-			uf::stl::string tagName = tagMap.count(key.type) ? tagMap.at(key.type) : ::fmt::format("UnknownTag_{}", key.type);
+			uf::stl::string tagName = tagMap.count(key->type) ? tagMap.at(key->type) : ::fmt::format("UnknownTag_{}", key->type);
 			uf::stl::string valueNames = "";
 
 			bool isEnum = false;
 			for (int v = 0; v < 8; ++v) {
-				if (key.aEnum[v] == 255) isEnum = true;
+				if (key->aEnum[v] == 255) isEnum = true;
 			}
 
-			if (isEnum || valueMap.count(key.aEnum[0])) {
+			if (isEnum || valueMap.count(key->aEnum[0])) {
 				for (int v = 0; v < 8; ++v) {
-					if (key.aEnum[v] != 255 && key.aEnum[v] != 0) {
+					if (key->aEnum[v] != 255 && key->aEnum[v] != 0) {
 						if (!valueNames.empty()) valueNames += "|";
-						valueNames += valueMap.count(key.aEnum[v]) ? valueMap.at(key.aEnum[v]) : std::to_string(key.aEnum[v]);
+						valueNames += valueMap.count(key->aEnum[v]) ? valueMap.at(key->aEnum[v]) : std::to_string(key->aEnum[v]);
 					}
 				}
 				newTags += tagName + " " + valueNames;
 			} else {
-				newTags += tagName + " [" + std::to_string(key.minVal) + "-" + std::to_string(key.maxVal) + "]";
+				newTags += tagName + " [" + std::to_string(key->minVal) + "-" + std::to_string(key->maxVal) + "]";
 			}
 
-			parseEnvSoundTree(buffer, offset, tagMap, valueMap, newTags, ctx);
+			parseEnvSoundTree(reader, tagMap, valueMap, newTags, ctx);
 		}
 	}
 
 	void parseSchSamp( impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t endOffset = item.offset + item.length;
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
 
-		while ( offset < endOffset ) {
-			int32_t objId;
-			if ( !impl::readStruct( buffer, offset, objId ) ) break;
+		while ( !reader.eof() ) {
+			const auto* pObjId = reader.read<int32_t>();
+			if ( !pObjId ) break;
+			int32_t objId = *pObjId;
 
-			int32_t numSamples;
-			if ( !impl::readStruct( buffer, offset, numSamples ) ) break;
+			const auto* pNumSamples = reader.read<int32_t>();
+			if ( !pNumSamples ) break;
+			int32_t numSamples = *pNumSamples;
 
 			for ( int32_t i = 0; i < numSamples; ++i ) {
-				int32_t strLen;
-				if ( !impl::readStruct( buffer, offset, strLen ) ) break;
+				const auto* pStrLen = reader.read<int32_t>();
+				if ( !pStrLen ) break;
+				int32_t strLen = *pStrLen;
 
-				uf::stl::string sampleName = impl::getStringFromOffset( buffer, offset, strLen );
-				offset += strLen;
+				const char* strData = reader.read< char >(strLen);
+				if ( !strData ) break;
 
-				uint8_t freq;
-				if ( !impl::readStruct( buffer, offset, freq ) ) break;
+				uf::stl::string sampleName(strData, strnlen(strData, strLen));
+
+				const auto* pFreq = reader.read<uint8_t>();
+				if ( !pFreq ) break;
+				uint8_t freq = *pFreq;
 
 				ctx.properties.schSamps[objId].emplace_back(PropertySchSamp{
 					.name = sampleName,
@@ -659,23 +814,21 @@ namespace impl {
 	}
 
 	void parseObjVec( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		DarkDBObjVec_Header header;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		if ( !impl::readStruct( buffer, offset, header ) ) return;
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
 
-		if ( header.maxID <= 0 ) return;
-		ctx.objects.assign( header.maxID, false );
+		const auto* header = reader.read<DarkDBObjVec_Header>();
+		if ( !header || header->maxID <= 0 ) return;
 
-		const uint8_t* bitmap = buffer.data() + offset;
-		uint32_t bitArraySizeBytes = item.length - sizeof(impl::DarkDBChunkHeader) - 8;
+		ctx.objects.assign( header->maxID, false );
 
-		if ( offset + bitArraySizeBytes > buffer.size() ) return;
+		uint32_t bitArraySizeBytes = item.len() - sizeof(DarkDBObjVec_Header);
+		const uint8_t* bitmap = reader.read<uint8_t>(bitArraySizeBytes);
+		if ( !bitmap ) return;
 
-		for ( int32_t id = header.minID; id < header.maxID; ++id ) {
+		for ( int32_t id = header->minID; id < header->maxID; ++id ) {
 			if ( id < 0 ) continue;
 
-			int32_t startByte = header.minID >> 3;
+			int32_t startByte = header->minID >> 3;
 			int32_t myByte = id >> 3;
 			int32_t byteIndex = myByte - startByte;
 			int32_t bitOffset = id & 0x07;
@@ -687,16 +840,16 @@ namespace impl {
 	}
 
 	void parseTextures( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		uint32_t size = item.length;
-		DarkDBTXLIST_Header header;
-		if ( !impl::readStruct( buffer, offset, header ) ) return;
+	//	uf::stl::reader reader(ctx.buffer, item.start(), item.len()); // should be item.length?
+		uf::stl::reader reader(ctx.buffer, item.start(), item.length); // should be item.length?
+
+		const auto* header = reader.read<DarkDBTXLIST_Header>();
+		if ( !header ) return;
 
 		uf::stl::vector<DarkDBTXLIST_fam> fams;
-		if ( impl::readArray( buffer, offset, header.fam_count, fams ) ) {
-			ctx.families.resize( header.fam_count );
-			for ( auto i = 0; i < header.fam_count; ++i ) {
+		if ( reader.read( header->fam_count, fams ) ) {
+			ctx.families.resize( header->fam_count );
+			for ( auto i = 0; i < header->fam_count; ++i ) {
 				ctx.families[i] = uf::stl::string(fams[i].name, strnlen(fams[i].name, 16));
 				std::transform(ctx.families[i].begin(), ctx.families[i].end(), ctx.families[i].begin(), ::tolower);
 				std::replace(ctx.families[i].begin(), ctx.families[i].end(), '\\', '/');
@@ -704,11 +857,11 @@ namespace impl {
 		}
 
 		auto& storage = uf::graph::getStorage(graph);
-		ctx.textureToMaterialId.resize( header.txt_count, -1 );
+		ctx.textureToMaterialId.resize( header->txt_count, -1 );
 
 		uf::stl::vector<DarkDBTXLIST_texture> texs;
-		if ( impl::readArray( buffer, offset, header.txt_count, texs ) ) {
-			for (uint32_t i = 0; i < header.txt_count; ++i) {
+		if ( reader.read( header->txt_count, texs ) ) {
+			for (uint32_t i = 0; i < texs.size() /*header->txt_count*/; ++i) {
 				const auto& tex = texs[i];
 				uf::stl::string texName(tex.name, strnlen(tex.name, 16));
 				if (texName.empty() || texName == "null") continue;
@@ -721,7 +874,6 @@ namespace impl {
 					matName = ctx.families[tex.fam] + "/" + texName;
 				}
 
-				// could instead just check against storage.materials.map.count( matName )
 				auto it = std::find( graph.materials.begin(), graph.materials.end(), matName );
 				if ( it == graph.materials.end() ) {
 					ctx.textureToMaterialId[i] = graph.materials.size();
@@ -783,80 +935,83 @@ namespace impl {
 	}
 
 	bool parseSong( const uf::stl::vector<uint8_t>& buffer, impl::Song& outSong ) {
-		uint32_t offset = 0;
+		uf::stl::reader reader(buffer, 0, buffer.size());
 
-		uint32_t fileVersion;
-		if ( !impl::readStruct( buffer, offset, fileVersion ) ) return false;
-		if ( fileVersion != 1) {
-			UF_MSG_WARNING("Song file version mismatch (expected 1, got {})", fileVersion);
+		const auto* fileVersion = reader.read<uint32_t>();
+		if ( !fileVersion ) return false;
+		if ( *fileVersion != 1) {
+			UF_MSG_WARNING("Song file version mismatch (expected 1, got {})", *fileVersion);
 		}
 
-		impl::sSongInfo songInfo;
-		if ( !impl::readStruct( buffer, offset, songInfo ) ) return false;
-		outSong.id = uf::stl::string(songInfo.id, strnlen(songInfo.id, kSONG_MaxStringLen));
+		const auto* songInfo = reader.read<impl::sSongInfo>();
+		if ( !songInfo ) return false;
+		outSong.id = uf::stl::string(songInfo->id, strnlen(songInfo->id, kSONG_MaxStringLen));
 
-		uint32_t numGlobalEvents;
-		if ( !impl::readStruct( buffer, offset, numGlobalEvents ) ) return false;
+		const auto* numGlobalEvents = reader.read<uint32_t>();
+		if ( !numGlobalEvents ) return false;
 
-		for ( uint32_t i = 0; i < numGlobalEvents; ++i ) {
-			impl::sSongEventInfo evtInfo;
-			if ( !impl::readStruct( buffer, offset, evtInfo ) ) break;
+		for ( uint32_t i = 0; i < *numGlobalEvents; ++i ) {
+			const auto* evtInfo = reader.read<impl::sSongEventInfo>();
+			if ( !evtInfo ) break;
+
+			UF_MSG_DEBUG("Song Global Event: {}, flags: {}", evtInfo->eventString, evtInfo->flags);
 
 			auto& evt = outSong.globalEvents.emplace_back();
-			evt.eventString = uf::stl::string(evtInfo.eventString, strnlen(evtInfo.eventString, kSONG_MaxStringLen));
-			evt.flags = evtInfo.flags;
+			evt.eventString = uf::stl::string(evtInfo->eventString, strnlen(evtInfo->eventString, kSONG_MaxStringLen));
+			evt.flags = evtInfo->flags;
 
-			uint32_t numGotos;
-			if ( !impl::readStruct( buffer, offset, numGotos ) ) break;
+			const auto* numGotos = reader.read<uint32_t>();
+			if ( !numGotos ) break;
 
-			for ( uint32_t j = 0; j < numGotos; ++j ) {
-				impl::sSongGotoInfo gotoInfo;
-				if ( !impl::readStruct( buffer, offset, gotoInfo ) ) break;
-				evt.gotos.push_back({ gotoInfo.sectionIndex, gotoInfo.probability });
+			for ( uint32_t j = 0; j < *numGotos; ++j ) {
+				const auto* gotoInfo = reader.read<impl::sSongGotoInfo>();
+				if ( !gotoInfo ) break;
+				UF_MSG_DEBUG("  -> Goto section: {}, prob: {}", gotoInfo->sectionIndex, gotoInfo->probability);
+				evt.gotos.push_back({ gotoInfo->sectionIndex, gotoInfo->probability });
 			}
 		}
 
-		uint32_t numSections;
-		if ( !impl::readStruct( buffer, offset, numSections ) ) return false;
+		const auto* numSections = reader.read<uint32_t>();
+		if ( !numSections ) return false;
 
-		for ( uint32_t i = 0; i < numSections; ++i ) {
-			impl::sSongSectionInfo secInfo;
-			if ( !impl::readStruct( buffer, offset, secInfo ) ) break;
+		for ( uint32_t i = 0; i < *numSections; ++i ) {
+			const auto* secInfo = reader.read<impl::sSongSectionInfo>();
+			if ( !secInfo ) break;
 
 			auto& sec = outSong.sections.emplace_back();
-			sec.id = uf::stl::string(secInfo.id, strnlen(secInfo.id, kSONG_MaxStringLen));
-			sec.volume = secInfo.volume;
-			sec.loopCount = secInfo.loopCount;
+			sec.id = uf::stl::string(secInfo->id, strnlen(secInfo->id, kSONG_MaxStringLen));
+			sec.volume = secInfo->volume;
+			sec.loopCount = secInfo->loopCount;
 
-			uint32_t numSamples;
-			if ( !impl::readStruct( buffer, offset, numSamples ) ) break;
+			const auto* numSamples = reader.read<uint32_t>();
+			if ( !numSamples ) break;
 
-			for ( uint32_t j = 0; j < numSamples; ++j ) {
-				impl::sSongSampleInfo sampInfo;
-				if ( !impl::readStruct( buffer, offset, sampInfo ) ) break;
+			for ( uint32_t j = 0; j < *numSamples; ++j ) {
+				const auto* sampInfo = reader.read<impl::sSongSampleInfo>();
+				if ( !sampInfo ) break;
 
-				uf::stl::string sampleName = uf::stl::string(sampInfo.name, strnlen(sampInfo.name, kSONG_MaxStringLen));
+				uf::stl::string sampleName = uf::stl::string(sampInfo->name, strnlen(sampInfo->name, kSONG_MaxStringLen));
 				sec.samples.push_back({ sampleName });
 			}
 
-			uint32_t numSecEvents;
-			if ( !impl::readStruct( buffer, offset, numSecEvents ) ) break;
+			const auto* numSecEvents = reader.read<uint32_t>();
+			if ( !numSecEvents ) break;
 
-			for ( uint32_t j = 0; j < numSecEvents; ++j ) {
-				impl::sSongEventInfo evtInfo;
-				if ( !impl::readStruct( buffer, offset, evtInfo ) ) break;
+			for ( uint32_t j = 0; j < *numSecEvents; ++j ) {
+				const auto* evtInfo = reader.read<impl::sSongEventInfo>();
+				if ( !evtInfo ) break;
 
 				auto& evt = sec.events.emplace_back();
-				evt.eventString = uf::stl::string(evtInfo.eventString, strnlen(evtInfo.eventString, kSONG_MaxStringLen));
-				evt.flags = evtInfo.flags;
+				evt.eventString = uf::stl::string(evtInfo->eventString, strnlen(evtInfo->eventString, kSONG_MaxStringLen));
+				evt.flags = evtInfo->flags;
 
-				uint32_t numGotos;
-				if ( !impl::readStruct( buffer, offset, numGotos ) ) break;
+				const auto* numGotos = reader.read<uint32_t>();
+				if ( !numGotos ) break;
 
-				for ( uint32_t k = 0; k < numGotos; ++k ) {
-					impl::sSongGotoInfo gotoInfo;
-					if ( !impl::readStruct( buffer, offset, gotoInfo ) ) break;
-					evt.gotos.push_back({ gotoInfo.sectionIndex, gotoInfo.probability });
+				for ( uint32_t k = 0; k < *numGotos; ++k ) {
+					const auto* gotoInfo = reader.read<impl::sSongGotoInfo>();
+					if ( !gotoInfo ) break;
+					evt.gotos.push_back({ gotoInfo->sectionIndex, gotoInfo->probability });
 				}
 			}
 		}
@@ -952,10 +1107,10 @@ namespace impl {
 	}
 
 	void parseWorld( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
-		auto& buffer = ctx.buffer;
-		uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-		impl::WRHeader header;
-		if ( !impl::readStruct( buffer, offset, header ) ) return;
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		const auto* header = reader.read<impl::WRHeader>();
+		if ( !header ) return;
 
 		auto& storage = uf::graph::getStorage(graph);
 		uf::stl::string meshName = "worldspawn";
@@ -964,7 +1119,6 @@ namespace impl {
 
 		auto& mesh = storage.meshes[meshName];
 		auto& primitives = storage.primitives[meshName];
-		//uf::stl::unordered_map<std::pair<size_t, size_t>, impl::Meshlet> meshlets;
 		uf::stl::unordered_map<uint64_t, impl::Meshlet> meshlets;
 
 		// cell information
@@ -980,42 +1134,42 @@ namespace impl {
 			uf::stl::vector<int16_t> animLightList;
 			uf::stl::vector<uint16_t> lightIndices;
 		};
-		uf::stl::vector<ParsedCell> cells( header.numCells );
+		uf::stl::vector<ParsedCell> cells( header->numCells );
 
 		// fill cell information
-		for ( uint32_t c = 0; c < header.numCells; ++c ) {
+		for ( uint32_t c = 0; c < cells.size(); ++c ) {
 			auto& cell = cells[c];
 			cell.cellIdx = c;
 
-			if ( !impl::readStruct( buffer, offset, cell.header ) ) break;
+			const auto* cellHeader = reader.read<impl::WRCellHeader>();
+			if ( !cellHeader ) break;
+			cell.header = *cellHeader;
 
 			// read cell information
-			impl::readArray( buffer, offset, cell.header.numVertices, cell.vertices );
-			impl::readArray( buffer, offset, cell.header.numPolygons, cell.polys );
-			impl::readArray( buffer, offset, cell.header.numTextured, cell.texInfo );
+			reader.read( cell.header.numVertices, cell.vertices );
+			reader.read( cell.header.numPolygons, cell.polys );
+			reader.read( cell.header.numTextured, cell.texInfo );
 
 			// read index count
-			uint32_t numIndices;
-			if ( !impl::readStruct( buffer, offset, numIndices ) ) break;
-			if ( offset + numIndices > buffer.size() ) break;
+			const auto* numIndices = reader.read<uint32_t>();
+			if ( !numIndices ) break;
+			if ( reader.remaining() < *numIndices ) break;
 
 			// fill indices
 			cell.polyIndices.resize( cell.header.numPolygons );
 			for ( uint8_t i = 0; i < cell.header.numPolygons; ++i ) {
-				cell.polyIndices[i].resize( cell.polys[i].count );
-				for ( uint8_t j = 0; j < cell.polys[i].count; ++j ) {
-					cell.polyIndices[i][j] = buffer[offset++];
-				}
+				// The reader can populate the vector directly!
+				reader.read( cell.polys[i].count, cell.polyIndices[i] );
 			}
 
 			// read planes
-			impl::readArray( buffer, offset, cell.header.numPlanes, cell.planes );
+			reader.read( cell.header.numPlanes, cell.planes );
 
 			// read animated lights
-			impl::readArray(buffer, offset, cell.header.numAnimLights, cell.animLightList);
+			reader.read( cell.header.numAnimLights, cell.animLightList );
 
 			// read lightmaps information
-			impl::readArray(buffer, offset, cell.header.numTextured, cell.lmInfos);
+			reader.read( cell.header.numTextured, cell.lmInfos );
 
 			// read lightmap
 			uint32_t lightPixelSize = 2; // to-do: deduce?
@@ -1030,10 +1184,11 @@ namespace impl {
 				uint32_t w = cell.lmInfos[i].lx;
 				uint32_t h = cell.lmInfos[i].ly;
 				uint32_t lmSizeBytes = w * h * lightPixelSize;
+				uint32_t totalLmBytes = lmSizeBytes * lmCount;
 
-				if ( lmSizeBytes > 0 && ( offset + lmSizeBytes * lmCount ) <= buffer.size()) {
+				if ( lmSizeBytes > 0 && reader.remaining() >= totalLmBytes ) {
 					uf::stl::vector<uint16_t> samples;
-					impl::readArray( buffer, offset, w * h * lmCount, samples );
+					reader.read( w * h * lmCount, samples );
 
 					for ( int layer = 0; layer < lmCount; ++layer ) {
 						pod::Image image;
@@ -1048,7 +1203,7 @@ namespace impl {
 								auto color = pod::Vector3f{
 									(float)((sample >> 10) & 0x1F),
 									(float)((sample >>  5) & 0x1F),
-									(float)((sample	  ) & 0x1F),
+									(float)((sample   ) & 0x1F),
 								} / 31.0f;
 								impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
 							}
@@ -1076,13 +1231,13 @@ namespace impl {
 						}
 					}
 				} else {
-					offset += ( lmSizeBytes * lmCount );
+					reader.skip( totalLmBytes );
 				}
 			}
 
-			uint32_t lightCount;
-			if ( impl::readStruct( buffer, offset, lightCount ) ) {
-				impl::readArray( buffer, offset, lightCount, cell.lightIndices );
+			const auto* lightCount = reader.read<uint32_t>();
+			if ( lightCount ) {
+				reader.read( *lightCount, cell.lightIndices );
 			}
 		}
 
@@ -1136,7 +1291,7 @@ namespace impl {
 
 				// prepare meshlet
 				//auto& meshlet = meshlets[std::make_pair(cell.cellIdx, materialID)];
-				auto& meshlet = meshlets[(static_cast<uint64_t>(cell.cellIdx) << 32) | static_cast<uint32_t>(materialID)];
+				auto& meshlet = meshlets[((uint64_t)(cell.cellIdx) << 32) | (uint32_t)(materialID)];
 				meshlet.primitive.instance.materialID = materialID;
 				meshlet.primitive.instance.lightmapID = atlasTextureID;
 
@@ -1227,8 +1382,8 @@ namespace impl {
 		size_t primitiveID = 0;
 		for ( auto& [ meshletKey, meshlet ] : meshlets ) {
 		//	auto& [ auxID, matID ] = meshletKey;
-			uint32_t auxID = static_cast<uint32_t>(meshletKey >> 32);
-			uint32_t matID = static_cast<uint32_t>(meshletKey & 0xFFFFFFFF);
+			uint32_t auxID = (uint32_t)(meshletKey >> 32);
+			uint32_t matID = (uint32_t)(meshletKey & 0xFFFFFFFF);
 
 			meshlet.primitive.drawCommand.indices = meshlet.indices.size();
 			meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
@@ -1255,23 +1410,20 @@ namespace impl {
 			if ( !ctx.objects[objectID] ) continue; // inactive object
 			if ( ctx.properties.position.count(objectID) == 0 ) continue; // no position bound
 
-			auto nodeID = graph.nodes.size();
-			graph.root.children.emplace_back(nodeID);
-			
+			auto nodeID = graph.nodes.size();			
 			auto& node = graph.nodes.emplace_back();
-			
 			auto& metadata = node.metadata["dark"];
 
 			// bind name
-			if ( ctx.customNames.count(objectID) ) {
-				node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
-			} else {
-				uf::stl::string symName;
-				if ( ctx.findInheritedProperty(objectID, ctx.archetypes, symName) ) {
-					node.name = uf::stl::string(symName.c_str());
-				}
-				if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
-			}
+			uf::stl::string archetype = "Unknown";
+			ctx.findInheritedProperty(objectID, ctx.archetypes, archetype);
+
+            if ( ctx.customNames.count(objectID) ) {
+                node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
+            } else {
+                if ( archetype != "Unknown" ) node.name = uf::stl::string(archetype.c_str());
+                if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
+            }
 			
 			// bind position
 			PropertyPosition position = ctx.properties.position.at(objectID); {
@@ -1285,7 +1437,25 @@ namespace impl {
 
 				node.transform.position = impl::convertPos_NewDark( position.position );
 				node.transform.orientation = uf::quaternion::multiply(qHeading, uf::quaternion::multiply(qBank, qPitch));
-			
+			}
+
+			// bind parent
+			size_t parentNodeID = -1;
+			for ( const auto& room : ctx.rooms ) {
+				if ( room.contains( position.position ) ) {
+					if ( ctx.roomNodes.count(room.roomId)) {
+						parentNodeID = ctx.roomNodes.at(room.roomId);
+						break;
+					}
+				}
+			}
+
+			if ( parentNodeID != -1 ) {
+				node.metadata["debug"]["parent node transforms"] = false;
+
+				graph.nodes[parentNodeID].children.emplace_back(nodeID);
+			} else {
+				graph.root.children.emplace_back(nodeID);
 			}
 
 			// bind model
@@ -1313,13 +1483,10 @@ namespace impl {
 			// bind door
 			PropertyDoor doorProp;
 			bool isDoor = false;
-
-			if ( ctx.findInheritedProperty( objectID, ctx.properties.rotDoor, doorProp ) ) {
+			if ( ( isDoor = ctx.findInheritedProperty( objectID, ctx.properties.rotDoor, doorProp ) ) ) {
 				metadata["door"]["is_rotating"] = true;
-				isDoor = true;
-			} else if ( ctx.findInheritedProperty( objectID, ctx.properties.transDoor, doorProp ) ) {
+			} else if ( ( isDoor = ctx.findInheritedProperty( objectID, ctx.properties.transDoor, doorProp ) ) ) {
 				metadata["door"]["is_rotating"] = false;
-				isDoor = true;
 			}
 
 			if ( isDoor ) {
@@ -1333,8 +1500,13 @@ namespace impl {
 			// bind class tags
 			uf::stl::string classTags;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.classTag, classTags ) ) {
-				UF_MSG_DEBUG("objectID={}, name={}, classTags={}", objectID, node.name, classTags);
 				metadata["class_tags"] = classTags;
+			}
+
+			// bind object sound name
+			uf::stl::string objSound;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.objSoundName, objSound ) ) {
+				metadata["sound"]["schema"] = objSound;
 			}
 
 			// bind ambient sound
@@ -1369,8 +1541,8 @@ namespace impl {
 
 					if ( resolved.hasPlayParams ) {
 						metadata["sound"]["schema_volume"] = resolved.playParams.volume;
-						metadata["sound"]["play_once"] = (resolved.playParams.flags & impl::SCH_PLAY_ONCE) != 0;
-						metadata["sound"]["stream"] = (resolved.playParams.flags & impl::SCH_STREAM) != 0;
+						metadata["sound"]["play_once"] = (resolved.playParams.flags & PropertySchPlayParams::SCH_PLAY_ONCE) != 0;
+						metadata["sound"]["stream"] = (resolved.playParams.flags & PropertySchPlayParams::SCH_STREAM) != 0;
 					}
 
 					if ( resolved.hasLoopParams ) {
@@ -1383,18 +1555,31 @@ namespace impl {
 			// bind script
 			uf::stl::vector<uf::stl::string> scripts;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.script, scripts ) ) {
-				for ( const auto& s : scripts ) metadata["scripts"].emplace_back(s);
+				for ( const auto& s : scripts ) {
+					metadata["scripts"].emplace_back(s);
+				}
+			}
+
+			// bind frobbage
+			PropertyFrobInfo frob;
+			bool isFrobbable = false;
+			if ( ctx.findInheritedProperty(objectID, ctx.properties.frobInfo, frob) ) {
+				isFrobbable = frob.world_action != 0;
+				
+				metadata["frob"]["world"] = frob.world_action;
+				metadata["frob"]["inv"]   = frob.inv_action;
+				metadata["frob"]["tool"]  = frob.tool_action;
 			}
 
 			// bind physics
 			PropertyPhysType physType;
 			// to-do: optimize this as it cuts my FPS by ~30% with lots of small physics objects
-			if ( ctx.findInheritedProperty( objectID, ctx.properties.physType, physType ) && physType.type != 3 ) {
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.physType, physType ) && physType.type != impl::PropertyPhysType::NONE ) {
 				auto& physMeta = node.metadata["physics"];
 
-				if ( physType.type == 0 ) {
+				if ( physType.type == impl::PropertyPhysType::OBB ) {
 					physMeta["type"] = "obb";
-				} else if ( physType.type == 1 || physType.type == 2 ) {
+				} else if ( physType.type == impl::PropertyPhysType::SPHERE || physType.type == impl::PropertyPhysType::SPHERE_HAT ) {
 					physMeta["type"] = "sphere";
 					physMeta["radius"] = 0.5f;
 				} else {
@@ -1403,64 +1588,52 @@ namespace impl {
 
 				PropertyPhysAttr physAttr;
 				if ( ctx.findInheritedProperty( objectID, ctx.properties.physAttr, physAttr ) ) {
-					physMeta["mass"] = physAttr.mass;
+					physMeta["mass"] = (physType.type == impl::PropertyPhysType::OBB || physAttr.edge_trigger != 0) ? 0.0f : physAttr.mass;
 					physMeta["friction"] = physAttr.base_friction;
 					physMeta["restitution"] = physAttr.elasticity;
-
-					if ( physAttr.gravity == 0.0f ) {
-						physMeta["gravity"] = uf::vector::encode(pod::Vector3f{0.0f, 0.0f, 0.0f});
-					} else {
-						physMeta["gravity"] = uf::vector::encode(pod::Vector3f{0.0f, -0.0981f * physAttr.gravity, 0.0f});
-					}
+					physMeta["gravity"] = uf::vector::encode( pod::Vector3f{0.0f, -0.0981f * physAttr.gravity, 0.0f} );
 
 					if ( physAttr.edge_trigger != 0 ) {
 						physMeta["category"] = "trigger";
 						physMeta["inertia"] = false;
-						physMeta["mass"] = 0.0f;
-					}
-					if ( physType.type == 0 ) {
-						physMeta["mass"] = 0.0f;
 					}
 				}
 
 				PropertyPhysDims physDims;
 				if ( ctx.findInheritedProperty( objectID, ctx.properties.physDims, physDims ) ) {
-					if ( physType.type == 0 ) {
-						pod::Vector3f extent = impl::convertPos_NewDark(physDims.size) * 0.5f;
-						if ( extent.x > 0 && extent.y > 0 && extent.z > 0 ) {
-							physMeta["extent"] = uf::vector::encode(extent);
-						}
+					if ( physType.type == impl::PropertyPhysType::OBB ) {
+						pod::Vector3f center = impl::convertPos_NewDark( physDims.offset[0] );
+						pod::Vector3f extent = impl::convertPos_NewDark( uf::vector::abs( physDims.size ) ) * 0.5f;
 
-						pod::Vector3f center = impl::convertPos_NewDark(physDims.offset[0]);
-						if ( center.x != 0.f || center.y != 0.f || center.z != 0.f ) {
-							physMeta["center"] = uf::vector::encode(center);
-						}
-					} else if ( physType.type == 1 || physType.type == 2 ) {
-						if ( physDims.radius[0] > 0 ) {
-							physMeta["radius"] = physDims.radius[0] * impl::darkToMeters;
-						}
-
+						if ( physAttr.edge_trigger != 0 ) extent += 1.0f;
+						if ( extent > 0.f ) physMeta["extent"] = uf::vector::encode(extent);
+						if ( !(center == 0.f) ) physMeta["center"] = uf::vector::encode(center);
+					} else if ( physType.type == impl::PropertyPhysType::SPHERE || physType.type == impl::PropertyPhysType::SPHERE_HAT ) {
 						pod::Vector3f offset = impl::convertPos_NewDark(physDims.offset[0]);
-						if ( offset.x != 0.f || offset.y != 0.f || offset.z != 0.f ) {
-							physMeta["offset"] = uf::vector::encode(offset);
-						}
+						if ( physDims.radius[0] > 0.f ) physMeta["radius"] = physDims.radius[0] * impl::darkToMeters;
+						if ( !(offset == 0.f) ) physMeta["offset"] = uf::vector::encode(offset);
 					}
 				}
 
 				PropertyPhysState physState;
 				if ( ctx.findInheritedProperty( objectID, ctx.properties.physState, physState ) ) {
 					pod::Vector3f vel = impl::convertPos_NewDark(physState.velocity, 1.0f);
-					if ( vel.x != 0.f || vel.y != 0.f || vel.z != 0.f ) physMeta["velocity"] = uf::vector::encode(vel);
-
 					pod::Vector3f angVel = { physState.rot_velocity.x, physState.rot_velocity.z, physState.rot_velocity.y };
-					if ( angVel.x != 0.f || angVel.y != 0.f || angVel.z != 0.f ) physMeta["angularVelocity"] = uf::vector::encode(angVel);
+
+					if ( !(vel == 0.f) ) physMeta["velocity"] = uf::vector::encode(vel);
+					if ( !(angVel == 0.f) ) physMeta["angularVelocity"] = uf::vector::encode(angVel);
 				}
+			} else if ( node.mesh != -1 && (isDoor || isFrobbable) ) {
+				auto& physMeta = node.metadata["physics"];
+				physMeta["type"] = "obb";
+				physMeta["mass"] = 0.0f;
 			}
 
 			// fill out metadata
 			{
 				metadata["id"] = objectID;
-				metadata["cell"] = position.cell;
+				metadata["cell"] = position.cell;	
+				metadata["archetype"] = archetype;
 			}
 
 			// bind light (at the end because we insert a new node)
@@ -1493,12 +1666,7 @@ namespace impl {
 		}
 
 		for ( const auto& link : ctx.links ) {
-			if ( !objectToNode.count(link.sourceId) || !objectToNode.count(link.destId) ) continue;
-			size_t sourceIdx = objectToNode[link.sourceId];
-			size_t destIdx  = objectToNode[link.destId];
-
-			auto& srcNode = graph.nodes[sourceIdx];
-			auto& connection = srcNode.metadata["dark"]["connections"].emplace_back();
+			if ( !objectToNode.count(link.sourceId) ) continue;
 
 			uf::stl::string flavor = "";
 			if ( ctx.linkFlavorNames.count(link.flavor) ) {
@@ -1507,19 +1675,38 @@ namespace impl {
 				flavor = ::fmt::format("Unknown_{}", link.flavor);
 			}
 
+			size_t sourceIdx = objectToNode[link.sourceId];
+			auto& srcNode = graph.nodes[sourceIdx];
+
+			if ( flavor == "SoundDescription" ) {
+				auto& connection = srcNode.metadata["dark"]["connections"].emplace_back();
+				connection["flavor"] = flavor;
+				connection["target_id"] = link.destId;
+
+				if ( ctx.schemas.count(link.destId) ) {
+					const auto& schema = ctx.schemas.at(link.destId);
+					connection["target_node"] = schema.name;
+					for (const auto& wav : schema.wavs) {
+						connection["wavs"].emplace_back(wav.name);
+					}
+				} else {
+					connection["target_node"] = "UnknownSchema";
+				}
+				continue;
+			}
+
+			if ( !objectToNode.count(link.destId) ) continue;
+
+			size_t destIdx  = objectToNode[link.destId];
+			auto& connection = srcNode.metadata["dark"]["connections"].emplace_back();
+
 			connection["flavor"] = flavor;
 			connection["target_node"] = graph.nodes[destIdx].name;
 			connection["target_id"] = link.destId;
 
-			// bind sound descriptions
-			if ( flavor == "SoundDescription" ) {
-				if ( ctx.schemas.count(link.destId) ) {
-					const auto& schema = ctx.schemas.at(link.destId);
-					for (const auto& wav : schema.wavs) {
-						connection["wavs"].emplace_back(wav.name);
-					}
-				}
-			}
+			auto& inConnection = graph.nodes[destIdx].metadata["dark"]["incoming_connections"].emplace_back();
+			inConnection["flavor"] = flavor;
+			inConnection["source_id"] = link.sourceId;
 		}
 	}
 
@@ -1533,13 +1720,16 @@ namespace impl {
 		graph.root.children.emplace_back( nodeID );
 		node.name = "Song";
 
-		 uf::stl::string missionSong = "";
+		uf::stl::string missionSong = "";
 		if ( ctx.inventory.count("SONGPARAMS") > 0 ) {
 			const auto& item = ctx.inventory.at("SONGPARAMS");
-			uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-			impl::PropertySongParams params;
-			if ( impl::readStruct( ctx.buffer, offset, params ) ) {
-				missionSong = uf::stl::string(params.songName, strnlen(params.songName, 32));
+			uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+			size_t readLen = std::min<size_t>(item.len(), 32);
+			const char* songData = reader.read< char >(readLen);
+
+			if ( songData ) {
+				missionSong = uf::stl::string(songData, strnlen(songData, readLen));
 			}
 		}
 		node.metadata["dark"]["mission song"] = missionSong;
@@ -1612,22 +1802,23 @@ namespace impl {
 		}
 	}
 
-	uf::stl::unordered_map<int32_t, uf::stl::string> parseNameMap(const uf::stl::vector<uint8_t>& buffer, uint32_t& offset) {
+	uf::stl::unordered_map<int32_t, uf::stl::string> parseNameMap( uf::stl::reader& reader ) {
 		uf::stl::unordered_map<int32_t, uf::stl::string> map;
-		int32_t upperBound, lowerBound, size;
 
-		if (!impl::readStruct(buffer, offset, upperBound)) return map;
-		if (!impl::readStruct(buffer, offset, lowerBound)) return map;
-		if (!impl::readStruct(buffer, offset, size)) return map;
+		const auto* upperBound = reader.read<int32_t>();
+		const auto* lowerBound = reader.read<int32_t>();
+		const auto* size = reader.read<int32_t>();
 
-		for (int i = 0; i < size; ++i) {
-			char flag;
-			if (!impl::readStruct(buffer, offset, flag)) break;
+		if (!upperBound || !lowerBound || !size) return map;
 
-			if (flag == '+') {
-				uf::stl::vector<char> text;
-				if (!impl::readArray(buffer, offset, 16, text)) break;
-				map[i + lowerBound] = uf::stl::string(text.data(), strnlen(text.data(), 16));
+		for (int i = 0; i < *size; ++i) {
+			const auto* flag = reader.read< char >();
+			if (!flag) break;
+
+			if (*flag == '+') {
+				uf::stl::vector< char > text;
+				if (!reader.read(16, text)) break;
+				map[i + *lowerBound] = uf::stl::string(text.data(), strnlen(text.data(), 16));
 			}
 		}
 		return map;
@@ -1637,39 +1828,39 @@ namespace impl {
 		auto& buffer = ctx.buffer;
 		auto& inventory = ctx.inventory;
 
-		uint32_t chunkCount;
-		uint32_t offset = header.inv_offset;
-		if ( !impl::readStruct( buffer, offset, chunkCount ) ) return;
-		for ( uint32_t i = 0; i < chunkCount; ++i ) {
-			impl::DarkDBInvItem item;
-			if ( !impl::readStruct( buffer, offset, item ) ) break;
-			uf::stl::string name = item.name;
-			inventory[name] = item;
+		uf::stl::reader reader(buffer, header.inv_offset, buffer.size() - header.inv_offset);
+
+		const auto* chunkCount = reader.read<uint32_t>();
+		if ( chunkCount ) {
+			for ( uint32_t i = 0; i < *chunkCount; ++i ) {
+				const auto* item = reader.read<impl::DarkDBInvItem>();
+				if ( !item ) break;
+				uf::stl::string name = item->name;
+				inventory[name] = *item;
+			}
 		}
 
-		// parse strings
-		impl::parseProperty( ctx, "SymName" );
-		impl::parseProperty( ctx, "ModelName" );
-		// parse properties
-		impl::parseProperty( ctx, "Position" );
-		impl::parseProperty( ctx, "Light" );
-		impl::parseProperty( ctx, "TransDoor" );
-		impl::parseProperty( ctx, "RotDoor" );
-		impl::parseProperty( ctx, "Ambient" );
-		impl::parseProperty( ctx, "AmbientHacked" );
-		impl::parseProperty( ctx, "Scripts" );
-		//	 physics
-		impl::parseProperty( ctx, "PhysType" );
-		impl::parseProperty( ctx, "PhysAttr" );
-		impl::parseProperty( ctx, "PhysDims" );
-		impl::parseProperty( ctx, "PhysState" );
-		//	schemas
-		impl::parseProperty( ctx, "SchPlayParams" );
-		impl::parseProperty( ctx, "SchLoopParams" );
+		impl::extractProperty( ctx, "SymName", 			ctx.archetypes, 4 );
+		impl::extractProperty( ctx, "ModelName", 		ctx.modelNames );
+		impl::extractProperty( ctx, "Class Tag", 		ctx.properties.classTag, 4 );
+		impl::extractProperty( ctx, "SchMsg", 			ctx.properties.schMsg, 4 );
+		impl::extractProperty( ctx, "SchAction", 		ctx.properties.schAction, 4 );
+		impl::extractProperty( ctx, "Scripts",			ctx.properties.script );
 
-		impl::parseProperty( ctx, "Class Tag" );
-		impl::parseProperty( ctx, "SchMsg" );
-		impl::parseProperty( ctx, "SchAction" );
+		impl::extractProperty( ctx, "Position", 		ctx.properties.position );
+		impl::extractProperty( ctx, "Light", 			ctx.properties.light );
+		impl::extractProperty( ctx, "TransDoor", 		ctx.properties.transDoor );
+		impl::extractProperty( ctx, "RotDoor", 			ctx.properties.rotDoor );
+		impl::extractProperty( ctx, "FrobInfo",			ctx.properties.frobInfo );
+		impl::extractProperty( ctx, "Ambient", 			ctx.properties.ambient );
+		impl::extractProperty( ctx, "AmbientHacked", 	ctx.properties.ambient );
+		impl::extractProperty( ctx, "ObjSoundN",		ctx.properties.objSoundName, 0 );
+		impl::extractProperty( ctx, "PhysType", 		ctx.properties.physType );
+		impl::extractProperty( ctx, "PhysAttr", 		ctx.properties.physAttr );
+		impl::extractProperty( ctx, "PhysDims", 		ctx.properties.physDims );
+		impl::extractProperty( ctx, "PhysState", 		ctx.properties.physState );
+		impl::extractProperty( ctx, "SchPlayParams", 	ctx.properties.schPlayParams );
+		impl::extractProperty( ctx, "SchLoopParams", 	ctx.properties.schLoopParams );
 
 		// parse schsamp
 		if ( inventory.count("SchSamp") > 0 ) {
@@ -1690,22 +1881,20 @@ namespace impl {
 		// parse tags
 		if ( inventory.count("Speech_DB") > 0 ) {
 			const auto& item = inventory["Speech_DB"];
-			uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
-			auto& buffer = ctx.buffer;
+			uf::stl::reader speechReader(ctx.buffer, item.start(), item.len());
 
-			auto concepts = parseNameMap(buffer, offset);
-			auto tags = parseNameMap(buffer, offset);
-			auto values = parseNameMap(buffer, offset);
+			auto concepts = impl::parseNameMap(speechReader);
+			auto tags = impl::parseNameMap(speechReader);
+			auto values = impl::parseNameMap(speechReader);
 
 			if ( inventory.count("ENV_SOUND") > 0 ) {
-				const auto& item = inventory["ENV_SOUND"];
-				uint32_t offset = item.offset + sizeof(impl::DarkDBChunkHeader);
+				const auto& envItem = inventory["ENV_SOUND"];
+				uf::stl::reader envReader(ctx.buffer, envItem.start(), envItem.len());
 
-				int32_t numRequiredTags;
-				if ( impl::readStruct(buffer, offset, numRequiredTags) ) {
-					offset += numRequiredTags;
-
-					parseEnvSoundTree(buffer, offset, tags, values, "", ctx);
+				const auto* numRequiredTags = envReader.read<int32_t>();
+				if ( numRequiredTags ) {
+					envReader.skip(*numRequiredTags);
+					impl::parseEnvSoundTree(envReader, tags, values, "", ctx);
 				}
 			}
 		}
@@ -1742,11 +1931,10 @@ namespace impl {
 			return;
 		}
 
-		uint32_t offset = 0;
-		impl::DarkDBHeader header;
-		if ( !impl::readStruct( buffer, offset, header ) ) return;
-
-		if ( header.dead_beef != 0xEFBEADDE ) {
+		uf::stl::reader reader(buffer, 0, buffer.size());
+		const auto* header = reader.read<impl::DarkDBHeader>();
+		if ( !header ) return;
+		if ( header->dead_beef != 0xEFBEADDE ) {
 			UF_MSG_ERROR("Invalid DB in GAM: DEADBEEF not found.");
 			return;
 		}
@@ -1754,7 +1942,7 @@ namespace impl {
 		uf::stl::unordered_map<uf::stl::string, impl::DarkDBInvItem> inventory;
 		std::swap( ctx.inventory, inventory );
 		std::swap( ctx.buffer, buffer );
-		impl::readInventory( ctx, header );
+		impl::readInventory( ctx, *header );
 		std::swap( ctx.buffer, buffer );
 		std::swap( ctx.inventory, inventory );
 	}
@@ -1768,21 +1956,20 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 		return;
 	}
 
-	uint32_t offset = 0;
-	impl::DarkDBHeader header;
-	if ( !impl::readStruct( buffer, offset, header ) ) {
+	uf::stl::reader reader(buffer, 0, buffer.size());
+	const auto* header = reader.read<impl::DarkDBHeader>();
+	if ( !header ) {
 		UF_MSG_ERROR("Failed to read DB header: {}", filename);
 		return;
 	}
-	if ( header.dead_beef != 0xEFBEADDE ) {
+	if ( header->dead_beef != 0xEFBEADDE ) {
 		UF_MSG_ERROR("Invalid DB: DEADBEEF not found: {}", filename);
 		return;
 	}
-	if ( header.inv_offset >= buffer.size() ) {
+	if ( header->inv_offset >= buffer.size() ) {
 		UF_MSG_ERROR("Inventory offset is past EOF: {}", filename);
 		return;
 	}
-
 	uf::graph::preprocess( graph, metadata, filename );
 	auto& storage = uf::graph::getStorage( graph );
 
@@ -1850,7 +2037,7 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 
 	// load initial data
 	impl::loadGam( ctx, /*metadata["game"].as<uf::stl::string>*/("game://Data/SHOCK2.GAM") ); // to-do: deduce path from metadata
-	impl::readInventory( ctx, header );
+	impl::readInventory( ctx, *header );
 	// mission parsing
 	if ( ctx.inventory.count("TXLIST") > 0 ) {
 		impl::parseTextures( graph, ctx, ctx.inventory["TXLIST"] );
@@ -1859,8 +2046,15 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 	if ( ctx.inventory.count("WRRGB") > 0 ) {
 		impl::parseWorld( graph, ctx, ctx.inventory["WRRGB"] );
 	}
+	if ( ctx.inventory.count("ROOM_DB") > 0 ) {
+		impl::parseRooms( ctx, ctx.inventory["ROOM_DB"] );
+	}
+	if ( ctx.inventory.count("ROOM_EAX") > 0 ) {
+		impl::parseRoomEAX( ctx, ctx.inventory["ROOM_EAX"] );
+	}
 	if ( ctx.inventory.count("ObjVec") > 0 ) {
 		impl::parseObjVec( graph, ctx, ctx.inventory["ObjVec"] );
+		impl::processRooms( graph, ctx );
 		impl::loadObjects( graph, ctx );
 		impl::loadMaterials( graph, ctx );
 	}
@@ -1887,6 +2081,7 @@ void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, con
 	if ( filename.starts_with("game://") ) graph.metadata["exporter"]["enabled"] = false; // disable exporting if loaded from a VPK
 	graph.metadata["exporter"]["unwrap"] = false; // do not unwrap UVs for baking (we already have those)
 	graph.metadata["baking"]["enabled"] = false; // disable lightmap baking (we already have those)
+	graph.metadata["debug"]["parent node transforms"] = false; // disable parenting node transforms
 
 	uf::graph::postprocess(graph);
 }

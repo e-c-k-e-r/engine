@@ -2,7 +2,7 @@
 #include <uf/ext/ttlg/common.h>
 #include <uf/ext/valve/common.h>
 #include <uf/ext/zlib/zlib.h>
-#include <cstring>
+#include <uf/utils/memory/reader.h>
 
 namespace impl {
 #pragma pack(push, 1)
@@ -137,13 +137,14 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 		return false;
 	}
 
-	uint32_t offset = 0;
+	uf::stl::reader reader(buffer, 0, buffer.size());
 
-	impl::BinMainHeader mainHeader;
-	if ( !impl::readStruct( buffer, offset, mainHeader ) ) {
+	const auto* pMainHeader = reader.read<impl::BinMainHeader>();
+	if ( !pMainHeader ) {
 		UF_MSG_ERROR("Failed to read BIN header: {}", filename);
 		return false;
 	}
+	impl::BinMainHeader mainHeader = *pMainHeader;
 
 	if ( strncmp(mainHeader.magic, "LGMM", 4) == 0 ) {
 		UF_MSG_ERROR("Attempting to read LGMM file as an LMGD: {}", filename);
@@ -155,14 +156,15 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 		return false;
 	}
 
-	impl::BinHeader header;
-	if ( !impl::readStruct(buffer, offset, header ) ) {
+	const auto* pHeader = reader.read<impl::BinHeader>();
+	if ( !pHeader ) {
 		UF_MSG_ERROR("Failed to parse BIN header: {}", filename);
 		return false;
 	}
+	impl::BinHeader header = *pHeader;
 
 	// skip additional information (to-do: parse)
-	if ( mainHeader.version == 4 ) offset += 12;
+	if ( mainHeader.version == 4 ) reader.skip(12);
 
 	if ( header.offset_poly_list == 0 || header.offset_poly_list >= buffer.size() ) {
 		UF_MSG_ERROR("Invalid BIN file (poly list offset out of bounds): {}", filename);
@@ -184,10 +186,10 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// read materials
 	if ( header.num_mats > 0 && header.offset_mats > 0 && header.offset_mats < buffer.size() ) {
-		uint32_t matOffset = header.offset_mats;
+		uf::stl::reader matReader(buffer, header.offset_mats, buffer.size() - header.offset_mats);
 		uf::stl::vector<impl::BinMaterial> binMats;
 
-		if ( impl::readArray(buffer, matOffset, header.num_mats, binMats ) ) {
+		if ( matReader.read(header.num_mats, binMats ) ) {
 			for ( uint32_t i = 0; i < header.num_mats; ++i ) {
 				uf::stl::string matName = uf::stl::string(binMats[i].name);
 				if ( matName.empty() ) {
@@ -199,7 +201,6 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 					size_t dotPos = matName.find_last_of('.');
 					if ( dotPos != uf::stl::string::npos ) matName = matName.substr(0, dotPos);
 				}
-
 
 				auto it = std::find(graph.materials.begin(), graph.materials.end(), matName);
 				int32_t matIndex = (mainHeader.version == 4) ? i : binMats[i].slot_num;
@@ -217,29 +218,29 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// read vertices
 	if ( header.num_verts > 0 && header.offset_verts > 0 && header.offset_verts < buffer.size() ) {
-		uint32_t offset = header.offset_verts;
-		impl::readArray( buffer, offset, header.num_verts, vertices );
+		uf::stl::reader vertReader(buffer, header.offset_verts, buffer.size() - header.offset_verts);
+		vertReader.read(header.num_verts, vertices);
 	}
 	// read UVs
 	if ( header.offset_uv > 0 && header.offset_uv < buffer.size() ) {
 		numUVs = (buffer.size() - header.offset_uv) / sizeof(impl::BinUV);
 	}
 	if ( numUVs > 0 ) {
-		uint32_t offset = header.offset_uv;
-		impl::readArray( buffer, offset, numUVs, uvs );
+		uf::stl::reader uvReader(buffer, header.offset_uv, buffer.size() - header.offset_uv);
+		uvReader.read(numUVs, uvs);
 	}
 	// read normals
 	if ( header.offset_norms > 0 && header.offset_norms < buffer.size() ) {
 		numNormals = (buffer.size() - header.offset_norms) / sizeof(pod::Vector3f);
 	}
 	if ( numNormals > 0 ) {
-		uint32_t offset = header.offset_norms;
-		impl::readArray( buffer, offset, numNormals, normals );
+		uf::stl::reader normReader(buffer, header.offset_norms, buffer.size() - header.offset_norms);
+		normReader.read(numNormals, normals);
 	}
 	// read subobject information
 	if ( header.num_objs > 0 && header.offset_objs > 0 && header.offset_objs < buffer.size() ) {
-		uint32_t offset = header.offset_objs;
-		impl::readArray( buffer, offset, header.num_objs, subObjects );
+		uf::stl::reader objReader(buffer, header.offset_objs, buffer.size() - header.offset_objs);
+		objReader.read(header.num_objs, subObjects);
 	}
 
 	uf::stl::vector<pod::Matrix4f> transforms( subObjects.size(), uf::matrix::identity() );
@@ -250,43 +251,59 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	// read subobject faces
 	if ( header.offset_nodes > 0 && header.offset_nodes < buffer.size() ) {
-		uint32_t offset = header.offset_nodes;
+		uf::stl::reader nodeReader(buffer, header.offset_nodes, buffer.size() - header.offset_nodes);
 		uf::stl::vector<uint16_t> faces;
-		while ( offset < buffer.size() ) {
+
+		while ( !nodeReader.eof() ) {
 			faces.clear();
-			uint8_t nodeType = buffer[offset];
+
+			const auto* pNodeType = nodeReader.peek<uint8_t>();
+			if (!pNodeType) break;
+			uint8_t nodeType = *pNodeType;
 
 			if ( nodeType == 4 ) {
 				subObjectPolys.emplace_back();
-				offset += 3;
+				nodeReader.skip(3);
 			} else if ( nodeType == 3 ) {
-				offset += 19;
+				nodeReader.skip(19);
 			} else if ( nodeType == 2 ) {
-				uint16_t nf1{}, nf2{};
-				offset += 17;
-				impl::readStruct( buffer, offset, nf1 );
-				offset += 2; 
-				impl::readStruct( buffer, offset, nf2 );
+				nodeReader.skip(17);
 
-				if ( impl::readArray( buffer, offset, nf1 + nf2, faces ) && !subObjectPolys.empty() ) {
+				const auto* pNf1 = nodeReader.read<uint16_t>();
+				if (!pNf1) break;
+				uint16_t nf1 = *pNf1;
+
+				nodeReader.skip(2);
+				const auto* pNf2 = nodeReader.read<uint16_t>();
+				if (!pNf2) break;
+				uint16_t nf2 = *pNf2;
+
+				if ( nodeReader.read(nf1 + nf2, faces) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert( subObjectPolys.back().end(), faces.begin(), faces.end() );
 				}
 			} else if (nodeType == 1) {
-				uint16_t nf1{}, nf2{};
-				offset += 17;
-				impl::readStruct( buffer, offset, nf1 );
-				offset += 10;
-				impl::readStruct( buffer, offset, nf2 );
+				nodeReader.skip(17);
 
-				if ( impl::readArray( buffer, offset, nf1 + nf2, faces ) && !subObjectPolys.empty() ) {
+				const auto* pNf1 = nodeReader.read<uint16_t>();
+				if (!pNf1) break;
+				uint16_t nf1 = *pNf1;
+
+				nodeReader.skip(10);
+				const auto* pNf2 = nodeReader.read<uint16_t>();
+				if (!pNf2) break;
+				uint16_t nf2 = *pNf2;
+
+				if ( nodeReader.read(nf1 + nf2, faces) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert( subObjectPolys.back().end(), faces.begin(), faces.end() );
 				}
 			} else if (nodeType == 0) {
-				uint16_t nf{};
-				offset += 17;
-				impl::readStruct( buffer, offset, nf );
+				nodeReader.skip(17);
 
-				if ( impl::readArray(buffer, offset, nf, faces) && !subObjectPolys.empty() ) {
+				const auto* pNf = nodeReader.read<uint16_t>();
+				if (!pNf) break;
+				uint16_t nf = *pNf;
+
+				if ( nodeReader.read(nf, faces) && !subObjectPolys.empty() ) {
 					subObjectPolys.back().insert(subObjectPolys.back().end(), faces.begin(), faces.end());
 				}
 			} else {
@@ -308,27 +325,26 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 			uint32_t absolutePolyOffset = header.offset_poly_list + polyOffset;
 			if (absolutePolyOffset >= buffer.size()) continue;
 
-			impl::BinPolyHeader polyHeader;
-			uint32_t readOffset = absolutePolyOffset;
-			if (!impl::readStruct(buffer, readOffset, polyHeader)) continue;
+			uf::stl::reader polyReader(buffer, absolutePolyOffset, buffer.size() - absolutePolyOffset);
 
-			uint32_t dataOffset = absolutePolyOffset + 12;
+			const auto* pPolyHeader = polyReader.read<impl::BinPolyHeader>();
+			if (!pPolyHeader) continue;
+			impl::BinPolyHeader polyHeader = *pPolyHeader;
 
 			uf::stl::vector<uint16_t> vertIndices;
-			impl::readArray(buffer, dataOffset, polyHeader.num_verts, vertIndices);
+			polyReader.read(polyHeader.num_verts, vertIndices);
 
 			uf::stl::vector<uint16_t> normIndices;
-			impl::readArray(buffer, dataOffset, polyHeader.num_verts, normIndices);
+			polyReader.read(polyHeader.num_verts, normIndices);
 
 			uf::stl::vector<uint16_t> uvIndices;
 			bool hasUVs = ((polyHeader.type & 3) == 3);
-			if (hasUVs) impl::readArray(buffer, dataOffset, polyHeader.num_verts, uvIndices);
+			if (hasUVs) polyReader.read(polyHeader.num_verts, uvIndices);
 
 			uint32_t localMatID = 0;
 			if ( mainHeader.version == 4 ) {
-				uint8_t matByte = 0;
-				impl::readStruct(buffer, dataOffset, matByte);
-				localMatID = matByte;
+				const auto* matByte = polyReader.read<uint8_t>();
+				if (matByte) localMatID = *matByte;
 			} else {
 				localMatID = polyHeader.data;
 			}
@@ -351,7 +367,9 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 			for (uint8_t v = 0; v < polyHeader.num_verts; ++v) {
 				auto& vert = meshlet.vertices.emplace_back();
-				uint16_t vIdx = vertIndices[v];
+
+				uint16_t vIdx = 0;
+				if (v < vertIndices.size()) vIdx = vertIndices[v]; // Bounds safety
 
 				if ( vIdx < vertices.size() ) {
 					vert.position = impl::convertPos_NewDark( uf::matrix::multiply<float>(transforms[objIdx], vertices[vIdx].position, 1.0f) + offsets[objIdx] );
@@ -366,10 +384,12 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 			}
 
 			// triangle fan => triangles
-			for ( uint8_t v = 1; v < polyHeader.num_verts - 1; ++v ) {
-				meshlet.indices.emplace_back(startVertIdx);
-				meshlet.indices.emplace_back(startVertIdx + v);
-				meshlet.indices.emplace_back(startVertIdx + v + 1);
+			if (polyHeader.num_verts >= 3) {
+				for ( uint8_t v = 1; v < polyHeader.num_verts - 1; ++v ) {
+					meshlet.indices.emplace_back(startVertIdx);
+					meshlet.indices.emplace_back(startVertIdx + v);
+					meshlet.indices.emplace_back(startVertIdx + v + 1);
+				}
 			}
 		}
 	}
@@ -377,12 +397,6 @@ bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 	if ( meshlets.empty() ) {
 		if ( header.num_vhots > 0 || header.num_objs > 0 || header.num_polys == 0 ) {
 			UF_MSG_DEBUG("BIN file acts as a dummy node (no polygons, but has VHOTs/Objs): {}", filename);
-		/*
-			uf::stl::string meshName = filename;
-			graph.meshes.emplace_back(meshName);
-			graph.primitives.emplace_back(meshName);
-			return true;
-		*/
 		} else {
 			UF_MSG_WARNING("BIN file contained no valid polygons: {}", filename);
 		}

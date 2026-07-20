@@ -24,7 +24,7 @@ ent:bind( "tick", function(self)
 
 			if not touching[uid] then
 				touching[uid] = true
-				ent:queueHook("dark:Broadcast.%UID%", { message = "TurnOn" }, 0)
+				ent:queueHook("link:Broadcast.%UID%", { message = "TurnOn" }, 0)
 			end
 		end
 	end
@@ -32,7 +32,7 @@ ent:bind( "tick", function(self)
 	for uid, _ in pairs(touching) do
 		if not currentCollisions[uid] then
 			touching[uid] = nil
-			ent:queueHook("dark:Broadcast.%UID%", { message = "TurnOff" }, 0)
+			ent:queueHook("link:Broadcast.%UID%", { message = "TurnOff" }, 0)
 		end
 	end
 end )

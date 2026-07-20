@@ -236,6 +236,8 @@ end
 ent:addHook( "entity:Use.%UID%", function( payload )
 	if payload.user ~= ent:uid() then return end
 
+	print( "Use:", entities.get( payload.uid ) )
+
 	local validUse = false
 	if heldObject.uid == 0 and payload.depth > 0 then
 		local prop = entities.get( payload.uid )

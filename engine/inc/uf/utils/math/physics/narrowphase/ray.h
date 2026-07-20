@@ -19,9 +19,9 @@ namespace impl {
 
 namespace uf {
 	namespace physics {
-		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::PhysicsBody&, float = FLT_MAX );
-		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, float = FLT_MAX );
-		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::PhysicsBody*, float = FLT_MAX );
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::PhysicsBody&, float = FLT_MAX, uint32_t mask = pod::Collider::MASK_PHYSICAL );
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, float = FLT_MAX, uint32_t mask = pod::Collider::MASK_PHYSICAL );
+		pod::RayQuery UF_API rayCast( const pod::Ray&, const pod::World&, const pod::PhysicsBody*, float = FLT_MAX, uint32_t mask = pod::Collider::MASK_PHYSICAL );
 
 		float UF_API occlusion( const pod::Vector3f& to, const pod::Vector3f& from );
 		uf::stl::string UF_API getRayMaterialName( const pod::RayQuery& query );

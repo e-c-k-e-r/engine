@@ -228,6 +228,15 @@ void uf::audio::maxDistance( pod::AudioSource& source, float v ) {
 	source.alSource.set( AL_MAX_DISTANCE, v );
 }
 
+float uf::audio::referenceDistance( const pod::AudioSource& source ) {
+	float v;
+	source.alSource.get( AL_REFERENCE_DISTANCE, v );
+	return v;
+}
+void uf::audio::referenceDistance( pod::AudioSource& source, float v ) {
+    source.alSource.set( AL_REFERENCE_DISTANCE, v );
+}
+
 //
 float uf::audio::distance( const pod::Vector3f& position ) {
 	return uf::vector::distance( ::listener.position, position );
