@@ -9,7 +9,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/valve/bsp.h>
-#include <uf/ext/ttlg/mis.h>
+#include <uf/ext/lgs/mis.h>
 #include <uf/utils/io/fmt.h>
 
 #define UF_GRAPH_LOAD_MULTITHREAD 0
@@ -307,7 +307,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	if ( extension == "bsp" ) return ext::valve::loadBsp( graph, filename, metadata );
 #endif
 #if UF_USE_TTLG
-	if ( extension == "mis" ) return ext::ttlg::loadMis( graph, filename, metadata );
+	if ( extension == "mis" ) return ext::lgs::loadMis( graph, filename, metadata );
 #endif
 
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";

@@ -1,5 +1,5 @@
-#include <uf/ext/ttlg/bin.h>
-#include <uf/ext/ttlg/common.h>
+#include <uf/ext/lgs/bin.h>
+#include <uf/ext/lgs/common.h>
 #include <uf/ext/valve/common.h>
 #include <uf/ext/zlib/zlib.h>
 #include <uf/utils/memory/reader.h>
@@ -126,7 +126,7 @@ namespace impl {
 	};
 }
 
-bool ext::ttlg::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
+bool ext::lgs::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 	uf::stl::vector<uint8_t> buffer;
 	if ( !uf::io::exists( filename ) ) {
 		UF_MSG_ERROR("BIN does not exist: {}", filename);

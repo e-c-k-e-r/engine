@@ -1,7 +1,7 @@
-#include <uf/ext/ttlg/common.h>
-#include <uf/ext/ttlg/pcx.h>
+#include <uf/ext/lgs/common.h>
+#include <uf/ext/lgs/pcx.h>
 
-bool ext::ttlg::loadPalette( const uf::stl::string& family, uf::stl::vector<uint8_t>& palette ) {
+bool ext::lgs::loadPalette( const uf::stl::string& family, uf::stl::vector<uint8_t>& palette ) {
 	if ( family.empty() ) return false;
 	if ( !palette.empty() ) return true;
 
@@ -32,7 +32,7 @@ bool ext::ttlg::loadPalette( const uf::stl::string& family, uf::stl::vector<uint
 	return true;
 }
 
-bool ext::ttlg::loadPcx( pod::Image& image, const uf::stl::vector<uint8_t>& buffer, const uint8_t* paletteData ) {
+bool ext::lgs::loadPcx( pod::Image& image, const uf::stl::vector<uint8_t>& buffer, const uint8_t* paletteData ) {
 	if ( buffer.size() < 128 ) return false;
 	if ( buffer[0] != 10 || buffer[2] != 1 ) return false;
 

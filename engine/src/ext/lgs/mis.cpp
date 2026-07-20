@@ -1,7 +1,7 @@
-#include <uf/ext/ttlg/common.h>
-#include <uf/ext/ttlg/mis.h>
-#include <uf/ext/ttlg/bin.h>
-#include <uf/ext/ttlg/pcx.h>
+#include <uf/ext/lgs/common.h>
+#include <uf/ext/lgs/mis.h>
+#include <uf/ext/lgs/bin.h>
+#include <uf/ext/lgs/pcx.h>
 
 #include <uf/ext/valve/common.h>
 #include <uf/ext/zlib/zlib.h>
@@ -1059,9 +1059,9 @@ namespace impl {
 				std::transform(lowerTarget.begin(), lowerTarget.end(), lowerTarget.begin(), ::tolower);
 
 				if ( lowerTarget.ends_with(".pcx") ) {
-					if ( !family.empty() ) ext::ttlg::loadPalette( family, ctx.palettes[family] );
+					if ( !family.empty() ) ext::lgs::loadPalette( family, ctx.palettes[family] );
 					const uint8_t* palette = (!family.empty() && !ctx.palettes[family].empty()) ? ctx.palettes[family].data() : nullptr;
-					if ( !ext::ttlg::loadPcx( image, buffer, palette ) ) {
+					if ( !ext::lgs::loadPcx( image, buffer, palette ) ) {
 						UF_MSG_ERROR("Failed to load PCX: {}", targetPath);
 					} else {
 						loaded = true;
@@ -1471,7 +1471,7 @@ namespace impl {
 					node.mesh = (int32_t)std::distance(graph.meshes.begin(), it);
 				} else if ( !impl::modelBlacklist.count( model ) ) {
 					size_t meshID = graph.meshes.size();
-					if ( ext::ttlg::loadBin( graph, path ) ) {
+					if ( ext::lgs::loadBin( graph, path ) ) {
 						node.mesh = (int32_t)(meshID);
 					} else {
 						node.mesh = -1;
@@ -1933,7 +1933,7 @@ namespace impl {
 	}
 }
 
-void ext::ttlg::loadMis( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
+void ext::lgs::loadMis( pod::Graph& graph, const uf::stl::string& filename, const uf::Serializer& metadata ) {
 	impl::DarkContext ctx;
 	auto& buffer = ctx.buffer;
 	if ( !uf::io::readAsBuffer( buffer, filename ) ) {
