@@ -368,6 +368,7 @@ namespace pod {
 	struct Activity {
 		bool awake = true;
 		bool grounded = false;
+		pod::PhysicsBody* referenceFrame = NULL;
 		float sleepTimer = 0.0f;
 		int32_t islandID = -1;
 		static constexpr float sleepThreshold = 0.5f; // seconds

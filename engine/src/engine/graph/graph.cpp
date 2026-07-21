@@ -1085,6 +1085,44 @@ void uf::graph::process( pod::Graph& graph ) {
 				material.indexAlbedo = -1;
 			}
 		}
+		
+		if ( ext::json::isObject( graphMetadataDark ) ) {
+			// set transparent
+			if ( name.find("glass") != uf::stl::string::npos ||
+                 name.find("trans") != uf::stl::string::npos ||
+                 name.find("grate") != uf::stl::string::npos ) {
+
+                material.modeAlpha = pod::Material::AlphaMode::BLEND;
+                material.modeCull = pod::Material::CullMode::NONE;
+            }
+            // set emissive
+            for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
+            	auto& node = graph.nodes[nodeID];
+            	// check if owns a light
+            	auto lightName = node.name;
+            	auto nameID = ::fmt::format( "{}_{}", node.name, nodeID );
+				if ( graph.lights.count( nameID ) > 0 ) lightName = nameID;
+				if ( graph.lights.count( lightName ) == 0 ) {
+					continue;
+				}
+				auto& light = graph.lights[lightName];
+	            if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+	            // iterate primitives for materials
+				auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+				for ( auto& primitive : primitives ) {
+					auto materialID = primitive.instance.materialID;
+					if ( !(0 <= materialID && materialID <= graph.materials.size()) ) {
+						UF_MSG_DEBUG("node={}, lightName={} has invalid material: {}", node.name, lightName, materialID);
+						continue;
+					}
+					auto& materialName = graph.materials[materialID];
+					// set emissive
+					material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
+					material.colorEmissive = light.color * light.intensity;
+					UF_MSG_DEBUG("name={}, light={}, emissive={}", node.name, lightName, uf::vector::toString( material.colorEmissive ));
+				}
+            }
+		}
 
 		auto tag = ext::json::find( name, graphMetadataJson["tags"] );
 		if ( ext::json::isObject( tag ) ) {
@@ -1440,11 +1478,13 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		bool emitsAudio = false;
 	
 		// bind elevator
-		bool isElevator = false;
+		bool isElevator = false; // node.name.find("Elevator") != std::string::npos
+		bool isTrap = false; // node.name.find("Trap") != std::string::npos
 		if ( ext::json::isArray( metadataDark["scripts"] ) ) {
 			ext::json::forEach( metadataDark["scripts"], [&]( ext::json::Value& value ){
 				auto script = value.as<uf::stl::string>();
-				if ( script == "BaseElevator" || script == "Elevator" ) isElevator = true;
+				if ( script.ends_with("Elevator") ) isElevator = true;
+				if ( script.starts_with("Trap") ) isTrap = true;
 			});
 		}
 
@@ -1485,7 +1525,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		}
 
 		// bind trap
-		if ( node.name == "Sound Trap" || node.name == "VO Trap" ) {
+		if ( isTrap ) {
 			loadJson["assets"].emplace_back("ent://scripts/dark/trap.lua");
 			emitsAudio = true;
 		// bind ambient

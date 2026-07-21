@@ -135,9 +135,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 		}
 	}
 
-	for ( auto* body : bodies ) {
-		impl::integrate( *body, dt );
-	}
+	for ( auto* body : bodies ) impl::integrateKinematic( *body, dt );
+	for ( auto* body : bodies ) impl::integrate( *body, dt );
 	//UF_TIMER_MULTITRACE("Integration & Flattening");
 
 	// rebuild static bvh if dirty
@@ -251,8 +250,14 @@ void uf::physics::step( pod::World& world, float dt ) {
 			if ( !isTrigger ) for ( auto& c : manifold.points ) {
 				if ( std::fabs(uf::vector::dot(c.normal, pod::Vector3f{0,1,0})) > uf::physics::settings.groundedThreshold ) {
 					// only mark if contact point is below body
-					if ( c.point.y < impl::getPosition(a).y ) a.activity.grounded = true;
-					if ( c.point.y < impl::getPosition(b).y ) b.activity.grounded = true;
+					if ( c.point.y < impl::getPosition(a).y ) {
+						a.activity.grounded = true;
+						if ( b.inverseMass == 0.0f ) a.activity.referenceFrame = &b;
+					}
+					if ( c.point.y < impl::getPosition(b).y ) {
+						b.activity.grounded = true;
+						if ( a.inverseMass == 0.0f ) b.activity.referenceFrame = &a;
+					}
 				}
 			}
 
@@ -554,11 +559,7 @@ void uf::physics::applyTorque( pod::PhysicsBody& body, const pod::Vector3f& torq
 }
 void uf::physics::setVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	impl::wakeBody( body );
-	if ( body.inverseMass == 0.0f ) {
-		body.transform->position += v * uf::physics::time::delta;
-	} else {
-		body.velocity = v;
-	}
+	body.velocity = v;
 }
 void uf::physics::applyVelocity( pod::PhysicsBody& body, const pod::Vector3f& v ) {
 	impl::wakeBody( body );

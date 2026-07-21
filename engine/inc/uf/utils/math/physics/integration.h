@@ -53,5 +53,6 @@ namespace impl {
 
 	void applyRollingResistance( pod::PhysicsBody& body, float dt );
 	void snapVelocity( pod::PhysicsBody& body, float dt, float threshold = 0.01f );
+	void integrateKinematic( pod::PhysicsBody& body, float dt );
 	void integrate( pod::PhysicsBody& body, float dt );
 }

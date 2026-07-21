@@ -166,7 +166,7 @@ void impl::applyRollingResistance( pod::PhysicsBody& body, float dt ) {
 
 // snap velocity for grounded bodies
 void impl::snapVelocity( pod::PhysicsBody& body, float dt, float threshold ) {
-	if ( !body.activity.grounded || !body.activity.awake ) return;
+	if ( !body.activity.grounded || !body.activity.awake || body.inverseMass == 0.0f ) return;
 
 	float threshold2 = threshold * threshold;
 	// snap velocity if body is grounded and nearly still
@@ -181,6 +181,21 @@ void impl::snapVelocity( pod::PhysicsBody& body, float dt, float threshold ) {
 	if ( angSpeed2 < threshold2 ) body.angularVelocity = {};
 }
 
+void impl::integrateKinematic( pod::PhysicsBody& body, float dt ) {
+	if ( !body.activity.awake || body.inverseMass != 0.0f ) return;
+
+	auto& transform = *body.transform;
+
+	transform.position += body.velocity * dt;
+
+	float angularSpeed2 = uf::vector::magnitude( body.angularVelocity );
+	if ( angularSpeed2 > EPS2 ) {
+		float angularSpeed = std::sqrt( angularSpeed2 );
+		pod::Quaternion<> dq = uf::quaternion::axisAngle( body.angularVelocity / angularSpeed, angularSpeed * dt );
+		uf::transform::rotate( transform, dq );
+	}
+}
+
 void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	// only integrate awake and dynamic bodies
 	if ( !body.activity.awake || body.inverseMass == 0.0f ) return;
@@ -189,6 +204,13 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	auto& transform = *body.transform;
 	auto fT = uf::transform::flatten( transform );
 	auto gravity = uf::physics::getGravity( body );
+
+	if ( body.activity.referenceFrame ) {
+		auto ref = body.activity.referenceFrame->velocity;
+		if ( body.velocity.y > ref.y + 1.0f ) {
+        	body.activity.referenceFrame = NULL;
+    	} else if ( body.velocity.y > ref.y ) body.velocity.y = ref.y;
+	}
 
 	// linear integration
 	pod::Vector3f acceleration = (body.forceAccumulator * body.inverseMass);

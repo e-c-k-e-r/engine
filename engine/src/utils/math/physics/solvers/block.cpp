@@ -41,6 +41,7 @@ namespace impl {
 			float vRel = uf::vector::dot((vB - vA), contact.normal);
 
 			float e = std::min(a.material.restitution, b.material.restitution);
+			if ( a.inverseMass == 0.0f || b.inverseMass == 0.0f) e = 0.0f;
 			float restitutionBias = (vRel < -vSlop) ? -e * vRel : 0.0f;
 
 			rhs[i] = -vRel + restitutionBias;

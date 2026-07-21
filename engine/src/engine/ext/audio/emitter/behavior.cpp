@@ -70,10 +70,9 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["rolloffFactor"].is<double>() ) uf::audio::rolloff(source, json["rolloffFactor"].as<float>());
 		if ( json["maxDistance"].is<double>() ) uf::audio::maxDistance(source, json["maxDistance"].as<float>());
 		if ( json["referenceDistance"].is<double>() ) uf::audio::referenceDistance(source, json["referenceDistance"].as<float>());
-		if ( json["spatial"].is<bool>() ) source.settings.spatial = json["spatial"].as<bool>();
-
-		if ( json["loop"].is<bool>() ) uf::audio::loop(source, json["loop"].as<bool>());
-		else if ( json["wants loop"].is<bool>() ) {
+		if ( json["spatial"].is<bool>() ) uf::audio::spatial( source, json["spatial"].as<bool>() );
+		if ( json["loop"].is<bool>() ) uf::audio::loop(source, json["loop"].as<bool>()); // explicitly set it
+		else if ( json["wants loop"].is<bool>() ) { // requests looping, but only if the audio file has it (for Valve-sourced WAVs)
 			auto wants = json["wants loop"].as<bool>(true);
 			uf::audio::loop(source, wants && clip && clip->info.loop.has);
 		}

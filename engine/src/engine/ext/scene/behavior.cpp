@@ -760,7 +760,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				.exposure = metadata.light.exposure
 			};
 
-
 			if ( shader.hasUniform("UBO") ) shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 		}
 	}

@@ -39,8 +39,16 @@ void pbr() {
 		const float Ldistance = sqrt(Lmagnitude);
 		// "free" normalization, since we need to compute the above values anyways
 		Li = Li / Ldistance;
+		// calculate the smooth windowing
+		const float radius2 = lights[i].radius * lights[i].radius;
+		float window = 1.0f;
+		if ( radius2 > 0.0f ) {
+			float distOverRadius = Lmagnitude / radius2;
+			window = max(0.0, 1.0 - (distOverRadius * distOverRadius));
+			window = window * window; // smoother curve
+		}
 		// attenuation factor
-		const float Lattenuation = 1.0 / (1 + Lmagnitude);
+		const float Lattenuation = window / (1.0 + Lmagnitude);
 		// skip if attenuation factor is too low
 	//	if ( Lattenuation <= LIGHT_POWER_CUTOFF ) continue;
 		// ray cast if our surface is occluded from the light

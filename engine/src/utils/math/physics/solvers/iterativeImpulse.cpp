@@ -21,6 +21,7 @@ void impl::iterativeImpulseSolver( pod::PhysicsBody& a, pod::PhysicsBody& b, pod
 
 		float restitutionBias = 0.0f;
 		float e = std::min(a.material.restitution, b.material.restitution);
+		if ( a.inverseMass == 0.0f || b.inverseMass == 0.0f) e = 0.0f;
 		float velAlongNormal = uf::vector::dot(rv, contact.normal);
 		if ( velAlongNormal < -vSlop ) restitutionBias = -e * velAlongNormal;
 		float targetVelocity = restitutionBias;

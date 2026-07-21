@@ -26,7 +26,7 @@ ent:addHook("link:Message.%UID%", function(payload)
 
 		if explicitSchema ~= "" then
 			local resolvedUrl = _G.DarkUtils.playSound(ent, "", explicitSchema, {
-				spatial = false, streamed = true, volume = 1.0, unique = true, loop = false
+				spatial = false, streamed = true, volume = 0.2, unique = true, loop = false
 			})
 			if resolvedUrl then isPlaying = true end
 		end

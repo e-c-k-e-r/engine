@@ -234,7 +234,16 @@ float uf::audio::referenceDistance( const pod::AudioSource& source ) {
 	return v;
 }
 void uf::audio::referenceDistance( pod::AudioSource& source, float v ) {
-    source.alSource.set( AL_REFERENCE_DISTANCE, v );
+	source.alSource.set( AL_REFERENCE_DISTANCE, v );
+}
+
+void uf::audio::spatial( pod::AudioSource& source, bool s ) {
+	if ( (source.settings.spatial = s) ) {
+		source.alSource.set( AL_SOURCE_RELATIVE, AL_FALSE );
+	} else {
+		source.alSource.set( AL_SOURCE_RELATIVE, AL_TRUE );
+		source.alSource.set( AL_POSITION, 0.0f, 0.0f, 0.0f );
+	}
 }
 
 //

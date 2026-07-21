@@ -440,6 +440,8 @@ namespace impl {
 			uf::stl::unordered_map<int32_t, uf::stl::string> classTag;
 			uf::stl::unordered_map<int32_t, uf::stl::string> schMsg;
 			uf::stl::unordered_map<int32_t, uf::stl::string> schAction;
+
+			uf::stl::unordered_map<int32_t, int32_t> tripFlags;
 			
 			uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> script;
 		} properties;
@@ -1204,6 +1206,9 @@ namespace impl {
 									(float)((sample >>  5) & 0x1F),
 									(float)((sample   ) & 0x1F),
 								} / 31.0f;
+
+								color = uf::vector::pow( color, 2.2f ); // convert to SRGB
+
 								impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
 							}
 						}
@@ -1527,6 +1532,12 @@ namespace impl {
 				}
 			}
 
+			// bind trip f l ags
+			int32_t tripFlags = 0;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.tripFlags, tripFlags ) ) {
+				metadata["trip_flags"] = tripFlags;
+			}
+
 			// bind frobbage
 			PropertyFrobInfo frob;
 			bool isFrobbable = false;
@@ -1623,6 +1634,7 @@ namespace impl {
 			}
 
 			// bind light (at the end because we insert a new node)
+			// to-do: verify if this doesn't double up on lights
 			PropertyLight light;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.light, light ) ) {
 				// create new node
@@ -1632,11 +1644,15 @@ namespace impl {
 				lightNode.name = lightNodeName;
 				graph.nodes[nodeID].children.emplace_back(lightNodeID);
 
+				float radiusFactor = 1.2f;
+				float intensityFactor = 0.05f;
 				graph.lights[::fmt::format("{}_{}", lightNode.name, lightNodeID)] = {
-					.range = light.radius,
+					.range = light.radius * radiusFactor,
 					.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f),
-					.intensity = light.brightness / M_PI,
+					.intensity = light.brightness * intensityFactor,
 				};
+
+				// set emissive factor
 			}
 		}
 	}
@@ -1865,6 +1881,7 @@ namespace impl {
 		impl::extractProperty( ctx, "PhysState", 		ctx.properties.physState );
 		impl::extractProperty( ctx, "SchPlayParams", 	ctx.properties.schPlayParams );
 		impl::extractProperty( ctx, "SchLoopParams", 	ctx.properties.schLoopParams );
+		impl::extractProperty( ctx, "TripFlags", 		ctx.properties.tripFlags );
 
 		// parse schsamp
 		if ( inventory.count("SchSamp") > 0 ) {
@@ -2065,6 +2082,8 @@ void ext::lgs::loadMis( pod::Graph& graph, const uf::stl::string& filename, cons
 	impl::processLinks( graph, ctx );
 	impl::processSongs( graph, ctx );
 	impl::processSchema( graph, ctx );
+
+	graph.metadata["dark"]["_"] = true;
 
 	// disable postprocessing flags
 	if ( filename.starts_with("game://") ) graph.metadata["exporter"]["enabled"] = false; // disable exporting if loaded from a VPK
