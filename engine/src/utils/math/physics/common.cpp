@@ -44,8 +44,12 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 	// already asleep
 	if ( !body.activity.awake ) return;
 
-	// check if body is moving
-	float linSpeed2 = uf::vector::magnitude( body.velocity );
+	// undo gravity
+	pod::Vector3f gravity = uf::vector::isValid( body.gravity ) ? body.gravity : body.world->gravity;
+	pod::Vector3f velocity = body.velocity - (gravity * dt);
+
+	// check if body is moving using the test velocity!
+	float linSpeed2 = uf::vector::magnitude( velocity );
 	float angSpeed2 = uf::vector::magnitude( body.angularVelocity );
 
 	// body is nearly still
@@ -57,7 +61,9 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 		if ( body.activity.sleepTimer > threshold ) impl::sleepBody( body );
 	}
 	// body is moving, reset timer
-	else impl::wakeBody( body );
+	else {
+		impl::wakeBody( body );
+	}
 }
 
 // returns an absolute transform while also allowing offsetting the collision body

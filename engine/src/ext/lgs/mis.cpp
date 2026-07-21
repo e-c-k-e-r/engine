@@ -1540,7 +1540,7 @@ namespace impl {
 
 			// bind physics
 			PropertyPhysType physType;
-			// to-do: optimize this as it cuts my FPS by ~30% with lots of small physics objects
+			// to-do: optimize this as it incurs ~1.5ms even with everything being marked as static
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.physType, physType ) && physType.type != impl::PropertyPhysType::NONE ) {
 				auto& physMeta = node.metadata["physics"];
 
@@ -1555,7 +1555,10 @@ namespace impl {
 
 				PropertyPhysAttr physAttr;
 				if ( ctx.findInheritedProperty( objectID, ctx.properties.physAttr, physAttr ) ) {
-					physMeta["mass"] = 0.0f; // (physType.type == impl::PropertyPhysType::OBB || physAttr.edge_trigger != 0) ? 0.0f : physAttr.mass;
+					bool isStaticOBB = (physType.type == impl::PropertyPhysType::OBB || physAttr.edge_trigger != 0);
+					bool isCompletelyResting = (physAttr.rest_axes & 0x7);
+
+					physMeta["mass"] = (isStaticOBB || isCompletelyResting) ? 0.0f : physAttr.mass;
 					physMeta["friction"] = physAttr.base_friction;
 					physMeta["restitution"] = physAttr.elasticity;
 					physMeta["gravity"] = uf::vector::encode( pod::Vector3f{0.0f, -0.0981f * physAttr.gravity, 0.0f} );
@@ -1564,6 +1567,22 @@ namespace impl {
 						physMeta["category"] = "trigger";
 						physMeta["inertia"] = false;
 					}
+
+					pod::Vector3f linearFactor = { 1.0f, 1.0f, 1.0f };
+					if ( physAttr.rest_axes & 0x1 ) linearFactor.x = 0.0f;
+					if ( physAttr.rest_axes & 0x2 ) linearFactor.y = 0.0f;
+					if ( physAttr.rest_axes & 0x4 ) linearFactor.z = 0.0f;
+
+					pod::Vector3f angularFactor = { 1.0f, 1.0f, 1.0f };
+					if ( !(physAttr.rot_axes & 0x1) ) angularFactor.x = 0.0f;
+					if ( !(physAttr.rot_axes & 0x2) ) angularFactor.y = 0.0f;
+					if ( !(physAttr.rot_axes & 0x4) ) angularFactor.z = 0.0f;
+
+					pod::Vector3f linFactor = uf::vector::abs( impl::convertPos_NewDark( linearFactor ) );
+					pod::Vector3f angFactor = uf::vector::abs( impl::convertPos_NewDark( angularFactor ) );
+
+					physMeta["linearFactor"] = uf::vector::encode(linearFactor);
+					physMeta["angularFactor"] = uf::vector::encode(angularFactor);
 				}
 
 				PropertyPhysDims physDims;

@@ -56,6 +56,7 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		return;
 	}
 
+	//UF_TIMER_MULTITRACE_START("Tick Step Begin");
 	static float accumulator = 0;
 	accumulator += dt; 
 
@@ -65,7 +66,9 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		if ( uf::physics::settings.substeps > 0 ) uf::physics::substep( world, timestep, uf::physics::settings.substeps ); 
 		else uf::physics::step( world, timestep ); 
 		accumulator -= timestep; 
+		//UF_TIMER_MULTITRACE("Tick Accumulation Step");
 	}
+	//UF_TIMER_MULTITRACE_END("Tick Step Complete");
 
 	if ( uf::physics::settings.debugDraw.mask != pod::Collider::CATEGORY_NONE ) impl::draw( world, dt );
 }
@@ -87,6 +90,7 @@ void uf::physics::substep( pod::World& world, float dt, int32_t substeps ) {
 	}
 }
 void uf::physics::step( pod::World& world, float dt ) {
+	//UF_TIMER_MULTITRACE_START("Physics Step Begin");
 	auto& bodies = world.bodies;
 	auto& constraints = world.constraints;
 	auto& dynamicBvh = world.dynamicBvh;
@@ -95,7 +99,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 	auto& collisionEvents = world.collisionEvents;
 
 	STATIC_THREAD_LOCAL(pod::CollisionEvent::events_t, previousCollisionEvents);
-	STATIC_THREAD_LOCAL(pod::CollisionEvent::map_t, previousCollisions);
+	STATIC_THREAD_LOCAL(pod::CollisionEvent::array_t, previousCollisions);
 	
 	std::swap( previousCollisions, activeCollisions );
 	std::swap( previousCollisionEvents, collisionEvents );
@@ -103,6 +107,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 	if ( bodies.empty() ) return;
 
 	++uf::physics::settings.frameCounter;
+
+	activeCollisions.reserve(previousCollisions.size());
 
 	// flatten all transforms into a contiguous buffer
 	static thread_local uf::stl::vector<pod::Transform<>*> originalTransforms; // stores the pointer to the original transform
@@ -132,6 +138,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 	for ( auto* body : bodies ) {
 		impl::integrate( *body, dt );
 	}
+	//UF_TIMER_MULTITRACE("Integration & Flattening");
 
 	// rebuild static bvh if dirty
 	if ( staticBvh.dirty && uf::physics::settings.useSplitBvhs ) {
@@ -151,6 +158,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 		} break;
 	}
 
+	//UF_TIMER_MULTITRACE("BVH Updates");
+
 	// query for overlaps
 	pod::BVH::pairs_t pairs;
 	impl::queryOverlaps( dynamicBvh, pairs );
@@ -158,11 +167,21 @@ void uf::physics::step( pod::World& world, float dt ) {
 		impl::queryOverlaps( dynamicBvh, staticBvh, pairs );
 	}
 
+	//UF_TIMER_MULTITRACE("Broadphase Overlap Queries");
+
 	// build islands from overlaps
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Island>, islands);
 	impl::buildIslands( pairs, bodies, constraints, islands );
 
+	//UF_TIMER_MULTITRACE("Island Generation");
+
 	if ( uf::physics::settings.warmupSolver ) impl::prepareManifoldCache( uf::physics::settings.manifoldsCache, islands, bodies );
+
+	std::atomic<long long> timeNarrowphase{0};
+	std::atomic<long long> timeVelocitySolver{0};
+	std::atomic<long long> timePositionSolver{0};
+	std::atomic<long long> timeConstraints{0};
+	std::atomic<long long> timeCache{0};
 
 	// iterate islands
 	//#pragma omp parallel for schedule(dynamic)
@@ -170,7 +189,11 @@ void uf::physics::step( pod::World& world, float dt ) {
 	for ( auto& island : islands ) tasks.queue([&]{
 		auto& manifolds = island.manifolds;
 		auto& constraints = island.constraints;
+		auto& active = island.active;
+		auto& events = island.events;
 		manifolds.clear();
+		active.clear();
+		events.clear();
 
 		// sleeping island, skip (asleep islands shouldn't ever be in here)
 		if ( !island.awake ) return;
@@ -183,6 +206,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		}
 
 		// iterate overlap pairs
+		//auto tStart = TIMER_TRACE.elapsed().asMicroseconds();
 		for ( auto& [ ia, ib ] : island.pairs ) {
 			auto& a = *bodies[ia];
 			auto& b = *bodies[ib];
@@ -235,37 +259,84 @@ void uf::physics::step( pod::World& world, float dt ) {
 			// store manifold
 			manifolds.emplace_back( manifold );
 		}
+		//timeNarrowphase += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
 		// pass manifolds to solver
+		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
 		impl::solveManifold( manifolds, dt );
+		//timeVelocitySolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
 		// do position correction
+		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
 		impl::solvePositions( manifolds, dt );
+		//timePositionSolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
 		// solve constraints
+		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
 		impl::solveConstraints( constraints, dt );
+		//timeConstraints += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
 		// cache manifold positions
-		if ( uf::physics::settings.warmupSolver ) impl::updateManifoldCache( manifolds, uf::physics::settings.manifoldsCache );
+		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		impl::updateManifoldCache( island, previousCollisions, uf::physics::settings.manifoldsCache );
+		//timeCache += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
 	});
 	uf::thread::execute( tasks );
+	//UF_TIMER_MULTITRACE("Narrowphase & Solvers (Threaded)");
+	//UF_MSG_DEBUG("  -> Manifold Gen: {} us", timeNarrowphase.load());
+	//UF_MSG_DEBUG("  -> Vel Solver  : {} us", timeVelocitySolver.load());
+	//UF_MSG_DEBUG("  -> Pos Solver  : {} us", timePositionSolver.load());
+	//UF_MSG_DEBUG("  -> Constraints : {} us", timeConstraints.load());
+	//UF_MSG_DEBUG("  -> Cache	   : {} us", timeCache.load());
 
-	// prune expired manifolds in the cache
-	if ( uf::physics::settings.warmupSolver ) impl::pruneManifoldCache( uf::physics::settings.manifoldsCache );
+	{
+		activeCollisions.clear();
+		size_t totalActive = 0;
+		size_t totalEvents = 0;
+		for ( const auto& island : islands ) {
+			totalActive += island.active.size();
+			totalEvents += island.events.size();
+		}
 
-	for ( auto& island : islands ) for ( auto& manifold : island.manifolds ) {
-		// dispatch collision events
-		impl::dispatchManifold( manifold, collisionEvents, activeCollisions, previousCollisions );
-		// draw collision events
-		if ( uf::physics::settings.debugDraw.contacts ) impl::drawManifold( manifold );
+		activeCollisions.clear();
+		activeCollisions.reserve(totalActive);
+		collisionEvents.reserve(collisionEvents.size() + totalEvents);
+
+		for ( auto& island : islands ) {
+			activeCollisions.insert(activeCollisions.end(), island.active.begin(), island.active.end());
+			collisionEvents.insert(collisionEvents.end(), island.events.begin(), island.events.end());
+		}
+		//UF_TIMER_MULTITRACE("Event Dispatch (Insert)");
+
+		std::sort(activeCollisions.begin(), activeCollisions.end());
+		
+		//UF_TIMER_MULTITRACE("Sort Active Array");
+
+		auto itPrev = previousCollisions.begin();
+		auto itAct = activeCollisions.begin();
+
+		while ( itPrev != previousCollisions.end() ) {
+			// mark as exiting
+			if ( itAct == activeCollisions.end() || itPrev->pairKey < itAct->pairKey ) {
+				collisionEvents.emplace_back(pod::CollisionEvent{
+					.state = pod::CollisionState::EXIT,
+					.a = itPrev->a,
+					.b = itPrev->b,
+				});
+
+				if ( uf::physics::settings.warmupSolver ) uf::physics::settings.manifoldsCache.erase(itPrev->pairKey);
+				++itPrev;
+			}
+			// sustained collision
+			else if ( itPrev->pairKey == itAct->pairKey ) {
+				++itPrev;
+				++itAct;
+			}
+			// new collision
+			else {
+				++itAct;
+			}
+		}
+
+		//UF_TIMER_MULTITRACE("Event Dispatch (Sweep & Exit)");
 	}
-	// dispatch exiting collisions
-	for ( auto& [ key, pair ] : previousCollisions ) {
-		// sustained collision
-		if ( activeCollisions.count( key ) > 0 ) continue;
-		// mark as exiting
-		collisionEvents.emplace_back(pod::CollisionEvent{
-			.state = pod::CollisionState::EXIT,
-			.a = pair.first,
-			.b = pair.second,
-		});
-	}
+
 
 	// snap velocities of bodies
 	for ( auto* b : bodies ) impl::snapVelocity( *b, dt );
@@ -304,6 +375,9 @@ void uf::physics::step( pod::World& world, float dt ) {
 			);
 		}
 	}
+
+	//UF_TIMER_MULTITRACE("Transform Unflattening");
+	//UF_TIMER_MULTITRACE_END("Physics Step Complete");
 }
 
 void uf::physics::setMass( pod::PhysicsBody& body, float mass ) {
@@ -611,7 +685,7 @@ void uf::physics::destroy( uf::Object& object ) {
 	auto* current = &root;
 	while ( current != NULL ) {
 		auto* next = current->next;
-	   	uf::physics::destroy( *current );
+		uf::physics::destroy( *current );
 		if ( current != &root ) delete current;
 		current = next;
 	}

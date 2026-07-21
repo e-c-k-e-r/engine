@@ -176,6 +176,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		if ( metadataJsonPhysics["inertia"].is<bool>() && !metadataJsonPhysics["inertia"].as<bool>() ) {
 			body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };
 		}
+
+		body.linearFactor = uf::vector::decode( metadataJsonPhysics["linearFactor"], body.linearFactor );
+		body.angularFactor = uf::vector::decode( metadataJsonPhysics["angularFactor"], body.angularFactor );
 	}
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);

@@ -188,18 +188,24 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	auto& world = *body.world;
 	auto& transform = *body.transform;
 	auto fT = uf::transform::flatten( transform );
+	auto gravity = uf::physics::getGravity( body );
 
 	// linear integration
-	pod::Vector3f acceleration = body.forceAccumulator * body.inverseMass;
-	acceleration += uf::physics::getGravity( body ); // apply gravity
+	pod::Vector3f acceleration = (body.forceAccumulator * body.inverseMass);
+	acceleration += gravity; // apply gravity
+
+	acceleration = acceleration * body.linearFactor;
 	body.velocity += acceleration * dt;
+	body.velocity = body.velocity * body.linearFactor;
 
 	// angular integration
 	{
 		pod::Matrix3f R = uf::quaternion::matrix3( fT.orientation );
 		pod::Vector3f localTorque = uf::matrix::multiply( uf::matrix::transpose(R), body.torqueAccumulator );
-		pod::Vector3f localAngAccel = localTorque * body.inverseInertiaTensor; // element-wise
+
+		pod::Vector3f localAngAccel = (localTorque * body.inverseInertiaTensor) * body.angularFactor;
 		body.angularVelocity += uf::matrix::multiply( R, localAngAccel ) * dt;
+		body.angularVelocity = body.angularVelocity * body.angularFactor;
 	}
 
 	// update position

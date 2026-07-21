@@ -292,11 +292,48 @@ void impl::prepareManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& 
 	}
 }
 
-void impl::updateManifoldCache( const uf::stl::vector<pod::Manifold>& manifolds, uf::stl::unordered_map<size_t, pod::Manifold>& cache ) {
-	for ( const auto& m : manifolds ) {
-		auto it = cache.find( impl::makePairKey( *m.a, *m.b ) );
-		if ( it == cache.end() ) continue; // assert
-		it->second = m;
+void impl::updateManifoldCache( pod::Island& island, const pod::CollisionEvent::array_t& previous, uf::stl::unordered_map<size_t, pod::Manifold>& cache ) {
+	auto& manifolds = island.manifolds;
+	auto& active = island.active;
+	auto& events = island.events;
+
+	auto cacheLifetime = uf::physics::settings.manifoldCacheLifetime ? uf::physics::settings.manifoldCacheLifetime : MAX(1, uf::physics::settings.substeps) * 2;
+
+	for ( auto& m : manifolds ) {
+		if ( m.points.empty() ) continue;
+		m.primaryContactID = 0;
+
+		if ( m.points.size() > 1 ) {
+			float maxImpulse = -1.0f;
+			float maxPen = -FLT_MAX;
+			for ( size_t i = 0; i < m.points.size(); ++i ) {
+				if ( m.points[i].accumulatedNormalImpulse > maxImpulse ) {
+					m.primaryContactID = i;
+					maxImpulse = m.points[i].accumulatedNormalImpulse;
+				}
+				if ( m.points[i].penetration > maxPen ) {
+					maxPen = m.points[i].penetration;
+					m.primaryContactID = i;
+				}
+			}
+		}
+
+		impl::dispatchManifold( m, events, active, previous );
+
+		if ( uf::physics::settings.warmupSolver ) {
+			auto it = uf::physics::settings.manifoldsCache.find( impl::makePairKey( *m.a, *m.b ) );
+			if ( it != uf::physics::settings.manifoldsCache.end() ) {
+				it->second = m;
+
+				auto& cachedPoints = it->second.points;
+				auto newEnd = std::remove_if(cachedPoints.begin(), cachedPoints.end(),
+					[cacheLifetime](pod::Contact& c) {
+						c.lifetime++;
+						return c.lifetime > cacheLifetime;
+					});
+				cachedPoints.erase(newEnd, cachedPoints.end());
+			}
+		}
 	}
 }
 
@@ -305,18 +342,26 @@ void impl::pruneManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& ca
 	if ( !cacheLifetime ) {
 		cacheLifetime = MAX(1, uf::physics::settings.substeps) * 2;
 	}
+
 	for ( auto itCache = cache.begin(); itCache != cache.end(); ) {
 		auto& manifold = itCache->second;
 
-		// prune points that are too old
-		for ( auto it = manifold.points.begin(); it != manifold.points.end(); ) {
-			if ( it->lifetime > cacheLifetime ) it = manifold.points.erase(it);
-			else ++it;
+		if ( manifold.a && manifold.b && !manifold.a->activity.awake && !manifold.b->activity.awake ) {
+			++itCache;
+			continue;
 		}
 
+		// prune points that are too old
+		auto newEnd = std::remove_if(manifold.points.begin(), manifold.points.end(),
+			[cacheLifetime](const pod::Contact& c) { return c.lifetime > cacheLifetime; });
+		manifold.points.erase(newEnd, manifold.points.end());
+
 		// empty manifold, kill it
-		if ( manifold.points.empty() ) itCache = cache.erase(itCache);
-		else ++itCache;
+		if ( manifold.points.empty() ) {
+			itCache = cache.erase(itCache);
+		} else {
+			++itCache;
+		}
 	}
 }
 
@@ -356,37 +401,23 @@ void impl::solveManifold( uf::stl::vector<pod::Manifold>& manifolds, float dt ) 
 	for ( auto i = 0; i < uf::physics::settings.solverIterations; ++i ) for ( auto& manifold : manifolds ) impl::resolveManifold( *manifold.a, *manifold.b, manifold, dt );
 }
 
-void impl::dispatchManifold( pod::Manifold& manifold, pod::CollisionEvent::events_t& events, pod::CollisionEvent::map_t& active, const pod::CollisionEvent::map_t& previous ) {
-	// mark as an active collision
+void impl::dispatchManifold( pod::Manifold& manifold, pod::CollisionEvent::events_t& events, pod::CollisionEvent::array_t& active, const pod::CollisionEvent::array_t& previous ) {
 	auto pairKey = impl::makePairKey( *manifold.a, *manifold.b );
-	active[pairKey] = { manifold.a, manifold.b };
-	// find largest impulse
-	size_t primaryID = 0;
-	float maxImpulse = -1.0f;
-	for ( auto i = 0; i < manifold.points.size(); ++i ) {
-		auto& c = manifold.points[i];
-		if ( c.accumulatedNormalImpulse <= maxImpulse ) continue;
-		primaryID = i;
-		maxImpulse = c.accumulatedNormalImpulse;
-	}
-	if ( maxImpulse <= EPS ) {
-		float maxPen = -FLT_MAX;
-		for ( int i = 0; i < manifold.points.size(); ++i ) {
-			auto& c = manifold.points[i];
-			if ( c.penetration <= maxPen ) continue;
-			maxPen = c.penetration;
-			primaryID = i;
-		}
-	}
-	auto& contact = manifold.points[primaryID];
-	// dispatch
+
+	active.push_back({ pairKey, manifold.a, manifold.b });
+
+	auto it = std::lower_bound(previous.begin(), previous.end(), pod::PairState{pairKey, nullptr, nullptr});
+	bool isNew = (it == previous.end() || it->pairKey != pairKey);
+
+	auto& contact = manifold.points[manifold.primaryContactID];
+
 	events.emplace_back(pod::CollisionEvent{
-		.state = previous.count( pairKey ) == 0 ? pod::CollisionState::ENTER : pod::CollisionState::SUSTAIN,
+		.state = isNew ? pod::CollisionState::ENTER : pod::CollisionState::SUSTAIN,
 		.a = manifold.a,
 		.b = manifold.b,
 		.point = contact.point,
 		.normal = contact.normal,
-		.impulse = maxImpulse,
+		.impulse = contact.accumulatedNormalImpulse,
 		.featureA = contact.featureA,
 		.featureB = contact.featureB,
 	});

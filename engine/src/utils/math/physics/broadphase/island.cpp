@@ -92,7 +92,7 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 		pod::BVH::index_t dynamicIndex = bodies[a]->inverseMass == 0.0f ? b : a;
 		if ( bodies[a]->inverseMass == 0.0f && bodies[b]->inverseMass == 0.0f ) continue;
 
-		pod::BVH::index_t root = unionizer.find(a);
+		pod::BVH::index_t root = unionizer.find(dynamicIndex);
 		if ( rootToIsland.find(root) != rootToIsland.end() ) {
 			pod::BVH::index_t islandID = rootToIsland[root];
 

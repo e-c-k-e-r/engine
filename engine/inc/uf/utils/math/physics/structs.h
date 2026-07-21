@@ -188,6 +188,7 @@ namespace pod {
 		pod::PhysicsBody* a = NULL;
 		pod::PhysicsBody* b = NULL;
 		uf::stl::vector<pod::Contact> points;
+		uint32_t primaryContactID = 0;
 	};
 
 	struct Constraint {
@@ -281,14 +282,15 @@ namespace pod {
 		const pod::PhysicsBody* invoker = NULL;
 		pod::Contact contact = { pod::Vector3f{}, pod::Vector3f{}, FLT_MAX };
 	};
+	
+	struct PairState {
+		size_t pairKey;
+		pod::PhysicsBody* a;
+		pod::PhysicsBody* b;
 
-	struct Island {
-		bool awake = true;
-		uf::stl::vector<uint32_t> indices;
-		pod::BVH::pairs_t pairs;
-
-		uf::stl::vector<pod::Manifold> manifolds;
-		uf::stl::vector<pod::Constraint*> constraints;
+		bool operator<(const PairState& other) const {
+			return pairKey < other.pairKey;
+		}
 	};
 }
 
@@ -383,6 +385,7 @@ namespace pod {
 		typedef std::pair<pod::PhysicsBody*, pod::PhysicsBody*> pairs_t;
 		typedef uf::stl::vector<pod::CollisionEvent> events_t;
 		typedef uf::stl::unordered_map<uint64_t, pod::CollisionEvent::pairs_t> map_t;
+		typedef uf::stl::vector<PairState> array_t;
 
 		pod::CollisionState state = {};
 		pod::PhysicsBody* a = NULL;
@@ -394,6 +397,17 @@ namespace pod {
 
 		uint32_t featureA = (uint32_t)(-1);
 		uint32_t featureB = (uint32_t)(-1);
+	};
+
+	struct Island {
+		bool awake = true;
+		uf::stl::vector<uint32_t> indices;
+		pod::BVH::pairs_t pairs;
+
+		uf::stl::vector<pod::Manifold> manifolds;
+		uf::stl::vector<pod::Constraint*> constraints;
+		uf::stl::vector<pod::PairState> active;
+		uf::stl::vector<pod::CollisionEvent> events;
 	};
 }
 	
@@ -419,6 +433,8 @@ namespace pod {
 		pod::Vector3f pseudoVelocity = {};
 		pod::Vector3f pseudoAngularVelocity = {};
 
+		pod::Vector3f linearFactor = { 1.0f, 1.0f, 1.0f }; // probably better to just have a bitmask for these.......
+		pod::Vector3f angularFactor = { 1.0f, 1.0f, 1.0f };
 		pod::Vector3f inverseInertiaTensor = { 1, 1, 1 };
 
 		pod::Vector3f gravity = { NAN, NAN, NAN }; // an invalid gravity will fallback to world gravity
@@ -504,7 +520,7 @@ namespace pod {
 		pod::BVH staticBvh;
 
 		pod::CollisionEvent::events_t collisionEvents;
-		pod::CollisionEvent::map_t activeCollisions;
+		pod::CollisionEvent::array_t activeCollisions;
 	};
 }
 
