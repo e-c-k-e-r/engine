@@ -74,7 +74,7 @@ namespace {
 	}
 
 	uf::stl::string keyedID( size_t id ) {
-		return ::fmt::format("{}", id);
+		return FMT_FORMAT("{}", id);
 	}
 	size_t allocateObjectID( pod::Graph::Storage& storage ) {
 		return storage.entities.keys.size();
@@ -135,7 +135,7 @@ namespace {
 		// standard pipeline
 		{
 			uf::stl::string dir = "/graph/base/";
-			uf::stl::string vertexShaderFilename = graphMetadataJson["shaders"]["vertex"].as<uf::stl::string>(::fmt::format("{}/{}", dir, "vert.spv" )); {
+			uf::stl::string vertexShaderFilename = graphMetadataJson["shaders"]["vertex"].as<uf::stl::string>(FMT_FORMAT("{}/{}", dir, "vert.spv" )); {
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ graphMetadataJson["renderer"]["skinned"].as<bool>(), "skinned.vert" },
 					{ !graphMetadataJson["renderer"]["separate"].as<bool>(), "instanced.vert" },
@@ -150,7 +150,7 @@ namespace {
 			if ( graphic.descriptor.renderTarget == 1 ) {
 				dir = "/base/graph/";
 			}
-			uf::stl::string fragmentShaderFilename = graphMetadataJson["shaders"]["fragment"].as<uf::stl::string>(::fmt::format("{}/{}", dir, "frag.spv")); {
+			uf::stl::string fragmentShaderFilename = graphMetadataJson["shaders"]["fragment"].as<uf::stl::string>(FMT_FORMAT("{}/{}", dir, "frag.spv")); {
 				fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 			}
 
@@ -1089,25 +1089,25 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( ext::json::isObject( graphMetadataDark ) ) {
 			// set transparent
 			if ( name.find("glass") != uf::stl::string::npos ||
-                 name.find("trans") != uf::stl::string::npos ||
-                 name.find("grate") != uf::stl::string::npos ) {
+				 name.find("trans") != uf::stl::string::npos ||
+				 name.find("grate") != uf::stl::string::npos ) {
 
-                material.modeAlpha = pod::Material::AlphaMode::BLEND;
-                material.modeCull = pod::Material::CullMode::NONE;
-            }
-            // set emissive
-            for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
-            	auto& node = graph.nodes[nodeID];
-            	// check if owns a light
-            	auto lightName = node.name;
-            	auto nameID = ::fmt::format( "{}_{}", node.name, nodeID );
+				material.modeAlpha = pod::Material::AlphaMode::BLEND;
+				material.modeCull = pod::Material::CullMode::NONE;
+			}
+			// set emissive
+			for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
+				auto& node = graph.nodes[nodeID];
+				// check if owns a light
+				auto lightName = node.name;
+				auto nameID = FMT_FORMAT( "{}_{}", node.name, nodeID );
 				if ( graph.lights.count( nameID ) > 0 ) lightName = nameID;
 				if ( graph.lights.count( lightName ) == 0 ) {
 					continue;
 				}
 				auto& light = graph.lights[lightName];
-	            if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
-	            // iterate primitives for materials
+				if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+				// iterate primitives for materials
 				auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
 				for ( auto& primitive : primitives ) {
 					auto materialID = primitive.instance.materialID;
@@ -1121,7 +1121,7 @@ void uf::graph::process( pod::Graph& graph ) {
 					material.colorEmissive = light.color * light.intensity;
 					UF_MSG_DEBUG("name={}, light={}, emissive={}", node.name, lightName, uf::vector::toString( material.colorEmissive ));
 				}
-            }
+			}
 		}
 
 		auto tag = ext::json::find( name, graphMetadataJson["tags"] );
@@ -1380,7 +1380,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	uf::Object& entity = *pointer;
 	node.entity = &entity;
 	
-	auto nameID = ::fmt::format( "{}_{}", node.name, index );
+	auto nameID = FMT_FORMAT( "{}_{}", node.name, index );
 	bool setName = entity.getName() == "Entity";
 	auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = entity.getComponent<uf::Serializer>();
@@ -1426,11 +1426,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			float massScale = metadataValve["massScale"].as<float>(1.0f);
 			// flag as static
 			// if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
-			massScale = 0;
+			// massScale = 0;
 			float mass = baseMass * massScale;
 
-			node.metadata["physics"]["type"] = "mesh";
+			node.metadata["physics"]["type"] = massScale ? "obb" : "mesh";
 			node.metadata["physics"]["mass"] = mass;
+			node.metadata["physics"]["category"] = massScale ? "dynamic" : "static";
 
 			node.metadata["holdable"] = (mass <= 35.0f) && !motionDisabled && !preventPickup;
 		}

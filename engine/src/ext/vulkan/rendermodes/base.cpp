@@ -247,7 +247,7 @@ void ext::vulkan::BaseRenderMode::render() {
 						auto& blitter = layer->blitter;
 						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // bindGraphicDescriptor(blitter.descriptor, currentSubpass);
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("blitter[{}: {}]", layer->getName(), layer->getType()) );
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("blitter[{}: {}]", layer->getName(), layer->getType()) );
 						blitter.record(commandBuffer, descriptor, 0, 0, frame);
 					}
 				}

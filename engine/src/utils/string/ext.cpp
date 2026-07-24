@@ -16,24 +16,31 @@ bool uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 }
 */
 bool uf::string::isRegex( const uf::stl::string& str ) {
-	return  str.size() > 2 && str.front() == '/' && str.back() == '/';
+	return str.size() > 2 && str.front() == '/' && str.back() == '/';
 }
+
 uf::stl::vector<uf::stl::string> uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
-	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
-	std::smatch match;
+	uf::stl::string pattern = uf::string::isRegex(r) ? r.substr(1, r.length() - 2) : r;
+	std::regex regex(pattern.c_str());
+
+	std::cmatch match;
 	uf::stl::vector<uf::stl::string> matches;
-	if ( std::regex_search( str, match, regex ) ) {
+
+	if ( std::regex_search( str.c_str(), match, regex ) ) {
 		for ( auto& m : match ) {
-			matches.emplace_back(m.str());
+			matches.emplace_back(m.first, m.length());
 		}
 	}
-	
+
 	return matches;
 }
+
 bool uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
-	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
-	std::smatch match;
-	return std::regex_search( str, match, regex );
+	uf::stl::string pattern = uf::string::isRegex(r) ? r.substr(1, r.length() - 2) : r;
+	std::regex regex(pattern.c_str());
+	std::cmatch match;
+
+	return std::regex_search( str.c_str(), match, regex );
 }
 
 uf::stl::string uf::string::lowercase( const uf::stl::string& str ) {
@@ -60,7 +67,7 @@ uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, 
 	return tokens;
 }
 uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, char delim ) {
-	uf::stl::string d = ::fmt::format("{}", delim); // because it's such a pain apparently to convert a char to str
+	uf::stl::string d = FMT_FORMAT("{}", delim); // because it's such a pain apparently to convert a char to str
 	return uf::string::split( str, d );
 }
 /*

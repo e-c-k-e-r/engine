@@ -112,6 +112,17 @@ namespace {
 	} sceneTransition;
 }
 
+namespace {
+	void printPool( const uf::MemoryPool& pool, const uf::stl::string& name ) {
+		if ( pool.size() <= 0 ) return;
+		UF_MSG_DEBUG("{} pool:", name);
+		uf::Serializer json(pool.stats( true ));
+		ext::json::forEach( json, [&]( const uf::stl::string& key, ext::json::Value& value ){
+			UF_MSG_DEBUG("   {}: {}", key, value.as<uf::stl::string>() );
+		});
+	}
+}
+
 void UF_API uf::load() {
 	uf::config.readFromFile(uf::io::root+"config.json");
 }
@@ -414,11 +425,6 @@ void UF_API uf::initialize() {
 		UF_MSG_DEBUG("Setting JSON implicit preference: {}.{}", ext::json::PREFERRED_ENCODING, ext::json::PREFERRED_COMPRESSION);
 	}
 
-	{
-		uf::stl::string name = "window:Mouse.CursorVisibility";
-		UF_MSG_DEBUG( "c_str={}, str={}", uf::algo::fnv1a("window:Mouse.CursorVisibility"), uf::algo::fnv1a(name) );
-	}
-
 	/* Arguments */ {
 		bool modified = false;
 		auto& arguments = uf::config["arguments"];
@@ -438,7 +444,7 @@ void UF_API uf::initialize() {
 		/*
 			{
 				std::regex regex("^--(.+?)=(.+?)$");
-				std::smatch match;
+				std::cmatch match;
 				if ( std::regex_search( arg, match, regex ) ) {
 					uf::stl::string keyString = match[1].str();
 					uf::stl::string valueString = match[2].str();
@@ -457,7 +463,7 @@ void UF_API uf::initialize() {
 	}
 	/* Open output file */ {
 		::io.filenames.output = uf::io::root+"/logs/output.txt";
-		::io.output.open(::io.filenames.output);
+		::io.output.open(::io.filenames.output.c_str());
 	}
 	/* Initialize timers */ {
 		::times.sys.start();
@@ -477,14 +483,19 @@ void UF_API uf::initialize() {
 			if ( value.is<uf::stl::string>() ) {
 				uf::stl::string str = value.as<uf::stl::string>();
 				std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
-				std::smatch match;
-				if ( std::regex_search( str, match, regex ) ) {
+
+				std::cmatch match;
+				if ( std::regex_search( str.c_str(), match, regex ) ) {
 					size_t requested = std::stoi( match[1].str() );
-					uf::stl::string prefix = match[2].str();
-					switch ( prefix.at(0) ) {
-						case 'K': return requested * 1024;
-						case 'M': return requested * 1024 * 1024;
-						case 'G': return requested * 1024 * 1024 * 1024;
+
+					uf::stl::string prefix(match[2].first, match[2].length());
+
+					if (prefix.length() > 0) {
+						switch ( prefix.at(0) ) {
+							case 'K': return requested * 1024;
+							case 'M': return requested * 1024 * 1024;
+							case 'G': return requested * 1024 * 1024 * 1024;
+						}
 					}
 					return requested;
 				}
@@ -825,10 +836,10 @@ void UF_API uf::tick() {
 	/* Print Memory Pool Information */  {
 		TIMER(1, uf::inputs::kbm::states::P ) {
 			UF_MSG_DEBUG("==== Memory Pool Information ====");
-			if ( uf::memoryPool::global.size() > 0 ) UF_MSG_DEBUG("Global Memory Pool: {}", uf::memoryPool::global.stats());
-			if ( uf::Entity::memoryPool.size() > 0 ) UF_MSG_DEBUG("Entity Memory Pool: {}", uf::Entity::memoryPool.stats());
-			if ( uf::component::memoryPool.size() > 0 ) UF_MSG_DEBUG("Components Memory Pool: {}", uf::component::memoryPool.stats());
-			if ( uf::userdata::memoryPool.size() > 0 ) UF_MSG_DEBUG("Userdata Memory Pool: {}", uf::userdata::memoryPool.stats());
+			::printPool( uf::memoryPool::global, "Global memory" );
+			::printPool( uf::Entity::memoryPool, "Entity" );
+			::printPool( uf::component::memoryPool, "Component" );
+			::printPool( uf::userdata::memoryPool, "Userdata" );
 		}
 	}
 #if 0

@@ -51,7 +51,7 @@ uf::stl::string uf::checkpoint::traverse( pod::Checkpoint* checkpoint ) {
 			case pod::Checkpoint::BEGIN: type = "BEGIN"; break;
 			case pod::Checkpoint::END: type = "END"; break;
 		}
-		res.emplace( res.begin(), ::fmt::format("[{}] [{}]: {}", type, checkpoint->info, checkpoint->name) );
+		res.emplace( res.begin(), FMT_FORMAT("[{}] [{}]: {}", type, checkpoint->info, checkpoint->name) );
 		checkpoint = checkpoint->previous;
 	}	
 

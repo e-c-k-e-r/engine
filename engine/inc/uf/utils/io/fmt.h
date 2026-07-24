@@ -11,6 +11,15 @@
 #include <uf/utils/memory/string.h>
 
 namespace uf {
+    template <typename... Args>
+    inline uf::stl::string _fmt_format(fmt::format_string<Args...> fmt_str, Args&&... args) {
+        fmt::memory_buffer buffer;
+        fmt::format_to(std::back_inserter(buffer), fmt_str, std::forward<Args>(args)...);
+        return uf::stl::string(buffer.data(), buffer.size());
+    }
+}
+
+namespace uf {
 #if UF_USE_FMT
 	using namespace fmt;
 #endif

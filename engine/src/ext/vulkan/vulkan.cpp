@@ -202,7 +202,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 
 	uf::stl::string message = pCallbackData->pMessage;
 	for ( auto& filter : ext::vulkan::settings::validation::filters ) {
-		if ( message.find(::fmt::format("MessageID = {}", filter)) != uf::stl::string::npos ) return VK_FALSE;
+		if ( message.find(FMT_FORMAT("MessageID = {}", filter)) != uf::stl::string::npos ) return VK_FALSE;
 	}
 	UF_MSG_ERROR("[Validation Layer] {}", message);
 	return VK_FALSE;
@@ -219,7 +219,7 @@ uf::stl::string ext::vulkan::retrieveCheckpoint( VkQueue queue ) {
 	uf::stl::vector<uf::stl::string> strings;
 
 	for ( auto& checkpoint : checkpoints ) {
-		strings.emplace_back(::fmt::format( "{} | {} | {}:\n{}", ::fmt::ptr(queue), checkpoint.stage, ::fmt::ptr(checkpoint.pCheckpointMarker), uf::checkpoint::traverse( (pod::Checkpoint*) checkpoint.pCheckpointMarker )));
+		strings.emplace_back(FMT_FORMAT( "{} | {} | {}:\n{}", ::fmt::ptr(queue), checkpoint.stage, ::fmt::ptr(checkpoint.pCheckpointMarker), uf::checkpoint::traverse( (pod::Checkpoint*) checkpoint.pCheckpointMarker )));
 	}
 
 	return uf::string::join( strings, "\n" );
@@ -252,7 +252,7 @@ uf::stl::string ext::vulkan::errorString( VkResult result ) {
 		STR(ERROR_INVALID_SHADER_NV);
 #undef STR
 	default:
-		return ::fmt::format("UNKNOWN_ERROR: {}", result);
+		return FMT_FORMAT("UNKNOWN_ERROR: {}", result);
 	}
 }
 VkSampleCountFlagBits ext::vulkan::sampleCount( uint8_t count ) {

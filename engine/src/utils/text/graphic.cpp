@@ -264,7 +264,7 @@ bool uf::glyph::generateAtlas( const uf::stl::vector<pod::GlyphBox>& layout, con
 	// generate atlas
 	for ( const auto& g : layout ) {
 		auto key = uf::glyph::hashSettings( g.code, metadata );
-		auto hash = ::fmt::format( "{}", key );
+		auto hash = FMT_FORMAT( "{}", key );
 		auto& glyph = cache[key];
 
 		// already in atlas map
@@ -304,7 +304,7 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 	indices.reserve(layout.size() * 6);
 
 	for ( const auto& g : layout ) {
-		auto hash = ::fmt::format( "{}", uf::glyph::hashSettings(g.code, metadata) );
+		auto hash = FMT_FORMAT( "{}", uf::glyph::hashSettings(g.code, metadata) );
 
 	#if EXT_COLOR_FLOATS
 		auto& color = g.color;

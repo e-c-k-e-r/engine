@@ -410,8 +410,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			json["format"] = image.getFormat();
 
 			if ( !settings.combined ) {
-				uf::stl::string f = ::fmt::format("image.{}.png", i );
-				image.save(::fmt::format("{}/{}", directory, f));
+				uf::stl::string f = FMT_FORMAT("image.{}.png", i );
+				image.save(FMT_FORMAT("{}/{}", directory, f));
 				json["filename"] = f;
 			} else {
 				uf::stl::vector<uint8_t> pngBytes;

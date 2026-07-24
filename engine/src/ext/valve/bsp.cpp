@@ -356,7 +356,7 @@ namespace impl {
 	};
 
 	pod::Atlas::hash_t faceHash( size_t i ) {
-		return ::fmt::format("face_{}", i);
+		return FMT_FORMAT("face_{}", i);
 	}
 
 	void buildDisplacement( const impl::BspContext& context, impl::Meshlet& meshlet, size_t faceID ) {
@@ -648,7 +648,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	context.texdataToMaterial.assign( context.texdatas.size(), -1 );
 
 	// mount pakfile
-	auto pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(::fmt::format("pakfile://{}", filename), context.pakfile, 1000 ), true );
+	auto pakfileMount = uf::vfs::mount( ext::zlib::createZipMount(FMT_FORMAT("pakfile://{}", filename), context.pakfile, 1000 ), true );
 
 	// deduce mapname
 	uf::stl::string mapName = filename; {
@@ -660,8 +660,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 	// load baked cubemaps
 	for ( const auto& cube : context.cubemaps ) {
-		auto matName = ::fmt::format("maps/{}/c{}_{}_{}", mapName, cube.origin.x, cube.origin.y, cube.origin.z);
-		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+		auto matName = FMT_FORMAT("maps/{}/c{}_{}_{}", mapName, cube.origin.x, cube.origin.y, cube.origin.z);
+		auto vtfPath = FMT_FORMAT("materials/{}.vtf", matName);
 		graph.metadata["cubemaps"].emplace_back( matName );
 
 		int32_t textureID = -1;
@@ -922,7 +922,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 
 		if ( !meshlets.empty() ) {
-			auto meshName = ::fmt::format("model_{}", m);
+			auto meshName = FMT_FORMAT("model_{}", m);
 			context.modelToMesh[m] = graph.meshes.size();
 
 			graph.meshes.emplace_back(meshName);
@@ -956,7 +956,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 
 		if ( !skyboxMeshlets.empty() ) {
-			auto meshName = ::fmt::format("model_{}_skybox", m);
+			auto meshName = FMT_FORMAT("model_{}_skybox", m);
 			graph.meshes.emplace_back(meshName);
 			graph.primitives.emplace_back(meshName);
 
@@ -1021,8 +1021,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 					metadata["classname"] = "prop_static";
 					metadata["model"] = dict[type];
-					metadata["origin"] = ::fmt::format("{} {} {}", origin.x, origin.y, origin.z);
-					metadata["angles"] = ::fmt::format("{} {} {}", angles.x, angles.y, angles.z);
+					metadata["origin"] = FMT_FORMAT("{} {} {}", origin.x, origin.y, origin.z);
+					metadata["angles"] = FMT_FORMAT("{} {} {}", angles.x, angles.y, angles.z);
 					
 					if ( context.skyArea != -1 ) {
 						int32_t propLeafIdx = impl::findLeaf(context, origin);
@@ -1108,7 +1108,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 			// parse lighting info
 			if ( classname.starts_with("light") ) {
-				auto lightKeyName = ::fmt::format( "{}_{}", classname, nodeID );
+				auto lightKeyName = FMT_FORMAT( "{}_{}", classname, nodeID );
 				auto& light = graph.lights[lightKeyName];
 				light.color = { 1.0f, 1.0f, 1.0f };
 				light.intensity = 200.0f;
@@ -1141,7 +1141,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 						float ang = metadata["angle"].as<float>();
 						if ( ang == -1 ) movedirStr = "-90 0 0";
 						else if ( ang == -2 ) movedirStr = "90 0 0";
-						else movedirStr = ::fmt::format("0 {} 0", ang);
+						else movedirStr = FMT_FORMAT("0 {} 0", ang);
 					}
 
 					if ( movedirStr != "" ) {
@@ -1208,8 +1208,8 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	uf::stl::vector<uint8_t> missing_pixels = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
 	for ( auto matName : graph.materials ) {
 		uf::Serializer vmt;
-		auto vmtPath = ::fmt::format("materials/{}.vmt", matName);
-		auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+		auto vmtPath = FMT_FORMAT("materials/{}.vmt", matName);
+		auto vtfPath = FMT_FORMAT("materials/{}.vtf", matName);
 		auto& image = storage.images[matName].data;
 		auto& material = storage.materials[matName];
 
@@ -1240,7 +1240,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		// cubemap
 		if ( vmt["$envmap"].as<uf::stl::string>() != "" ) {
 			auto matName = uf::string::lowercase(vmt["$envmap"].as<uf::stl::string>());
-			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+			auto vtfPath = FMT_FORMAT("materials/{}.vtf", matName);
 
 			// retrieve
 			if ( matName == "env_cubemap" ) {
@@ -1267,7 +1267,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		// normal map
 		} else if ( vmt["$bumpmap"].is<uf::stl::string>() ) {
 			auto matName = uf::string::lowercase(vmt["$bumpmap"].as<uf::stl::string>());
-			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+			auto vtfPath = FMT_FORMAT("materials/{}.vtf", matName);
 
 			// retrieve
 			if ( storage.images.map.count(matName) > 0 ) {
@@ -1285,7 +1285,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		// metallic/roughness/occlusion map
 		if ( vmt["$mrao"].is<uf::stl::string>() ) {
 			auto matName = uf::string::lowercase(vmt["$mrao"].as<uf::stl::string>());
-			auto vtfPath = ::fmt::format("materials/{}.vtf", matName);
+			auto vtfPath = FMT_FORMAT("materials/{}.vtf", matName);
 
 			// retrieve
 			if ( storage.images.map.count(matName) > 0 ) {
@@ -1300,7 +1300,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 		}
 		// albedo map
 		if ( vmt["$basetexture"].is<uf::stl::string>() ) {
-			vtfPath = ::fmt::format("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
+			vtfPath = FMT_FORMAT("materials/{}.vtf", vmt["$basetexture"].as<uf::stl::string>());
 			if ( ext::valve::loadVtf( image, vtfPath ) ) {
 				continue;
 			}

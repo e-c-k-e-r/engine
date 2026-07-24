@@ -306,7 +306,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 #if UF_USE_VALVE
 	if ( extension == "bsp" ) return ext::valve::loadBsp( graph, filename, metadata );
 #endif
-#if UF_USE_TTLG
+#if UF_USE_LGS
 	if ( extension == "mis" ) return ext::lgs::loadMis( graph, filename, metadata );
 #endif
 

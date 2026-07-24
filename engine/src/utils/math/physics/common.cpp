@@ -37,6 +37,7 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 	// reset grounded state
 	bool wasGrounded = body.activity.grounded;
 	body.activity.grounded = false;
+	body.activity.referenceFrame = NULL;
 
 	// update bounds
 	body.bounds = impl::computeAABB( body );

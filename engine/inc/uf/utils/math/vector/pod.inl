@@ -816,7 +816,7 @@ typename T::type_t uf::vector::norm( const T& vector ) {
 }
 template<typename T>
 T uf::vector::normalize( const T& vector ) {
-#if 0 && UF_USE_SIMD // causes massive frame drops
+#if UF_USE_SIMD // causes massive frame drops
 	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
 		return uf::simd::normalize( vector );
 	}
@@ -833,12 +833,12 @@ T uf::vector::normalize( const T& vector ) {
 
 template<typename T>
 T uf::vector::clampMagnitude( const T& v, float maxMag ) {
-    T res = v;
-    float magSq = uf::vector::magnitude( res );
-    if ( magSq > (maxMag * maxMag) ) {
-        res *= (maxMag / sqrt(magSq));
-    }
-    return res;
+	T res = v;
+	float magSq = uf::vector::magnitude( res );
+	if ( magSq > (maxMag * maxMag) ) {
+		res *= (maxMag / sqrt(magSq));
+	}
+	return res;
 }
 
 template<typename T>
@@ -897,7 +897,7 @@ uf::stl::string uf::vector::toString( const T& v, const uf::stl::string& s ) {
 		ss << v[i];
 		if ( i + 1 < T::size ) ss << ", ";
 	});
-	return ::fmt::format( fmt::runtime(s), ss.str() );
+	return FMT_FORMAT( fmt::runtime(s), ss.str() );
 }
 
 template<typename T, size_t N>

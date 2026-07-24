@@ -275,6 +275,12 @@ void uf::debug::drawLines( float dt ) {
 		{
 			auto& shader = graphic.material.getShader("vertex");
 			shader.aliasBuffer( storage.buffers.camera );
+		#if UF_USE_VULKAN
+			uint32_t maxPasses = 6;
+			shader.setSpecializationConstants({
+				{ "PASSES", maxPasses }
+			});
+		#endif
 		}
 
 		graphic.initialize();
@@ -363,6 +369,12 @@ void uf::debug::drawTexts( float dt ) {
 		{
 			auto& shader = graphic.material.getShader("vertex");
 			shader.aliasBuffer( storage.buffers.camera );
+		#if UF_USE_VULKAN
+			uint32_t maxPasses = 6;
+			shader.setSpecializationConstants({
+				{ "PASSES", maxPasses }
+			});
+		#endif
 		}
 		// fragment shader
 		auto& texture = graphic.material.textures.emplace_back();

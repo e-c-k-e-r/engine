@@ -523,6 +523,6 @@ uf::asset::Payload uf::Object::resolveToPayload( const uf::stl::string& filename
 
 /*
 uf::stl::string uf::string::toString( const uf::Object& object ) {
-	return ::fmt::format("{} ({}): {}", object.getName(), object.getUid(), (void*) &object);
+	return FMT_FORMAT("{} ({}): {}", object.getName(), object.getUid(), (void*) &object);
 }
 */

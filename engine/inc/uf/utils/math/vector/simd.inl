@@ -890,7 +890,11 @@ FORCE_INLINE uf::simd::vector<float> uf::simd::cross( uf::simd::vector<float> x,
 	return _impl_cross( x, y );
 }
 FORCE_INLINE uf::simd::vector<float> uf::simd::normalize( uf::simd::vector<float> v ) {
-	__m128 len = _mm_sqrt_ss( _impl_dot( v,v ) );
+	 __m128 dot = _impl_dot( v,v );
+	if ( _mm_cvtss_f32(dot) < 1.0e-12f ) {
+		return v;
+	}
+	__m128 len = _mm_sqrt_ss( dot );
 	len = _mm_shuffle_ps(len, len, 0x00);
 	return _mm_div_ps(v, len);
 }

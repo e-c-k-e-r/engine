@@ -253,7 +253,7 @@ namespace {
 			case FFX_ERROR_BACKEND_API_ERROR: return "ERROR_BACKEND_API_ERROR"; break;
 			case FFX_ERROR_INSUFFICIENT_MEMORY: return "ERROR_INSUFFICIENT_MEMORY"; break;
 		}
-		return ::fmt::format("{}", (void*) code);
+		return FMT_FORMAT("{}", (void*) code);
 	}
 
 	#define FFX_ERROR_CHECK(f) { auto error = f; if ( error != FFX_OK) UF_MSG_ERROR("FFX-FSR Error {}: {}", #f, FFX_ERROR_TO_STRING(error)); }

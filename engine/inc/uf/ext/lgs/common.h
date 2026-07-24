@@ -1,5 +1,5 @@
 #pragma once
-
+#if UF_USE_LGS
 #include <uf/config.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
@@ -60,3 +60,4 @@ namespace impl {
 		return pod::Vector3f{ v.x, v.z, v.y } * scale;
 	}
 }
+#endif

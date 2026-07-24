@@ -1,3 +1,4 @@
+#if UF_USE_LGS
 #include <uf/ext/lgs/common.h>
 #include <uf/ext/lgs/pcx.h>
 
@@ -94,3 +95,4 @@ bool ext::lgs::loadPcx( pod::Image& image, const uf::stl::vector<uint8_t>& buffe
 	image.bpp = 32;
 	return true;
 }
+#endif

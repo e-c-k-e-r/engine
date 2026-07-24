@@ -336,7 +336,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			for ( uf::Scene* scene : uf::scene::scenes ) {
 				if ( !scene ) continue;
-				uf::iostream << ::fmt::format("Scene: {}\n", uf::string::toString( *scene ));
+				uf::iostream << FMT_FORMAT("Scene: {}\n", uf::string::toString( *scene ));
 				scene->process([]( uf::Entity* entity, int depth ) {
 					uf::stl::string indent = ""; for ( auto i = 1; i < depth; ++i ) indent += "\t";
 					uf::stl::string location = "";
@@ -346,7 +346,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						location = uf::string::toString( t.position ) + " " + uf::string::toString( t.orientation );
 					}
 
-					uf::iostream << ::fmt::format("{} {} {}\n", indent, uf::string::toString( *entity ), location );
+					uf::iostream << FMT_FORMAT("{} {} {}\n", indent, uf::string::toString( *entity ), location );
 				}, 1);
 			}
 		}
@@ -358,7 +358,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			auto image = renderMode.screenshot(uf::renderer::states::currentBuffer ? 0 : 1);
 
 			std::time_t t = std::time(nullptr);
-			const uf::stl::string filename = ::fmt::format("{}/screenshots/{:%Y-%m-%d_%H-%M-%S}.png", uf::io::root, ::fmt::localtime(t));
+			const uf::stl::string filename = FMT_FORMAT("{}/screenshots/{:%Y-%m-%d_%H-%M-%S}.png", uf::io::root, ::fmt::localtime(t));
 			image.save(filename);
 			UF_MSG_DEBUG("Screenshot saved to {}", filename);
 		}
@@ -1191,7 +1191,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	while ( textures3D.size() < metadata.max.textures3D ) textures3D.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 
 	static uf::stl::unordered_map<uf::stl::string, UniformDescriptor> previousUniformsMap;
-	auto& previousUniforms = previousUniformsMap[::fmt::format("{}:{}:{}", shaderType, shaderPipeline, (size_t)&graphic)];
+	auto& previousUniforms = previousUniformsMap[FMT_FORMAT("{}:{}:{}", shaderType, shaderPipeline, (size_t)&graphic)];
 
 	// update uniform information
 	// hopefully write combining kicks in

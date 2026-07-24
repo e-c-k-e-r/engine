@@ -170,7 +170,7 @@ void ext::vulkan::VrRenderMode::createCommandBuffers(const uf::stl::vector<ext::
 
 							// to-do: transition attachment here
 
-							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("blitter[{}: {}]", layer->getName(), layer->getType()) );
+							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("blitter[{}: {}]", layer->getName(), layer->getType()) );
 							blitter.record(commandBuffer, descriptor, currentPass, currentDraw++, frame);
 						}
 					}

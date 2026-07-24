@@ -1,6 +1,9 @@
 #version 450
 #pragma shader_stage(vertex)
 
+#extension GL_EXT_multiview : enable
+
+
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
@@ -22,6 +25,9 @@ layout (binding = 0) uniform Camera {
 layout (location = 0) out vec4 outColor;
 
 void main() {
+	uint viewportIndex = gl_ViewIndex;
+	if ( PushConstant.aux == 1 ) viewportIndex += 2;
+
 	outColor = inColor;
-	gl_Position = camera.viewport[PushConstant.pass].projection * camera.viewport[PushConstant.pass].view * vec4(inPos.xyz, 1.0);
+	gl_Position = camera.viewport[viewportIndex].projection * camera.viewport[viewportIndex].view * vec4(inPos.xyz, 1.0);
 }

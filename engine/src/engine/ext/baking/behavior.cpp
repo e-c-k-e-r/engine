@@ -54,7 +54,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "entity:PostInitialization.%UID%", [&](){
 		metadata.output = this->resolveURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
-		metadata.renderModeName = ::fmt::format("B:{}", this->getUid());
+		metadata.renderModeName = FMT_FORMAT("B:{}", this->getUid());
 
 		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as( metadata.trigger.mode );
 		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as( metadata.trigger.value );
@@ -168,7 +168,7 @@ SAVE: {
 	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
 		tasks.queue([&, i]{
 			auto image = metadata.buffers.baked.screenshot(i);
-			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
+			uf::stl::string filename = uf::string::replace( metadata.output, "%i", TO_STRING(i) );
 			bool status = image.save(filename);
 			UF_MSG_DEBUG("Writing to {}: {}", filename, status);
 

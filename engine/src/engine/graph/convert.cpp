@@ -17,7 +17,7 @@
 
 namespace {
 	uf::stl::string keyID( size_t id ) {
-		return ::fmt::format("{}", id);
+		return FMT_FORMAT("{}", id);
 	}
 }
 
@@ -29,7 +29,7 @@ namespace {
 		size_t meshID = graph.meshes.size();
 		size_t objectID = storage.entities.keys.size();
 
-		uf::stl::string keyName = ::fmt::format("{}[{}]", graph.name, objectID);
+		uf::stl::string keyName = FMT_FORMAT("{}[{}]", graph.name, objectID);
 
 		auto& node = graph.nodes.emplace_back();
 		node.name = object.getName();
@@ -57,7 +57,7 @@ namespace {
 				size_t textureID = graph.textures.size();
 				size_t texture2DID = graph.images.size();
 
-				uf::stl::string subName = ::fmt::format("{}[{}]", keyName, sub++);
+				uf::stl::string subName = FMT_FORMAT("{}[{}]", keyName, sub++);
 				auto& material = storage.materials[graph.materials.emplace_back(subName)];
 				auto& texture = storage.textures[graph.textures.emplace_back(subName)];
 				auto& texture2D = storage.images[graph.images.emplace_back(subName)].handle;

@@ -395,7 +395,7 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vecto
 	state.buffer = buffer;
 	ext::zlib::directory( state.buffer, state.entries );
 
-	if ( mount.path.empty() ) mount.path = ::fmt::format( "{}/{}", uri, (void*) state.buffer.data() );
+	if ( mount.path.empty() ) mount.path = FMT_FORMAT( "{}/{}", uri, (void*) state.buffer.data() );
 //	for ( auto& [ k, v ] : state.entries ) UF_MSG_DEBUG("{} => {}/{}", mount.path, uri, k);
 
 	return mount;
@@ -411,7 +411,7 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, const uf::stl:
 		return pod::Mount{};
 	}
 
-	return ext::zlib::createZipMount( ::fmt::format("{}/{}", uri, filename), std::move(buffer), priority );
+	return ext::zlib::createZipMount( FMT_FORMAT("{}/{}", uri, filename), std::move(buffer), priority );
 }
 
 #endif

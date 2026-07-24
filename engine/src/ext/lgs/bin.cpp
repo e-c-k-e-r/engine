@@ -1,3 +1,4 @@
+#if UF_USE_LGS
 #include <uf/ext/lgs/bin.h>
 #include <uf/ext/lgs/common.h>
 #include <uf/ext/valve/common.h>
@@ -425,3 +426,4 @@ bool ext::lgs::loadBin( pod::Graph& graph, const uf::stl::string& filename ) {
 
 	return true;
 }
+#endif

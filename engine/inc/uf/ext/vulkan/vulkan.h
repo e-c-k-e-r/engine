@@ -12,7 +12,7 @@
 #include <cpptrace/cpptrace.hpp>
 #define VK_REGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\
 	VK_VALIDATION_MESSAGE("Registered handle: {}: {}", TYPE_NAME(decltype(handle)), (void*) handle);\
-	uf::stl::string id = ::fmt::format("{}: {}", cpptrace::generate_trace().to_string(), TYPE_NAME(decltype(*this)));\
+	uf::stl::string id = FMT_FORMAT("{}: {}", cpptrace::generate_trace().to_string(), TYPE_NAME(decltype(*this)));\
 	ext::vulkan::Resource<std::remove_cvref_t<decltype(handle)>>::add( handle, id ); \
 }
 #define VK_UNREGISTER_HANDLE( handle ) if ( ext::vulkan::settings::validation::checkpoints ) {\

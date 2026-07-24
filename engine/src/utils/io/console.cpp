@@ -57,9 +57,9 @@ void uf::console::initialize() {
 		uf::stl::string s_result = "";
 		for ( auto i = 0; i < results.size(); ++i ) {
 			auto& res = results[i];
-			if ( res.is<uf::stl::string>() ) s_result += ::fmt::format("\n[{}] => {}", i, res.as<uf::stl::string>());
-			else if ( res.is<ext::json::Value>() ) s_result += ::fmt::format("\n[{}] => {}", i, ext::json::encode( res.as<ext::json::Value>() ));
-			else s_result += ::fmt::format("\n[{}] => Userdata: {}", i, (void*) res);
+			if ( res.is<uf::stl::string>() ) s_result += FMT_FORMAT("\n[{}] => {}", i, res.as<uf::stl::string>());
+			else if ( res.is<ext::json::Value>() ) s_result += FMT_FORMAT("\n[{}] => {}", i, ext::json::encode( res.as<ext::json::Value>() ));
+			else s_result += FMT_FORMAT("\n[{}] => Userdata: {}", i, (void*) res);
 		}
 
 		return "Hook executed: " + match[1] + s_result;
@@ -100,7 +100,7 @@ void uf::console::initialize() {
 		};
 		for ( uf::Scene* scene : uf::scene::scenes ) {
 			if ( !scene ) continue;
-			res += ::fmt::format("Scene: {}: {}\n", scene->getName(), scene->getUid());
+			res += FMT_FORMAT("Scene: {}: {}\n", scene->getName(), scene->getUid());
 			scene->process(filter, 1);
 		}
 

@@ -4,6 +4,8 @@
 
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/memory/string.h>
+#include <uf/utils/memory/unordered_map.h>
+#include <uf/utils/memory/map.h>
 
 #if !UF_EXCEPTIONS
 	#define JSON_NOEXCEPTION 1
@@ -22,6 +24,12 @@ namespace uf {
 	class UF_API Serializer;
 }
 
+#if UF_ENV_DREAMCAST
+	#define float64_t decltype(1.0L)
+#else
+	#define float64_t double
+#endif
+
 namespace ext {
 	namespace json {
 		class UF_API Value;
@@ -30,12 +38,40 @@ namespace ext {
 		#if UF_JSON_NLOHMANN_FIFO_MAP
 			template<class K, class V, class dummy_compare, class A>
 			using fifo_map = nlohmann::fifo_map<K, V, nlohmann::fifo_map_compare<K>, A>;
-			typedef nlohmann::basic_json<fifo_map> base_value;
+
+			typedef nlohmann::basic_json<
+				uf::stl::fifo_map, 
+				uf::stl::vector,
+				uf::stl::string,
+				bool, 
+				int64_t, 
+				uint64_t, 
+				float64_t, 
+				uf::Allocator
+			> base_value;
 		#else
-			typedef nlohmann::ordered_json base_value;
+			typedef nlohmann::basic_json<
+				nlohmann::ordered_map,
+				uf::stl::vector,
+				uf::stl::string,
+				bool, 
+				int64_t, 
+				uint64_t, 
+				float64_t, 
+				uf::Allocator
+			> base_value;
 		#endif
 	#else
-		typedef nlohmann::json base_value;
+		typedef nlohmann::basic_json<
+			uf::stl::map,
+			uf::stl::vector,
+			uf::stl::string,
+			bool, 
+			int64_t, 
+			uint64_t, 
+			float64_t, 
+			uf::Allocator
+		> base_value;
 	#endif
 
 		class UF_API Value : public base_value {

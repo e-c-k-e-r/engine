@@ -12,7 +12,7 @@ namespace uf {
 			class Key,
 			class Hash = std::hash<Key>,
 			class KeyEqual = std::equal_to<Key>,
-		#if UF_MEMORYPOOL_USE_STL_ALLOCATOR
+		#if UF_MEMORYPOOL_USE_ALLOCATOR
 			class Allocator = std::allocator<Key>
 		#else
 			class Allocator = uf::Allocator<Key>

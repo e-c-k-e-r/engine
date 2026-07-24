@@ -15,7 +15,7 @@ void uf::io::exception( const uf::stl::string& exception ) {
 }
 */
 uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message ) {
-	auto string = ::fmt::format("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
+	auto string = FMT_FORMAT("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
 	::fmt::print("{}\n", string);
 	uf::iostream.pushHistory(string);
 	std::cout.flush();

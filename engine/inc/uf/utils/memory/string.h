@@ -12,7 +12,11 @@ namespace uf {
 		template<
 			class CharT,
 			class Traits = std::char_traits<CharT>,
-			class Allocator = std::allocator<CharT> //uf::Allocator<CharT>
+		#if 0 && UF_MEMORYPOOL_USE_ALLOCATOR
+			class Allocator = uf::Allocator<CharT>
+		#else
+			class Allocator = std::allocator<CharT>
+		#endif
 		>
 		using basic_string = std::basic_string<CharT, Traits, Allocator>;
 		using string = uf::stl::basic_string<char>;
@@ -27,7 +31,11 @@ namespace uf {
 		template<
 			class CharT,
 			class Traits = std::char_traits<CharT>,
-			class Allocator = std::allocator<CharT> //uf::Allocator<CharT>
+		#if 0 && UF_MEMORYPOOL_USE_ALLOCATOR
+			class Allocator = uf::Allocator<CharT>
+		#else
+			class Allocator = std::allocator<CharT>
+		#endif
 		>
 		using basic_stringstream = std::basic_stringstream<CharT, Traits, Allocator>;
 		using stringstream = uf::stl::basic_stringstream<char>;

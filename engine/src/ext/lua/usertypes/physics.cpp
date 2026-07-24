@@ -141,14 +141,14 @@ namespace binds {
 #include <uf/ext/lua/component.h>
 
 UF_LUA_REGISTER_ENUM(pod::ShapeType,
-	"AABB",        pod::ShapeType::AABB,
-	"OBB",         pod::ShapeType::OBB,
-	"SPHERE",      pod::ShapeType::SPHERE,
-	"PLANE",       pod::ShapeType::PLANE,
-	"CAPSULE",     pod::ShapeType::CAPSULE,
-	"TRIANGLE",    pod::ShapeType::TRIANGLE,
-	"MESH",        pod::ShapeType::MESH,
-	"CONVEX_HULL", pod::ShapeType::CONVEX_HULL
+	"AABB",			pod::ShapeType::AABB,
+	"OBB",			pod::ShapeType::OBB,
+	"SPHERE",		pod::ShapeType::SPHERE,
+	"PLANE",		pod::ShapeType::PLANE,
+	"CAPSULE",		pod::ShapeType::CAPSULE,
+	"TRIANGLE",		pod::ShapeType::TRIANGLE,
+	"MESH",			pod::ShapeType::MESH,
+	"CONVEX_HULL",	pod::ShapeType::CONVEX_HULL
 )
 
 UF_LUA_REGISTER_USERTYPE(pod::Collider,

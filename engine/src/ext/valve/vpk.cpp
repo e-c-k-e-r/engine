@@ -174,7 +174,7 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	} else {
 		UF_MSG_DEBUG("Mounted VPK: {}", state.path);
 	}
-	state.name = ::fmt::format("vpk://{}", path);
+	state.name = FMT_FORMAT("vpk://{}", path);
 
 	return mount;
 }
@@ -274,7 +274,7 @@ bool ext::valve::readVpk( const pod::VpkArchive& vpk, const uf::stl::string& pat
 			fileOffset = entry.dirFileOffset + entry.metadata.entryOffset;
 		} else {
 			// data is in a chunk file
-			archivePath = ::fmt::format("{}_{:03d}.vpk", vpk.basePath, entry.metadata.archiveIndex);
+			archivePath = FMT_FORMAT("{}_{:03d}.vpk", vpk.basePath, entry.metadata.archiveIndex);
 			fileOffset = entry.metadata.entryOffset;
 		}
 
@@ -293,7 +293,7 @@ bool ext::valve::readVpk( const pod::VpkArchive& vpk, const uf::stl::string& pat
 }
 
 uf::vfs::Mount ext::valve::mountVpk( const uf::stl::string& uri, bool temp ) {
-	return uf::vfs::mount( ext::valve::createVpkMount( ::fmt::format( "valve://{}", uri ), 10 ), temp );
+	return uf::vfs::mount( ext::valve::createVpkMount( FMT_FORMAT( "valve://{}", uri ), 10 ), temp );
 }
 uf::vfs::Mount ext::valve::mountGame( const uf::stl::string& uri, bool temp ) {
 	uf::stl::string path = "";
@@ -310,7 +310,7 @@ uf::vfs::Mount ext::valve::mountGame( const uf::stl::string& uri, bool temp ) {
 		UF_MSG_ERROR("Failed to mount game: {}", uri);
 		return { 0 };
 	}
-	return uf::vfs::mount( uf::vfs::createDiskMount( ::fmt::format( "game://{}", path ), 11 ), temp ); // for some reason a lower priority makes the footstep sound CS:S's
+	return uf::vfs::mount( uf::vfs::createDiskMount( FMT_FORMAT( "game://{}", path ), 11 ), temp ); // for some reason a lower priority makes the footstep sound CS:S's
 }
 bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
 	auto it = vpk.files.find( path );
@@ -348,7 +348,7 @@ bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string
 			archivePath = vpk.basePath + "_dir.vpk";
 			fileOffset = entry.dirFileOffset + entry.metadata.entryOffset;
 		} else {
-			archivePath = ::fmt::format("{}_{:03d}.vpk", vpk.basePath, entry.metadata.archiveIndex);
+			archivePath = FMT_FORMAT("{}_{:03d}.vpk", vpk.basePath, entry.metadata.archiveIndex);
 			fileOffset = entry.metadata.entryOffset;
 		}
 

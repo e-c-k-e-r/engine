@@ -5,7 +5,8 @@
 #include <new>
 #include <type_traits>
 
-#define UF_MEMORYPOOL_USE_STL_ALLOCATOR 1
+#define UF_MEMORYPOOL_USE_ALLOCATOR 1
+#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 1
 
 namespace uf {
 	namespace allocator {

@@ -85,7 +85,7 @@ char uf::IoStream::readChar(const bool& loop) {
 	auto ch = std::cin.get();
 	
 	addCh(ch);
-//	::info.input.history.push_back( ::fmt::format("{}", ch) );
+//	::info.input.history.push_back( FMT_FORMAT("{}", ch) );
 	return ch;
 }
 uf::stl::string uf::IoStream::readString(const bool& loop) {
@@ -111,7 +111,7 @@ char uf::IoStream::writeChar( char ch ) {
 
 	if ( ch == '\n' ) std::cout << std::endl;
 	else std::cout << ch;
-//	::info.input.history.push_back( ::fmt::format("{}", ch) );
+//	::info.input.history.push_back( FMT_FORMAT("{}", ch) );
 	return ch;
 }
 const uf::stl::string& uf::IoStream::writeString( const uf::stl::string& str ) {

@@ -1,3 +1,4 @@
+#if UF_USE_LGS
 #include <uf/ext/lgs/common.h>
 #include <uf/ext/lgs/mis.h>
 #include <uf/ext/lgs/bin.h>
@@ -476,12 +477,12 @@ namespace impl {
 	};
 
 	pod::Atlas::hash_t darkFaceHash(size_t cellIdx, size_t polyIdx) {
-		return ::fmt::format("c_{}_p_{}", cellIdx, polyIdx);
+		return FMT_FORMAT("c_{}_p_{}", cellIdx, polyIdx);
 	}
 
 	template<typename T>
 	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& name, uf::stl::unordered_map<int32_t, T>& map, size_t prefixSkip = 0 ) {
-		auto invName = ::fmt::format("P${}", name).substr(0, 11);
+		auto invName = FMT_FORMAT("P${}", name).substr(0, 11);
 		if ( ctx.inventory.count(invName) == 0 ) return;
 
 		const auto& item = ctx.inventory.at( invName );
@@ -512,7 +513,7 @@ namespace impl {
 
 	template<>
 	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& propName, uf::stl::unordered_map<int32_t, uf::stl::string>& map, size_t prefixSkip ) {
-		auto fullName = ::fmt::format("P${}", propName).substr(0, 11);
+		auto fullName = FMT_FORMAT("P${}", propName).substr(0, 11);
 		if (ctx.inventory.count(fullName) == 0) return;
 
 		const auto& item = ctx.inventory.at(fullName);
@@ -536,7 +537,7 @@ namespace impl {
 
 	template<>
 	void extractProperty( impl::DarkContext& ctx, const uf::stl::string& propName, uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>>& map, size_t prefixSkip ) {
-		auto fullName = ::fmt::format("P${}", propName).substr(0, 11);
+		auto fullName = FMT_FORMAT("P${}", propName).substr(0, 11);
 		if (ctx.inventory.count(fullName) == 0) return;
 
 		const auto& item = ctx.inventory.at(fullName);
@@ -703,7 +704,7 @@ namespace impl {
 			auto& node = graph.nodes.emplace_back();
 			ctx.roomNodes[room.roomId] = nodeID;
 
-			node.name = ::fmt::format("room_{}", room.roomId);
+			node.name = FMT_FORMAT("room_{}", room.roomId);
 
 			node.transform.position = impl::convertPos_NewDark( room.center );
 
@@ -757,7 +758,7 @@ namespace impl {
 			uf::stl::string newTags = currentTags;
 			if (!newTags.empty()) newTags += ", ";
 
-			uf::stl::string tagName = tagMap.count(key->type) ? tagMap.at(key->type) : ::fmt::format("UnknownTag_{}", key->type);
+			uf::stl::string tagName = tagMap.count(key->type) ? tagMap.at(key->type) : FMT_FORMAT("UnknownTag_{}", key->type);
 			uf::stl::string valueNames = "";
 
 			bool isEnum = false;
@@ -769,12 +770,12 @@ namespace impl {
 				for (int v = 0; v < 8; ++v) {
 					if (key->aEnum[v] != 255 && key->aEnum[v] != 0) {
 						if (!valueNames.empty()) valueNames += "|";
-						valueNames += valueMap.count(key->aEnum[v]) ? valueMap.at(key->aEnum[v]) : std::to_string(key->aEnum[v]);
+						valueNames += valueMap.count(key->aEnum[v]) ? valueMap.at(key->aEnum[v]) : TO_STRING(key->aEnum[v]);
 					}
 				}
-				newTags += tagName + " " + valueNames;
+				newTags += FMT_FORMAT("{} {}", tagName, valueNames);
 			} else {
-				newTags += tagName + " [" + std::to_string(key->minVal) + "-" + std::to_string(key->maxVal) + "]";
+				newTags += FMT_FORMAT("{} [{}-{}]", tagName, key->minVal, key->maxVal);
 			}
 
 			parseEnvSoundTree(reader, tagMap, valueMap, newTags, ctx);
@@ -1081,6 +1082,14 @@ namespace impl {
 				UF_MSG_DEBUG("Could not load material: {}", matName);
 				image.loadFromBuffer( missing_pixels, { 2, 2 }, 8, 4 );
 			}
+			bool hasTransparency = false;
+			if ( image.channels == 4 && !image.pixels.empty() ) {
+				for ( size_t i = 3; i < image.pixels.size(); i += 4 ) {
+					if ( image.pixels[i] == 255 ) continue;
+					hasTransparency = true;
+					break;
+				}
+			}
 
 			size_t imageID = graph.images.size();
 			size_t textureID = graph.textures.size();
@@ -1094,7 +1103,7 @@ namespace impl {
 			material.factorRoughness = 1.0f;
 			material.factorMetallic = 0.0f;
 			material.factorOcclusion = 1.0f;
-			material.factorAlphaCutoff = 0.1f;
+			material.factorAlphaCutoff = 0.5f;
 			material.indexAlbedo = textureID;
 			material.indexNormal = -1;
 			material.indexEmissive = -1;
@@ -1104,6 +1113,8 @@ namespace impl {
 
 			if ( matName.find("glass") != uf::stl::string::npos ) {
 				material.modeAlpha = pod::Material::AlphaMode::BLEND;
+			} else if ( hasTransparency ) {
+				material.modeAlpha = pod::Material::AlphaMode::MASK;
 			}
 		}
 	}
@@ -1230,7 +1241,7 @@ namespace impl {
 								}
 							}
 
-							pod::Atlas::hash_t animHash = ::fmt::format("c_{}_p_{}_anim_{}", c, i, lightID);
+							pod::Atlas::hash_t animHash = FMT_FORMAT("c_{}_p_{}_anim_{}", c, i, lightID);
 							uf::atlas::add( ctx.lightmapAtlas, image, animHash );
 						}
 					}
@@ -1426,7 +1437,7 @@ namespace impl {
 				node.name = uf::stl::string(ctx.customNames.at(objectID).c_str());
 			} else {
 				if ( archetype != "Unknown" ) node.name = uf::stl::string(archetype.c_str());
-				if ( node.name.empty()) node.name = ::fmt::format("object #{}", objectID);
+				if ( node.name.empty()) node.name = FMT_FORMAT("object #{}", objectID);
 			}
 			
 			// bind position
@@ -1638,7 +1649,7 @@ namespace impl {
 			PropertyLight light;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.light, light ) ) {
 				// create new node
-				auto lightNodeName = ::fmt::format("{}_light", node.name);
+				auto lightNodeName = FMT_FORMAT("{}_light", node.name);
 				auto lightNodeID = graph.nodes.size();
 				auto& lightNode = graph.nodes.emplace_back();
 				lightNode.name = lightNodeName;
@@ -1646,7 +1657,7 @@ namespace impl {
 
 				float radiusFactor = 1.2f;
 				float intensityFactor = 0.05f;
-				graph.lights[::fmt::format("{}_{}", lightNode.name, lightNodeID)] = {
+				graph.lights[FMT_FORMAT("{}_{}", lightNode.name, lightNodeID)] = {
 					.range = light.radius * radiusFactor,
 					.color = impl::hsvToRgb(light.hue, light.saturation, 1.0f),
 					.intensity = light.brightness * intensityFactor,
@@ -1674,7 +1685,7 @@ namespace impl {
 			if ( ctx.linkFlavorNames.count(link.flavor) ) {
 				flavor = ctx.linkFlavorNames.at(link.flavor);
 			} else {
-				flavor = ::fmt::format("Unknown_{}", link.flavor);
+				flavor = FMT_FORMAT("Unknown_{}", link.flavor);
 			}
 
 			size_t sourceIdx = objectToNode[link.sourceId];
@@ -2093,3 +2104,4 @@ void ext::lgs::loadMis( pod::Graph& graph, const uf::stl::string& filename, cons
 
 	uf::graph::postprocess(graph);
 }
+#endif

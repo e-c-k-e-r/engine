@@ -24,12 +24,12 @@ uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view& n ) {
 	if ( n.ends_with(PARENT_UID_SUFFIX) ) {
 		size_t uid = this->hasParent() ? this->getParent().getUid() : this->getUid();
 		uf::hashed_string hash{uf::stl::string_view(n).substr(0, n.size() - PARENT_UID_SUFFIX.size())};
-		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+		return uf::algo::fnv1a( FMT_FORMAT("{}", uid), hash );
 	}
 	if ( n.ends_with(UID_SUFFIX) ) {
 		size_t uid = this->getUid();
 		uf::hashed_string hash{uf::stl::string_view(n).substr(0, n.size() - UID_SUFFIX.size())};
-		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+		return uf::algo::fnv1a( FMT_FORMAT("{}", uid), hash );
 	}
 
 	return n;
@@ -44,7 +44,7 @@ uf::hashed_string uf::Object::formatHookName( const uf::stl::string_view& n, siz
 
 	if ( n.ends_with(UID_SUFFIX) ) {
 		uf::hashed_string hash = uf::stl::string_view(n).substr(0, n.size() - UID_SUFFIX.size());
-		return uf::algo::fnv1a( ::fmt::format("{}", uid), hash );
+		return uf::algo::fnv1a( FMT_FORMAT("{}", uid), hash );
 	}
 
 	return n;

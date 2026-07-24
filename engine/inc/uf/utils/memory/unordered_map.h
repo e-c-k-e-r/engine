@@ -14,7 +14,7 @@ namespace uf {
 			class T,
 			class Hash = uf::algo::hasher,
 			class KeyEqual = std::equal_to<Key>,
-		#if UF_MEMORYPOOL_USE_STL_ALLOCATOR
+		#if UF_MEMORYPOOL_USE_ALLOCATOR
 			class Allocator = std::allocator<std::pair<const Key, T>>
 		#else
 			class Allocator = uf::Allocator<std::pair<const Key, T>>

@@ -208,8 +208,8 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 	if ( body.activity.referenceFrame ) {
 		auto ref = body.activity.referenceFrame->velocity;
 		if ( body.velocity.y > ref.y + 1.0f ) {
-        	body.activity.referenceFrame = NULL;
-    	} else if ( body.velocity.y > ref.y ) body.velocity.y = ref.y;
+			body.activity.referenceFrame = NULL;
+		} else if ( body.velocity.y > ref.y ) body.velocity.y = ref.y;
 	}
 
 	// linear integration

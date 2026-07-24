@@ -96,7 +96,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
 		camera.update();
 		
-		uf::stl::string name = ::fmt::format("RT:{}", this->getUid());
+		uf::stl::string name = FMT_FORMAT("RT:{}", this->getUid());
 		renderMode.blitter.process = false;
 		renderMode.execute = false;
 		renderMode.width = size.x;

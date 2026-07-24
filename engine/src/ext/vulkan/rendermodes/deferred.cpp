@@ -301,7 +301,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget/vert.spv";
 			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget/frag.spv";
 
-			uf::stl::string postProcess = ::fmt::format("{}.frag", metadata.json["postProcess"].as<uf::stl::string>("postProcess"));
+			uf::stl::string postProcess = FMT_FORMAT("{}.frag", metadata.json["postProcess"].as<uf::stl::string>("postProcess"));
 			{
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ settings::pipelines::postProcess /*&& !settings::pipelines::rt*/, postProcess },
@@ -842,7 +842,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						descriptor.bind.depth = 1;
 						descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 					}
-					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", pipeline) );
+					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", pipeline) );
 					graphic->record( commandBuffer, descriptor, 0, metadata.eyes, frame );
 				}
 			}
@@ -881,7 +881,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						if ( graphic->descriptor.renderTarget != 0 /*this->getName()*/ ) continue;
 						if ( graphic->descriptor.aux != 1 ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[skybox][{}]", currentDraw) );
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[skybox][{}]", currentDraw) );
 						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
 					}
 					// clear depth buffer
@@ -905,7 +905,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						if ( graphic->descriptor.renderTarget != 0 /*this->getName()*/ ) continue;
 						if ( graphic->descriptor.aux != 0 ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", currentDraw) );
 						graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
 					}
 				}
@@ -996,8 +996,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 							//if ( graphic->descriptor.pipeline != "forward" ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 							//descriptor.renderTarget = 1;
-							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
-							graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
+							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", currentDraw) );
+							graphic->record( commandBuffer, descriptor, 0, currentDraw++, 0 );
 						}
 					}
 				vkCmdEndRenderPass(commandBuffer);

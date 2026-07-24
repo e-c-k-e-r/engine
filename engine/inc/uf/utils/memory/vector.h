@@ -9,7 +9,7 @@ namespace uf {
 	namespace stl {
 		template<
 			class T,
-		#if UF_MEMORYPOOL_USE_STL_ALLOCATOR
+		#if UF_MEMORYPOOL_USE_ALLOCATOR
 			class Allocator = std::allocator<T>
 		#else
 			class Allocator = uf::Allocator<T>

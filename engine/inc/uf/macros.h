@@ -23,8 +23,11 @@
 	}\
 	if ( time >= x && timerState.should && (timer.reset(), true) )
 
+#define FMT_FORMAT uf::_fmt_format
+#define TO_STRING(x) FMT_FORMAT("{}", x)
+
 #if UF_USE_FMT
-	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, ::fmt::format(__VA_ARGS__));
+	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, FMT_FORMAT(__VA_ARGS__));
 #else
 	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, #__VA_ARGS__);
 #endif
@@ -53,20 +56,20 @@
 #define UF_ASSERT_BREAK(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: {}", #condition); break; }
 #define UF_ASSERT_SAFE(condition) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: {}", #condition); }
 
-#define UF_ASSERT_MSG(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: {} {}", #condition, ::fmt::format(__VA_ARGS__)); }
-#define UF_ASSERT_BREAK_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: {} {}", #condition, ::fmt::format(__VA_ARGS__)); break; }
-#define UF_ASSERT_SAFE_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: {} {}", #condition, ::fmt::format(__VA_ARGS__)); }
+#define UF_ASSERT_MSG(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: {} {}", #condition, FMT_FORMAT(__VA_ARGS__)); }
+#define UF_ASSERT_BREAK_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: {} {}", #condition, FMT_FORMAT(__VA_ARGS__)); break; }
+#define UF_ASSERT_SAFE_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: {} {}", #condition, FMT_FORMAT(__VA_ARGS__)); }
 
 #define UF_TIMER_TRACE_INIT() uf::Timer<long long> TIMER_TRACE;
 
 #define UF_TIMER_TRACE(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), ::fmt::format(__VA_ARGS__));\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), FMT_FORMAT(__VA_ARGS__));\
 }
 
 #define UF_TIMER_TRACE_RESET(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), ::fmt::format(__VA_ARGS__));\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), FMT_FORMAT(__VA_ARGS__));\
 	TIMER_TRACE.reset();\
 }
 
@@ -77,7 +80,7 @@
 
 #define UF_TIMER_MULTITRACE(...) {\
 	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_MSG_DEBUG("{} us\t{} us\t{}", TIMER_TRACE_CUR, (TIMER_TRACE_CUR - TIMER_TRACE_PREV), ::fmt::format(__VA_ARGS__));\
+	UF_MSG_DEBUG("{} us\t{} us\t{}", TIMER_TRACE_CUR, (TIMER_TRACE_CUR - TIMER_TRACE_PREV), FMT_FORMAT(__VA_ARGS__));\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 
@@ -137,7 +140,7 @@
 #if UF_LEAN_AND_MEAN
 	#define UF_DEBUG 0
 	#undef TYPE_NAME
-	#define TYPE_NAME(T) std::to_string(TYPE_HASH(T))
+	#define TYPE_NAME(T) TO_STRING(TYPE_HASH(T))
 
 	#undef UF_MSG
 	#define UF_MSG(...) {}

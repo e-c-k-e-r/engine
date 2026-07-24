@@ -75,7 +75,7 @@ uf::stl::string ext::al::getError( ALCenum error ) {
 		case AL_INVALID_OPERATION: return "AL_INVALID_OPERATION"; // the requested operation is not valid
 		case AL_OUT_OF_MEMORY: return "AL_OUT_OF_MEMORY"; // the requested operation resulted in OpenAL running out ofmemory 
 	}
-	return ::fmt::format("AL_UNKNOWN({})", error);
+	return FMT_FORMAT("AL_UNKNOWN({})", error);
 }
 
 void ext::al::Source::initialize() {

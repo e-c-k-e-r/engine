@@ -183,7 +183,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		} else {
 			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget/vert.spv";
 			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget/frag.spv"; {
-				uf::stl::string postProcess = ::fmt::format("{}.frag", metadata.json["postProcess"].as<uf::stl::string>("postProcess"));
+				uf::stl::string postProcess = FMT_FORMAT("{}.frag", metadata.json["postProcess"].as<uf::stl::string>("postProcess"));
 				
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ settings::pipelines::postProcess, postProcess },
@@ -215,8 +215,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
-			uf::stl::string vertexShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.vert.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
-			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(::fmt::format("{}/shaders/display/vr/{}.frag.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
+			uf::stl::string vertexShaderFilename = uf::io::resolveURI(FMT_FORMAT("{}/shaders/display/vr/{}.vert.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
+			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(FMT_FORMAT("{}/shaders/display/vr/{}.frag.spv", uf::io::root, metadata.json["stereo"].as<bool>(metadata.views == 2) ? "stereo" : "flat"));
 
 			blitter.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "vr");
 			blitter.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vr");
@@ -417,7 +417,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 					if ( graphic->descriptor.pipeline != uf::renderer::settings::pipelines::names::rt ) continue;
-					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", graphic->descriptor.pipeline) );
+					device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", graphic->descriptor.pipeline) );
 					graphic->record( commandBuffer );
 				}
 			} else {
@@ -440,7 +440,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 						} else {
 							UF_MSG_DEBUG("Aux pipeline: {}", pipeline);
 						}
-						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", pipeline) );
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", pipeline) );
 						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6), frame );
 					}
 				}
@@ -454,12 +454,12 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 						for ( auto graphic : graphics ) {
 							if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("graphic[{}]", currentDraw) );
+							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", currentDraw) );
 							graphic->record( commandBuffer, descriptor, currentPass, currentDraw++, frame );
 						}
 
 						VK_COMMAND_BUFFER_CALLBACK( currentPass, commandBuffer, frame, {
-							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("callback[{}]", currentPass) );
+							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("callback[{}]", currentPass) );
 						} );
 
 						if ( currentPass + 1 < subpasses ) {

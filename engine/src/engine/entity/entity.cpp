@@ -175,5 +175,5 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 }
 
 uf::stl::string uf::string::toString( const uf::Entity& entity ) {
-	return ::fmt::format("({}): {}", entity.getUid(), entity.getName());
+	return FMT_FORMAT("({}): {}", entity.getUid(), entity.getName());
 }

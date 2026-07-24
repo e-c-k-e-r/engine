@@ -29,7 +29,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "sound:Emit.%UID%", [&]( pod::PCM& waveform ){
 		/*
-		uf::stl::string fakeUri = "pcm_dynamic_" + std::to_string((size_t)&waveform);
+		uf::stl::string fakeUri = FMT_FORMAT("pcm_dynamic_{}", (size_t)&waveform);
 		if ( !uf::asset::has(fakeUri) ) {
 			auto payload = uf::asset::resolveToPayload(fakeUri, "");
 			payload.type = uf::asset::Type::AUDIO;
@@ -97,7 +97,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 	this->addHook( "sound:QueueTrack.%UID%", [&](ext::json::Value& payload){
 		uf::stl::string filename = payload["filename"].as<uf::stl::string>();
 		int layer = payload["layer"].as<int>(1);
-		uf::stl::string channelName = "managed_bgm_channel_" + std::to_string(layer);
+		uf::stl::string channelName = FMT_FORMAT("managed_bgm_channel_{}", layer);
 
 		if ( emitter.has( channelName ) ) {
 			auto& source = emitter.get(channelName);
@@ -139,7 +139,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 			pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( payload.filename );
 			
 			int layer = payload.metadata["layer"].as<int>(1);
-			uf::stl::string channelName = "managed_bgm_channel_" + std::to_string(layer);
+			uf::stl::string channelName = FMT_FORMAT("managed_bgm_channel_{}", layer);
 
 			if ( emitter.has( channelName ) ) {
 				uf::audio::stop( emitter.get( channelName ) );

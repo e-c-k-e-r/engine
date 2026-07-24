@@ -10,7 +10,21 @@
 
 namespace uf {
 	namespace string {
-		template<typename T> uf::stl::string sha256( const T& input ) { return picosha2::hash256_hex_string(input); }
+		template<typename T>
+		uf::stl::string sha256( const T& input ) {
+			unsigned char raw_hash[32];
+			picosha2::hash256(input.begin(), input.end(), raw_hash, raw_hash + 32);
+
+			uf::stl::string result;
+			result.reserve(64);
+			const char hex_chars[] = "0123456789abcdef";
+			for (int i = 0; i < 32; ++i) {
+				result.push_back(hex_chars[(raw_hash[i] >> 4) & 0x0F]);
+				result.push_back(hex_chars[raw_hash[i] & 0x0F]);
+			}
+
+			return result;
+		}
 	}
 
 	namespace literals {

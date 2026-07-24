@@ -17,7 +17,7 @@
 
 namespace {
 	uf::stl::string keyedID( size_t id ) {
-		return ::fmt::format("{}", id);
+		return FMT_FORMAT("{}", id);
 	}
 
 	// lazy load animations if requested

@@ -194,12 +194,12 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	uf::scene::scenes.emplace_back( scene );
 
 	uf::stl::string filename = _filename;
-	if ( _filename == "" ) filename = ::fmt::format("/{}/scene.json", uf::string::lowercase(name));
+	if ( _filename == "" ) filename = FMT_FORMAT("/{}/scene.json", uf::string::lowercase(name));
 	scene->load(filename);
 
 	auto& metadata = scene->getComponent<uf::SceneBehavior::Metadata>();
 	auto& metadataObject = scene->getComponent<uf::ObjectBehavior::Metadata>();
-	auto mountUri = ::fmt::format("://{}", uf::vfs::resolveBase( metadataObject.system.root ) );
+	auto mountUri = FMT_FORMAT("://{}", uf::vfs::resolveBase( metadataObject.system.root ) );
 	auto mount = uf::vfs::mount( uf::vfs::createDiskMount( mountUri, 200 ) );
 	metadata.mount.hash = mount.hash;
 

@@ -70,9 +70,9 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 
 	if ( magSq < viewThresholdSq && dot > angleThreshold ) {
 		STATIC_THREAD_LOCAL(uf::stl::vector<uf::stl::string>, strings);
-		strings.emplace_back( ::fmt::format("{}\n", uf::string::toString( *body.object ) ) );
-		strings.emplace_back( ::fmt::format("Mass: {:.3f} kg ({})\n", body.inverseMass == 0.0f ? 0.0f : 1.0f / body.inverseMass, impl::similarMass( body )) );
-		strings.emplace_back( ::fmt::format(
+		strings.emplace_back( FMT_FORMAT("{}\n", uf::string::toString( *body.object ) ) );
+		strings.emplace_back( FMT_FORMAT("Mass: {:.3f} kg ({})\n", body.inverseMass == 0.0f ? 0.0f : 1.0f / body.inverseMass, impl::similarMass( body )) );
+		strings.emplace_back( FMT_FORMAT(
 			"Position: {} | Pitch: {:.1f} | Yaw: {:.1f} | Roll: {:.1f}\n",
 			uf::vector::toString( transform.position, "{}" ),
 			(RAD_2_DEG) * uf::quaternion::pitch( transform.orientation ),
@@ -80,10 +80,10 @@ void impl::drawBody( const pod::PhysicsBody& body ) {
 			(RAD_2_DEG) * uf::quaternion::roll( transform.orientation )
 		) );
 		if ( uf::vector::magnitude( body.velocity ) > EPS2 || uf::vector::magnitude( body.angularVelocity ) > EPS2 ) {
-			strings.emplace_back( ::fmt::format( "Velocity: {} | Angular Velocity: {}\n", uf::vector::toString( body.velocity, "{}" ), uf::vector::toString( body.angularVelocity, "{}" ) ) ); 
+			strings.emplace_back( FMT_FORMAT( "Velocity: {} | Angular Velocity: {}\n", uf::vector::toString( body.velocity, "{}" ), uf::vector::toString( body.angularVelocity, "{}" ) ) ); 
 		}
-		strings.emplace_back( ::fmt::format("Awake: {} | Timer: {:.3f} | Grounded: {}\n", body.activity.awake, body.activity.sleepTimer, body.activity.grounded) );
-		strings.emplace_back( ::fmt::format("Category: {:#X} | Mask: {:#X}", body.collider.category, body.collider.mask) );
+		strings.emplace_back( FMT_FORMAT("Awake: {} | Timer: {:.3f} | Grounded: {}\n", body.activity.awake, body.activity.sleepTimer, body.activity.grounded) );
+		strings.emplace_back( FMT_FORMAT("Category: {:#X} | Mask: {:#X}", body.collider.category, body.collider.mask) );
 		uf::debug::drawText( uf::string::join(strings, ""), position );
 	}
 }

@@ -76,7 +76,7 @@ namespace uf {
 
 		size_t UF_API size( const pod::MemoryPool& );
 		size_t UF_API allocated( const pod::MemoryPool& );
-		uf::stl::string UF_API stats( const pod::MemoryPool& );
+		uf::stl::string UF_API stats( const pod::MemoryPool&, bool readable = false );
 		void UF_API initialize( pod::MemoryPool&, size_t, pod::MemoryPool::Strategy = pod::MemoryPool::Strategy::BUDDY, size_t = 0 );
 		void UF_API destroy( pod::MemoryPool& );
 
@@ -107,7 +107,7 @@ namespace uf {
 
 		inline size_t size() const;
 		inline size_t allocated() const;
-		inline uf::stl::string stats() const;
+		inline uf::stl::string stats( bool readable = false ) const;
 		inline void initialize( size_t size, pod::MemoryPool::Strategy = pod::MemoryPool::Strategy::BUDDY, size_t = 0 );
 		inline void destroy();
 

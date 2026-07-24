@@ -42,7 +42,7 @@ bool uf::memoryPool::free( pod::MemoryPool& pool, const T& data ) {
 
 size_t uf::MemoryPool::size() const { return uf::memoryPool::size( *this ); }
 size_t uf::MemoryPool::allocated() const { return uf::memoryPool::allocated( *this ); }
-uf::stl::string uf::MemoryPool::stats() const { return uf::memoryPool::stats( *this ); }
+uf::stl::string uf::MemoryPool::stats( bool readable ) const { return uf::memoryPool::stats( *this, readable ); }
 void uf::MemoryPool::initialize( size_t size, pod::MemoryPool::Strategy strategy, size_t chunkSize ) { return uf::memoryPool::initialize( *this, size, strategy, chunkSize ); }
 void uf::MemoryPool::destroy() { return uf::memoryPool::destroy( *this ); }
 

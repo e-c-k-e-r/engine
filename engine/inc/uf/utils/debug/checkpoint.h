@@ -29,5 +29,5 @@ namespace uf {
 	}
 }
 
-#define UF_CHECKPOINT_INFO(...) ::fmt::format("{}:{}@{}", __FILE__, __FUNCTION__, __LINE__)
+#define UF_CHECKPOINT_INFO(...) FMT_FORMAT("{}:{}@{}", __FILE__, __FUNCTION__, __LINE__)
 #define UF_CHECKPOINT_MARK(COMMAND_BUFFER, TYPE, NAME, ...) markCommandBuffer( COMMAND_BUFFER, TYPE, NAME, UF_CHECKPOINT_INFO() );

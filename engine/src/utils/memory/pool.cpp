@@ -51,6 +51,8 @@ namespace {
 	inline bool getBit(uint8_t* bitset, size_t index) {
 		return (bitset[index / 8] & (1 << (index % 8))) != 0;
 	}
+
+	size_t subpoolSizes = 0;
 }
 
 bool uf::memoryPool::subPool = true;
@@ -64,6 +66,7 @@ void uf::memoryPool::initialize( pod::MemoryPool& pool, size_t size, pod::Memory
 	pool.size = size;
 	pool.strategy = strategy;
 	if ( uf::memoryPool::subPool && &pool != &uf::memoryPool::global.data() ) {
+		subpoolSizes += size;
 		pool.memory = uf::memoryPool::global.alloc( size );
 	} else {
 		pool.memory = uf::allocator::malloc_m( size );
@@ -136,6 +139,7 @@ void uf::memoryPool::initialize( pod::MemoryPool& pool, size_t size, pod::Memory
 void uf::memoryPool::destroy( pod::MemoryPool& pool ) {
 	if ( uf::memoryPool::size( pool ) <= 0 || !pool.memory ) goto CLEAR;
 	if ( uf::memoryPool::subPool && &pool != &uf::memoryPool::global.data() ) {
+		subpoolSizes -= pool.size;
 		uf::memoryPool::global.free( pool.memory, pool.size );
 	} else {
 		uf::allocator::free_m( pool.memory, pool.size );
@@ -386,7 +390,7 @@ MANUAL_FREE:
 #endif
 
 #if UF_MEMORYPOOL_INVALID_FREE
-	UF_MSG_DEBUG("memory pool {}: manually freeing {}", (void*) &pool, pointer );
+	//UF_MSG_DEBUG("memory pool {}: manually freeing {}", (void*) &pool, pointer );
 	uf::allocator::free_m(pointer);
 	return true;
 #else
@@ -413,15 +417,47 @@ bool uf::memoryPool::exists( pod::MemoryPool& pool, void* pointer, size_t size )
 size_t uf::memoryPool::allocated( const pod::MemoryPool& pool ) {
 	return pool.used;
 }
-uf::stl::string uf::memoryPool::stats( const pod::MemoryPool& pool ) {
+uf::stl::string uf::memoryPool::stats( const pod::MemoryPool& pool, bool readable ) {
 	uf::Serializer metadata;
-	metadata["size"] = pool.size;
-	metadata["used"] = pool.used;
-	metadata["free"] = pool.size - pool.used;
-	metadata["strategy"] = (int) pool.strategy;
+	auto size = pool.size;
+	auto used = pool.used;
+	auto free = pool.size - pool.used;
+	if ( readable ) {
+		uf::stl::string strategy;
+		switch ( pool.strategy ) {
+			case pod::MemoryPool::Strategy::LINEAR: {
+				strategy = "linear";
+			} break;
+			case pod::MemoryPool::Strategy::POOL: {
+				strategy = "pool";
+			} break;
+			case pod::MemoryPool::Strategy::SEGREGATED: {
+				strategy = "segregated";
+			} break;
+			case pod::MemoryPool::Strategy::BUDDY: {
+				strategy = "buddy";
+			} break;
+			default: {
+				strategy = "?";
+			} break;
+		}
+		// if global pool, offset by subpool sizes
+		if ( &pool == &uf::memoryPool::global.data() ) {
+			size -= subpoolSizes;
+			used -= subpoolSizes;
+			free -= subpoolSizes;
+		}
 
-	uf::stl::stringstream ss; ss << std::hex << (void*) pool.memory;
-	metadata["pool"] = ss.str();
+		metadata["size"] = uf::string::si( size, "B" );
+		metadata["used"] = uf::string::si( used, "B" );
+		metadata["free"] = uf::string::si( free, "B" );
+		metadata["strategy"] = strategy;
+	} else {
+		metadata["size"] = size;
+		metadata["used"] = used;
+		metadata["free"] = free;
+		metadata["strategy"] = (int) pool.strategy;
+	}
 	return metadata;
 }
 /*

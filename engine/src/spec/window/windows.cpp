@@ -322,7 +322,7 @@ namespace {
 			CASE_KEY_RETURN('9', "Num9");
 			CASE_KEY_RETURN('0', "Num0");
 		}
-		return ::fmt::format("{}", key);
+		return FMT_FORMAT("{}", key);
 	}
 	uf::stl::string GetKeyName( WPARAM key, LPARAM flags = 0 ) {
 		return uf::string::uppercase( _GetKeyName( key, flags ) );
@@ -865,7 +865,7 @@ void spec::win32::Window::processEvents() {
 		};
 	#if UF_HOOK_USE_JSON			
 		ext::json::Value json;	
-		json["type"] 							= ::fmt::format("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
+		json["type"] 							= FMT_FORMAT("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
 		json["invoker"] 						= event.invoker;
 		json["key"]["code"] 					= "";
 		json["key"]["raw"] 						= 0;
@@ -881,7 +881,7 @@ void spec::win32::Window::processEvents() {
 			event.key.code 	= code;
 			event.key.raw  	= key;
 
-		auto eventName = ::fmt::format("{}.{}", event.type, code);
+		auto eventName = FMT_FORMAT("{}.{}", event.type, code);
 		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 			this->pushEvent(eventName, event);
@@ -1145,14 +1145,14 @@ void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lPara
 						}
 					}
 				};
-				auto eventName = ::fmt::format("{}.{}", event.type, event.key.code);
+				auto eventName = FMT_FORMAT("{}.{}", event.type, event.key.code);
 				#if UF_HOOK_USE_USERDATA
 					this->pushEvent(event.type, event);
 					this->pushEvent(eventName, event);
 				#endif
 				#if UF_HOOK_USE_JSON
 					ext::json::Value json;
-					json["type"] 							= ::fmt::format("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
+					json["type"] 							= FMT_FORMAT("{}.{}", event.type, (event.key.state == -1) ? "Pressed" : "Released");
 					json["invoker"] 						= event.invoker;
 					json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
 					json["key"]["async"] 					= event.key.async;

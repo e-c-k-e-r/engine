@@ -48,7 +48,7 @@ pod::Thread& uf::thread::fetchWorker( const uf::stl::string& name ) {
 
 	while ( tries++ < limit ) {
 		int val = current.fetch_add(1, std::memory_order_relaxed);
-		auto workerName = ::fmt::format("{} {}", name, val % limit);
+		auto workerName = FMT_FORMAT("{} {}", name, val % limit);
 		auto& pod = uf::thread::get( workerName );
 		if ( std::this_thread::get_id() == pod.thread.get_id() ) continue; // do not queue to current thread
 		return pod;
