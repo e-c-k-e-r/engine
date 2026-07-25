@@ -3,7 +3,6 @@
 #include <uf/config.h>
 #if UF_USE_DC_TEXCONV
 
-#include <iostream>
 #include <fstream>
 #include <algorithm>
 

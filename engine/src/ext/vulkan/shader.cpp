@@ -236,7 +236,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 			std::regex regex("^(?:(.+?)\\<)?(.+?)(?:\\>)?(?:\\[(\\d+)\\])?$");
 			std::smatch match;
 			if ( !std::regex_search( type, match, regex ) ) {
-				std::cout << "Ill formatted typename: " << definition["name"].as<uf::stl::string>() << std::endl;
+				UF_MSG_ERROR("Ill formatted typename: {}", definition["name"].as<uf::stl::string>());
 				return;
 			}
 			uf::stl::string vectorMatrix = match[1].str();

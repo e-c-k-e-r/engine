@@ -2,8 +2,10 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/locale.h>
 
+#if !UF_ENV_DREAMCAST
 #include <locale>
 #include <clocale>
+#endif
 
 
 spec::Terminal spec::terminal;
@@ -18,7 +20,7 @@ void spec::uni::Terminal::hide() {
 void spec::uni::Terminal::show() {
 }
 void spec::uni::Terminal::setLocale() {
-#if !UF_ENV_DREAMCAST
+#if UF_USE_DEPRECATED_STRING
 	const char* locales[4] = {
 		"", "C.utf8", "C", "POSIX"
 	};
@@ -30,7 +32,7 @@ void spec::uni::Terminal::setLocale() {
 			uf::locale::current = name;
 			break;
 		} catch ( ... ) {
-			std::cout << "Attempted to set invalid locale: " << name << std::endl;
+			UF_MSG_ERROR("Attempted to set invalid locale: {}", name);
 			continue;
 		}
 	}

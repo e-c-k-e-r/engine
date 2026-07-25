@@ -1,5 +1,4 @@
 #include <uf/utils/image/atlas.h>
-#include <iostream>
 #include <bit>
 
 #define STB_RECT_PACK_IMPLEMENTATION

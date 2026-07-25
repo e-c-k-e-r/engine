@@ -28,7 +28,6 @@
 #include <unistd.h>
 
 #include <cstring>
-#include <iostream>
 
 #define None 0L
 #define Success 0

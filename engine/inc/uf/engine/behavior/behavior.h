@@ -29,11 +29,12 @@ namespace pod {
 		type_t type = TYPE(void);
 		Traits traits{};
 
-		typedef std::function<void(uf::Object&)> function_t;
-		function_t initialize = function_t();
-		function_t tick = function_t();
-		function_t render = function_t();
-		function_t destroy = function_t();
+	//	typedef std::function<void(uf::Object&)> function_t;
+		typedef void(*function_t)(uf::Object&);
+		function_t initialize = NULL;
+		function_t tick = NULL;
+		function_t render = NULL;
+		function_t destroy = NULL;
 	};
 }
 
@@ -72,7 +73,6 @@ namespace uf {
 		
 		void generateGraph();
 	};
-
 }
 
 #include "macros.inl"

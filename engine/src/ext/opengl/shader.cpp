@@ -8,7 +8,6 @@
 #include <uf/ext/gltf/gltf.h>
 
 #include <fstream>
-#include <regex>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;

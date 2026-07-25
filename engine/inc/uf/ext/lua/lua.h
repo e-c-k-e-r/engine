@@ -64,5 +64,11 @@ namespace ext {
 }
 
 #include "lua.inl"
+#else
+
+#define UF_LUA_REGISTER_USERTYPE_MEMBER(...)
+#define UF_LUA_REGISTER_USERTYPE(...)
+#define UF_LUA_REGISTER_COMPONENT(...)
+#define UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(...)
 
 #endif

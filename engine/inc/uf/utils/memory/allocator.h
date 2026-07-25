@@ -6,7 +6,12 @@
 #include <type_traits>
 
 #define UF_MEMORYPOOL_USE_ALLOCATOR 1
-#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 1
+
+#if __clang__
+	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
+#else
+	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 1
+#endif
 
 namespace uf {
 	namespace allocator {
@@ -28,7 +33,6 @@ namespace uf {
 
 		T* allocate( size_t n ) {
 			void* p = uf::allocator::allocate( n * sizeof(T) );
-			if ( !p ) throw std::bad_alloc();
 			return static_cast<T*>(p);
 		}
 
@@ -53,7 +57,6 @@ namespace uf {
 
 		T* allocate( size_t n ) {
 			void* p = uf::allocator::malloc_m( n * sizeof(T) );
-			if ( !p ) throw std::bad_alloc();
 			return static_cast<T*>( p );
 		}
 

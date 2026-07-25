@@ -1,6 +1,5 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/io/iostream.h>
-#include <iostream>
 #include <future>
 
 uf::thread::container_t uf::thread::threads;

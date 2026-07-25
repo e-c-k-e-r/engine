@@ -135,7 +135,7 @@ bool uf::instantiator::valid( uf::Entity* pointer ) {
 }
 
 void uf::instantiator::registerBehavior( const uf::stl::string& name, const pod::Behavior& behavior ) {
-	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;\
+	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;
 	(*uf::instantiator::behaviors)[name] = behavior;
 #if UF_INSTANTIATOR_ANNOUNCE
 	UF_MSG_DEBUG("Registered behavior for {} | {}", name, behavior.type.name().str());

@@ -1,12 +1,12 @@
 # Defaults
 ARCH 				= $(shell cat "./makefiles/default/arch")
-CC 					= $(shell cat "./makefiles/default/cc")
+COMPILER 			= $(shell cat "./makefiles/default/cc")
 RENDERER 			= $(shell cat "./makefiles/default/renderer")
 TARGET_NAME 		= program
 TARGET_EXTENSION 	= .exe
 DLIB_EXTENSION 		= .dll
 SLIB_EXTENSION 		= .a
-PREFIX 				= $(ARCH).$(CC).$(RENDERER)
+PREFIX 				= $(ARCH).$(COMPILER).$(RENDERER)
 
 # Basic Paths
 7Z 					?= /c/Program\ Files/7-Zip/7z.exe
@@ -28,17 +28,18 @@ FLAGS 				+= -std=c++2b $(OPTIMIZATIONS) $(WARNINGS) -fdiagnostics-color=always 
 # Base Library Definitions
 LIB_NAME 			+= uf
 EXT_LIB_NAME 		+= ext
-PREFIX_PATH 		= $(ARCH)/$(CC)/$(RENDERER)
+PREFIX_PATH 		= $(ARCH)/$(COMPILER)/$(RENDERER)
 INC_DIR 			+= $(ENGINE_INC_DIR)
 LIB_DIR 			+= $(ENGINE_LIB_DIR)
 
 INCS 				+= -I$(ENGINE_INC_DIR) -I./dep/include/
-LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH)/ -L$(LIB_DIR)/$(ARCH)/$(CC)/ -L$(LIB_DIR)/$(ARCH)/
+LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH)/ -L$(LIB_DIR)/$(ARCH)/$(COMPILER)/ -L$(LIB_DIR)/$(ARCH)/
 LINKS 				+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 
 # DLL
 SRCS_DLL 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
-OBJS_DLL 			+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
+SRCS_DLL_C 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.c") $(shell find $(DEP_SRC_DIR) -name "*.c")
+OBJS_DLL 			+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.c,%.$(PREFIX).o,$(SRCS_DLL_C))
 BASE_DLL 			+= lib$(LIB_NAME)
 
 IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)$(DLIB_EXTENSION)
@@ -71,7 +72,7 @@ TARGET_SHADERS 		+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 .PHONY: $(PREFIX) clean run run-debug clean-shaders backup
 .FORCE:
 
-include makefiles/platforms/$(ARCH).$(CC).mk
+include makefiles/platforms/$(ARCH).$(COMPILER).mk
 
 ifneq (,$(findstring win64,$(ARCH)))
 	include makefiles/platforms/win64.mk
@@ -89,6 +90,9 @@ $(PREFIX): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
 %.$(PREFIX).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
+
+%.$(PREFIX).o: %.c
+	$(CC) $(FLAGS) $(INCS) -c $< -o $@
 
 ifneq ($(ARCH),dreamcast)
 $(TARGET): $(OBJS)
@@ -116,13 +120,13 @@ clean-shaders:
 
 run:
 	@echo -n $(ARCH) > "./bin/exe/default/arch"
-	@echo -n $(CC) > "./bin/exe/default/cc"
+	@echo -n $(COMPILER) > "./bin/exe/default/cc"
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
 	./program.sh
 
 run-debug:
 	@echo -n $(ARCH) > "./bin/exe/default/arch"
-	@echo -n $(CC) > "./bin/exe/default/cc"
+	@echo -n $(COMPILER) > "./bin/exe/default/cc"
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
 	./debug.sh
 

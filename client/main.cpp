@@ -79,7 +79,6 @@ int main(int argc, char** argv){
 		std::string string(argv[i]);
 		// uf::arguments.emplace_back(string);
 	}
-
 	std::atexit(::handlers::exit);
 	signal(SIGABRT, ::handlers::abrt);
 	signal(SIGSEGV, ::handlers::segv);

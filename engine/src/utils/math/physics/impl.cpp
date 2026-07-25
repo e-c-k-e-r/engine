@@ -83,7 +83,7 @@ void uf::physics::terminate( pod::World& world ) {
 }
 
 // Implementation
-void uf::physics::substep( pod::World& world, float dt, int32_t substeps ) {
+void uf::physics::substep( pod::World& world, float dt, int substeps ) {
 	float h = dt / substeps;
 	for ( auto i = 0; i < substeps; ++i ) {
 		uf::physics::step( world, h );

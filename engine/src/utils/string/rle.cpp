@@ -1,7 +1,6 @@
 /*
 #include <uf/utils/string/rle.h>
 
-#include <iostream>
 pod::RLE::string_t uf::rle::encode( const uf::stl::vector<uint16_t>& source ) {
 	pod::RLE::string_t destination;
 	destination.reserve( source.size() );

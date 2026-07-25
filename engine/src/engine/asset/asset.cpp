@@ -1,10 +1,8 @@
 #include <uf/engine/asset/asset.h>
-#include <regex>
 #include <functional>
 #include <iomanip>
 #include <sys/stat.h>
 #include <fstream>
-#include <iostream>
 
 #include <uf/utils/image/image.h>
 #include <uf/utils/audio/audio.h>

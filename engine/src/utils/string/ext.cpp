@@ -4,43 +4,82 @@
 #include <iomanip>
 #include <sstream>
 #include <cmath>
-#include <iostream>
+#include <re.h>
 
-#include <regex>
-
-/*
-bool uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
-	std::regex regex(r);
-	std::smatch match;
-	return std::regex_search( str, match, regex );
-}
-*/
 bool uf::string::isRegex( const uf::stl::string& str ) {
 	return str.size() > 2 && str.front() == '/' && str.back() == '/';
 }
 
-uf::stl::vector<uf::stl::string> uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
+bool uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
 	uf::stl::string pattern = uf::string::isRegex(r) ? r.substr(1, r.length() - 2) : r;
-	std::regex regex(pattern.c_str());
 
-	std::cmatch match;
+	int match_length;
+	int match_idx = re_match(pattern.c_str(), str.c_str(), &match_length);
+
+	return (match_idx != -1);
+}
+
+uf::stl::vector<uf::stl::string> uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 	uf::stl::vector<uf::stl::string> matches;
+	uf::stl::string pattern = uf::string::isRegex(r) ? r.substr(1, r.length() - 2) : r;
 
-	if ( std::regex_search( str.c_str(), match, regex ) ) {
-		for ( auto& m : match ) {
-			matches.emplace_back(m.first, m.length());
+	re_t regex = re_compile(pattern.c_str());
+	if ( !regex ) return matches;
+
+	const char* cursor = str.c_str();
+	int match_length = 0;
+
+	int match_idx;
+	while ( (match_idx = re_matchp(regex, cursor, &match_length)) != -1 ) {
+		matches.emplace_back(cursor + match_idx, match_length);
+		cursor += match_idx + match_length;
+		if ( match_length == 0 ) {
+			if (*cursor == '\0') break;
+			cursor++;
 		}
 	}
 
 	return matches;
 }
 
-bool uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
-	uf::stl::string pattern = uf::string::isRegex(r) ? r.substr(1, r.length() - 2) : r;
-	std::regex regex(pattern.c_str());
-	std::cmatch match;
+uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace, bool regexp ) {
+	uf::stl::string result;
 
-	return std::regex_search( str.c_str(), match, regex );
+	if ( !regexp ) {
+		result = string;
+		if ( search.empty() ) return result;
+		size_t start_pos = 0;
+		while ( (start_pos = result.find(search, start_pos)) != uf::stl::string::npos ) {
+			result.replace(start_pos, search.length(), replace);
+			start_pos += replace.length();
+		}
+		return result;
+	}
+
+	uf::stl::string pattern = search.substr(1, search.length() - 2);
+	re_t regex = re_compile(pattern.c_str());
+	if ( !regex ) return string;
+
+	const char* cursor = string.c_str();
+	int match_length = 0;
+	int match_idx = 0;
+
+	while ( (match_idx = re_matchp(regex, cursor, &match_length)) != -1 ) {
+		result.append(cursor, match_idx);
+
+		result.append(replace);
+
+		cursor += match_idx + match_length;
+
+		if ( match_length == 0 ) {
+			if (*cursor == '\0') break;
+			result.push_back(*cursor);
+			cursor++;
+		}
+	}
+
+	result.append(cursor);
+	return result;
 }
 
 uf::stl::string uf::string::lowercase( const uf::stl::string& str ) {
@@ -114,23 +153,7 @@ uf::stl::string uf::string::trim( const uf::stl::string& str ) {
 uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
 	return uf::string::replace( string, search, replace, uf::string::isRegex( search ) );
 }
-uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace, bool regexp ) {
-	uf::stl::string result = string;
 
-	if ( regexp ) {
-		std::regex regex(search.substr(1,search.length()-2));
-		return std::regex_replace( string, regex, replace );
-	}
-	if ( search.empty() ) return result;
-
-	size_t start_pos = 0;
-	while ( (start_pos = result.find(search, start_pos)) != uf::stl::string::npos ) {
-		result.replace(start_pos, search.length(), replace);
-		start_pos += replace.length();
-	}
-
-	return result;
-}
 bool uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {
 	return string.find(search) != uf::stl::string::npos;
 }

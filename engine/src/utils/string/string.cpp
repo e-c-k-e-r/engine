@@ -1,9 +1,10 @@
+#if UF_USE_DEPRECATED_STRING
+uf::stl::string uf::locale::current;
+
 #include <uf/utils/string/string.h>
 #include <uf/utils/string/encoding.h>
 
-uf::stl::string uf::locale::current;
 
-#if UF_USE_DEPRECATED_STRING
 uf::String::String() {
 }
 // 	ANSI literals/strings

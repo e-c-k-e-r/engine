@@ -1,7 +1,9 @@
 ifneq (,$(findstring ffx:sdk,$(REQ_DEPS)))
 	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
-		FLAGS += -DUF_USE_FFX_SDK=3
-		DEPS  := -lffx_fsr3_x64 -lffx_fsr2_x64 -lffx_fsr3upscaler_x64 -lffx_frameinterpolation_x64 -lffx_opticalflow_x64 -lffx_backend_vk_x64 -lamd_fidelityfx_vk $(DEPS)
+		ifneq (,$(findstring gcc,$(REQ_DEPS)))
+			FLAGS += -DUF_USE_FFX_SDK=3
+			DEPS  := -lffx_fsr3_x64 -lffx_fsr2_x64 -lffx_fsr3upscaler_x64 -lffx_frameinterpolation_x64 -lffx_opticalflow_x64 -lffx_backend_vk_x64 -lamd_fidelityfx_vk $(DEPS)
+		endif
 	endif
 endif
 

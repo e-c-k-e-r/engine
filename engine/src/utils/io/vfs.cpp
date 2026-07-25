@@ -2,16 +2,52 @@
 #include <uf/utils/io/file.h>
 #include <uf/utils/math/hash.h>
 #include <algorithm>
-#include <filesystem>
 #include <sys/stat.h>
 
+#if UF_ENV_DREAMCAST
+	#include <kos/fs.h>
+	#include <kos/limits.h>
+#else
+	#include <filesystem>
+#endif
+
 namespace {
+#if UF_ENV_DREAMCAST
+	void ls_kos( const uf::stl::string& basePath, const uf::stl::string& currentSubDir, const uf::stl::string& extension, bool recursive, uf::stl::vector<uf::stl::string>& files ) {
+		uf::stl::string fullPath = basePath + currentSubDir;
+
+		file_t fd = fs_open(fullPath.c_str(), O_DIR | O_RDONLY);
+		if (fd == FILEHND_INVALID) return;
+
+		const dirent_t* entry;
+		while ( (entry = fs_readdir(fd)) != nullptr ) {
+			if (entry->name[0] == '.' && (entry->name[1] == '\0' || (entry->name[1] == '.' && entry->name[2] == '\0'))) {
+				continue;
+			}
+
+			uf::stl::string fname = entry->name;
+			uf::stl::string relPath = currentSubDir.empty() ? fname : currentSubDir + "/" + fname;
+			bool isDir = (entry->size < 0) || (entry->attr & O_DIR);
+			if ( isDir ) {
+				if ( recursive ) {
+					::ls_kos(basePath, relPath, extension, recursive, files);
+				}
+			} else {
+				if (extension.empty() || fname.ends_with(extension)) {
+					files.emplace_back(relPath);
+				}
+			}
+		}
+		fs_close(fd);
+	}
+
+#endif
 	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ) {
 		uf::stl::string path = mount.path + file;
 		#if UF_ENV_DREAMCAST
-			FILE* file = fopen(path.c_str(), "r");
-			if ( file ) {
-				fclose(file);
+			FILE* f = fopen(path.c_str(), "r");
+			if ( f ) {
+				fclose(f);
 				return true;
 			}
 			return false;
@@ -57,8 +93,12 @@ namespace {
 
 	uf::stl::vector<uf::stl::string> vfs_list( pod::Mount& mount, const uf::stl::string& dir, const uf::stl::string& extension = "", bool recursive = false ) {
 		uf::stl::vector<uf::stl::string> files;
+		
 		uf::stl::string path = mount.path + dir;
-
+	#if UF_ENV_DREAMCAST
+		if ( !path.ends_with("/") ) path += "/";
+		::ls_kos( path, "", extension, recursive, files );
+	#else
 		if ( !std::filesystem::exists(path) ) return files;
 
 		if ( recursive ) {
@@ -84,6 +124,7 @@ namespace {
 				}
 			}
 		}
+	#endif
 		return files;
 	}
 
@@ -450,19 +491,20 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	return path;
 }
 
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "mdl://./data/models", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "scene://./data/scenes", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "ent://./data/entities", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "tex://./data/textures", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "snd://./data/audio", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "spv://./data/shaders", 100 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "lua://./data/scripts", 100 );
-
-#if UF_USE_DREAMCAST
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "data:///cd/", 50 );
+#if UF_ENV_DREAMCAST
+	#define VFS_BASE "/cd/"
 #else
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "data://./data", 50 );
+	#define VFS_BASE "./data/"
 #endif
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "", 0 );
 
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "mdl://" VFS_BASE "models", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "scene://" VFS_BASE "scenes", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "ent://" VFS_BASE "entities", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "tex://" VFS_BASE "textures", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "snd://" VFS_BASE "audio", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "spv://" VFS_BASE "shaders", 100 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "lua://" VFS_BASE "scripts", 100 );
+
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "data://" VFS_BASE, 50 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "", 0 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "sys://", 999 );

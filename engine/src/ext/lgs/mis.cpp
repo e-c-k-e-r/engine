@@ -193,6 +193,24 @@ namespace impl {
 		uint32_t pad;
 	};
 
+	struct PropertyJointPos {
+		float el[6];
+	};
+
+	struct PropertyBitmapWorldspace {
+		float x_size;
+		float y_size;
+		float x_feet_per_tile;
+		float y_feet_per_tile;
+	};
+
+	enum PropertyRenderTypeEnum : int32_t {
+		RENDER_NORMALLY = 0,
+		RENDER_NOT_AT_ALL = 1,
+		RENDER_UNLIT = 2,
+		RENDER_EDITOR_ONLY = 3,
+	};
+
 	struct PropertyPhysType {
 		enum int32_t {
 			OBB	  		= 0,
@@ -445,6 +463,17 @@ namespace impl {
 			uf::stl::unordered_map<int32_t, int32_t> tripFlags;
 			
 			uf::stl::unordered_map<int32_t, uf::stl::vector<uf::stl::string>> script;
+
+			uf::stl::unordered_map<int32_t, int32_t> hasRefs;
+			uf::stl::unordered_map<int32_t, float> renderAlpha;
+			uf::stl::unordered_map<int32_t, float> selfIllum;
+			uf::stl::unordered_map<int32_t, int32_t> objShad;
+			uf::stl::unordered_map<int32_t, int32_t> renderType;
+			uf::stl::unordered_map<int32_t, int32_t> invisible;
+
+			uf::stl::unordered_map<int32_t, PropertyJointPos> jointPos;
+			uf::stl::unordered_map<int32_t, PropertyBitmapWorldspace> bitmapWorldspace;
+			uf::stl::unordered_map<int32_t, int32_t> bitmapAnimation;
 		} properties;
 
 		uf::stl::unordered_map<uf::stl::string, uf::stl::string> fileDatabase;
@@ -1110,11 +1139,88 @@ namespace impl {
 			material.indexMetallicRoughness = -1;
 			material.indexOcclusion = -1;
 			material.indexCubemap = -1;
-
-			if ( matName.find("glass") != uf::stl::string::npos ) {
-				material.modeAlpha = pod::Material::AlphaMode::BLEND;
-			} else if ( hasTransparency ) {
+		/*
+			if ( hasTransparency ) {
 				material.modeAlpha = pod::Material::AlphaMode::MASK;
+			}
+		*/
+			uf::stl::string mtlPath = targetPath;
+			size_t extPos = mtlPath.find_last_of('.');
+			if ( extPos != uf::stl::string::npos ) {
+				mtlPath = mtlPath.substr(0, extPos) + ".mtl";
+			}
+
+			uf::stl::vector<uint8_t> mtlBuffer;
+			if ( uf::io::exists( mtlPath ) && uf::io::readAsBuffer( mtlBuffer, mtlPath ) ) {
+				uf::stl::string mtlText(mtlBuffer.begin(), mtlBuffer.end());
+				std::transform(mtlText.begin(), mtlText.end(), mtlText.begin(), ::tolower);
+
+				UF_MSG_DEBUG("Found NewDark MTL for: {}: {}", matName, mtlText);
+			}
+		}
+	}
+
+	void processMaterials( pod::Graph& graph, impl::DarkContext& ctx ) {
+		auto& storage = uf::graph::getStorage(graph);
+
+		uf::stl::unordered_set<uf::stl::string> updated;
+		
+		for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
+			auto& node = graph.nodes[nodeID];
+			if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+
+			auto& renderMeta = node.metadata["dark"]["render"];
+			if ( !renderMeta.isObject() ) continue;
+
+			float alpha = renderMeta["alpha"].as<float>(1.0f);
+			float selfIllum = renderMeta["emissive"].as<float>(0.0f);
+			bool unlit = renderMeta["unlit"].as<bool>(false);
+
+			// If this node uses standard opaque/lit rendering, no patching needed.
+			if ( alpha >= 1.0f && selfIllum <= 0.0f && !unlit ) continue;
+
+			// Check if this node owns a light (for tinting emissives)
+			auto nameID = FMT_FORMAT( "{}_{}", node.name, nodeID );
+			auto lightName = node.name;
+			if ( graph.lights.count( nameID ) > 0 ) lightName = nameID;
+			bool hasLight = graph.lights.count( lightName ) > 0;
+
+			// Iterate primitives for materials
+			auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
+			for ( auto& primitive : primitives ) {
+				auto materialID = primitive.instance.materialID;
+				if ( !(0 <= materialID && materialID <= graph.materials.size()) ) continue;
+
+				auto& materialName = graph.materials[materialID];
+				auto& material = storage.materials[materialName];
+
+				if ( updated.count( materialName ) ) continue;
+				updated.insert( materialName );
+
+				// Apply Alpha
+				if ( alpha < 1.0f ) {
+					// Only override to BLEND if it wasn't already set to MASK (grates/fences)
+					if ( material.modeAlpha != pod::Material::AlphaMode::MASK ) {
+						material.modeAlpha = pod::Material::AlphaMode::BLEND;
+					}
+					// Multiply base color alpha
+					material.colorBase.w *= alpha;
+					UF_MSG_DEBUG("node={}, material={}, alpha={}", node.name, materialName, alpha);
+				}
+
+				// Apply Emissive (SelfIllum or Unlit)
+				if ( selfIllum > 0.0f || unlit ) {
+					material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
+					float glow = (selfIllum > 0.0f) ? selfIllum : 1.0f;
+
+					if ( hasLight ) {
+						auto& light = graph.lights[lightName];
+						material.colorEmissive = light.color * (light.intensity * glow);
+					} else {
+						material.colorEmissive = { glow, glow, glow, 1.0f };
+					}
+					UF_MSG_DEBUG("node={}, material={}, emissive={}", node.name, materialName, uf::vector::toString(material.colorEmissive));
+				}
 			}
 		}
 	}
@@ -1543,6 +1649,59 @@ namespace impl {
 				}
 			}
 
+			// bind render states
+			int32_t renderType = impl::PropertyRenderTypeEnum::RENDER_NORMALLY;
+			ctx.findInheritedProperty( objectID, ctx.properties.renderType, renderType );
+
+			int32_t isInvisible = 0;
+			ctx.findInheritedProperty( objectID, ctx.properties.invisible, isInvisible );
+
+			if ( renderType == impl::PropertyRenderTypeEnum::RENDER_NOT_AT_ALL ||
+				 renderType == impl::PropertyRenderTypeEnum::RENDER_EDITOR_ONLY ||
+				 isInvisible != 0 )
+			{
+				metadata["render"]["visible"] = false;
+			} else {
+				metadata["render"]["visible"] = true;
+			}
+
+			if ( renderType == impl::PropertyRenderTypeEnum::RENDER_UNLIT ) {
+				metadata["render"]["unlit"] = true;
+			}
+
+			float renderAlpha = 1.0f;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.renderAlpha, renderAlpha ) ) {
+				metadata["render"]["alpha"] = renderAlpha;
+			}
+
+			float selfIllum = 0.0f;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.selfIllum, selfIllum ) ) {
+				metadata["render"]["emissive"] = selfIllum;
+			}
+
+			int32_t objShad = 1;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.objShad, objShad ) ) {
+				metadata["render"]["cast_shadows"] = (objShad != 0);
+			}
+
+			PropertyJointPos jointPos;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.jointPos, jointPos ) ) {
+				for (int j = 0; j < 6; ++j) {
+					metadata["render"]["joints"].emplace_back(jointPos.el[j]);
+				}
+			}
+
+			PropertyBitmapWorldspace bmpWorld;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.bitmapWorldspace, bmpWorld ) ) {
+				metadata["render"]["bitmap_worldspace"]["x_size"] = bmpWorld.x_size;
+				metadata["render"]["bitmap_worldspace"]["y_size"] = bmpWorld.y_size;
+			}
+
+			int32_t bmpAnim = 0;
+			if ( ctx.findInheritedProperty( objectID, ctx.properties.bitmapAnimation, bmpAnim ) ) {
+				metadata["render"]["bitmap_animation_flags"] = bmpAnim;
+			}
+
 			// bind trip f l ags
 			int32_t tripFlags = 0;
 			if ( ctx.findInheritedProperty( objectID, ctx.properties.tripFlags, tripFlags ) ) {
@@ -1555,9 +1714,9 @@ namespace impl {
 			if ( ctx.findInheritedProperty(objectID, ctx.properties.frobInfo, frob) ) {
 				isFrobbable = frob.world_action != 0;
 				
-				metadata["frob"]["world"] = frob.world_action;
-				metadata["frob"]["inv"]   = frob.inv_action;
-				metadata["frob"]["tool"]  = frob.tool_action;
+				metadata["frob"]["world"] 	= frob.world_action;
+				metadata["frob"]["inv"] 	= frob.inv_action;
+				metadata["frob"]["tool"] 	= frob.tool_action;
 			}
 
 			// bind physics
@@ -1878,6 +2037,16 @@ namespace impl {
 		impl::extractProperty( ctx, "SchAction", 		ctx.properties.schAction, 4 );
 		impl::extractProperty( ctx, "Scripts",			ctx.properties.script );
 
+		impl::extractProperty( ctx, "HasRefs", 			ctx.properties.hasRefs );
+		impl::extractProperty( ctx, "RenderAlpha", 		ctx.properties.renderAlpha );
+		impl::extractProperty( ctx, "SelfIllum", 		ctx.properties.selfIllum );
+		impl::extractProperty( ctx, "ObjShad", 			ctx.properties.objShad );
+		impl::extractProperty( ctx, "RenderType", 		ctx.properties.renderType );
+		impl::extractProperty( ctx, "INVISIBLE", 		ctx.properties.invisible );
+		impl::extractProperty( ctx, "JointPos", 		ctx.properties.jointPos );
+		impl::extractProperty( ctx, "BitmapWorld", 		ctx.properties.bitmapWorldspace );
+		impl::extractProperty( ctx, "BitmapAnimation", 	ctx.properties.bitmapAnimation );
+
 		impl::extractProperty( ctx, "Position", 		ctx.properties.position );
 		impl::extractProperty( ctx, "Light", 			ctx.properties.light );
 		impl::extractProperty( ctx, "TransDoor", 		ctx.properties.transDoor );
@@ -2093,6 +2262,7 @@ void ext::lgs::loadMis( pod::Graph& graph, const uf::stl::string& filename, cons
 	impl::processLinks( graph, ctx );
 	impl::processSongs( graph, ctx );
 	impl::processSchema( graph, ctx );
+	impl::processMaterials( graph, ctx );
 
 	graph.metadata["dark"]["_"] = true;
 

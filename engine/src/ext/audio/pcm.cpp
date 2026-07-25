@@ -7,7 +7,6 @@
 
 #include <uf/ext/audio/pcm.h>
 #include <uf/utils/memory/pool.h>
-#include <iostream>
 #include <cstdio>
 
 void ext::pcm::load( pod::AudioClip& clip, const pod::PCM& pcm ) {

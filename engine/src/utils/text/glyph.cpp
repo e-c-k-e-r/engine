@@ -1,5 +1,4 @@
 #include <uf/utils/text/glyph.h>
-#include <iostream>
 #if UF_USE_FREETYPE
 
 

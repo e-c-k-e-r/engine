@@ -2,10 +2,8 @@
 	"engine": {
 		"scenes": {
 			"start": "StartMenu",
-			"matrix": { "reverseInfinite": true },
-			"meshes": { "interleaved": false },
 			"lights": { "enabled": false,
-				"useLightmaps": true,
+				"lightmaps": true,
 				"max": 1
 			},
 			"textures": {
@@ -18,7 +16,7 @@
 		},
 		"graph": {
 			"initial buffer elements": 128,
-			"global storage": false
+			"storage mode": "scene"
 		},
 		"ext": {
 			"opengl": {
@@ -65,30 +63,43 @@
 			},
 			"imgui": {
 				"enabled": false
-			},
-			"reactphysics": {
-				"global storage": false,
-				"timescale": 0.01666666666,
-				"interpolate": true,
-				"gravity": {
-					"mode": "default",
-					"constant": 6.67408e-11
-				},
-				"debug draw": {
-					"enabled": false,
-					"line width": 8,
-					"layer": "",
-					"rate": 0.0125
-				}
 			}
+		},
+		"physics": {
+			"solvers": {
+				"warmup": true,
+				"block": true,
+				"resolve invalid": true,
+				"iterations": 10,
+				"gjk": false
+			},
+			"correction": {
+				"ngs": true,
+				"percent": 0.2,
+				"slop": 0.01, // 0.005
+				"max": 0.1 // 0.2
+			},
+			"debug draw": {
+				"static": false,
+				"dynamic": false,
+				"trigger": false,
+				"contacts": false,
+				"constraints": false,
+				"rays": false,
+				"depthTest": true
+			},
+			"async": false,
+			"fixed step": true,
+			"substeps": 2,
+			"flatten transforms": false
 		},
 		"audio": {
 			"mute": true,
 			"async update": false,
 			"streams by default": true,
 			"buffers": {
-				"size": 24576,
-				"count": 6
+				"size": 32768,
+				"count": 4
 			},
 			"volumes": {
 				"sfx": 1.0,
@@ -115,7 +126,7 @@
 		},
 		"threads": {
 			"workers" : 1,
-			"frame limiter": 15 // 60 // "auto"
+			"frame limiter": "auto"
 		},
 		"debug": {
 			"framerate": {
@@ -138,7 +149,7 @@
 			},
 			"loader": {
 				"assert": true,
-				"async": true
+				"async": false
 			},
 			"hooks": {
 				"defer lazy calls": true

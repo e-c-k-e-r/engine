@@ -8,14 +8,13 @@
 	#include "sh4.h"
 	#include <dc/matrix.h>
 	#define UF_EZ_VEC4(vec, size) vec[0], size > 1 ? vec[1] : 0, size > 2 ? vec[2] : 0, size > 3 ? vec[3] : 0
+
+	#undef M_PI
 #endif
+
 
 #define NUM pod::Math::num_t
-
-#ifndef M_PI
-	#define M_PI 3.141592653589793f
-#endif
-
+#define M_PI 3.141592653589793f
 #define EPS 1.0e-6f
 #define EPS2 (EPS * EPS)
 

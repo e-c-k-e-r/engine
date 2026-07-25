@@ -89,7 +89,7 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 //	GL_ERROR_CHECK(glEnable(GL_COLOR_MATERIAL));
 //	GL_ERROR_CHECK(glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE));
 //	GL_ERROR_CHECK(glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR));
-#if UF_USE_DREAMCAST
+#if UF_ENV_DREAMCAST
 	//profiler_enable();
 //	GL_ERROR_CHECK(glEnable(GL_NEARZ_CLIPPING_KOS));
 	

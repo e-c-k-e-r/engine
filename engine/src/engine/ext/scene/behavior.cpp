@@ -159,9 +159,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		#endif
 			renderMode.scale = 1.0f; // ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
 			UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode.scale);
+		#if UF_USE_OPENVR
 			if ( ext::openvr::enabled ) {
 				renderMode.metadata.eyes = 2;
 			}
+		#endif
 		#if UF_USE_VULKAN
 			if ( uf::renderer::settings::pipelines::deferred ) {
 				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);

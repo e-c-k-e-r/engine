@@ -655,6 +655,7 @@ namespace uf {
 		
 		//
 		template<typename T, typename U> void compile( uf::Mesh& mesh, const uf::stl::vector<uf::Meshlet_T<T, U>>& meshlets, uf::stl::vector<pod::Primitive>& primitives );
+		template<typename K, typename V> inline void compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets, uf::stl::vector<pod::Primitive>& primitives );
 		
 		template<typename K, typename V> inline uf::stl::vector<pod::Primitive> compile( uf::Mesh& mesh, const uf::stl::unordered_map<K, V>& meshlets );
 		template<typename T> inline uf::stl::vector<pod::Primitive> compile( uf::Mesh& mesh, const uf::stl::vector<T>& meshlets );

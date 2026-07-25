@@ -7,7 +7,6 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
-#include <iostream>
 #include <thread>
 #include <uf/utils/memory/vector.h>
 
@@ -304,7 +303,6 @@ void ext::discord::tick() {
 
 /*
 #include <cstdio>
-#include <iostream>
 #include <assert.h>
 
 #define DISCORD_REQUIRE(x) assert(x == DiscordResult_Ok)

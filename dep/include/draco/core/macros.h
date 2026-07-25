@@ -30,7 +30,7 @@
 #define DRACO_LOGE printf
 #endif
 
-#include <iostream>
+//#include <iostream>
 namespace draco {
 
 #ifndef DISALLOW_COPY_AND_ASSIGN

@@ -68,3 +68,5 @@ maps/
 models/
 llm/
 tmp/
+
+engine/lib/dreamcast/gcc/opengl/

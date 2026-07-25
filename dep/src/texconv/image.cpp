@@ -1,7 +1,7 @@
 #include <uf/config.h>
 #if UF_USE_DC_TEXCONV
 
-#include <iostream>
+//#include <iostream>
 
 #include <stb/stb_image.h>
 #include <stb/stb_image_write.h>
@@ -25,7 +25,7 @@ bool Image::loadFromFile(const uf::stl::string& path ) {
 	uint8_t* pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
 
 	if ( !pixels ) {
-		std::cerr<<"[ERROR] Failed to load image: "<<path<<"\n";
+		//std::cerr<<"[ERROR] Failed to load image: "<<path<<"\n";
 		return false;
 	}
 

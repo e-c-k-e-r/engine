@@ -2,12 +2,13 @@
 
 #include <uf/config.h>
 
-#include "encoding.h"
-#include <uf/utils/memory/string.h>
-#include <locale>
-#include <cstring>
-
 #if UF_USE_DEPRECATED_STRING
+#include "encoding.h"
+
+#include <uf/utils/memory/string.h>
+#include <cstring>
+#include <locale>
+
 namespace uf {
 	class UF_API String {
 	public:

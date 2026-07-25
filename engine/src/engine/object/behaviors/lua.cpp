@@ -12,6 +12,18 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/ext/lua/lua.h>
 
+namespace {
+	void invoke( uf::Object& self, const uf::stl::vector<LUA_FUN>& functions ) {
+		for ( auto& script : functions ) {
+			auto result = script(self);
+			if ( !result.valid() ) {
+				sol::error err = result;
+				UF_MSG_ERROR("{}", err.what());
+			}
+		}
+	}
+}
+
 UF_BEHAVIOR_REGISTER_CPP(uf::LuaBehavior)
 UF_BEHAVIOR_TRAITS_CPP(uf::LuaBehavior, ticks = false, renders = false, thread = "")
 #define this (&self)
@@ -38,11 +50,23 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 		ext::lua::run( script );
 	*/
 	});
+
+	auto& metadata = self.getComponent<uf::LuaBehavior::Metadata>();
+	::invoke( self, metadata.initialize );
 #endif
 }
-void uf::LuaBehavior::destroy( uf::Object& self ) {}
-void uf::LuaBehavior::tick( uf::Object& self ) {}
-void uf::LuaBehavior::render( uf::Object& self ) {}
+void uf::LuaBehavior::destroy( uf::Object& self ) {
+	auto& metadata = self.getComponent<uf::LuaBehavior::Metadata>();
+	::invoke( self, metadata.destroy );
+}
+void uf::LuaBehavior::tick( uf::Object& self ) {
+	auto& metadata = self.getComponent<uf::LuaBehavior::Metadata>();
+	::invoke( self, metadata.tick );
+}
+void uf::LuaBehavior::render( uf::Object& self ) {
+	auto& metadata = self.getComponent<uf::LuaBehavior::Metadata>();
+	::invoke( self, metadata.tick );
+}
 void uf::LuaBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
 void uf::LuaBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this

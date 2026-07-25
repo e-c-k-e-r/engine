@@ -51,6 +51,16 @@ namespace binds {
 		if ( !behaviorPointer ) return false;
 		pod::Behavior& behavior = *behaviorPointer;
 
+		auto& metadata = self.getComponent<uf::LuaBehavior::Metadata>();
+		uf::stl::vector<LUA_FUN>* functionPointer = NULL;
+		if ( type == "initialize" ) functionPointer = &metadata.initialize;
+		else if ( type == "tick" ) { functionPointer = &metadata.tick; behavior.traits.ticks = true; behavior.traits.thread = ""; }
+		else if ( type == "render" ) { functionPointer = &metadata.render; behavior.traits.renders = true; }
+		else if ( type == "destroy" ) functionPointer = &metadata.destroy;
+		if ( !functionPointer ) return false;
+		functionPointer->emplace_back( fun );
+
+#if 0
 		pod::Behavior::function_t* functionPointer = NULL;
 		if ( type == "initialize" ) functionPointer = &behavior.initialize;
 		else if ( type == "tick" ) { functionPointer = &behavior.tick; behavior.traits.ticks = true; behavior.traits.thread = ""; }
@@ -92,6 +102,7 @@ namespace binds {
 			};
 		}
 	#endif
+#endif
 		self.generateGraph();
 		return true;
 	}

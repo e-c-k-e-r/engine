@@ -225,6 +225,7 @@ bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vec
 	return success;
 }
 
+#if !UF_ENV_DREAMCAST
 size_t ext::zlib::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {
 	z_stream strm{};
 	// 31 means gzip format
@@ -249,6 +250,7 @@ size_t ext::zlib::compressToFile( const uf::stl::string& filename, const void* d
 
 	return uf::vfs::write( filename, compressedData.data(), compressedData.size() );
 }
+#endif
 
 bool ext::zlib::directory( const uf::stl::vector<uint8_t>& buffer, uf::stl::unordered_map<uf::stl::string, pod::ZipEntry>& entries ) {
 	if ( buffer.size() < 22 ) return false;

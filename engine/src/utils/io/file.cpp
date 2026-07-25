@@ -5,7 +5,6 @@
 
 #include <sys/stat.h>
 #include <algorithm>
-#include <iostream>
 #include <fstream>
 #include <uf/utils/io/file.h>
 #include <uf/utils/io/iostream.h>
@@ -237,8 +236,10 @@ bool uf::io::decompress( uf::stl::vector<uint8_t>& buffer, const uf::stl::string
 }
 size_t uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
+#if !UF_ENV_DREAMCAST
 	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
 	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
+#endif
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return 0;
 }

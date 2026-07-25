@@ -2,7 +2,6 @@
 
 #ifdef UF_ENV_LINUX
 
-#include <iostream>
 #include <locale>
 #include <unistd.h>
 #include <termios.h>

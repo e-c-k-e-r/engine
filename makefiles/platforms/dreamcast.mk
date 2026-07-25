@@ -1,5 +1,5 @@
 FLAGS 				+= -DUF_ENV_DREAMCAST
-REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt freetype openal aldc ogg wav png
+REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt freetype openal aldc ogg wav png # to-do: gut freetype to gut libpng
 
 INCS 				:= -I./dep/dreamcast/include $(INCS)
 
@@ -31,8 +31,11 @@ endif
 DEPS 				+= -lkallisti -lc -lm -lgcc -lstdc++
 
 SRCS_DLL 			= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
-OBJS_DLL 			= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
-OBJS 				= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
+SRCS_DLL_C 			= $(shell find $(ENGINE_SRC_DIR) -name "*.c") $(shell find $(DEP_SRC_DIR) -name "*.c")
+OBJS_DLL 			= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.c,%.$(PREFIX).o,$(SRCS_DLL_C)) 
+OBJS 				= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.c,%.$(PREFIX).o,$(SRCS_DLL_C)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
+KOS_AR     			= /opt/dreamcast/sh-elf/bin/sh-elf-gcc-ar
+KOS_RANLIB 			= /opt/dreamcast/sh-elf/bin/sh-elf-gcc-ranlib
 
 $(PREFIX): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 
@@ -55,7 +58,7 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	$(KOS_BASE)/utils/bin2o/bin2o ./bin/dreamcast/romdisk.img romdisk ./bin/dreamcast/romdisk.o
 
 $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
-	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
+	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nostartfiles -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) $(KOS_KOS_INIT) -Wl,--start-group $(DEPS) -Wl,--end-group
 	cp $(TARGET) $(TARGET).unstripped
 	$(KOS_STRIP) --strip-unneeded $(TARGET)
 
@@ -69,7 +72,7 @@ run-dreamcast:
 	$(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
 
 run-debug-dreamcast:
-	$(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).cdi
+	$(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).cdi $(TARGET).unstripped
 
 clean-dreamcast:
 	@-rm ./bin/dreamcast/build/*

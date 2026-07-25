@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "Dark",
+			"start": "StartMenu",
 			"lights": { "enabled": true,
 				"lightmaps": true,
 				"max": 32,
@@ -425,7 +425,7 @@
 			},
 			"loader": {
 				"assert": true,
-				"async": false
+				"async": false // to-do: fix
 			},
 			"hooks": {
 				"defer lazy calls": true

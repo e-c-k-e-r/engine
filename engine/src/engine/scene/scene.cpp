@@ -9,7 +9,6 @@
 #include <uf/utils/io/fmt.h>
 #include <uf/utils/io/vfs.h>
 #include <uf/engine/ext.h>
-#include <regex>
 
 UF_OBJECT_REGISTER_BEGIN(uf::Scene)
 //	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)

@@ -266,7 +266,7 @@ namespace binds {
 				if ( --count != 0 ) ::fmt::print("\t");
 			}
 			::fmt::print("\n");
-			std::cout.flush();
+			fflush(stdout);
 		};
 	}
 	namespace math {

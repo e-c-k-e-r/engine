@@ -1085,44 +1085,6 @@ void uf::graph::process( pod::Graph& graph ) {
 				material.indexAlbedo = -1;
 			}
 		}
-		
-		if ( ext::json::isObject( graphMetadataDark ) ) {
-			// set transparent
-			if ( name.find("glass") != uf::stl::string::npos ||
-				 name.find("trans") != uf::stl::string::npos ||
-				 name.find("grate") != uf::stl::string::npos ) {
-
-				material.modeAlpha = pod::Material::AlphaMode::BLEND;
-				material.modeCull = pod::Material::CullMode::NONE;
-			}
-			// set emissive
-			for ( auto nodeID = 0; nodeID < graph.nodes.size(); ++nodeID ) {
-				auto& node = graph.nodes[nodeID];
-				// check if owns a light
-				auto lightName = node.name;
-				auto nameID = FMT_FORMAT( "{}_{}", node.name, nodeID );
-				if ( graph.lights.count( nameID ) > 0 ) lightName = nameID;
-				if ( graph.lights.count( lightName ) == 0 ) {
-					continue;
-				}
-				auto& light = graph.lights[lightName];
-				if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
-				// iterate primitives for materials
-				auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-				for ( auto& primitive : primitives ) {
-					auto materialID = primitive.instance.materialID;
-					if ( !(0 <= materialID && materialID <= graph.materials.size()) ) {
-						UF_MSG_DEBUG("node={}, lightName={} has invalid material: {}", node.name, lightName, materialID);
-						continue;
-					}
-					auto& materialName = graph.materials[materialID];
-					// set emissive
-					material.modeAlpha = pod::Material::AlphaMode::EMISSIVE;
-					material.colorEmissive = light.color * light.intensity;
-					UF_MSG_DEBUG("name={}, light={}, emissive={}", node.name, lightName, uf::vector::toString( material.colorEmissive ));
-				}
-			}
-		}
 
 		auto tag = ext::json::find( name, graphMetadataJson["tags"] );
 		if ( ext::json::isObject( tag ) ) {

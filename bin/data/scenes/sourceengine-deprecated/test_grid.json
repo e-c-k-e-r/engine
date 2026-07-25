@@ -1,7 +1,0 @@
-{
-	"import": "./base_sourceengine.json",
-	"assets": [	
-	//	{ "filename": "./models/test_grid.glb" }
-		{ "filename": "./models/test_grid/graph.json" }
-	]
-}

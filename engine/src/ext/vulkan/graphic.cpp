@@ -10,7 +10,6 @@
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
 #include <fstream>
-#include <regex>
 
 #define USE_SHARED_PIPELINES 0
 

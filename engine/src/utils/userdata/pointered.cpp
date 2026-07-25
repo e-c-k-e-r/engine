@@ -2,7 +2,6 @@
 #include <uf/utils/string/base64.h> 		// base64
 #include <cstdlib> 							// malloc, free
 #include <cstring> 							// memcpy
-#include <iostream> 						
 
 // Constructs a pod::PointeredUserdata struct
 pod::PointeredUserdata uf::pointeredUserdata::create( size_t len, const void* data, UF_USERDATA_CTTI_TYPE type ) {

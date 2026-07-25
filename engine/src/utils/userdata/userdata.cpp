@@ -2,7 +2,6 @@
 #include <uf/utils/string/base64.h> 		// base64
 #include <cstdlib> 							// malloc, free
 #include <cstring> 							// memcpy
-#include <iostream> 						
 
 uf::MemoryPool uf::userdata::memoryPool;
 bool uf::userdata::autoDestruct = true;

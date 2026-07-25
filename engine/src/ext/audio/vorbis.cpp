@@ -8,7 +8,6 @@
 #include <uf/ext/audio/vorbis.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/io/vfs.h>
-#include <iostream>
 #include <vector>
 #include <cstring>
 

@@ -1,7 +1,6 @@
 #include <uf/engine/ext.h>
 
 #include <fstream>
-#include <iostream>
 #include <regex>
 #include <cstdlib>
 
@@ -441,19 +440,6 @@ void UF_API uf::initialize() {
 				uf::config.path(keyString) = value;
 				modified = true;
 			}
-		/*
-			{
-				std::regex regex("^--(.+?)=(.+?)$");
-				std::cmatch match;
-				if ( std::regex_search( arg, match, regex ) ) {
-					uf::stl::string keyString = match[1].str();
-					uf::stl::string valueString = match[2].str();
-					uf::Serializer value; value.deserialize(valueString);
-					uf::config.path(keyString) = value;
-					modified = true;
-				}
-			}
-		*/
 		}
 	//	UF_MSG_DEBUG("Arguments: {}", uf::Serializer(arguments));
 		if ( modified ) UF_MSG_DEBUG("New config: {}", uf::config.serialize());
@@ -477,31 +463,32 @@ void UF_API uf::initialize() {
 
 		// check if we are even allowed to use memory pools
 		bool enabled = configMemoryPoolJson["enabled"].as(true);
-		auto deduceSize = [enabled]( const ext::json::Value& value )->size_t{
-			if ( !enabled ) return 0;
-			if ( value.is<size_t>() ) return value.as<size_t>();
-			if ( value.is<uf::stl::string>() ) {
-				uf::stl::string str = value.as<uf::stl::string>();
-				std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
+		auto deduceSize = [enabled]( const ext::json::Value& value ) -> size_t {
+		if ( !enabled ) return 0;
+		if ( value.is<size_t>() ) return value.as<size_t>();
+		if ( value.is<uf::stl::string>() ) {
+			uf::stl::string str = value.as<uf::stl::string>();
+			if (str.empty()) return 0;
 
-				std::cmatch match;
-				if ( std::regex_search( str.c_str(), match, regex ) ) {
-					size_t requested = std::stoi( match[1].str() );
+			char* endPtr = nullptr;
+			size_t requested = std::strtoull(str.c_str(), &endPtr, 10);
 
-					uf::stl::string prefix(match[2].first, match[2].length());
+			if (endPtr == str.c_str()) return 0;
 
-					if (prefix.length() > 0) {
-						switch ( prefix.at(0) ) {
-							case 'K': return requested * 1024;
-							case 'M': return requested * 1024 * 1024;
-							case 'G': return requested * 1024 * 1024 * 1024;
-						}
-					}
-					return requested;
+			while (*endPtr == ' ') endPtr++;
+
+			// Check for the multiplier
+			if (*endPtr != '\0') {
+				switch (*endPtr) {
+					case 'K': case 'k': return requested * 1024;
+					case 'M': case 'm': return requested * 1024 * 1024;
+					case 'G': case 'g': return requested * 1024 * 1024 * 1024;
 				}
 			}
-			return 0;
-		};
+			return requested;
+		}
+		return 0;
+	};
 		// set memory pool alignment requirements
 		uf::memoryPool::alignment = configMemoryPoolJson["alignment"].as( uf::memoryPool::alignment );
 		// set memory pool sizes

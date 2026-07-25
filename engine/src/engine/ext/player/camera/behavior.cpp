@@ -61,11 +61,13 @@ void ext::PlayerCameraBehavior::initialize( uf::Object& self ) {
 			size = uf::vector::decode(uf::config["window"]["size"], pod::Vector2ui{});
 			raidou = (float) size.x / (float) size.y;
 		}
-
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled ) {
 			camera.setProjection( ext::openvr::hmdProjectionMatrix(0, range.x, range.y), 0 );
 			camera.setProjection( ext::openvr::hmdProjectionMatrix(1, range.x, range.y), 1 );
-		} else {
+		} else
+	#endif
+		{
 			camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 		}
 	}

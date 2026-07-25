@@ -2,7 +2,7 @@
 #if UF_USE_DC_TEXCONV
 
 #include <cmath>
-#include <iostream>
+//#include <iostream>
 
 #include <texconv/common.h>
 #include <texconv/imagecontainer.h>

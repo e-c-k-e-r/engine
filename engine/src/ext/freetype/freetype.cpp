@@ -1,4 +1,3 @@
-#include <iostream>
 #if UF_USE_FREETYPE
 #include <uf/ext/freetype/freetype.h>
 #include <uf/utils/io/file.h>

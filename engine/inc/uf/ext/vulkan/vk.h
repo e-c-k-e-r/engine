@@ -5,7 +5,6 @@
 #include <vk_mem_alloc.h>
 
 #include <typeinfo>
-#include <iostream>
 #include <cassert>
 #include <mutex>
 

@@ -4,25 +4,24 @@
 #if UF_USE_CURL
 #include <curl/curl.h>
 #endif
-#include <iostream>
 
 namespace {
-	bool exists( pod::Mount& mount, const uf::stl::string& p ) {
+	bool vfs_exists( pod::Mount& mount, const uf::stl::string& p ) {
 		uf::stl::string url = mount.prefix + p;
 		uf::Http http = uf::http::head(url);
 		return ( http.code >= 200 && http.code < 300 );
 	}
-	size_t size( pod::Mount& mount, const uf::stl::string& p ) {
+	size_t vfs_size( pod::Mount& mount, const uf::stl::string& p ) {
 		uf::stl::string url = mount.prefix + p;
 		uf::Http http = uf::http::head(url);
 		return http.contentLength;
 	}
-	size_t mtime( pod::Mount& mount, const uf::stl::string& p ) {
+	size_t vfs_mtime( pod::Mount& mount, const uf::stl::string& p ) {
 		uf::stl::string url = mount.prefix + p;
 		uf::Http http = uf::http::head(url);
 		return http.mtime;
 	}
-	bool read( pod::Mount& mount, const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer ) {
+	bool vfs_read( pod::Mount& mount, const uf::stl::string& p, uf::stl::vector<uint8_t>& buffer ) {
 		uf::stl::string url = mount.prefix + p;
 
 		uf::Http http = uf::http::get(url);
@@ -34,7 +33,7 @@ namespace {
 		buffer.assign(http.response.begin(), http.response.end());
 		return true;
 	}
-	size_t write( pod::Mount& mount, const uf::stl::string& p, const void* buffer, size_t size ) {
+	size_t vfs_write( pod::Mount& mount, const uf::stl::string& p, const void* buffer, size_t size ) {
 		uf::stl::string url = mount.prefix + p;
 		uf::Http http = uf::http::post(url, buffer, size);
 
@@ -56,11 +55,11 @@ namespace impl {
 			.prefix = prefix,
 			.path = path,
 			.priority = priority,
-			.exists = ::exists,
-			.size = ::size,
-			.mtime = ::mtime,
-			.read = ::read,
-			.write = ::write,
+			.exists = ::vfs_exists,
+			.size = ::vfs_size,
+			.mtime = ::vfs_mtime,
+			.read = ::vfs_read,
+			.write = ::vfs_write,
 		};
 	}
 }

@@ -8,7 +8,6 @@
 #include <uf/spec/terminal/terminal.h>
 
 #include <sstream>
-#include <iostream>
 
 #include <uf/utils/memory/vector.h>
 
@@ -82,43 +81,49 @@ void uf::IoStream::pushHistory( const uf::stl::string& str ) {
 void uf::IoStream::back() {
 }
 char uf::IoStream::readChar(const bool& loop) {
+/*
 	auto ch = std::cin.get();
 	
 	addCh(ch);
 //	::info.input.history.push_back( FMT_FORMAT("{}", ch) );
 	return ch;
+*/
 }
 uf::stl::string uf::IoStream::readString(const bool& loop) {
+/*
 	uf::stl::string str;
 	std::getline(std::cin, str);
 
 	addStr(str);
 //	::info.input.history.push_back( str );
 	return str;
+*/
 }
 #if UF_USE_DEPRECATED_STRING
 uf::String uf::IoStream::readUString(const bool& loop) {
+/*
 	uf::stl::string str;
 	std::getline(std::cin, str);
 
 	addStr(str);
 //	::info.input.history.push_back( str );
 	return str;
+*/
 }
 #endif
 char uf::IoStream::writeChar( char ch ) {
 	addCh(ch);
 
-	if ( ch == '\n' ) std::cout << std::endl;
-	else std::cout << ch;
+//	if ( ch == '\n' ) std::cout << std::endl;
+//	else std::cout << ch;
 //	::info.input.history.push_back( FMT_FORMAT("{}", ch) );
 	return ch;
 }
 const uf::stl::string& uf::IoStream::writeString( const uf::stl::string& str ) {
 	addStr(str);
 	
-	if ( str == "\n" ) std::cout << std::endl;
-	else std::cout << str;
+//	if ( str == "\n" ) std::cout << std::endl;
+//	else std::cout << str;
 //	::info.input.history.push_back( str );
 	return str;
 }
@@ -126,7 +131,7 @@ const uf::stl::string& uf::IoStream::writeString( const uf::stl::string& str ) {
 const uf::String& uf::IoStream::writeUString( const uf::String& str ) {
 	addUStr(str);
 	
-	std::cout << (const char*) str.getString().c_str();
+//	std::cout << (const char*) str.getString().c_str();
 //	::info.input.history.push_back( str );
 	return str;
 }

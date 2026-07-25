@@ -4,7 +4,6 @@
 #include <uf/utils/userdata/userdata.h>
 
 #include <cstring>
-#include <iostream>
 #include <sstream>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/thread/perthread.h>

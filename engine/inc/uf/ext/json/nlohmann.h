@@ -14,6 +14,19 @@
 	#define JSON_HAS_STATIC_RTTI 0
 #endif
 
+#if UF_ENV_DREAMCAST
+	#define float64_t decltype(1.0L)
+
+	namespace std {
+	    using ::snprintf;
+	    using ::strtoull;
+	    using ::strtoll;
+	    using ::strtold;
+	}
+#else
+	#define float64_t double
+#endif
+
 #include <nlohmann/json.hpp>
 #include <nlohmann/fifo_map.hpp>
 
@@ -24,11 +37,6 @@ namespace uf {
 	class UF_API Serializer;
 }
 
-#if UF_ENV_DREAMCAST
-	#define float64_t decltype(1.0L)
-#else
-	#define float64_t double
-#endif
 
 namespace ext {
 	namespace json {

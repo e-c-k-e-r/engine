@@ -5,7 +5,6 @@
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
 #include <uf/utils/audio/audio.h>
-#include <iostream>
 
 namespace {
 	ALCdevice* device = NULL;
@@ -248,6 +247,41 @@ void ext::al::Buffer::buffer(ALenum format, const ALvoid* data, ALsizei size, AL
 	AL_CHECK_RESULT(alBufferData(this->m_indices[i], format, data, size, frequency));
 }
 
+#if UF_ENV_DREAMCAST
+void ext::al::Filter::initialize() {
+}
+void ext::al::Filter::destroy() {
+}
+ALuint ext::al::Filter::getIndex() const {
+	return this->m_index;
+}
+void ext::al::Filter::set( ALenum name, ALfloat x ) {
+}
+void ext::al::Filter::set( ALenum name, ALint x ) {
+}
+
+void ext::al::Effect::initialize() {
+}
+
+void ext::al::Effect::destroy() {
+}
+
+ALuint ext::al::Effect::getIndex() const { return this->m_index; }
+void ext::al::Effect::set( ALenum name, ALfloat x ) {
+}
+void ext::al::Effect::set( ALenum name, ALint x ) {
+}
+
+void ext::al::EffectSlot::initialize() {
+}
+void ext::al::EffectSlot::destroy() {
+}
+ALuint ext::al::EffectSlot::getIndex() const { return this->m_index; }
+void ext::al::EffectSlot::set( ALenum name, ALfloat x ) {
+}
+void ext::al::EffectSlot::set( ALenum name, ALint x ) {
+}
+#else
 void ext::al::Filter::initialize() {
 	if ( this->m_index ) this->destroy();
 	AL_CHECK_RESULT(alGenFilters(1, &this->m_index));
@@ -308,5 +342,6 @@ void ext::al::EffectSlot::set( ALenum name, ALfloat x ) {
 void ext::al::EffectSlot::set( ALenum name, ALint x ) {
 	AL_CHECK_RESULT_ENUM( alAuxiliaryEffectSloti, this->m_index, name, x );
 }
+#endif
 
 #endif

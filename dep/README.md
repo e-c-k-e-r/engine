@@ -11,7 +11,7 @@ All code under this folder is not mine and are licensed under their respective l
 
 Some dependencies of mine rely on some modifications of the original dependencies for extra features or to function on other platforms.
 
-* [nlohmann/json](https://github.com/nlohmann/json): Dreamcast only; requires some hacks for `m4-single-only` due to `sizeof(float) == sizeof(double)` (for prior toolchains, this allegedly changed but I still get a crash with an unmodified `nlohmann/json`)
+* [nlohmann/json](https://github.com/nlohmann/json): ~~Dreamcast only; requires some hacks for `m4-single-only` due to `sizeof(float) == sizeof(double)` (for prior toolchains, this allegedly changed but I still get a crash with an unmodified `nlohmann/json`)~~ should be fixed with proper templating
 	* this is a header-only project so its changes live locally under `./dep/dreamcast/include/nlohmann/`
 * [DanielChappuis/reactphysics3d](https://git.ecker.tech/ecker/reactphysics3d): adds in support for `float16`/`bfloat16`/quantized `uint16_t` triangle meshes
 	* Dreamcast requires some edits due to `sizeof(int) != sizeof(int32)` / `sizeof(uint) != sizeof(uint32)`, extra compile flags, and disabling exceptions

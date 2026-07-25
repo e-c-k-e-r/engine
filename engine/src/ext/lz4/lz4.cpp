@@ -218,7 +218,7 @@ bool ext::lz4::decompressFromMemory( uf::stl::vector<uint8_t>& dst, const void* 
 	}
 	return true;
 }
-
+#if !UF_ENV_DREAMCAST
 size_t ext::lz4::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {
 	LZ4F_preferences_t prefs = {};
 	size_t bound = LZ4F_compressFrameBound(size, &prefs);
@@ -230,3 +230,4 @@ size_t ext::lz4::compressToFile( const uf::stl::string& filename, const void* da
 
 	return uf::vfs::write( filename, compressedData.data(), compressedSize );
 }
+#endif

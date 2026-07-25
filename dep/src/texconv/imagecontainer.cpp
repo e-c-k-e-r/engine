@@ -1,7 +1,7 @@
 #include <uf/config.h>
 #if UF_USE_DC_TEXCONV
 
-#include <iostream>
+//#include <iostream>
 #include <algorithm>
 
 #include <texconv/imagecontainer.h>

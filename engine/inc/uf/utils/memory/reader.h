@@ -60,6 +60,7 @@ namespace uf {
 			}
 
 		// to-do: #if C++ >= 20 or something
+		/*
 			template<typename T>
 			std::span<const T> view( size_t count ) {
 				size_t bytes = count * sizeof(T);
@@ -68,6 +69,7 @@ namespace uf {
 				m_offset += bytes;
 				return view;
 			}
+		*/
 
 			template<typename T>
 			const T* peek() const {

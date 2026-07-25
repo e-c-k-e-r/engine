@@ -6,7 +6,6 @@
 #include <uf/utils/io/console.h>
 #include <uf/utils/io/fmt.h>
 
-#include <iostream>
 #include <sstream>
 
 /*
@@ -18,7 +17,7 @@ uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::str
 	auto string = FMT_FORMAT("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
 	::fmt::print("{}\n", string);
 	uf::iostream.pushHistory(string);
-	std::cout.flush();
+	fflush(stdout);
 
 	uf::console::print( string );
 
