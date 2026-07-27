@@ -43,7 +43,11 @@ constexpr ctti::detail::cstring value()
     #define CTTI_TYPE_PRETTY_FUNCTION_PREFIX "ctti::detail::cstring ctti::pretty_function::type() [T = "
     #define CTTI_TYPE_PRETTY_FUNCTION_SUFFIX "]"
 #elif defined(__GNUC__) && !defined(__clang__)
-    #define CTTI_TYPE_PRETTY_FUNCTION_PREFIX "constexpr ctti::detail::cstring ctti::pretty_function::type() [with T = "
+    #if __GNUC__ >= 16
+        #define CTTI_TYPE_PRETTY_FUNCTION_PREFIX "ctti::detail::cstring ctti::pretty_function::type() [with T = "
+    #else
+        #define CTTI_TYPE_PRETTY_FUNCTION_PREFIX "constexpr ctti::detail::cstring ctti::pretty_function::type() [with T = "
+    #endif
     #define CTTI_TYPE_PRETTY_FUNCTION_SUFFIX "]"
 #elif defined(_MSC_VER)
     #define CTTI_TYPE_PRETTY_FUNCTION_PREFIX "struct ctti::detail::cstring __cdecl ctti::pretty_function::type<"
@@ -60,7 +64,11 @@ constexpr ctti::detail::cstring value()
     #define CTTI_VALUE_PRETTY_FUNCTION_SEPARATOR "; Value = "
     #define CTTI_VALUE_PRETTY_FUNCTION_SUFFIX "]"
 #elif defined(__GNUC__) && !defined(__clang__)
-    #define CTTI_VALUE_PRETTY_FUNCTION_PREFIX "constexpr ctti::detail::cstring ctti::pretty_function::value() [with T = "
+    #if __GNUC__ >= 16
+        #define CTTI_VALUE_PRETTY_FUNCTION_PREFIX "ctti::detail::cstring ctti::pretty_function::value() [with T = "
+    #else
+        #define CTTI_VALUE_PRETTY_FUNCTION_PREFIX "constexpr ctti::detail::cstring ctti::pretty_function::value() [with T = "
+    #endif
     #define CTTI_VALUE_PRETTY_FUNCTION_SEPARATOR "; T Value = "
     #define CTTI_VALUE_PRETTY_FUNCTION_SUFFIX "]"
 #elif defined(_MSC_VER)

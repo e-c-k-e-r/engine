@@ -18,6 +18,7 @@ namespace impl {
 	typedef int (*fill_callback_t)(void* user_data, uint8_t* buffer, int req_bytes);
 
 	constexpr int STREAM_BUFFER_SIZE = 16384;
+	constexpr int DRIVER_BUFFER_SIZE = 65536;
 	constexpr size_t MAX_VIRTUAL_SOURCES = 256;
 	constexpr size_t MAX_VIRTUAL_BUFFERS = 1024;
 
@@ -58,7 +59,6 @@ namespace impl {
 	mutex_t g_streamMutex = MUTEX_INITIALIZER;
 
 	void* kos_stream_callback( snd_stream_hnd_t hnd, int req_bytes, int* bytes_returned ) {
-		UF_MSG_DEBUG("[AICA] Requesting {} bytes", req_bytes);
 		auto it = g_activeStreams.find(hnd);
 		if ( it == g_activeStreams.end() ) {
 			*bytes_returned = 0;
@@ -68,39 +68,14 @@ namespace impl {
 
 		impl::Buffer* buf = it->second;
 		if ( req_bytes > impl::STREAM_BUFFER_SIZE ) {
-			UF_MSG_WARNING("[AICA] Requesting more than buffer: {} > {}", req_bytes, impl::STREAM_BUFFER_SIZE);
 			req_bytes = impl::STREAM_BUFFER_SIZE;
 		}
 
-		// generate a sin wave for testing
-		// washdc plays this, albeit slowly because emulation speed is hindered
-		// flycast doesn't play audio, this callback gets called twice then never again
-	#if 1
-		float frequency = 440.0f;
-		float sample_rate = buf->frequency > 0 ? buf->frequency : 44100.0f;
-		int channels = (buf->format == AL_FORMAT_STEREO16 || buf->format == AL_FORMAT_STEREO8) ? 2 : 1;
-
-		int16_t* samples = (int16_t*)buf->stream_buffer;
-		int num_samples = req_bytes / sizeof(int16_t);
-		int half_period = (int)(sample_rate / (frequency * 2.0f));
-		static int sample_count = 0;
-
-		for( int i = 0; i < num_samples; i += channels ) {
-			int16_t sample_val = ((sample_count / half_period) % 2 == 0) ? 16000 : -16000;
-
-			samples[i] = sample_val;
-			if ( channels == 2 ) samples[i + 1] = sample_val;
-			sample_count++;
-		}
-
-		*bytes_returned = req_bytes;
-	#else
 		if ( buf->fill_callback && buf->user_data ) {
 			*bytes_returned = buf->fill_callback(buf->user_data, buf->stream_buffer, req_bytes);
 		} else {
 			*bytes_returned = 0;
 		}
-	#endif
 
 		if ( *bytes_returned == 0 ) return nullptr;
 
@@ -281,7 +256,7 @@ void ext::al::Source::play() {
 		int pan = 128;
 		
 		if ( buffer.aica_addr != 0 ) {
-			snd_sfx_play(buffer.aica_addr, vol, pan);
+			// snd_sfx_play(buffer.aica_addr, vol, pan); // earrape
 		} else if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
 			int channels = (buffer.format == AL_FORMAT_STEREO16 || buffer.format == AL_FORMAT_STEREO8) ? 1 : 0;
 
@@ -471,7 +446,7 @@ void ext::al::Buffer::buffer( ALuint index, ALenum format, const ALvoid* data, A
 			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", impl::STREAM_BUFFER_SIZE);
 			return;
 		}
-		buffer.stream_hnd = snd_stream_alloc( impl::kos_stream_callback, impl::STREAM_BUFFER_SIZE );
+		buffer.stream_hnd = snd_stream_alloc( impl::kos_stream_callback, impl::DRIVER_BUFFER_SIZE );
 		if ( buffer.stream_hnd == SND_STREAM_INVALID ) {
 			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", impl::STREAM_BUFFER_SIZE);
 			return;

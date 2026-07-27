@@ -568,7 +568,10 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 			::shadowState.colorArrayEnabled = true;
 		}
-		GLenum colorType = (drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components == sizeof(uint8_t)) ? GL_UNSIGNED_BYTE : GL_FLOAT;
+		GLenum colorType = GL_FLOAT;
+		if ( drawInfo.attributes.color.descriptor.type == uf::renderer::enums::Type::UBYTE || drawInfo.attributes.color.descriptor.size == sizeof(uint8_t)) {
+    		colorType = GL_UNSIGNED_BYTE;
+		}
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
 	} else if ( ::shadowState.colorArrayEnabled ) {
 		GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
@@ -598,9 +601,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		}
 
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, uvStride, uvPtr));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
+		//GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
 		// washdc works fine, flycast renders nothing if GL_MODULATE is set, although GL_REPLACE just renders the background
-		//GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 	} else {
 		if ( ::shadowState.tex0Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
@@ -669,12 +672,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( ::shadowState.lineWidth != lineWidth ) {
 		GL_ERROR_CHECK(glLineWidth(lineWidth));
 		::shadowState.lineWidth = lineWidth;
-	}
-
-	if ( drawInfo.descriptor.inputs.index.count ) {
-		GL_ERROR_CHECK(glDrawElements(mode, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
-	} else {
-		GL_ERROR_CHECK(glDrawArrays(mode, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	}
 
 	if ( drawInfo.descriptor.inputs.index.count ) {

@@ -108,12 +108,21 @@
 #define TYPE_SANITIZE(T) std::remove_cv_t<std::remove_reference_t<T>>
 
 #if UF_CTTI
+#if 0
+    #include <ctti/ctti.hpp>
+    #define TYPE_INDEX_T decltype(ctti::type_id_of<void>())
+    #define TYPE_HASH_T decltype(ctti::type_id_of<void>().hash())
+    #define TYPE(T) ctti::type_id_of<TYPE_SANITIZE(T)>()
+    #define TYPE_HASH(T) TYPE(T).hash()
+    #define TYPE_NAME(T) ctti::name_of<TYPE_SANITIZE(T)>()
+#else
 	#include <ctti/type_id.hpp>
 	#define TYPE_INDEX_T ctti::type_id_t
 	#define TYPE_HASH_T ctti::detail::hash_t
 	#define TYPE(T) ctti::type_id<TYPE_SANITIZE(T)>()
 	#define TYPE_HASH(T) TYPE(T).hash()
 	#define TYPE_NAME(T) ctti::nameof<T>().str()
+#endif
 #else
 	#define TYPE_INDEX_T std::type_index
 	#define TYPE_HASH_T std::size_t

@@ -9,7 +9,7 @@ FLAGS 			+= -fdiagnostics-color=always
 
 # MSYS2
 INCS 			+= -I/mingw64/include/
-LIBS 			+= -I/mingw64/lib/
+LIBS 			+= -L/mingw64/lib/
 
 TARGET_EXTENSION 		= .exe
 DLIB_EXTENSION 			= .dll
