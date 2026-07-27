@@ -94,7 +94,7 @@
 			"flatten transforms": false
 		},
 		"audio": {
-			"mute": true,
+			"mute": false,
 			"async update": false,
 			"streams by default": true,
 			"buffers": {
@@ -108,7 +108,7 @@
 			}
 		},
 		"memory pool": {
-			"enabled": true, // probably should be enabled
+			"enabled": false, // probably should be enabled
 			"subPools": false,
 			"alignment": 4,
 			"override": false,

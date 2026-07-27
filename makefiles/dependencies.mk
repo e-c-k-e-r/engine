@@ -1,3 +1,5 @@
+INCS += -I./dep/include/stb/ -I./dep/include/nlohmann/
+
 ifneq (,$(findstring ffx:sdk,$(REQ_DEPS)))
 	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 		ifneq (,$(findstring gcc,$(REQ_DEPS)))
@@ -54,7 +56,6 @@ endif
 
 ifneq (,$(findstring gltf,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_GLTF
-	INCS  += -I./dep/include/stb/ -I./dep/include/nlohmann/
 endif
 
 ifneq (,$(findstring dc:texconv,$(REQ_DEPS)))
@@ -87,6 +88,10 @@ endif
 ifneq (,$(findstring freetype,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_FREETYPE
 	DEPS  += -lfreetype -lbz2
+endif
+
+ifneq (,$(findstring ttf,$(REQ_DEPS)))
+	FLAGS += -DUF_USE_TRUETYPE
 endif
 
 ifneq (,$(findstring curl,$(REQ_DEPS)))

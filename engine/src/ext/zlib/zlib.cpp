@@ -326,6 +326,49 @@ namespace {
 		uf::stl::unordered_map<uf::stl::string, pod::ZipEntry> entries;
 	};
 
+	struct ZipFileStream {
+		const uint8_t* data = nullptr;
+		size_t size = 0;
+		size_t cursor = 0;
+		uf::stl::vector<uint8_t> decompressedBuffer;
+	};
+
+	size_t zip_file_read(void* handle, void* buffer, size_t bytes) {
+		ZipFileStream* stream = (ZipFileStream*)handle;
+		size_t bytesLeft = stream->size - stream->cursor;
+		size_t toRead = (bytes > bytesLeft) ? bytesLeft : bytes;
+
+		if (toRead > 0) {
+			std::memcpy(buffer, stream->data + stream->cursor, toRead);
+			stream->cursor += toRead;
+		}
+		return toRead;
+	}
+
+	bool zip_file_seek(void* handle, long offset, int origin) {
+		ZipFileStream* stream = (ZipFileStream*)handle;
+		long target = 0;
+
+		if (origin == SEEK_SET) target = offset;
+		else if (origin == SEEK_CUR) target = (long)stream->cursor + offset;
+		else if (origin == SEEK_END) target = (long)stream->size + offset;
+
+		if (target < 0) target = 0;
+		if ((size_t)target > stream->size) target = stream->size;
+
+		stream->cursor = (size_t)target;
+		return true;
+	}
+
+	size_t zip_file_tell(void* handle) {
+		return ((ZipFileStream*)handle)->cursor;
+	}
+
+	void zip_file_close(void* handle) {
+		ZipFileStream* stream = (ZipFileStream*)handle;
+		delete stream;
+	}
+
 	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ){
 		auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
 		return state.entries.find(file) != state.entries.end();
@@ -372,6 +415,42 @@ namespace {
 
 		return files;
 	}
+
+	pod::File vfs_open(pod::Mount& mount, const uf::stl::string& file) {
+		auto& state = uf::pointeredUserdata::get<ZipMountState>(mount.userdata);
+		auto it = state.entries.find(file);
+		if (it == state.entries.end()) return pod::File{};
+
+		const auto& entry = it->second;
+		const uint8_t* fileData = state.buffer.data() + entry.offset;
+
+		ZipFileStream* stream = new ZipFileStream();
+		stream->size = entry.uncompressedSize;
+		stream->cursor = 0;
+
+		if (entry.compressionMethod == 0) {
+			stream->data = fileData;
+		}
+		else if (entry.compressionMethod == 8) {
+			if (!ext::zlib::decompressFromMemory(stream->decompressedBuffer, fileData, entry.compressedSize, entry.uncompressedSize, -15)) {
+				delete stream;
+				return pod::File{};
+			}
+			stream->data = stream->decompressedBuffer.data();
+		}
+		else {
+			delete stream;
+			return pod::File{};
+		}
+
+		return pod::File{
+			.handle = stream,
+			.read = zip_file_read,
+			.seek = zip_file_seek,
+			.tell = zip_file_tell,
+			.close = zip_file_close
+		};
+	}
 }
 
 pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vector<uint8_t>& buffer, int priority ) {
@@ -392,6 +471,7 @@ pod::Mount ext::zlib::createZipMount( const uf::stl::string& uri, uf::stl::vecto
 	mount.size = ::vfs_size;
 	mount.read = ::vfs_read;
 	mount.list = ::vfs_list;
+	mount.open = ::vfs_open;
 	
 	auto& state = uf::pointeredUserdata::get<ZipMountState>( mount.userdata );
 	state.buffer = buffer;

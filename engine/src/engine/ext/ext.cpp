@@ -513,7 +513,7 @@ void UF_API uf::initialize() {
 				UF_MSG_DEBUG("Requested {} bytes for entity memory pool: {}", (int) size, uf::Entity::memoryPool.data().memory);
 			}
 		}
-		uf::allocator::override = configMemoryPoolJson["override"].as( uf::allocator::override );
+		uf::allocator::override( configMemoryPoolJson["override"].as<bool>() );
 	}
 
 	/* Setup commands */ {
@@ -685,7 +685,7 @@ void UF_API uf::initialize() {
 	}
 #endif
 
-#if UF_USE_OPENAL
+#if UF_USE_OPENAL || UF_ENV_DREAMCAST
 	/* Initialize OpenAL */ if ( !uf::audio::muted ) {
 		ext::al::initialize();
 	}
@@ -1055,7 +1055,7 @@ void UF_API uf::terminate() {
 		uf::renderer::destroy();
 	}
 
-	#if UF_USE_OPENAL
+	#if UF_USE_OPENAL || UF_ENV_DREAMCAST
 		/* Initialize OpenAL */ if ( !uf::audio::muted ) {
 			ext::al::destroy();
 		}

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#if UF_USE_OPENAL
+#if UF_USE_OPENAL && !UF_USE_AICA
 
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -28,6 +28,7 @@
 #include "source.h"
 #include "buffer.h"
 #include "filter.h"
+#include "listener.h"
 #include <uf/utils/audio/metadata.h>
 #include <uf/utils/math/transform.h>
 

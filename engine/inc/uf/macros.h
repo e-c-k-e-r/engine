@@ -11,6 +11,22 @@
 #define FORCE_INLINE __attribute__((always_inline)) inline
 // #define FORCE_INLINE inline
 
+#if defined(__GNUC__) || defined(__clang__)
+	#define NO_INLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+	#define NO_INLINE __declspec(noinline)
+#else
+	#define NO_INLINE
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+	#define NO_LTO_ICE __attribute__((noinline, noclone))
+#elif defined(_MSC_VER)
+	#define NO_LTO_ICE __declspec(noinline)
+#else
+	#define NO_LTO_ICE
+#endif
+
 #define TIMER(x, ...)\
 	static bool first = true;\
 	static uf::Timer<long long> timer(false);\
@@ -36,6 +52,8 @@
 #define UF_MSG_INFO(...) 					UF_MSG("INFO", __VA_ARGS__);
 #define UF_MSG_WARNING(...) 				UF_MSG("WARNING", __VA_ARGS__);
 #define UF_MSG_ERROR(...) 					UF_MSG("ERROR", __VA_ARGS__);
+
+#define UF_MSG_ECHO(f) 						{ UF_MSG_DEBUG("{}", #f); f; }
 
 #if UF_NO_EXCEPTIONS
 	#define UF_EXCEPTIONS 0

@@ -381,7 +381,7 @@ uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
 	// to-do: make this config.json defineable
 #if UF_ENV_DREAMCAST
 	if ( assetType == "texture" ) preferredExtension = ".dtex";
-	else if ( assetType == "audio" ) preferredExtension = ".ogg";
+	else if ( assetType == "audio" ) preferredExtension = ".wav";
 #else
 	if ( assetType == "texture" ) preferredExtension = ".png";
 	else if ( assetType == "audio" ) preferredExtension = ".ogg";

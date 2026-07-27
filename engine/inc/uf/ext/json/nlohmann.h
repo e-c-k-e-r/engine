@@ -18,10 +18,10 @@
 	#define float64_t decltype(1.0L)
 
 	namespace std {
-	    using ::snprintf;
-	    using ::strtoull;
-	    using ::strtoll;
-	    using ::strtold;
+		using ::snprintf;
+		using ::strtoull;
+		using ::strtoll;
+		using ::strtold;
 	}
 #else
 	#define float64_t double

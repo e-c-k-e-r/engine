@@ -1,41 +1,71 @@
 #include <uf/utils/text/glyph.h>
-#if UF_USE_FREETYPE
+#include <stb_truetype.h>
+#include <cmath>
+#include <algorithm>
 
+#if UF_USE_TRUETYPE
 
-uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g, uint64_t c, size_t size ) {
-	ext::freetype::setPixelSizes( g, size );
-	if ( !ext::freetype::load( g, c ) ) return NULL;
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::TrueTypeFont& g, uint64_t c, size_t size ) {
+	ext::truetype::setPixelSizes( g, size );
+	if ( !ext::truetype::load( g, c ) ) return NULL;
 	return uf::glyph::generate( glyph, g );
 }
 
-uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g, const uf::stl::string& s, size_t size ) {
-	ext::freetype::setPixelSizes( g, size );
-	if ( !ext::freetype::load( g, s ) ) return NULL;
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::TrueTypeFont& g, const uf::stl::string& s, size_t size ) {
+	ext::truetype::setPixelSizes( g, size );
+	if ( !ext::truetype::load( g, s ) ) return NULL;
 	return uf::glyph::generate( glyph, g );
 }
 
-uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::FT_Glyph& g ) {
-	if ( glyph.spread ) ext::freetype::setRenderMode( g, FT_RENDER_MODE_SDF );
+uint8_t* uf::glyph::generate( pod::Glyph& glyph, pod::TrueTypeFont& g ) {
+	if ( !g.info ) return nullptr;
+	stbtt_fontinfo* info = static_cast<stbtt_fontinfo*>(g.info);
+	int c = static_cast<int>(g.current_codepoint);
 
-	glyph.size = { g.face->glyph->bitmap.width, g.face->glyph->bitmap.rows };
-	glyph.bearing = { g.face->glyph->bitmap_left, g.face->glyph->bitmap_top };
-	glyph.advance = { g.face->glyph->advance.x >> 6, g.face->glyph->advance.y >> 6 };
+	int advance, lsb;
+	stbtt_GetCodepointHMetrics(info, c, &advance, &lsb);
 
-	glyph.buffer.clear();
+	int width, height, xoff, yoff;
+	unsigned char* bitmap = nullptr;
 
-	const uint8_t* buffer = g.face->glyph->bitmap.buffer;
-
-	auto size = glyph.size + glyph.padding * 2;
-	glyph.buffer.assign(size.x * size.y, 0);
-	for ( size_t y = 0; y < glyph.size.y; ++y ) {
-		const uint8_t* src = buffer + y * g.face->glyph->bitmap.pitch;
-		for ( size_t x = 0; x < glyph.size.x; ++x ) {
-			size_t dst = (y + glyph.padding.y) * size.x + (x + glyph.padding.x);
-			glyph.buffer[dst] = src[x];
-		}
+	// this should never ever be called because I'll probably never get around to implementing SDFs in pure fixed-function OpenGL
+	// but this causes issues with -flto on it
+#if !UF_ENV_DREAMCAST
+	if ( glyph.spread > 0 ) {
+		bitmap = stbtt_GetCodepointSDF(info, g.scale, c, glyph.padding.x, 128, static_cast<float>(glyph.spread), &width, &height, &xoff, &yoff);
+	} else 
+#endif
+	{
+		bitmap = stbtt_GetCodepointBitmap(info, 0, g.scale, c, &width, &height, &xoff, &yoff);
 	}
 
-	glyph.size = size;
+	if ( !bitmap ) {
+		width = height = xoff = yoff = 0;
+	}
+
+	glyph.size = { static_cast<unsigned int>(width), static_cast<unsigned int>(height) };
+	glyph.bearing = { xoff, -yoff };
+	glyph.advance = { static_cast<int>(std::round(advance * g.scale)), 0 };
+
+	auto size_padded = glyph.size + glyph.padding * 2;
+	glyph.buffer.assign(size_padded.x * size_padded.y, 0);
+
+	if ( bitmap ) {
+		for ( size_t y = 0; y < glyph.size.y; ++y ) {
+			const uint8_t* src = bitmap + y * width;
+			for ( size_t x = 0; x < glyph.size.x; ++x ) {
+				size_t dst = (y + glyph.padding.y) * size_padded.x + (x + glyph.padding.x);
+				glyph.buffer[dst] = src[x];
+			}
+		}
+		stbtt_FreeBitmap(bitmap, nullptr);
+	}
+
+	glyph.size = size_padded;
+
+#if UF_ENV_DREAMCAST
+	//if ( glyph.spread > 0 ) uf::glyph::generateSdf( glyph );
+#endif
 
 	return glyph.buffer.data();
 }

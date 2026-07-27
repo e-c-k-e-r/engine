@@ -51,8 +51,8 @@ UF_VERTEX_DESCRIPTOR(GlyphVertex,
 
 namespace {
 	struct {
-	#if UF_USE_FREETYPE
-		pod::FT_Glyph face;
+	#if UF_USE_TRUETYPE
+		pod::TrueTypeFont face;
 		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<size_t, pod::Glyph>> cache;
 	#else
 		char glyph;
@@ -156,7 +156,7 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 	auto& cache = ::glyphs.cache[metadata.font];
 
 	if ( cache.empty() ) {
-		ext::freetype::initialize( ::glyphs.face, uf::io::root + "/fonts/" + metadata.font );
+		ext::truetype::initialize( ::glyphs.face, uf::io::root + "/fonts/" + metadata.font );
 	}
 
 	pod::Vector2f anchor = ::parseAnchor( metadata.alignment );
@@ -170,9 +170,9 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 
 	// generate glyph and line height
 	for ( const auto& token : tokens ) {
-		std::u8string str(token.text.begin(), token.text.end());
-		for ( uint64_t c : str ) {
-			if ( c == '\n' || c == '\t' ) continue; // special characters
+		for ( char raw_c : token.text ) {
+			uint64_t c = static_cast<uint8_t>(raw_c); // Safely cast byte
+			if ( c == '\n' || c == '\t' ) continue;
 
 			auto key = uf::glyph::hashSettings(c, metadata);
 			auto& glyph = cache[key];
@@ -181,23 +181,25 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 			if ( glyph.buffer.empty() ) {
 				glyph.padding = { metadata.padding[0], metadata.padding[1] };
 				glyph.spread = metadata.spread;
-
 				uf::glyph::generate( glyph, ::glyphs.face, c, metadata.size );
 			}
 
-			tallestGlyphY = std::max(tallestGlyphY, (float) glyph.size.y);
-			totalWidth += glyph.size.x; // should probably be reset on new-line to find the widest line
+			float g_y = static_cast<float>(glyph.size.y);
+			if (g_y > tallestGlyphY) tallestGlyphY = g_y;
+
+			totalWidth += static_cast<float>(glyph.size.x);
 			charCount++;
 		}
 	}
 
-	if ( charCount > 0 ) averageTabWidth = (totalWidth / charCount) * 4.0f;
+	if ( charCount > 0 ) averageTabWidth = (totalWidth / static_cast<float>(charCount)) * 4.0f;
 	cursor.y = tallestGlyphY;
 
 	// calculate positions
 	for ( const auto& token : tokens ) {
-		std::u8string str( token.text.begin(), token.text.end() );
-		for ( uint64_t c : str ) {
+		for ( char raw_c : token.text ) {
+			uint64_t c = static_cast<uint8_t>(raw_c);
+
 			// advance cursor on special characters
 			if ( c == '\n' ) {
 				cursor.y += tallestGlyphY;
@@ -214,25 +216,29 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 			// retrieve glyph
 			auto key = uf::glyph::hashSettings(c, metadata);
 			auto& glyph = cache[key];
-			auto& g = layout.emplace_back(pod::GlyphBox{
-				.box = {
-					.x = cursor.x + glyph.bearing.x,
-					.y = cursor.y - glyph.bearing.y,
-					.w = glyph.size.x,
-					.h = glyph.size.y,
-					.z = 0,
-				},
-				.color = token.color,
-				.anchor = anchor,
-				.code = c,
-			});
+
+			pod::GlyphBox newBox;
+			newBox.box.x = cursor.x + static_cast<float>(glyph.bearing.x);
+			newBox.box.y = cursor.y - static_cast<float>(glyph.bearing.y);
+			newBox.box.w = static_cast<float>(glyph.size.x);
+			newBox.box.h = static_cast<float>(glyph.size.y);
+			newBox.box.z = 0.0f;
+			newBox.color = token.color;
+			newBox.anchor = anchor;
+			newBox.code = c;
+
+			layout.push_back(newBox);
+			pod::GlyphBox& g = layout.back();
 
 			// advance cursor
-			cursor.x += glyph.advance.x;
+			cursor.x += static_cast<float>(glyph.advance.x);
 
-			// advance bounding box
-			maxTextWidth = std::max(maxTextWidth, g.box.x + g.box.w);
-			maxTextHeight = std::max(maxTextHeight, g.box.y + g.box.h);
+			// advance bounding box manually
+			float right = g.box.x + g.box.w;
+			if (right > maxTextWidth) maxTextWidth = right;
+
+			float bottom = g.box.y + g.box.h;
+			if (bottom > maxTextHeight) maxTextHeight = bottom;
 		}
 	}
 
@@ -246,10 +252,10 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 		g.box.y -= offsetY;
 
 		// normalize
-		g.box.x /= ::defaults.size.x;
-		g.box.w /= ::defaults.size.x;
-		g.box.y /= ::defaults.size.y;
-		g.box.h /= ::defaults.size.y;
+		g.box.x /= static_cast<float>(::defaults.size.x);
+		g.box.w /= static_cast<float>(::defaults.size.x);
+		g.box.y /= static_cast<float>(::defaults.size.y);
+		g.box.h /= static_cast<float>(::defaults.size.y);
 	}
 
 	return layout;
@@ -260,7 +266,7 @@ bool uf::glyph::generateAtlas( const uf::stl::vector<pod::GlyphBox>& layout, con
 	bool dirty = false;
 	auto& cache = ::glyphs.cache[metadata.font];
 
-#if UF_USE_FREETYPE
+#if UF_USE_TRUETYPE
 	// generate atlas
 	for ( const auto& g : layout ) {
 		auto key = uf::glyph::hashSettings( g.code, metadata );

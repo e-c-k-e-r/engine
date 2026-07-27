@@ -379,7 +379,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	}
 
 #if 0 && UF_ENV_DREAMCAST
-	// washingtondc has a regression where non-alpha-tested polys do not render
+	// washingtondc ~~has~~ had a regression where non-alpha-tested polys do not render
 	// more convenient to just work around the regression since later builds have working opengl backends
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
 	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
@@ -450,6 +450,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	pod::Vector4f color = {1,1,1,1};
 	if ( drawInfo.color.enabled ) {
 		color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
+		color = uf::vector::clamp( color, pod::Vector4f{0,0,0,0}, pod::Vector4f{1, 1, 1, 1}  );
 	}
 	if ( color != ::shadowState.color ) {
 		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
@@ -598,6 +599,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, uvStride, uvPtr));
 		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
+		// washdc works fine, flycast renders nothing if GL_MODULATE is set, although GL_REPLACE just renders the background
+		//GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 	} else {
 		if ( ::shadowState.tex0Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));

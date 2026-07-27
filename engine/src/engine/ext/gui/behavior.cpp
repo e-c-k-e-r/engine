@@ -25,7 +25,11 @@
 
 #include "./payload.h"
 
+#if UF_USE_OPENGL
+#define EXT_COLOR_FLOATS 0
+#else
 #define EXT_COLOR_FLOATS 1
+#endif
 
 namespace {
 	struct GuiVertex {
@@ -94,24 +98,35 @@ namespace {
 	}
 
 	uf::Mesh& generateMesh( uf::Mesh& mesh, const pod::Vector4f& color, const pod::Vector2f& center ) {
+	#if EXT_COLOR_FLOATS
+		auto& c = color;
+	#else
+		//pod::Vector4ub c = (color * 255);
+		pod::Vector4ub c = {
+			(uint8_t)(color[0] * 255),
+			(uint8_t)(color[1] * 255),
+			(uint8_t)(color[2] * 255),
+			(uint8_t)(color[3] * 255),
+		};
+	#endif
 		mesh.bind<::GuiVertex, uint16_t>();
 		mesh.insertVertices<::GuiVertex>({
 		#if UF_USE_OPENGL
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, c },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, c },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, c },
 		
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, color },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, color },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, color },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, c },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, c },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, c },
 		#else
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
-			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color, center },
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, c, center },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, c, center },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, c, center },
 		
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color, center },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color, center },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color, center },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, c, center },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, c, center },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, c, center },
 		#endif
 		});
 		mesh.insertIndices<uint16_t>({

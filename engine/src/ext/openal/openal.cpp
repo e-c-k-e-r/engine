@@ -1,6 +1,6 @@
 #include <uf/config.h>
 
-#if UF_USE_OPENAL
+#if UF_USE_OPENAL && !UF_USE_AICA
 #include <uf/ext/openal/openal.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
@@ -46,6 +46,8 @@ void ext::al::initialize() {
 	if ( hasEfx == AL_FALSE ) {
 		UF_MSG_WARNING("AL_EXT_EFX not supported! Spatial audio will lack occlusion.");
 	}
+
+	UF_MSG_DEBUG("AL initialized.");
 }
 void ext::al::destroy() {
 #if UF_USE_ALUT
@@ -76,7 +78,14 @@ uf::stl::string ext::al::getError( ALCenum error ) {
 	}
 	return FMT_FORMAT("AL_UNKNOWN({})", error);
 }
-
+//
+void ext::al::Listener::set( ALenum name, ALfloat x, ALfloat y, ALfloat z ) {
+	AL_CHECK_RESULT_ENUM(alListener3f, name, x, y, z);
+}
+void ext::al::Listener::set( ALenum name, const ALfloat* values ) {
+	alListenerfv(name, values);
+}
+//
 void ext::al::Source::initialize() {
 	if ( this->m_index ) this->destroy();
 	AL_CHECK_RESULT(alGenSources(1, &this->m_index));
@@ -214,8 +223,18 @@ void ext::al::Source::set( const uf::stl::string& string, const ALint* f ) {
 	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 
+void ext::al::Source::queue( ALsizei n, ALuint* indices ) {
+	AL_CHECK_RESULT(alSourceQueueBuffers(this->m_index, n, indices));
+}
+void ext::al::Source::unqueue( ALsizei n, ALuint* indices ) {
+	AL_CHECK_RESULT(alSourceUnqueueBuffers(this->m_index, n, indices));
+}
+
 void ext::al::Source::play() {
 	AL_CHECK_RESULT(alSourcePlay(this->m_index));
+}
+void ext::al::Source::pause() {
+	AL_CHECK_RESULT(alSourcePause(this->m_index));
 }
 void ext::al::Source::stop() {
 	AL_CHECK_RESULT(alSourceStop(this->m_index));
@@ -242,10 +261,17 @@ void ext::al::Buffer::destroy() {
 ALuint& ext::al::Buffer::getIndex( size_t i ) { return this->m_indices[i]; }
 ALuint ext::al::Buffer::getIndex( size_t i ) const { return this->m_indices[i]; }
 
+void ext::al::Buffer::set( ALenum name, ALint* iv, size_t i ) {
+	AL_CHECK_RESULT(alBufferiv( this->m_indices[i], name, iv ));
+}
 void ext::al::Buffer::buffer(ALenum format, const ALvoid* data, ALsizei size, ALsizei frequency, size_t i ) {
 	if ( !this->initialized() ) this->initialize();
-	AL_CHECK_RESULT(alBufferData(this->m_indices[i], format, data, size, frequency));
+	ext::al::Buffer::buffer( this->m_indices[i], format, data, size, frequency );
 }
+void ext::al::Buffer::buffer(ALuint index, ALenum format, const ALvoid* data, ALsizei size, ALsizei frequency ) {
+	AL_CHECK_RESULT(alBufferData( index, format, data, size, frequency ));
+}
+
 
 #if UF_ENV_DREAMCAST
 void ext::al::Filter::initialize() {

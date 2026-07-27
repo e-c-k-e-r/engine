@@ -15,6 +15,10 @@
 	#include <uf/ext/toml/toml.h>
 #endif
 
+#if UF_ENV_DREAMCAST
+	#define JSON_NO_IO
+#endif
+
 namespace ext {
 	namespace json {
 		extern uf::stl::string PREFERRED_COMPRESSION;

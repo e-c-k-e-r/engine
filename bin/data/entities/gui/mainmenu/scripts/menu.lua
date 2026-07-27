@@ -59,6 +59,8 @@ destination(children.circleIn, nil, 2, 0)
 destination(children.start, -1.5, nil, 0)
 destination(children.quit, -1.5, nil, 0)
 
+-- ?
+--[[
 ent:addHook("asset:Load.%UID%", function( json )
 	local filename = json["filename"]
 	if filename == "" or string.extension( filename ) ~= "ogg" then return false end
@@ -71,6 +73,7 @@ ent:addHook("asset:Load.%UID%", function( json )
 
 	return true
 end )
+]]
 
 local selectableElements = {
 	children.start,

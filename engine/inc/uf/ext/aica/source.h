@@ -1,12 +1,9 @@
 #pragma once
 
 #include <uf/config.h>
-#if UF_USE_OPENAL
+#if UF_ENV_DREAMCAST
 
-
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alut.h>
+#include "al.h"
 
 namespace ext {
 	namespace al {
@@ -14,9 +11,6 @@ namespace ext {
 		protected:
 			ALuint m_index = 0;
 		public:
-		//	Source();
-		//	~Source();
-
 			void initialize();
 			void destroy();
 

@@ -39,6 +39,8 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 	});
 
 	this->addHook( "sound:Emit.%UID%", [&](ext::json::Value& json){
+		//if ( uf::audio::muted ) return;
+
 		if ( ext::json::isNull(json["volume"]) ) json["volume"] = metadataJson["audio"]["volume"];
 		if ( ext::json::isNull(json["pitch"]) ) json["pitch"] = metadataJson["audio"]["pitch"];
 		if ( ext::json::isNull(json["gain"]) ) json["gain"] = metadataJson["audio"]["gain"];
@@ -53,7 +55,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		bool unique = json["unique"].as<bool>();
-		bool streamed = json["streamed"].as<bool>();
 
 		if ( !uf::asset::has( filename ) ) {
 			auto payload = uf::asset::resolveToPayload(filename, "");
@@ -62,7 +63,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		}
 
 		pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( filename );
-
 		pod::AudioSource& source = emitter.emit( filename, clip, unique );
 
 		if ( json["pitch"].is<double>() ) uf::audio::pitch(source, json["pitch"].as<float>());
@@ -123,6 +123,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 
 		auto pload = this->resolveToPayload( filename );
 		pload.metadata["layer"] = payload["layer"];
+		pload.metadata["streamed"] = payload["streamed"].as<bool>(true);
 
 		if ( payload["loop"].is<bool>() ) pload.metadata["loop"] = payload["loop"];
 		if ( payload["notify"].is<bool>() ) pload.metadata["notify"] = payload["notify"];
@@ -137,7 +138,6 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( metadata.tracks.count(payload.uri) > 0 || metadata.tracks.count(metadata.current) > 0 ) {
 			auto& track = metadata.tracks[payload.uri];
 			pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( payload.filename );
-			
 			int layer = payload.metadata["layer"].as<int>(1);
 			uf::stl::string channelName = FMT_FORMAT("managed_bgm_channel_{}", layer);
 

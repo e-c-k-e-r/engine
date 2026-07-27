@@ -1,5 +1,5 @@
 FLAGS 				+= -DUF_ENV_DREAMCAST
-REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt freetype openal aldc ogg wav png # to-do: gut freetype to gut libpng
+REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt ttf ogg wav aica # openal aldc
 
 INCS 				:= -I./dep/dreamcast/include $(INCS)
 
@@ -12,6 +12,9 @@ endif
 ifneq (,$(findstring aldc,$(REQ_DEPS)))
 	DEPS 			+= -lAL -lpthread
 	FLAGS 			+= -DUF_USE_OPENAL_ALDC -DUF_USE_ALUT
+endif
+ifneq (,$(findstring aica,$(REQ_DEPS)))
+	FLAGS 			+= -DUF_USE_AICA
 endif
 
 ifneq (,$(findstring ogg,$(REQ_DEPS)))
@@ -41,15 +44,12 @@ $(PREFIX): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 
 $(EX_DLL): FLAGS += -DUF_EXPORTS
 $(EX_DLL): $(OBJS_DLL)
-	$(KOS_AR) cru $@ $^
-	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)
+	#cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL)
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
 $(EXT_EX_DLL): $(OBJS_EXT_DLL)
-	$(KOS_AR) cru $@ $^
-	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)
+	#cp $@ $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL)
+
 
 ./bin/dreamcast/romdisk.img:
 	$(KOS_GENROMFS) -f ./bin/dreamcast/romdisk.img -d ./bin/dreamcast/romdisk/ -v
@@ -68,10 +68,10 @@ $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
 cdi:
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
 
-run-dreamcast:
+run-dc:
 	$(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
 
-run-debug-dreamcast:
+debug-dc:
 	$(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).cdi $(TARGET).unstripped
 
 clean-dreamcast:

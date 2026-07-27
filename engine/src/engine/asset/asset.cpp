@@ -16,6 +16,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/ext/zlib/zlib.h>
+#include <uf/ext/texconv/texconv.h>
 
 #include <mutex>
 
@@ -317,7 +318,7 @@ uf::stl::string uf::asset::cache( uf::asset::Payload& payload ) {
 	}
 #if UF_ENV_DREAMCAST
 	UF_MSG_DEBUG("Preloading {}", filename);
-	DC_STATS();
+//	DC_STATS();
 #endif
 	return payload.filename = filename;
 }
@@ -346,7 +347,7 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 
 #if UF_ENV_DREAMCAST
 	UF_MSG_DEBUG("Loading {}", filename);
-	DC_STATS();
+//	DC_STATS();
 #endif
 
 	#define UF_ASSET_REGISTER(type)\
@@ -359,10 +360,25 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 		case uf::asset::Type::IMAGE: {
 			UF_ASSET_REGISTER(uf::Image)
 			asset.open(filename);
+	
+		#if UF_USE_DC_TEXCONV
+			uf::stl::string output = uf::io::directory( filename ) + "/" + uf::io::basename( filename );
+			if ( extension != "dtex" && !uf::io::exists( output + ".dtex" ) ) {
+				pod::Vector2ui size = { 32, 32 };
+				uf::stl::string filter = "linear";
+				uf::stl::string dtexFormat = "auto";
+
+				auto img = asset.scale( size, filter);
+				auto dtex = ext::texconv::convert( img, dtexFormat );
+				ext::texconv::save( dtex, output );
+				UF_MSG_DEBUG("Converting image: {} => {}", filename, output );
+			}
+		#endif
 		} break;
 		case uf::asset::Type::AUDIO: {
 			UF_ASSET_REGISTER(pod::AudioClip)
-			uf::audio::load(asset, filename, true);
+			asset.streamed = payload.metadata["streamed"].as<bool>( asset.streamed );
+			uf::audio::load(asset, filename);
 		} break;
 		case uf::asset::Type::JSON: {
 			UF_ASSET_REGISTER(uf::Serializer)
@@ -405,7 +421,7 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 
 #if UF_ENV_DREAMCAST
 	UF_MSG_DEBUG("Loaded {}", filename);
-	DC_STATS();
+//	DC_STATS();
 #endif
 
 	return payload.filename = filename;

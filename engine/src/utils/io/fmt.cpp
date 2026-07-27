@@ -15,9 +15,11 @@ void uf::io::exception( const uf::stl::string& exception ) {
 */
 uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message ) {
 	auto string = FMT_FORMAT("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
-	::fmt::print("{}\n", string);
 	uf::iostream.pushHistory(string);
+#if 1 || !UF_ENV_DREAMCAST
+	::fmt::print("{}\n", string);
 	fflush(stdout);
+#endif
 
 	uf::console::print( string );
 

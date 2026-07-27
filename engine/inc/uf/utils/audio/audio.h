@@ -4,6 +4,8 @@
 
 #if UF_USE_OPENAL
 #include <uf/ext/openal/openal.h>
+#elif UF_ENV_DREAMCAST
+#include <uf/ext/aica/aica.h>
 #else
 	namespace ext {
 		namespace al {
@@ -43,7 +45,7 @@ namespace uf {
 
 		void UF_API initialize( pod::AudioClip& clip, uint8_t buffers = uf::audio::buffers );
 		void UF_API initialize( pod::AudioSource& source );
-		bool UF_API load( pod::AudioClip& clip, const uf::stl::string& filename, bool streamed = uf::audio::streamsByDefault );
+		bool UF_API load( pod::AudioClip& clip, const uf::stl::string& filename );
 		void UF_API destroy( pod::AudioClip& clip );
 		void UF_API bind( pod::AudioSource& source, pod::AudioClip* clip );
 		void UF_API play( pod::AudioSource& source );

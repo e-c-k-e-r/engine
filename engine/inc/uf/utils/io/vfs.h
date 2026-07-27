@@ -10,25 +10,38 @@
 namespace pod {
 	struct Range;
 
+	struct File {
+		void* handle = nullptr;
+
+		size_t (*read)(void* handle, void* buffer, size_t bytes) = nullptr;
+		bool   (*seek)(void* handle, long offset, int origin) = nullptr;
+		size_t (*tell)(void* handle) = nullptr;
+		void   (*close)(void* handle) = nullptr;
+
+		operator bool() const { return handle != nullptr; }
+	};
+
 	struct Mount {
 		uf::stl::string prefix = "";
 		uf::stl::string path = "";
 		int priority = 0;
 		pod::PointeredUserdata userdata;
 
-		std::function<bool(pod::Mount&, const uf::stl::string&)> exists;
-		std::function<size_t(pod::Mount&, const uf::stl::string&)> size;
-		std::function<size_t(pod::Mount&, const uf::stl::string&)> mtime;
-		std::function<bool(pod::Mount&, const uf::stl::string&, uf::stl::vector<uint8_t>&)> read;
-		std::function<size_t(pod::Mount&, const uf::stl::string&, const void*, size_t)> write;
-		std::function<bool(pod::Mount&, const uf::stl::string&)> mkdir;
-		std::function<uf::stl::vector<uf::stl::string>(pod::Mount&, const uf::stl::string&, const uf::stl::string&, bool)> list;
+		bool   (*exists)    (pod::Mount&, const uf::stl::string&) = nullptr;
+		size_t (*size)      (pod::Mount&, const uf::stl::string&) = nullptr;
+		size_t (*mtime)     (pod::Mount&, const uf::stl::string&) = nullptr;
+		bool   (*read)      (pod::Mount&, const uf::stl::string&, uf::stl::vector<uint8_t>&) = nullptr;
+		size_t (*write)     (pod::Mount&, const uf::stl::string&, const void*, size_t) = nullptr;
+		bool   (*mkdir)     (pod::Mount&, const uf::stl::string&) = nullptr;
+		bool   (*stream)    (pod::Mount&, const uf::stl::string&, size_t, std::function<bool(const uint8_t* data, size_t size)>) = nullptr;
+		pod::File (*open)   (pod::Mount&, const uf::stl::string&) = nullptr;
 
-		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&)> readRange;
-		std::function<bool(pod::Mount&, const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&)> readRanges;
-		
-		std::function<bool(pod::Mount&, const uf::stl::string&, size_t, std::function<bool(const uint8_t* data, size_t size)>)> stream;
+		uf::stl::vector<uf::stl::string> (*list)(pod::Mount&, const uf::stl::string&, const uf::stl::string&, bool) = nullptr;
+
+		bool   (*readRange) (pod::Mount&, const uf::stl::string&, size_t, size_t, uf::stl::vector<uint8_t>&) = nullptr;
+		bool   (*readRanges)(pod::Mount&, const uf::stl::string&, const uf::stl::vector<pod::Range>&, uf::stl::vector<uint8_t>&) = nullptr;
 	};
+
 }
 
 namespace uf {
@@ -55,12 +68,12 @@ namespace uf {
 		size_t UF_API write( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API mkdir( const uf::stl::string& path );
 		uf::stl::vector<uf::stl::string> UF_API list( const uf::stl::string& path, const uf::stl::string& extension = "", bool recursive = false );
+		bool UF_API stream( const uf::stl::string& path, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback );
+		pod::File UF_API open( const uf::stl::string& path );
 		
 		bool UF_API readRange( const uf::stl::string& path, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer );
 		bool UF_API readRanges( const uf::stl::string& path, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer );
 		
-		bool UF_API stream( const uf::stl::string& path, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback );
-
 		pod::Mount UF_API createDiskMount( const uf::stl::string& uri, int priority = 0 );
 		uf::stl::string UF_API resolveBase( const uf::stl::string& path );
 	}

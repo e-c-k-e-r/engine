@@ -6,18 +6,24 @@
 #include <type_traits>
 
 #define UF_MEMORYPOOL_USE_ALLOCATOR 1
+#if UF_ENV_DREAMCAST
+	#define UF_MEMORYPOOL_OVERRIDE_DEFAULT 0
+#else
+	#define UF_MEMORYPOOL_OVERRIDE_DEFAULT 1
+#endif
+
 
 #if __clang__
 	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
 #else
-	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 1
+	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
 #endif
 
 namespace uf {
 	namespace allocator {
-		extern UF_API bool override;
+		void UF_API override( bool state );
 
-		void* UF_API allocate( size_t n);
+		void* UF_API allocate( size_t n );
 		void  UF_API deallocate( void* p, size_t n = 0 );
 
 		void* UF_API malloc_m( size_t n );

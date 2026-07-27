@@ -67,8 +67,8 @@ void uf::AudioEmitter::update() {
 
 void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quaternion<>& orientation ) {
 	bool spatial = false;
-	for ( auto& pair : this->m_container ) {
-		for ( auto& source : pair.second ) {
+	for ( auto& [ name, sources ] : this->m_container ) {
+		for ( auto& source : sources ) {
 			if ( source.alSource.playing() && source.settings.spatial ) {
 				spatial = true;
 				break;
@@ -87,8 +87,8 @@ void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quatern
 		}
 	}
 
-	for ( auto& pair : this->m_container ) {
-		for ( auto& source : pair.second ) {
+	for ( auto& [ name, sources ] : this->m_container ) {
+		for ( auto& source : sources ) {
 			bool isPlaying = source.alSource.playing();
 			bool hasPending = !source.info.pending.empty();
 
@@ -103,11 +103,11 @@ void uf::AudioEmitter::update( const pod::Vector3f& position, const pod::Quatern
 				uf::audio::occlude( source, occlusionValue );
 
 				if ( m_efxInitialized ) {
-					AL_CHECK_RESULT(alSource3i( source.alSource.getIndex(), AL_AUXILIARY_SEND_FILTER, (ALint)m_effectSlot.getIndex(), 0, AL_FILTER_NULL ));
+					source.alSource.set( AL_AUXILIARY_SEND_FILTER, (ALint)m_effectSlot.getIndex(), 0, AL_FILTER_NULL );
 				}
 			} else {
 				if ( m_efxInitialized ) {
-					AL_CHECK_RESULT(alSource3i( source.alSource.getIndex(), AL_AUXILIARY_SEND_FILTER, 0, 0, AL_FILTER_NULL ));
+					source.alSource.set( AL_AUXILIARY_SEND_FILTER, 0, 0, AL_FILTER_NULL );
 				}
 			}
 
@@ -157,7 +157,7 @@ void uf::AudioEmitter::cleanup( bool purge ) {
 			auto& source = *vecIt;
 
 			ALint state;
-			alGetSourcei( source.alSource.getIndex(), AL_SOURCE_STATE, &state );
+			source.alSource.get( AL_SOURCE_STATE, state );
 			bool active = (state == AL_PLAYING || state == AL_PAUSED);
 
 			if ( purge || (!active && !source.settings.loop) ) {

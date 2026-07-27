@@ -1,11 +1,9 @@
 #pragma once
 
 #include <uf/config.h>
-#if UF_USE_OPENAL
+#if UF_ENV_DREAMCAST
 
-#include <AL/al.h>
-#include <AL/alc.h>
-#include <AL/alut.h>
+#include "al.h"
 
 namespace ext {
 	namespace al {
@@ -13,9 +11,6 @@ namespace ext {
 		protected:
 			uf::stl::vector<ALuint> m_indices;
 		public:
-		//	Buffer( size_t = 1 );
-		//	~Buffer();
-			
 			bool initialized() const;
 
 			ALuint& getIndex( size_t = 0 );
@@ -27,6 +22,7 @@ namespace ext {
 			void set( ALenum, ALint*, size_t = 0 );
 			void set( ALenum name, ALint value, size_t i = 0 );
 			void get( ALenum name, ALint& value, size_t i = 0 ) const;
+			void poll( size_t = 0 );
 
 			void initialize( size_t = 1 );
 			void destroy();

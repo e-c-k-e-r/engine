@@ -108,7 +108,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::LightBehavior::tick( uf::Object& self ) {
-#if !UF_ENV_DREAMCAST
+#if !UF_USE_OPENGL
 	auto& metadata = this->getComponent<ext::LightBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {

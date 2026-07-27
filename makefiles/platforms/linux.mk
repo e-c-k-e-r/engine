@@ -3,7 +3,7 @@ ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 	FLAGS 				+= -march=native -g # -flto # -g
 endif
 
-REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib lz4 luajit simd ctti gltf imgui fmt freetype openal ogg wav
+REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib lz4 luajit simd ctti gltf imgui fmt ttf openal ogg wav
 FLAGS 				+= -DUF_ENV_LINUX -fPIC
 DEPS 				+= -pthread -ldl -lX11 -lXrandr
 INCS 				:= -I./dep/master/include $(INCS)

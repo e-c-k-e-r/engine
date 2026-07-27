@@ -308,10 +308,13 @@ template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<
 #endif
 #if UF_ENV_DREAMCAST
 	MATH_Load_XMTRX( (ALL_FLOATS_STRUCT*) &mat[0] );
-	auto t = MATH_Matrix_Transform( v[0], v[1], v[2], v[3] );
-	auto res = *((pod::Vector4t<T>*) &t);
-	if ( div && res.w > 0 ) res /= res.w;
-	return res;
+	union {
+		RETURN_VECTOR_STRUCT i;
+		pod::Vector4t<T> o;
+	} u;
+	u.i = MATH_Matrix_Transform( v[0], v[1], v[2], v[3] );
+	if ( div && v.w > 0 ) u.o /= u.o.w;
+	return u.o;
 #else
 	auto res = pod::Vector4t<T>{
 		v[0] * mat(0,0) + v[1] * mat(0,1) + v[2] * mat(0,2) + v[3] * mat(0,3),

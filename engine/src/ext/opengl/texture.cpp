@@ -63,12 +63,7 @@ void ext::opengl::Texture::updateDescriptors() {
 	descriptor.layers = layers;
 }
 bool ext::opengl::Texture::generated() const {
-#if UF_ENV_DREAMCAST
 	return image != GL_NULL_HANDLE;
-#else
-	return image != GL_NULL_HANDLE;
-//	return glIsTexture(image);
-#endif
 }
 void ext::opengl::Texture::destroy( bool defer ) {
 //	if ( !device ) return;
@@ -107,8 +102,71 @@ void ext::opengl::Texture::loadFromImage(
 	Device& device,
 	enums::Format::type_t format
 ) {
-	format = image.getFormat( srgb );
-	internalFormat = image.format > 0 ? format : 0;
+	switch ( format ) {
+		case enums::Format::R8_SRGB:
+		case enums::Format::R8G8_SRGB:
+		case enums::Format::R8G8B8_SRGB:
+		case enums::Format::R8G8B8A8_SRGB:
+			srgb = true;
+		break;
+	}
+
+	if ( image.getFormat() != 0 ) {
+		internalFormat = image.getFormat();
+	} else {
+		switch ( image.getChannels() ) {
+			// R
+			case 1:
+				switch ( image.getBpp() ) {
+					case 8:
+						format = srgb ? enums::Format::R8_SRGB : enums::Format::R8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
+					break;
+				}
+			break;
+			// RB
+			case 2:
+				switch ( image.getBpp() ) {
+					case 16:
+						format = srgb ? enums::Format::R8G8_SRGB : enums::Format::R8G8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
+					break;
+				}
+			break;
+			// RGB
+			case 3:
+				switch ( image.getBpp() ) {
+					case 24:
+						format = srgb ? enums::Format::R8G8B8_SRGB : enums::Format::R8G8B8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
+					break;
+				}
+			break;
+			// RGBA
+			case 4:
+				switch ( image.getBpp() ) {
+					case 16:
+						format = enums::Format::R4G4B4A4_UNORM_PACK16;
+					break;
+					case 32:
+						format = srgb ? enums::Format::R8G8B8A8_SRGB : enums::Format::R8G8B8A8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
+					break;
+				}
+			break;
+			default:
+			UF_EXCEPTION("OpenGL error: unsupported channels of {}", image.getChannels() );
+			break;
+		}
+	}
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),

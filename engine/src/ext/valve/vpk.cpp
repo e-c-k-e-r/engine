@@ -138,6 +138,119 @@ namespace {
 
 		return results;
 	};
+
+	struct VpkFileStreamContext {
+		size_t preloadBytes = 0;
+		size_t entryLength = 0;
+		const uint8_t* preloadData = nullptr;
+
+		FILE* chunkHandle = nullptr;
+		size_t chunkBaseOffset = 0;
+
+		size_t cursor = 0;
+	};
+
+	size_t vpk_file_read(void* handle, void* buffer, size_t bytes) {
+		VpkFileStreamContext* ctx = (VpkFileStreamContext*)handle;
+		size_t totalSize = ctx->preloadBytes + ctx->entryLength;
+
+		if (ctx->cursor >= totalSize) return 0;
+
+		size_t bytesToRead = std::min(bytes, totalSize - ctx->cursor);
+		size_t bytesRead = 0;
+		uint8_t* out = (uint8_t*)buffer;
+
+		if (ctx->cursor < ctx->preloadBytes) {
+			size_t preloadRead = std::min(bytesToRead, ctx->preloadBytes - ctx->cursor);
+			std::memcpy(out, ctx->preloadData + ctx->cursor, preloadRead);
+
+			ctx->cursor += preloadRead;
+			out += preloadRead;
+			bytesRead += preloadRead;
+			bytesToRead -= preloadRead;
+		}
+
+		if (bytesToRead > 0 && ctx->chunkHandle) {
+			size_t physicalOffset = ctx->chunkBaseOffset + (ctx->cursor - ctx->preloadBytes);
+			fseek(ctx->chunkHandle, physicalOffset, SEEK_SET);
+
+			size_t chunkRead = fread(out, 1, bytesToRead, ctx->chunkHandle);
+			ctx->cursor += chunkRead;
+			bytesRead += chunkRead;
+		}
+
+		return bytesRead;
+	}
+
+	bool vpk_file_seek(void* handle, long offset, int origin) {
+		VpkFileStreamContext* ctx = (VpkFileStreamContext*)handle;
+		long newCursor = ctx->cursor;
+		long totalSize = ctx->preloadBytes + ctx->entryLength;
+
+		if (origin == SEEK_SET) newCursor = offset;
+		else if (origin == SEEK_CUR) newCursor += offset;
+		else if (origin == SEEK_END) newCursor = totalSize + offset;
+
+		if (newCursor < 0) newCursor = 0;
+		if (newCursor > totalSize) newCursor = totalSize;
+
+		ctx->cursor = newCursor;
+		return true;
+	}
+
+	size_t vpk_file_tell(void* handle) {
+		return ((VpkFileStreamContext*)handle)->cursor;
+	}
+
+	void vpk_file_close(void* handle) {
+		VpkFileStreamContext* ctx = (VpkFileStreamContext*)handle;
+		if (ctx->chunkHandle) fclose(ctx->chunkHandle);
+		delete ctx;
+	}
+
+	pod::File open(pod::Mount& mount, const uf::stl::string& path) {
+		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
+		auto archive = state.get();
+		if ( !archive ) return pod::File{};
+
+		auto it = archive->files.find( uf::string::lowercase(path) );
+		if ( it == archive->files.end() ) return pod::File{};
+
+		const auto& entry = it->second;
+
+		VpkFileStreamContext* ctx = new VpkFileStreamContext();
+		ctx->preloadBytes = entry.metadata.preloadBytes;
+		ctx->entryLength = entry.metadata.entryLength;
+		ctx->preloadData = entry.metadata.preloadBytes > 0 ? entry.preloadData.data() : nullptr;
+		ctx->cursor = 0;
+
+		if ( ctx->entryLength > 0 ) {
+			uf::stl::string archivePath;
+
+			if ( entry.metadata.archiveIndex == 0x7FFF ) {
+				archivePath = archive->basePath + "_dir.vpk";
+				ctx->chunkBaseOffset = entry.dirFileOffset + entry.metadata.entryOffset;
+			} else {
+				archivePath = FMT_FORMAT("{}_{:03d}.vpk", archive->basePath, entry.metadata.archiveIndex);
+				ctx->chunkBaseOffset = entry.metadata.entryOffset;
+			}
+
+			ctx->chunkHandle = fopen(archivePath.c_str(), "rb");
+			if ( !ctx->chunkHandle ) {
+				UF_MSG_ERROR("Failed to open VPK chunk for streaming: {}", archivePath);
+				delete ctx;
+				return pod::File{};
+			}
+		}
+
+		return pod::File{
+			.handle = ctx,
+			.read = vpk_file_read,
+			.seek = vpk_file_seek,
+			.tell = vpk_file_tell,
+			.close = vpk_file_close
+		};
+	}
 }
 
 pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority ) {
@@ -153,6 +266,7 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	mount.exists = ::exists;
 	mount.size = ::size;
 	mount.list = ::list;
+	mount.open = ::open;
 	mount.mtime = ::mtime;
 	mount.read = ::read;
 	mount.readRange = ::readRange;

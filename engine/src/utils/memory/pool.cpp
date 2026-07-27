@@ -284,7 +284,7 @@ MANUAL_MALLOC:
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	alloc.size = 0; // orphaned
 	alloc.pointer = (uintptr_t) uf::allocator::malloc_m(size);
-	UF_MSG_DEBUG("allocating orphan: {} bytes at {}", size, (void*) alloc.pointer);
+	//UF_MSG_DEBUG("allocating orphan: {} bytes at {}", size, (void*) alloc.pointer);
 
 #if UF_MEMORYPOOL_STORE_ORPHANS
 	pool.orphaned.emplace_back( alloc );
@@ -380,7 +380,7 @@ MANUAL_FREE:
 		}
 
 		if ( it != pool.orphaned.end() ) {
-			UF_MSG_DEBUG("manually freeing orphan {}", pointer);
+			//UF_MSG_DEBUG("manually freeing orphan {}", pointer);
 			uf::allocator::free_m( pointer );
 			pool.orphaned.erase(it);
 			return true;

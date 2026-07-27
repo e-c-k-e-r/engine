@@ -184,6 +184,85 @@ namespace {
 		}
 		return true;
 	}
+
+	//
+	size_t disk_file_read(void* handle, void* buffer, size_t bytes) {
+		return fread(buffer, 1, bytes, (FILE*)handle);
+	}
+	bool disk_file_seek(void* handle, long offset, int origin) {
+		return fseek((FILE*)handle, offset, origin) == 0;
+	}
+	size_t disk_file_tell(void* handle) {
+		return ftell((FILE*)handle);
+	}
+	void disk_file_close(void* handle) {
+		if (handle) fclose((FILE*)handle);
+	}
+
+	pod::File vfs_open( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::stl::string path = mount.path + file;
+		FILE* f = fopen(path.c_str(), "rb");
+		if ( !f ) return pod::File{};
+
+		return pod::File{
+			.handle = f,
+			.read = disk_file_read,
+			.seek = disk_file_seek,
+			.tell = disk_file_tell,
+			.close = disk_file_close
+		};
+	}
+
+	// what a mess
+	struct FallbackFileState {
+		pod::Mount* mount;
+		uf::stl::string relativePath;
+		size_t offset;
+		size_t totalSize;
+	};
+
+	size_t fallback_file_read(void* handle, void* buffer, size_t bytes) {
+		auto* state = (FallbackFileState*)(handle);
+		if (!state || !state->mount || !state->mount->readRange) return 0;
+
+		size_t bytesLeft = state->totalSize - state->offset;
+		size_t toRead = std::min(bytes, bytesLeft);
+		if (toRead == 0) return 0;
+
+		uf::stl::vector<uint8_t> tempBuffer;
+		if (state->mount->readRange(*state->mount, state->relativePath, state->offset, toRead, tempBuffer)) {
+			std::memcpy(buffer, tempBuffer.data(), tempBuffer.size());
+			state->offset += tempBuffer.size();
+			return tempBuffer.size();
+		}
+		return 0;
+	}
+
+	bool fallback_file_seek(void* handle, long offset, int origin) {
+		auto* state = (FallbackFileState*)(handle);
+		if (!state) return false;
+
+		long long targetOffset = 0;
+		if (origin == SEEK_SET) targetOffset = offset;
+		else if (origin == SEEK_CUR) targetOffset = (long long)state->offset + offset;
+		else if (origin == SEEK_END) targetOffset = (long long)state->totalSize + offset;
+
+		if (targetOffset < 0) targetOffset = 0;
+		if (targetOffset > (long long)state->totalSize) targetOffset = state->totalSize;
+
+		state->offset = (size_t)targetOffset;
+		return true;
+	}
+
+	size_t fallback_file_tell(void* handle) {
+		auto* state = (FallbackFileState*)(handle);
+		return state ? state->offset : 0;
+	}
+
+	void fallback_file_close(void* handle) {
+		auto* state = (FallbackFileState*)(handle);
+		if (state) delete state;
+	}
 }
 
 uf::vfs::Mount::~Mount() {
@@ -206,10 +285,11 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 		.read = ::vfs_read,
 		.write = ::vfs_write,
 		.mkdir = ::vfs_mkdir,
+		.stream = ::vfs_stream,
+		.open = ::vfs_open,
 		.list = ::vfs_list,
 		.readRange = ::vfs_readRange,
 		.readRanges = ::vfs_readRanges,
-		.stream = ::vfs_stream,
 	};
 }
 
@@ -476,6 +556,40 @@ bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::functi
 	return false;
 }
 
+pod::File uf::vfs::open( const uf::stl::string& path ) {
+	uf::stl::string prefix, relative;
+	uf::io::splitUri(path, prefix, relative);
+
+	for ( auto& mount : mounts ) {
+		if ( prefix.empty() && mount.priority < 0 ) continue;
+		if ( prefix.empty() || mount.prefix == prefix ) {
+			if ( mount.open ) {
+				pod::File file = mount.open( mount, relative );
+				if ( file ) return file;
+			}
+			if ( mount.exists && mount.exists(mount, relative) ) {
+				if ( mount.readRange && mount.size ) {
+					FallbackFileState* state = new FallbackFileState{
+						&mount,
+						relative,
+						0,
+						mount.size(mount, relative)
+					};
+
+					return pod::File{
+						.handle = state,
+						.read = fallback_file_read,
+						.seek = fallback_file_seek,
+						.tell = fallback_file_tell,
+						.close = fallback_file_close
+					};
+				}
+			}
+		}
+	}
+	return pod::File{};
+}
+
 uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
@@ -497,6 +611,7 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	#define VFS_BASE "./data/"
 #endif
 
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "sys://", 999 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "mdl://" VFS_BASE "models", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "scene://" VFS_BASE "scenes", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "ent://" VFS_BASE "entities", 100 );
@@ -504,7 +619,5 @@ UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "tex://" VFS_BASE "textures", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "snd://" VFS_BASE "audio", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "spv://" VFS_BASE "shaders", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "lua://" VFS_BASE "scripts", 100 );
-
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "data://" VFS_BASE, 50 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "", 0 );
-UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "sys://", 999 );

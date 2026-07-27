@@ -3,9 +3,19 @@
 #include <uf/utils/string/hash.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/io/vfs.h>
-#include <fstream> 					// std::fstream
-#include <iostream> 				// std::fstream
-#include <png/png.h> 				// libpng
+#include <fstream>
+
+#if UF_ENV_DREAMCAST
+
+#define STBI_NO_JPEG
+#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_GIF
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_HDR
+
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -194,7 +204,18 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 					default: UF_EXCEPTION("Image error: invalid texture format"); return false;
 				}
 			}
-		} else { UF_EXCEPTION("Image error: not a compressed texture"); return false; }
+		} else {
+			if ( twiddled ) {
+				switch ( format ) {
+					case 1: image.format = GL_RGB565_TWID_KOS; channels = 3; break;
+					case 0: image.format = GL_ARGB1555_TWID_KOS; break;
+					case 2: image.format = GL_ARGB4444_TWID_KOS ; break;
+					default: UF_EXCEPTION("Image error: invalid texture format"); return false;
+				}
+			} else {
+				UF_EXCEPTION("Unsupported configuration: compressed={}, twiddled={}, format={}", compressed, twiddled, format);
+			}
+		}
 	} else
 #endif
 	{
@@ -571,6 +592,8 @@ size_t uf::Image::getChannels() const {
 	return this->channels;
 }
 size_t uf::Image::getFormat( bool srgb ) const {
+	return this->format;
+/*
 	auto format = this->format;
 
 	// for some reason i'm auto-deducing it here
@@ -629,6 +652,7 @@ size_t uf::Image::getFormat( bool srgb ) const {
 	}
 
 	return format;
+*/
 }
 void uf::Image::setFormat( size_t format ) {
 	this->format = format;

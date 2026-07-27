@@ -861,8 +861,12 @@ T uf::vector::cross( const T& a, const T& b ) {
 	}
 #elif UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
-		return *((T*) &res);
+		union {
+			RETURN_VECTOR_STRUCT i;
+			T o;
+		} u;
+		u.i = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
+		return u.o;
 	}
 #endif
 	T res{

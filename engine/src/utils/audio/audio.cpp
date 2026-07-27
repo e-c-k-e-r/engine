@@ -11,11 +11,7 @@
 #include <uf/ext/audio/wav.h>
 #include <uf/ext/audio/pcm.h>
 
-#if UF_USE_OPENAL
-	bool uf::audio::muted = false;
-#else
-	bool uf::audio::muted = true;
-#endif
+bool uf::audio::muted = false;
 
 namespace {
 	ext::al::Filter occlusionFilter;
@@ -43,18 +39,22 @@ void uf::audio::initialize( pod::AudioSource& source ) {
 	source.alSource.set( AL_PITCH, 1.0f );
 	source.alSource.set( AL_GAIN, 1.0f );
 
+#if UF_USE_AICA
+	source.settings.buffers = 1;
+#endif
 #if !UF_ENV_DREAMCAST
 	source.alFilter.initialize();
 #endif
 }
 
-bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename, bool streamed ) {
+bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename ) {
+	if ( uf::audio::muted ) return false;
+
 	uf::audio::destroy( clip );
-	clip.streamed = streamed;
 	clip.filename = uf::io::resolveURI( filename );
 	clip.extension = uf::io::extension( clip.filename );
 
-	uf::audio::initialize( clip, 1 );
+	if ( !clip.streamed ) uf::audio::initialize( clip, 1 );
 
 	if ( clip.extension == "ogg" ) ext::vorbis::load( clip );
 	else if ( clip.extension == "wav" ) ext::wav::load( clip );
@@ -79,7 +79,7 @@ void uf::audio::bind( pod::AudioSource& source, pod::AudioClip* clip ) {
 		source.streamState.consumed = 0;
 		if ( clip->extension == "ogg" ) ext::vorbis::open( source );
 		else if ( clip->extension == "wav" ) ext::wav::open( source );
-		else if ( clip->extension == "pcm" ) ext::pcm::open( source );
+		//else if ( clip->extension == "pcm" ) ext::pcm::open( source );
 	}
 }
 
@@ -104,13 +104,13 @@ void uf::audio::stop( pod::AudioSource& source ) {
 }
 
 void uf::audio::pause( pod::AudioSource& source ) {
-	AL_CHECK_RESULT(alSourcePause( source.alSource.getIndex() ));
+	source.alSource.pause();
 	source.info.timer.stop();
 }
 
 bool uf::audio::paused( const pod::AudioSource& source ) {
-	ALint state;
-	AL_CHECK_RESULT(alGetSourcei( source.alSource.getIndex(), AL_SOURCE_STATE, &state ));
+	int state;
+	source.alSource.get( AL_SOURCE_STATE, state );
 	return state == AL_PAUSED;
 }
 
@@ -120,7 +120,7 @@ void uf::audio::update( pod::AudioSource& source ) {
 	auto update = [&]{
 		if ( source.clip->extension == "ogg" ) ext::vorbis::update( source );
 		else if ( source.clip->extension == "wav" ) ext::wav::update( source );
-		else if ( source.clip->extension == "pcm" ) ext::pcm::update( source );
+		//else if ( source.clip->extension == "pcm" ) ext::pcm::update( source );
 	};
 
 	if ( uf::audio::asyncUpdate ) uf::thread::queue( uf::thread::fetchWorker(), update );
@@ -142,7 +142,7 @@ void uf::audio::destroy( pod::AudioSource& source ) {
 	if ( source.clip && source.clip->streamed ) {
 		if ( source.clip->extension == "ogg" ) ext::vorbis::close( source );
 		else if ( source.clip->extension == "wav" ) ext::wav::close( source );
-		else if ( source.clip->extension == "pcm" ) ext::pcm::close( source );
+		//else if ( source.clip->extension == "pcm" ) ext::pcm::close( source );
 	}
 
 	source.clip = nullptr;
@@ -156,7 +156,7 @@ void uf::audio::destroy( pod::AudioClip& clip ) {
 	clip.alBuffer.destroy();
 	if ( clip.extension == "ogg" ) ext::vorbis::close( clip );
 	else if ( clip.extension == "wav" ) ext::wav::close( clip );
-	else if ( clip.extension == "pcm" ) ext::pcm::close( clip );
+	//else if ( clip.extension == "pcm" ) ext::pcm::close( clip );
 }
 
 void uf::audio::listener( const pod::Transform<>& transform ) {
@@ -165,9 +165,10 @@ void uf::audio::listener( const pod::Transform<>& transform ) {
 	auto axes = uf::transform::axes( transform );
 	axes.forward *= -1;
 	float o[6] = { axes.forward.x, axes.forward.y, axes.forward.z, axes.up.x, axes.up.y, axes.up.z };
-	AL_CHECK_RESULT(alListener3f( AL_POSITION, transform.position.x, transform.position.y, transform.position.z ));
-	AL_CHECK_RESULT(alListener3f( AL_VELOCITY, 0, 0, 0 ));
-	AL_CHECK_RESULT(alListenerfv( AL_ORIENTATION, &o[0] ));
+	
+	ext::al::Listener::set( AL_POSITION, transform.position.x, transform.position.y, transform.position.z );
+	ext::al::Listener::set( AL_VELOCITY, 0.0f, 0.0f, 0.0f );
+	ext::al::Listener::set( AL_ORIENTATION, &o[0] );
 }
 
 void uf::audio::loop( pod::AudioSource& source, bool state ) {
