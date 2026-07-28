@@ -1,5 +1,9 @@
 INCS += -I./dep/include/stb/ -I./dep/include/nlohmann/
 
+ifneq (,$(findstring UF_DEV_ENV,$(FLAGS)))
+	FLAGS 				+= -DUF_USE_AUDIO_ENCODER
+endif
+
 ifneq (,$(findstring ffx:sdk,$(REQ_DEPS)))
 	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 		ifneq (,$(findstring gcc,$(REQ_DEPS)))
@@ -74,10 +78,24 @@ ifneq (,$(findstring ogg,$(REQ_DEPS)))
 	ifeq (,$(findstring dreamcast,$(ARCH)))
 		DEPS += -lvorbis -lvorbisfile -logg
 	endif
+	ifneq (,$(findstring UF_DEV_ENV,$(FLAGS)))
+		FLAGS += -DUF_USE_VORBIS_ENCODER
+		DEPS += -lvorbisenc
+	endif
 endif
 
 ifneq (,$(findstring wav,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_WAV
+	ifneq (,$(findstring UF_DEV_ENV,$(FLAGS)))
+		FLAGS += -DUF_USE_WAV_ENCODER
+	endif
+endif
+
+ifneq (,$(findstring adp,$(REQ_DEPS)))
+	FLAGS += -DUF_USE_ADP
+	ifneq (,$(findstring UF_DEV_ENV,$(FLAGS)))
+		FLAGS += -DUF_USE_ADP_ENCODER
+	endif
 endif
 
 ifneq (,$(findstring zlib,$(REQ_DEPS)))

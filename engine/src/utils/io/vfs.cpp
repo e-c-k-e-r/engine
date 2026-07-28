@@ -605,6 +605,19 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	return path;
 }
 
+bool uf::vfs::isPhysical( const uf::stl::string& path ) {
+	uf::stl::string prefix, relative;
+	uf::io::splitUri(path, prefix, relative);
+
+	for ( const auto& mount : mounts ) {
+		if ( prefix.empty() && mount.priority < 0 ) continue;
+		if ( prefix.empty() || mount.prefix == prefix ) {
+			return mount.exists == ::vfs_exists;
+		}
+	}
+	return false;
+}
+
 #if UF_ENV_DREAMCAST
 	#define VFS_BASE "/cd/"
 #else

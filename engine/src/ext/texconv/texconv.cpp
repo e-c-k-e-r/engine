@@ -127,7 +127,8 @@ pod::Dtex ext::texconv::convert(  const uf::Image& _image, const uf::stl::string
 	return dtex;
 }
 
-bool UF_API ext::texconv::save( const pod::Dtex& dtex, const uf::stl::string& filename, bool preview ) {
+bool UF_API ext::texconv::save( const pod::Dtex& dtex, const uf::stl::string& _filename, bool preview ) {
+	uf::stl::string filename = uf::io::remove_extension( _filename );
 	uf::stl::string outputFilename = filename + ".dtex";
 	uf::stl::string paletteFilename = filename + ".pal";
 	uf::stl::string previewFilename = filename + ".preview.png";

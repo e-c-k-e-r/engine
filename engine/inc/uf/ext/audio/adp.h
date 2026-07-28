@@ -1,14 +1,15 @@
 #pragma once
 
-#if !UF_USE_WAV
-#define UF_USE_wav 0
+#if !UF_USE_ADP
+#define UF_USE_adp 0
 #else
-#define UF_USE_wav 1
+#define UF_USE_adp 1
 #include <uf/config.h>
+
 #include <uf/utils/audio/audio.h>
 
 namespace ext {
-	namespace wav {
+	namespace adp {
 		void UF_API load( pod::AudioClip& );
 		void UF_API open( pod::AudioSource& );
 		void UF_API update( pod::AudioSource& );

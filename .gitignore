@@ -63,6 +63,7 @@ default/
 *.vmt
 *.vtf
 *.ztmp
+*.adp
 
 maps/
 models/

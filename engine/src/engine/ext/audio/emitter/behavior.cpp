@@ -59,6 +59,7 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 		if ( !uf::asset::has( filename ) ) {
 			auto payload = uf::asset::resolveToPayload(filename, "");
 			payload.type = uf::asset::Type::AUDIO;
+			payload.metadata["streamed"] = false; // json["streamed"];
 			uf::asset::load( payload );
 		}
 

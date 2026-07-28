@@ -6,10 +6,14 @@
 #if UF_USE_OPENAL
 	#include <uf/ext/openal/openal.h>
 #endif
+#if UF_USE_AICA
+	#include <uf/ext/aica/aica.h>
+#endif
 
 #include <uf/ext/audio/vorbis.h>
 #include <uf/ext/audio/wav.h>
 #include <uf/ext/audio/pcm.h>
+#include <uf/ext/audio/adp.h>
 
 bool uf::audio::muted = false;
 
@@ -56,9 +60,10 @@ bool uf::audio::load( pod::AudioClip& clip, const uf::stl::string& filename ) {
 
 	if ( !clip.streamed ) uf::audio::initialize( clip, 1 );
 
-	if ( clip.extension == "ogg" ) ext::vorbis::load( clip );
-	else if ( clip.extension == "wav" ) ext::wav::load( clip );
-	// else UF_MSG_ERROR ...
+	UF_AUDIO_DISPATCH( clip.extension, ogg, load, clip );
+	UF_AUDIO_DISPATCH( clip.extension, wav, load, clip );
+	UF_AUDIO_DISPATCH( clip.extension, adp, load, clip );
+	UF_AUDIO_DISPATCH( clip.extension, pcm, load, clip );
 
 	return true;
 }
@@ -77,9 +82,11 @@ void uf::audio::bind( pod::AudioSource& source, pod::AudioClip* clip ) {
 		source.alSource.set( AL_BUFFER, (ALint)clip->alBuffer.getIndex(0) );
 	} else {
 		source.streamState.consumed = 0;
-		if ( clip->extension == "ogg" ) ext::vorbis::open( source );
-		else if ( clip->extension == "wav" ) ext::wav::open( source );
-		//else if ( clip->extension == "pcm" ) ext::pcm::open( source );
+
+		UF_AUDIO_DISPATCH( clip->extension, ogg, open, source );
+		UF_AUDIO_DISPATCH( clip->extension, wav, open, source );
+		UF_AUDIO_DISPATCH( clip->extension, adp, open, source );
+		UF_AUDIO_DISPATCH( clip->extension, pcm, open, source );
 	}
 }
 
@@ -118,9 +125,10 @@ void uf::audio::update( pod::AudioSource& source ) {
 	if ( !source.clip || !source.clip->streamed ) return;
 
 	auto update = [&]{
-		if ( source.clip->extension == "ogg" ) ext::vorbis::update( source );
-		else if ( source.clip->extension == "wav" ) ext::wav::update( source );
-		//else if ( source.clip->extension == "pcm" ) ext::pcm::update( source );
+		UF_AUDIO_DISPATCH( source.clip->extension, ogg, update, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, wav, update, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, adp, update, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, pcm, update, source );
 	};
 
 	if ( uf::audio::asyncUpdate ) uf::thread::queue( uf::thread::fetchWorker(), update );
@@ -140,9 +148,10 @@ void uf::audio::destroy( pod::AudioSource& source ) {
 	source.alSource.set( AL_BUFFER, 0 );
 
 	if ( source.clip && source.clip->streamed ) {
-		if ( source.clip->extension == "ogg" ) ext::vorbis::close( source );
-		else if ( source.clip->extension == "wav" ) ext::wav::close( source );
-		//else if ( source.clip->extension == "pcm" ) ext::pcm::close( source );
+		UF_AUDIO_DISPATCH( source.clip->extension, ogg, close, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, wav, close, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, adp, close, source );
+		UF_AUDIO_DISPATCH( source.clip->extension, pcm, close, source );
 	}
 
 	source.clip = nullptr;
@@ -152,11 +161,31 @@ void uf::audio::destroy( pod::AudioSource& source ) {
 #endif
 }
 
+bool uf::audio::decode( const uf::stl::string& filename, pod::PCM& pcm ) {
+	bool success = false;
+	auto extension = uf::io::extension( filename );
+	UF_AUDIO_DISPATCH_SET( extension, adp, success, decode, filename, pcm );
+	UF_AUDIO_DISPATCH_SET( extension, ogg, success, decode, filename, pcm );
+	UF_AUDIO_DISPATCH_SET( extension, wav, success, decode, filename, pcm );
+	return success;
+}
+
+uf::stl::vector<uint8_t> uf::audio::encode( const uf::stl::string& extension, pod::PCM& pcm ) {
+	uf::stl::vector<uint8_t> buffer;
+#if UF_USE_AUDIO_ENCODER
+	UF_AUDIO_DISPATCH_SET( extension, adp, buffer, encode, pcm );
+	UF_AUDIO_DISPATCH_SET( extension, ogg, buffer, encode, pcm );
+	UF_AUDIO_DISPATCH_SET( extension, wav, buffer, encode, pcm );
+#endif
+	return buffer;
+}
+
 void uf::audio::destroy( pod::AudioClip& clip ) {
 	clip.alBuffer.destroy();
-	if ( clip.extension == "ogg" ) ext::vorbis::close( clip );
-	else if ( clip.extension == "wav" ) ext::wav::close( clip );
-	//else if ( clip.extension == "pcm" ) ext::pcm::close( clip );
+	UF_AUDIO_DISPATCH( clip.extension, ogg, close, clip );
+	UF_AUDIO_DISPATCH( clip.extension, wav, close, clip );
+	UF_AUDIO_DISPATCH( clip.extension, adp, close, clip );
+	UF_AUDIO_DISPATCH( clip.extension, pcm, close, clip );
 }
 
 void uf::audio::listener( const pod::Transform<>& transform ) {

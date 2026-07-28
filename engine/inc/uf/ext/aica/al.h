@@ -138,3 +138,6 @@ typedef void ALvoid;
 #define AL_STREAM_HANDLE                         0x10001
 #define AL_STREAM_FILL_CALLBACK                  0x10002
 #define AL_STREAM_USER_DATA                      0x10003
+
+#define AL_FORMAT_MONO_ADPCM_SEGA                0x2015
+#define AL_FORMAT_STEREO_ADPCM_SEGA              0x2016

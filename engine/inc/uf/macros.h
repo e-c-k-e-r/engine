@@ -109,12 +109,12 @@
 
 #if UF_CTTI
 #if 0
-    #include <ctti/ctti.hpp>
-    #define TYPE_INDEX_T decltype(ctti::type_id_of<void>())
-    #define TYPE_HASH_T decltype(ctti::type_id_of<void>().hash())
-    #define TYPE(T) ctti::type_id_of<TYPE_SANITIZE(T)>()
-    #define TYPE_HASH(T) TYPE(T).hash()
-    #define TYPE_NAME(T) ctti::name_of<TYPE_SANITIZE(T)>()
+	#include <ctti/ctti.hpp>
+	#define TYPE_INDEX_T decltype(ctti::type_id_of<void>())
+	#define TYPE_HASH_T decltype(ctti::type_id_of<void>().hash())
+	#define TYPE(T) ctti::type_id_of<TYPE_SANITIZE(T)>()
+	#define TYPE_HASH(T) TYPE(T).hash()
+	#define TYPE_NAME(T) ctti::name_of<TYPE_SANITIZE(T)>()
 #else
 	#include <ctti/type_id.hpp>
 	#define TYPE_INDEX_T ctti::type_id_t

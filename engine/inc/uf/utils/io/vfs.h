@@ -76,6 +76,7 @@ namespace uf {
 		
 		pod::Mount UF_API createDiskMount( const uf::stl::string& uri, int priority = 0 );
 		uf::stl::string UF_API resolveBase( const uf::stl::string& path );
+		bool UF_API isPhysical( const uf::stl::string& path );
 	}
 }
 

@@ -1,3 +1,5 @@
+FLAGS 				+= -DUF_DEV_ENV
+
 ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
 	REQ_DEPS 			+= toml xatlas curl dc:texconv valve lgs # meshoptimizer ffx:fsr cpptrace vall_e # ncurses openvr draco discord bullet ultralight-ux 
 	FLAGS 				+= -march=native -g # -flto # -g

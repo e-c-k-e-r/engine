@@ -1,9 +1,11 @@
-ifneq (,$(findstring -DUF_DEV_ENV,$(FLAGS)))
+FLAGS 				+= -DUF_DEV_ENV
+
+ifneq (,$(findstring UF_DEV_ENV,$(FLAGS)))
 	REQ_DEPS 			+= meshoptimizer toml xatlas curl dc:texconv ffx:sdk openvr valve lgs # vall_e cpptrace # ncurses draco discord ultralight-ux
 	FLAGS 				+= -march=native -g # -flto # -g
 endif
 
-REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib lz4 luajit simd ctti gltf imgui fmt ttf openal ogg wav
+REQ_DEPS 			+= $(RENDERER) json:nlohmann zlib lz4 luajit simd ctti gltf imgui fmt ttf openal ogg wav adp
 FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 DEPS 				+= -lgdi32 -ldwmapi
 LINKS 				+= #-Wl,-subsystem,windows

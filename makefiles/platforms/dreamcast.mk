@@ -1,5 +1,5 @@
 FLAGS 				+= -DUF_ENV_DREAMCAST
-REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt ttf ogg wav aica # openal aldc
+REQ_DEPS 			+= opengl gldc json:nlohmann zlib lz4 lua simd ctti fmt ttf ogg wav adp aica # openal aldc
 
 INCS 				:= -I./dep/dreamcast/include $(INCS)
 

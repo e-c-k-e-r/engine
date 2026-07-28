@@ -249,6 +249,7 @@ uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, cons
 		
 		{ "ogg", 	uf::asset::Type::AUDIO },
 		{ "wav", 	uf::asset::Type::AUDIO },
+		{ "adp", 	uf::asset::Type::AUDIO },
 
 		{ "json", 	uf::asset::Type::JSON },
 		{ "bson", 	uf::asset::Type::JSON },
@@ -362,14 +363,18 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			asset.open(filename);
 	
 		#if UF_USE_DC_TEXCONV
-			uf::stl::string output = uf::io::directory( filename ) + "/" + uf::io::basename( filename );
-			if ( extension != "dtex" && !uf::io::exists( output + ".dtex" ) ) {
+			uf::stl::string target = "dtex";
+			uf::stl::string output = uf::io::replace_extension( filename, target );
+			bool exists = uf::io::exists( output );
+			bool physical = uf::vfs::isPhysical( filename );
+			bool stale = exists ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
+			if ( extension != target && !exists && physical && stale ) {
 				pod::Vector2ui size = { 32, 32 };
 				uf::stl::string filter = "linear";
-				uf::stl::string dtexFormat = "auto";
+				uf::stl::string format = "auto";
 
 				auto img = asset.scale( size, filter);
-				auto dtex = ext::texconv::convert( img, dtexFormat );
+				auto dtex = ext::texconv::convert( img, format );
 				ext::texconv::save( dtex, output );
 				UF_MSG_DEBUG("Converting image: {} => {}", filename, output );
 			}
@@ -379,6 +384,25 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			UF_ASSET_REGISTER(pod::AudioClip)
 			asset.streamed = payload.metadata["streamed"].as<bool>( asset.streamed );
 			uf::audio::load(asset, filename);
+
+		#if UF_USE_ADP_ENCODER
+			uf::stl::string target = "adp";
+			uf::stl::string output = uf::io::replace_extension( filename, target );
+			bool exists = uf::io::exists( output );
+			bool physical = uf::vfs::isPhysical( filename );
+			bool stale = exists ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
+			if ( extension != target && !exists && physical && stale ) {
+				pod::PCM pcm;
+				uf::stl::vector<uint8_t> encoded;
+				if ( uf::audio::decode( filename, pcm ) ) {
+					encoded = uf::audio::encode( target, pcm );
+				}				
+				if ( !encoded.empty() ) {
+					UF_MSG_DEBUG("Converting audio: {} => {}", filename, output);
+					uf::io::write( output, encoded.data(), encoded.size() );
+				}
+			}
+		#endif
 		} break;
 		case uf::asset::Type::JSON: {
 			UF_ASSET_REGISTER(uf::Serializer)

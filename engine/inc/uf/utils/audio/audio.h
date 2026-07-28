@@ -57,6 +57,8 @@ namespace uf {
 		void UF_API update( pod::AudioSource& source, const pod::Vector3f& position, const pod::Quaternion<>& orientation );
 		void UF_API destroy( pod::AudioSource& source );
 		void UF_API destroy( pod::AudioClip& clip );
+		bool UF_API decode( const uf::stl::string& filename, pod::PCM& pcm );
+		uf::stl::vector<uint8_t> UF_API encode( const uf::stl::string& extension, pod::PCM& pcm );
 		void UF_API listener( const pod::Transform<>& transform );
 		void UF_API loop( pod::AudioSource& source, bool state );
 		void UF_API position( pod::AudioSource& source, const pod::Vector3f& v );

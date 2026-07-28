@@ -23,7 +23,7 @@ CLIENT_SRC_DIR 		+= ./client
 # Base Flags
 OPTIMIZATIONS 		= -O3 -fstrict-aliasing -DUF_NO_EXCEPTIONS
 WARNINGS 			= -Wall -Wno-unknown-pragmas -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder -Wno-sign-compare -Wno-unused-but-set-variable -Wno-ignored-attributes -Wno-narrowing -Wno-misleading-indentation
-FLAGS 				+= -std=c++2b $(OPTIMIZATIONS) $(WARNINGS) -fdiagnostics-color=always -DUF_DEV_ENV
+FLAGS 				+= -std=c++2b $(OPTIMIZATIONS) $(WARNINGS) -fdiagnostics-color=always
 
 # Base Library Definitions
 LIB_NAME 			+= uf

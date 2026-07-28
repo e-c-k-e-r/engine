@@ -1,7 +1,9 @@
 #pragma once
-
+#if !UF_USE_PCM
+#define UF_USE_pcm 0
+#else
+#define UF_USE_pcm 1
 #include <uf/config.h>
-
 #include <uf/utils/audio/audio.h>
 
 namespace ext {
@@ -16,3 +18,4 @@ namespace ext {
 		uf::stl::vector<int16_t> UF_API convertTo16bit( const float*, size_t );
 	}
 }
+#endif

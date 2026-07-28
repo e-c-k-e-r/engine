@@ -54,6 +54,20 @@ uf::stl::string uf::io::extension( const uf::stl::string& str, int32_t count ) {
 	}
 	return extension;
 }
+uf::stl::string uf::io::remove_extension( const uf::stl::string& str ) {
+	size_t last_dot = str.find_last_of('.');
+	size_t last_slash = str.find_last_of('/');
+	if ( last_dot != uf::stl::string::npos && (last_slash == uf::stl::string::npos || last_dot > last_slash) ) {
+		return str.substr( 0, last_dot );
+	}
+	return str;
+}
+uf::stl::string uf::io::replace_extension( const uf::stl::string& str, const uf::stl::string& new_ext ) {
+	uf::stl::string base = uf::io::remove_extension( str );
+	if ( new_ext.empty() ) return base;
+	if ( new_ext[0] == '.' ) return base + new_ext;
+	return base + "." + new_ext;
+}
 uf::stl::string uf::io::directory( const uf::stl::string& str ) {
 	return str.substr( 0, str.find_last_of('/') ) + "/";
 }
@@ -291,7 +305,7 @@ uf::stl::string uf::io::assetScheme( const uf::stl::string& _filename ) {
 	if ( extension == "json" ) return "ent://";
 	if ( extension == "png" || extension == "dtex" ) return "tex://";
 	if ( extension == "glb" || extension == "gltf" || extension == "graph" ) return "mdl://";
-	if ( extension == "ogg" || extension == "wav" ) return "snd://";
+	if ( extension == "ogg" || extension == "wav" || extension == "adp" ) return "snd://";
 	if ( extension == "spv" ) return "spv://";
 	if ( extension == "lua" ) return "lua://";
 
@@ -381,7 +395,7 @@ uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
 	// to-do: make this config.json defineable
 #if UF_ENV_DREAMCAST
 	if ( assetType == "texture" ) preferredExtension = ".dtex";
-	else if ( assetType == "audio" ) preferredExtension = ".wav";
+	else if ( assetType == "audio" ) preferredExtension = ".adp";
 #else
 	if ( assetType == "texture" ) preferredExtension = ".png";
 	else if ( assetType == "audio" ) preferredExtension = ".ogg";
@@ -392,5 +406,11 @@ uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
 	// create preferred path
 	uf::stl::string preferredPath = uf::string::replace( filename, extension, preferredExtension );
 	// pick it if exists
-	return uf::io::exists( preferredPath ) ? preferredPath : filename;
+	if ( uf::io::exists( preferredPath ) ) return preferredPath;
+	// create cached path (for virtual sources)
+	uf::stl::string cachePath = "cache/" + preferredPath;
+	// pick it if it exists
+	if ( uf::io::exists( cachePath ) ) return cachePath;
+
+	return filename;
 }

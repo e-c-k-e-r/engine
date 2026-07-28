@@ -10,6 +10,25 @@
 #include <uf/ext/openal/buffer.h>
 #include <uf/utils/time/time.h>
 
+#define UF_AUDIO_CALL_1(str, fmt, fun, ...) if ( (str) == #fmt ) ext::fmt::fun(__VA_ARGS__);
+#define UF_AUDIO_CALL_0(str, fmt, fun, ...)
+
+#define UF_AUDIO_DISPATCH_EVAL(use_val, str, fmt, fun, ...) \
+	TOKEN_PASTE(UF_AUDIO_CALL_, use_val)(str, fmt, fun, __VA_ARGS__)
+
+#define UF_AUDIO_DISPATCH(str, fmt, fun, ...) \
+	UF_AUDIO_DISPATCH_EVAL(TOKEN_PASTE(UF_USE_, fmt), str, fmt, fun, __VA_ARGS__)
+
+
+#define UF_AUDIO_CALL_SET_1(str, fmt, val, fun, ...) if ( (str) == #fmt ) val = ext::fmt::fun(__VA_ARGS__);
+#define UF_AUDIO_CALL_SET_0(str, fmt, val, fun, ...)
+
+#define UF_AUDIO_DISPATCH_SET_EVAL(use_val, str, fmt, val, fun, ...) \
+    TOKEN_PASTE(UF_AUDIO_CALL_SET_, use_val)(str, fmt, val, fun, __VA_ARGS__)
+
+#define UF_AUDIO_DISPATCH_SET(str, fmt, val, fun, ...) \
+    UF_AUDIO_DISPATCH_SET_EVAL(TOKEN_PASTE(UF_USE_, fmt), str, fmt, val, fun, __VA_ARGS__)
+
 // shoved here because dependencies
 namespace pod {
 	// this technically could either be a template or have the samples buffer be uint8_t and store the bit depth / an enum for the format but I only really care about supporting 16-bit PCMs

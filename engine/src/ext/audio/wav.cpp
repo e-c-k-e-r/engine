@@ -103,6 +103,15 @@ namespace {
 
 			return (int)(totalFramesRead * frameSize);
 		}
+
+		bool decode( drwav* wav, pod::PCM& pcm ) {
+			pcm.channels = wav->channels;
+			pcm.sampleRate = wav->sampleRate;
+			pcm.samples.resize(wav->totalPCMFrameCount * wav->channels);
+
+			drwav_read_pcm_frames_s16(wav, wav->totalPCMFrameCount, pcm.samples.data());
+			return true;
+		}
 	}
 
 	// default to 16-bit audio
@@ -160,19 +169,22 @@ void ext::wav::load( pod::AudioClip& clip ) {
 		return;
 	}
 
+	UF_MSG_DEBUG("filename={}, streamed={}", clip.filename, clip.streamed);
 	if ( !clip.streamed ) {
-		uf::stl::vector<int16_t> pcm(wav->totalPCMFrameCount * wav->channels);
-		drwav_read_pcm_frames_s16(wav, wav->totalPCMFrameCount, pcm.data());
-		clip.alBuffer.buffer(clip.info.format, pcm.data(), (ALsizei)(pcm.size() * sizeof(int16_t)), clip.info.frequency);
-		if ( clip.info.loop.has ) {
-			ALint loopPoints[2] = { (ALint) clip.info.loop.start, (ALint) clip.info.loop.end };
-			clip.alBuffer.set( 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints );
+		pod::PCM pcm;
+		if ( funs::decode( &ctx->wav, pcm ) ) {
+			clip.alBuffer.buffer(clip.info.format, pcm.samples.data(), (ALsizei)(pcm.samples.size() * sizeof(int16_t)), clip.info.frequency);
+			if ( clip.info.loop.has ) {
+				ALint loopPoints[2] = { (ALint) clip.info.loop.start, (ALint) clip.info.loop.end };
+				clip.alBuffer.set( 0x2015 /* AL_LOOP_POINTS_SOFT */, loopPoints );
+			}
 		}
 	}
 
 	drwav_uninit(wav);
 	delete ctx;
 }
+
 void ext::wav::open( pod::AudioSource& source ) {
 	pod::AudioClip* clip = source.clip;
 	if ( !clip || !clip->streamed ) return;
@@ -223,11 +235,7 @@ void ext::wav::update( pod::AudioSource& source ) {
 	if ( !clip || !clip->streamed || !source.streamState.handle ) return;
 
 #if UF_USE_AICA
-	ALint state;
-	source.alSource.get(AL_SOURCE_STATE, state);
-	if ( state == AL_PLAYING ) {
-		source.streamBuffers.poll();
-	}
+	source.streamBuffers.poll();
 #else
 	DrWavVfsContext* ctx = (DrWavVfsContext*) source.streamState.handle;
 	ALint state, processed, queued;
@@ -237,11 +245,6 @@ void ext::wav::update( pod::AudioSource& source ) {
 	source.alSource.get(AL_BUFFERS_QUEUED, queued);
 
 	bool hasData = (ctx->file.tell(ctx->file.handle) < clip->info.size) || !source.info.pending.empty() || source.settings.loop;
-#if !NO_FUN
-	if ( source.settings.loopMode == 1 ) {
-		source.alSource.set(AL_LOOPING, AL_FALSE);
-	}
-#endif
 
 	auto fillAndQueueBuffer = [&](ALuint index) -> bool {
 		uint8_t buffer[uf::audio::bufferSize];
@@ -279,25 +282,24 @@ void ext::wav::update( pod::AudioSource& source ) {
 	if ( state != AL_PLAYING && queued > 0 ) {
 		source.alSource.play();
 	}
-#if !NO_FUN
-	if ( source.settings.loopMode == 1 ) source.alSource.set(AL_LOOPING, AL_FALSE);
-#endif
-
 #endif
 }
 
 void ext::wav::close( pod::AudioClip& clip ) {
 	// ...
 }
+
 void ext::wav::close(pod::AudioSource& source) {
 	if ( !source.clip || !source.clip->streamed ) return;
 
+#if !UF_USE_AICA
 	ALint queued;
 	source.alSource.get(AL_BUFFERS_QUEUED, queued);
 	while ( queued-- ) {
 		ALuint buffer;
 		source.alSource.unqueue( 1, &buffer );
 	}
+#endif
 
 	source.streamBuffers.destroy();
 
@@ -309,4 +311,58 @@ void ext::wav::close(pod::AudioSource& source) {
 	}
 }
 
+bool ext::wav::decode( const uf::stl::string& filename, pod::PCM& outPcm ) {
+	DrWavVfsContext ctx;
+	ctx.file = uf::vfs::open(filename);
+	if ( !ctx.file ) {
+		UF_MSG_ERROR("WAV Decoder: Failed to open file: {}", filename);
+		return false;
+	}
+
+	if ( !drwav_init(&ctx.wav, funs::read, funs::seek, funs::tell, &ctx, nullptr) ) {
+		UF_MSG_ERROR("WAV Decoder: Failed to initialize decoder on: {}", filename);
+		return false;
+	}
+
+	bool result = funs::decode(&ctx.wav, outPcm);
+	drwav_uninit(&ctx.wav);
+	return result;
+}
+
+#if UF_USE_WAV_ENCODER
+uf::stl::vector<uint8_t> ext::wav::encode( const pod::PCM& pcm ) {
+	uf::stl::vector<uint8_t> output;
+
+	struct WAVHeader {
+		char riff[4] = {'R', 'I', 'F', 'F'};
+		uint32_t overallSize;
+		char wave[4] = {'W', 'A', 'V', 'E'};
+		char fmt_chunk_marker[4] = {'f', 'm', 't', ' '};
+		uint32_t length_of_fmt = 16;
+		uint16_t format_type = 1;
+		uint16_t channels;
+		uint32_t sample_rate;
+		uint32_t byterate;
+		uint16_t block_align;
+		uint16_t bits_per_sample = 16;
+		char data_chunk_header[4] = {'d', 'a', 't', 'a'};
+		uint32_t data_size;
+	};
+
+	WAVHeader header;
+	header.channels = pcm.channels;
+	header.sample_rate = pcm.sampleRate;
+	header.byterate = pcm.sampleRate * pcm.channels * sizeof(int16_t);
+	header.block_align = pcm.channels * sizeof(int16_t);
+	header.data_size = (uint32_t)(pcm.samples.size() * sizeof(int16_t));
+	header.overallSize = sizeof(WAVHeader) - 8 + header.data_size;
+
+	output.resize(sizeof(WAVHeader) + header.data_size);
+
+	std::memcpy(output.data(), &header, sizeof(WAVHeader));
+	std::memcpy(output.data() + sizeof(WAVHeader), pcm.samples.data(), header.data_size);
+
+	return output;
+}
+#endif
 #endif

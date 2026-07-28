@@ -26,6 +26,8 @@ namespace uf {
 		uf::stl::string UF_API basename( const uf::stl::string& );
 		uf::stl::string UF_API extension( const uf::stl::string& );
 		uf::stl::string UF_API extension( const uf::stl::string&, int32_t );
+		uf::stl::string UF_API remove_extension( const uf::stl::string& str );
+		uf::stl::string UF_API replace_extension( const uf::stl::string& str, const uf::stl::string& new_ext );
 		uf::stl::string UF_API directory( const uf::stl::string& );
 		uf::stl::string UF_API normalize( const uf::stl::string& );
 		size_t UF_API size( const uf::stl::string& );

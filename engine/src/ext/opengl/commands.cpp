@@ -378,7 +378,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		::shadowState.projectionDirty = false;
 	}
 
-#if 0 && UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST
 	// washingtondc ~~has~~ had a regression where non-alpha-tested polys do not render
 	// more convenient to just work around the regression since later builds have working opengl backends
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
@@ -386,6 +386,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+	GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 #else
 	if ( drawInfo.blend.modeAlpha > 0 ) {
 		if ( !::shadowState.alphaTestEnabled ) {
@@ -448,10 +450,12 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	}
 
 	pod::Vector4f color = {1,1,1,1};
+	/*
 	if ( drawInfo.color.enabled ) {
 		color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
 		color = uf::vector::clamp( color, pod::Vector4f{0,0,0,0}, pod::Vector4f{1, 1, 1, 1}  );
 	}
+	*/
 	if ( color != ::shadowState.color ) {
 		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
 		::shadowState.color = color;
@@ -570,7 +574,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		}
 		GLenum colorType = GL_FLOAT;
 		if ( drawInfo.attributes.color.descriptor.type == uf::renderer::enums::Type::UBYTE || drawInfo.attributes.color.descriptor.size == sizeof(uint8_t)) {
-    		colorType = GL_UNSIGNED_BYTE;
+			colorType = GL_UNSIGNED_BYTE;
 		}
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, colorType, drawInfo.attributes.color.stride, colorPtr));
 	} else if ( ::shadowState.colorArrayEnabled ) {
