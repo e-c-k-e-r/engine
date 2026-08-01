@@ -407,8 +407,8 @@ uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
 	uf::stl::string preferredPath = uf::string::replace( filename, extension, preferredExtension );
 	// pick it if exists
 	if ( uf::io::exists( preferredPath ) ) return preferredPath;
-	// create cached path (for virtual sources)
-	uf::stl::string cachePath = "cache/" + preferredPath;
+	// prefer cached path
+	uf::stl::string cachePath = "cache://" + preferredPath;
 	// pick it if it exists
 	if ( uf::io::exists( cachePath ) ) return cachePath;
 

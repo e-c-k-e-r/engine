@@ -63,6 +63,7 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	this->width = windowSize.x;
 	this->height = windowSize.y;
 
+	/*
 	glDepthRange(0, 1);
 	if ( uf::matrix::reverseInfiniteProjection ) {
 		GL_ERROR_CHECK(glDepthFunc(GL_GEQUAL));
@@ -74,6 +75,7 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	
 	GL_ERROR_CHECK(glDisable(GL_LIGHTING));
 	GL_ERROR_CHECK(glDisable(GL_COLOR_MATERIAL));
+	*/
 
 #if 0
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));

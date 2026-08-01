@@ -15,7 +15,6 @@ bool uf::string::matched( const uf::stl::string& str, const uf::stl::string& r )
 
 	int match_length;
 	int match_idx = re_match(pattern.c_str(), str.c_str(), &match_length);
-
 	return (match_idx != -1);
 }
 

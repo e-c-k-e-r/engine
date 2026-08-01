@@ -800,7 +800,6 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		else UF_MSG_WARNING("Invalid CullMode enum string specified: {}", mode);
 	}
 
-
 	::bindTextures( graph, graphic );
 	::bindShaders( graph, entity, mesh, primitives );
 	::bindBuffers( graph, graphic, mesh );
@@ -1573,9 +1572,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			metadataLight["shadows"] = graphMetadataJson["lights"]["shadows"].as<bool>();
 			metadataLight["dynamic"] = false;
 
+		/*
 			if ( uf::string::matched( node.name, R"(/\bspot\b/)" ) ) {
 				metadataLight["type"] = "spot";
 			}
+		*/
 		/*
 			if ( ext::json::isArray( graphMetadataJson["lights"]["radius"] ) ) {
 				metadataLight["radius"] = graphMetadataJson["lights"]["radius"];
@@ -2574,9 +2575,11 @@ void uf::graph::reload( pod::Graph& graph ) {
 
 			uf::image::open( image, pending.buffer, formatHint, false );
 
+		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
 			if ( key == "lightmap_atlas" ) {
 				::convertLightmap( image );
 			}
+		#endif
 			pending.buffer.clear();
 		}
 

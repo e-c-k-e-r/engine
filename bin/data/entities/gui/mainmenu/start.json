@@ -16,7 +16,7 @@
 		"events": {
 			"click": {
 				"name": "game:Scene.Load",
-				"payload": { "scene": "SourceEngine" },
+				"payload": { "scene": "Dark" },
 				"delay": 0.125
 			}
 		},

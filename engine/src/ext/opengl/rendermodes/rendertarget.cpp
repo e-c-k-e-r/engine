@@ -50,24 +50,30 @@ void ext::opengl::RenderTargetRenderMode::pipelineBarrier( GLhandle(VkCommandBuf
 void ext::opengl::RenderTargetRenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
+
+	float depthClear = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+	for ( auto graphic : graphics ) {
+		auto descriptor = bindGraphicDescriptor(graphic->descriptor);
+		depthClear = descriptor.depth.max;
+		break;
+	}
 	
 	auto& commands = getCommands();	
 	commands.start(); {
-	#if 0
-		CommandBuffer::InfoClear clearCommandInfo = {};
-		clearCommandInfo.type = enums::Command::CLEAR;
-		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
-		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
-		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
-		commands.record(clearCommandInfo);
-	#endif
-	#if 1
+		if ( !ext::opengl::hasRenderMode("", true) ) {		
+			CommandBuffer::InfoClear clearCommandInfo = {};
+			clearCommandInfo.type = enums::Command::CLEAR;
+			clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
+			clearCommandInfo.depth = depthClear;
+			clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
+			commands.record(clearCommandInfo);
+		}
+		
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};
 		viewportCommandInfo.size = pod::Vector2ui{width, height};
 		commands.record(viewportCommandInfo);
-	#endif
 
 		size_t currentSubpass = 0;
 		size_t currentPass = 0;

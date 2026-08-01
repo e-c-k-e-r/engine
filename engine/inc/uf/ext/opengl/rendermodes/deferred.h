@@ -9,6 +9,8 @@ namespace ext {
 			// RAII
 			virtual const uf::stl::string getType() const;
 
+			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
+
 			virtual void createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics );
 			virtual void initialize( Device& device );
 			virtual void tick();

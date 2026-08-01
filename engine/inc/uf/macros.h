@@ -183,7 +183,7 @@
 	#define UF_DEBUG 1
 #endif
 
-	
+#define UF_CONVERSION_TO_CACHE 1
 
 #if UF_DEBUG
 	#include <uf/utils/io/fmt.h>

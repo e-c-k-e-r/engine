@@ -230,6 +230,7 @@ void uf::graph::preprocess( pod::Graph& graph, const uf::Serializer& metadata, c
 	graph.root.index = -1;
 }
 
+// to-do: fix gltf importer again
 void uf::graph::postprocess( pod::Graph& graph ) {
 	auto& storage = uf::graph::getStorage( graph );
 	// post-processing

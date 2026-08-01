@@ -50,7 +50,7 @@ pod::Vector<T, N> uf::vector::copy( const T* p ) {
 }
 template<typename T, size_t N, typename U>
 pod::Vector<T, N> uf::vector::cast( const U& from ) {
-	pod::Vector<T, N> to;
+	pod::Vector<T, N> to = {};
 	#pragma unroll // GCC unroll N
 	for ( auto i = 0; i < N && i < U::size; ++i )
 		to[i] = from[i];
@@ -678,7 +678,7 @@ template<typename T>
 T uf::vector::round( const T& vector ) {
 	T res;
 	FOR_EACH(T::size, {
-		res[i] = ::round( vector[i] );
+		res[i] = std::round( vector[i] );
 	});
 	return res;
 }
@@ -753,11 +753,12 @@ template<typename T>
 T uf::vector::slerp( const T& from, const T& to, double delta, bool clamp ) {
 	if ( clamp ) delta = fmax( 0, fmin(1,delta) );
 	typename T::type_t dot = uf::vector::dot(from, to);
+	if ( dot > 0.9995f ) return uf::vector::lerp(from, to, delta, clamp);
 	typename T::type_t theta = acos(dot);
 	typename T::type_t sTheta = sin(theta);
 
-	typename T::type_t w1 = sin((1.0f - delta) * theta / sTheta);
-	typename T::type_t w2 = sin( delta * theta / sTheta );
+	typename T::type_t w1 = sin((1.0f - delta) * theta) / sTheta;
+	typename T::type_t w2 = sin( delta * theta ) / sTheta;
 #if UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
 		return uf::simd::add( uf::simd::mul( from, w1 ), uf::simd::mul( to, w2 ) );
@@ -824,7 +825,7 @@ T uf::vector::normalize( const T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
 	if ( norm < 1.0e-6 ) return vector;	
 #if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if constexpr ( std::is_same_v<T,float> ) {
+	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
 		return uf::vector::multiply(vector, MATH_fsrra(norm));
 	}
 #endif

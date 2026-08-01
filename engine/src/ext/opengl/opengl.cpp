@@ -499,6 +499,7 @@ void ext::opengl::render(){
 #endif
 	auto transient = std::move(ext::opengl::device.transient);
 
+	/*
 	{
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sceneMetadata = scene.getComponent<uf::Serializer>();
@@ -523,6 +524,7 @@ void ext::opengl::render(){
 		GL_ERROR_CHECK(glClearDepth(clearCommandInfo.depth));
 		GL_ERROR_CHECK(glClear(clearCommandInfo.bits));
 	}
+	*/
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;

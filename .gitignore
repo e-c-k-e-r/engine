@@ -64,6 +64,8 @@ default/
 *.vtf
 *.ztmp
 *.adp
+*.mis
+graph.json
 
 maps/
 models/

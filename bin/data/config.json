@@ -424,7 +424,7 @@
 				"auto validate": false
 			},
 			"loader": {
-				"assert": true,
+				"assert": false,
 				"async": false // to-do: fix
 			},
 			"hooks": {

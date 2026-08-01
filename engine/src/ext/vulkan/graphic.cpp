@@ -657,9 +657,15 @@ void ext::vulkan::DescriptorSets::update( const Graphic& graphic, const GraphicD
 			texture.sampler.descriptor.filter.min = descriptor.filter;
 			texture.sampler.descriptor.filter.mag = descriptor.filter;
 
-			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
-			auto name = matches.size() == 2 ? matches[0] : descriptor.name;
-			auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+			uf::stl::string name = descriptor.name;
+			int view = -1;
+			size_t bOpen = name.find_last_of('[');
+			size_t bClose = name.find_last_of(']');
+
+			if ( bOpen != uf::stl::string::npos && bClose != uf::stl::string::npos && bClose > bOpen ) {
+				view = std::stoi(name.substr(bOpen + 1, bClose - bOpen - 1));
+				name = name.substr(0, bOpen);
+			}
 			const ext::vulkan::RenderTarget::Attachment* attachment = NULL;
 			if ( descriptor.renderMode ) {
 				if ( descriptor.renderMode->hasAttachment(name) ) 
@@ -1011,9 +1017,15 @@ PIPELINE_UPDATE_INVALID:
 void ext::vulkan::DescriptorSets::collectBuffers( const Shader& shader, const RenderMode& renderMode, const Graphic& graphic, const std::function<void(const Buffer&)>& lambda ) const {
 	// add aliased-by-name buffers
 	for ( auto& descriptor : shader.metadata.aliases.buffers ) {
-		auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
-		auto name = matches.size() == 2 ? matches[0] : descriptor.name;
-		auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+		uf::stl::string name = descriptor.name;
+		int view = -1;
+		size_t bOpen = name.find_last_of('[');
+		size_t bClose = name.find_last_of(']');
+
+		if ( bOpen != uf::stl::string::npos && bClose != uf::stl::string::npos && bClose > bOpen ) {
+			view = std::stoi(name.substr(bOpen + 1, bClose - bOpen - 1));
+			name = name.substr(0, bOpen);
+		}
 		const ext::vulkan::Buffer* buffer = &descriptor.fallback;
 		if ( descriptor.renderMode ) {
 			if ( descriptor.renderMode->hasBuffer(name) ) 

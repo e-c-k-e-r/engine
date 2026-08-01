@@ -101,24 +101,29 @@ namespace {
 	#if EXT_COLOR_FLOATS
 		auto& c = color;
 	#else
-		//pod::Vector4ub c = (color * 255);
+		pod::Vector4ub c = uf::vector::clamp( color, 0, 1 ) * 255;
+		auto& cent = center;
+
+		/*
 		pod::Vector4ub c = {
-			(uint8_t)(color[0] * 255),
-			(uint8_t)(color[1] * 255),
-			(uint8_t)(color[2] * 255),
-			(uint8_t)(color[3] * 255),
+			(uint8_t)(CLAMP(color[0], 0, 1) * 255),
+			(uint8_t)(CLAMP(color[1], 0, 1) * 255),
+			(uint8_t)(CLAMP(color[2], 0, 1) * 255),
+			(uint8_t)(CLAMP(color[3], 0, 1) * 255),
 		};
+		pod::Vector3f cent = { center.x, center.y, 0.0f };
+		*/
 	#endif
 		mesh.bind<::GuiVertex, uint16_t>();
 		mesh.insertVertices<::GuiVertex>({
 		#if UF_USE_OPENGL
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, c },
-			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - center, pod::Vector2f{0.0f, 1.0f}, c },
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, c },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - cent, pod::Vector2f{0.0f, 0.0f}, c },
+			{ pod::Vector3f{-1.0f, -1.0f, 0.0f} - cent, pod::Vector2f{0.0f, 1.0f}, c },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - cent, pod::Vector2f{1.0f, 1.0f}, c },
 		
-			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - center, pod::Vector2f{1.0f, 1.0f}, c },
-			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - center, pod::Vector2f{1.0f, 0.0f}, c },
-			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - center, pod::Vector2f{0.0f, 0.0f}, c },
+			{ pod::Vector3f{ 1.0f, -1.0f, 0.0f} - cent, pod::Vector2f{1.0f, 1.0f}, c },
+			{ pod::Vector3f{ 1.0f,  1.0f, 0.0f} - cent, pod::Vector2f{1.0f, 0.0f}, c },
+			{ pod::Vector3f{-1.0f,  1.0f, 0.0f} - cent, pod::Vector2f{0.0f, 0.0f}, c },
 		#else
 			{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, c, center },
 			{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, c, center },
@@ -202,7 +207,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
 			}
 
-		#if UF_USE_OPENGL
+		#if 0 && UF_USE_OPENGL
 			if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
 			
 			// set depth 
@@ -271,7 +276,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		auto& image = uf::asset::get<uf::Image>( payload );
 
 		// generate default mesh
-		::generateMesh( mesh, metadata.color, metadata.alignment );
+		auto color = metadata.color; color[3] = 1.0f; // force opaque
+		::generateMesh( mesh, color, metadata.alignment );
 
 		{
 			ext::payloads::GuiInitializationPayload payload;

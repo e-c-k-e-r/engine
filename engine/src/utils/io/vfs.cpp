@@ -1,5 +1,7 @@
 #include <uf/utils/io/vfs.h>
 #include <uf/utils/io/file.h>
+#include <uf/utils/string/ext.h>
+#include <uf/utils/string/hash.h>
 #include <uf/utils/math/hash.h>
 #include <algorithm>
 #include <sys/stat.h>
@@ -12,6 +14,20 @@
 #endif
 
 namespace {
+	inline bool valid_prefix( const pod::Mount& mount, const uf::stl::string& prefix, bool e = false ) {
+		if ( e ) {
+			if ( prefix.empty() ) {
+				if ( !mount.prefix.empty() ) return false;
+			} else {
+				if ( mount.prefix != prefix ) return false;
+			}
+			return true;
+		}
+
+		if ( prefix.empty() && mount.priority < 0 ) return false;
+		return prefix.empty() || mount.prefix == prefix;
+	}
+
 #if UF_ENV_DREAMCAST
 	void ls_kos( const uf::stl::string& basePath, const uf::stl::string& currentSubDir, const uf::stl::string& extension, bool recursive, uf::stl::vector<uf::stl::string>& files ) {
 		uf::stl::string fullPath = basePath + currentSubDir;
@@ -40,8 +56,8 @@ namespace {
 		}
 		fs_close(fd);
 	}
-
 #endif
+
 	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ) {
 		uf::stl::string path = mount.path + file;
 		#if UF_ENV_DREAMCAST
@@ -367,10 +383,8 @@ bool uf::vfs::exists( const uf::stl::string& path ) {
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists( mount, relative ) ) return true;
-		}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( mount.exists( mount, relative ) ) return true;
 	}
 	return false;
 }
@@ -383,13 +397,10 @@ uf::stl::vector<uf::stl::string> uf::vfs::list( const uf::stl::string& path, con
 	if ( !relative.empty() && relative.back() != '/' ) relative += '/';
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.list ) {
-				auto files = mount.list( mount, relative, extension, recursive );
-				results.insert(results.end(), files.begin(), files.end());
-			}
-		}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( !mount.list ) continue;
+		auto files = mount.list( mount, relative, extension, recursive );
+		results.insert(results.end(), files.begin(), files.end());
 	}
 
 	return results;
@@ -400,10 +411,8 @@ bool uf::vfs::mkdir( const uf::stl::string& path ) {
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.mkdir( mount, relative ) ) return true;
-		}
+		if ( !::valid_prefix( mount, prefix, true ) ) continue;
+		if ( mount.mkdir && mount.mkdir( mount, relative ) ) return true;
 	}
 	return false;
 }
@@ -413,10 +422,8 @@ size_t uf::vfs::size( const uf::stl::string& path ) {
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists( mount, relative ) ) return mount.size( mount, relative );
-		}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( mount.size && mount.exists( mount, relative ) ) return mount.size( mount, relative );
 	}
 	return 0;
 }
@@ -426,10 +433,8 @@ size_t uf::vfs::mtime( const uf::stl::string& path ) {
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.exists( mount, relative ) ) return mount.mtime( mount, relative );
-		}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( mount.mtime && mount.exists( mount, relative ) ) return mount.mtime( mount, relative );
 	}
 	return 0;
 }
@@ -439,11 +444,8 @@ bool uf::vfs::read( const uf::stl::string& path, uf::stl::vector<uint8_t>& buffe
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			bool res = mount.exists( mount, relative );
-			if ( mount.exists( mount, relative ) && mount.read( mount, relative, buffer ) ) return true;;
-		}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( mount.exists( mount, relative ) && mount.read( mount, relative, buffer ) ) return true;
 	}
 	return false;
 }
@@ -453,10 +455,10 @@ size_t uf::vfs::write( const uf::stl::string& path, const void* buffer, size_t s
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.write && mount.write( mount, relative, buffer, size ) ) return true;
-		}
+		if ( !::valid_prefix( mount, prefix, true ) ) continue;
+		if ( !mount.write ) continue;
+		size_t written = mount.write( mount, relative, buffer, size );
+		if ( written > 0 ) return written;
 	}
 	return 0;
 }
@@ -469,24 +471,22 @@ bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, 
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( !mount.exists( mount, relative ) ) continue;
-			if ( mount.readRange ) return mount.readRange( mount, relative, start, len, buffer );
-			if ( !mount.read ) continue;
-			
-			uf::stl::vector<uint8_t> fullBuffer;
-			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-			//UF_MSG_DEBUG("hitting fallback: {}", path);
-			
-			if ( start < fullBuffer.size() ) {
-				size_t actualLen = std::min(len, fullBuffer.size() - start);
-				buffer.assign(fullBuffer.begin() + start, fullBuffer.begin() + start + actualLen);
-			} else {
-				buffer.clear();
-			}
-			return true;
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( !mount.exists( mount, relative ) ) continue;
+		if ( mount.readRange ) return mount.readRange( mount, relative, start, len, buffer );
+		if ( !mount.read ) continue;
+		
+		uf::stl::vector<uint8_t> fullBuffer;
+		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+		//UF_MSG_DEBUG("hitting fallback: {}", path);
+		
+		if ( start < fullBuffer.size() ) {
+			size_t actualLen = std::min(len, fullBuffer.size() - start);
+			buffer.assign(fullBuffer.begin() + start, fullBuffer.begin() + start + actualLen);
+		} else {
+			buffer.clear();
 		}
+		return true;
 	}
 	return false;
 }
@@ -495,34 +495,32 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( !mount.exists( mount, relative ) ) continue;
-			if ( mount.readRanges ) return mount.readRanges( mount, relative, ranges, buffer );
-			if ( !mount.read ) continue;
-			
-			uf::stl::vector<uint8_t> fullBuffer;
-			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-			//UF_MSG_DEBUG("hitting fallback: {}", path);
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( !mount.exists( mount, relative ) ) continue;
+		if ( mount.readRanges ) return mount.readRanges( mount, relative, ranges, buffer );
+		if ( !mount.read ) continue;
+		
+		uf::stl::vector<uint8_t> fullBuffer;
+		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+		//UF_MSG_DEBUG("hitting fallback: {}", path);
 
-			size_t totalBytes = 0;
-			for ( const auto& r : ranges ) {
-				if ( r.start < fullBuffer.size() ) {
-					totalBytes += std::min(r.len, fullBuffer.size() - r.start);
-				}
+		size_t totalBytes = 0;
+		for ( const auto& r : ranges ) {
+			if ( r.start < fullBuffer.size() ) {
+				totalBytes += std::min(r.len, fullBuffer.size() - r.start);
 			}
-
-			buffer.clear();
-			buffer.reserve(totalBytes);
-
-			for ( const auto& r : ranges ) {
-				if ( r.start < fullBuffer.size() ) {
-					size_t actualLen = std::min(r.len, fullBuffer.size() - r.start);
-					buffer.insert(buffer.end(), fullBuffer.begin() + r.start, fullBuffer.begin() + r.start + actualLen);
-				}
-			}
-			return true;
 		}
+
+		buffer.clear();
+		buffer.reserve(totalBytes);
+
+		for ( const auto& r : ranges ) {
+			if ( r.start < fullBuffer.size() ) {
+				size_t actualLen = std::min(r.len, fullBuffer.size() - r.start);
+				buffer.insert(buffer.end(), fullBuffer.begin() + r.start, fullBuffer.begin() + r.start + actualLen);
+			}
+		}
+		return true;
 	}
 	return false;
 }
@@ -530,28 +528,26 @@ bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::functi
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( !mount.exists( mount, relative ) ) continue;
-			if ( mount.stream ) return mount.stream( mount, relative, chunkSize, callback );
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( !mount.exists( mount, relative ) ) continue;
+		if ( mount.stream ) return mount.stream( mount, relative, chunkSize, callback );
 
-			if ( !mount.read ) continue;
-			//UF_MSG_DEBUG("hitting fallback: {}", path);
+		if ( !mount.read ) continue;
+		//UF_MSG_DEBUG("hitting fallback: {}", path);
 
-			uf::stl::vector<uint8_t> fullBuffer;
-			if ( !mount.read( mount, relative, fullBuffer ) ) continue;
+		uf::stl::vector<uint8_t> fullBuffer;
+		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
 
-			size_t offset = 0;
-			size_t totalSize = fullBuffer.size();
+		size_t offset = 0;
+		size_t totalSize = fullBuffer.size();
 
-			while ( offset < totalSize ) {
-				size_t currentChunkSize = std::min(chunkSize, totalSize - offset);
-				if ( !callback(fullBuffer.data() + offset, currentChunkSize) ) break;
-				offset += currentChunkSize;
-			}
-
-			return true;
+		while ( offset < totalSize ) {
+			size_t currentChunkSize = std::min(chunkSize, totalSize - offset);
+			if ( !callback(fullBuffer.data() + offset, currentChunkSize) ) break;
+			offset += currentChunkSize;
 		}
+
+		return true;
 	}
 	return false;
 }
@@ -561,31 +557,28 @@ pod::File uf::vfs::open( const uf::stl::string& path ) {
 	uf::io::splitUri(path, prefix, relative);
 
 	for ( auto& mount : mounts ) {
-		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
-			if ( mount.open ) {
-				pod::File file = mount.open( mount, relative );
-				if ( file ) return file;
-			}
-			if ( mount.exists && mount.exists(mount, relative) ) {
-				if ( mount.readRange && mount.size ) {
-					FallbackFileState* state = new FallbackFileState{
-						&mount,
-						relative,
-						0,
-						mount.size(mount, relative)
-					};
-
-					return pod::File{
-						.handle = state,
-						.read = fallback_file_read,
-						.seek = fallback_file_seek,
-						.tell = fallback_file_tell,
-						.close = fallback_file_close
-					};
-				}
-			}
+		if ( !::valid_prefix( mount, prefix ) ) continue;
+		if ( mount.open ) {
+			pod::File file = mount.open( mount, relative );
+			if ( file ) return file;
 		}
+		if ( !mount.exists || !mount.exists(mount, relative) ) continue;
+		if ( !mount.readRange || !mount.size ) continue;
+		
+		FallbackFileState* state = new FallbackFileState{
+			&mount,
+			relative,
+			0,
+			mount.size(mount, relative)
+		};
+
+		return pod::File{
+			.handle = state,
+			.read = fallback_file_read,
+			.seek = fallback_file_seek,
+			.tell = fallback_file_tell,
+			.close = fallback_file_close
+		};
 	}
 	return pod::File{};
 }
@@ -596,7 +589,7 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 
 	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
+		if ( ::valid_prefix( mount, prefix ) ) {
 			uf::stl::string resolved = mount.path + relative;
 			return resolved;
 		}
@@ -611,7 +604,7 @@ bool uf::vfs::isPhysical( const uf::stl::string& path ) {
 
 	for ( const auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
-		if ( prefix.empty() || mount.prefix == prefix ) {
+		if ( ::valid_prefix( mount, prefix ) ) {
 			return mount.exists == ::vfs_exists;
 		}
 	}
@@ -625,6 +618,7 @@ bool uf::vfs::isPhysical( const uf::stl::string& path ) {
 #endif
 
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "sys://", 999 );
+
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "mdl://" VFS_BASE "models", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "scene://" VFS_BASE "scenes", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "ent://" VFS_BASE "entities", 100 );
@@ -634,3 +628,110 @@ UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "spv://" VFS_BASE "shaders", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "lua://" VFS_BASE "scripts", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "data://" VFS_BASE, 50 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "", 0 );
+
+
+namespace {
+	struct Guard {
+		static thread_local bool active;
+		bool owner;
+
+		Guard() {
+			owner = !active;
+			if ( owner ) active = true;
+		}
+
+		~Guard() {
+			if ( owner ) active = false;
+		}
+
+		explicit operator bool() const { return owner; }
+	};
+	thread_local bool Guard::active = false;
+
+	uf::stl::string cached_path( const uf::stl::string& path ) {
+	/*
+		uf::stl::string ext = uf::io::extension( path );
+		uf::stl::string p = uf::io::remove_extension( path );
+	*/
+		size_t last_slash = path.find_last_of('/');
+		size_t name_start = (last_slash == uf::stl::string::npos) ? 0 : last_slash + 1;
+
+		size_t first_dot = path.find('.', name_start);
+
+		uf::stl::string p = path;
+		uf::stl::string ext = "";
+
+		if (first_dot != uf::stl::string::npos) {
+			p = path.substr(0, first_dot);
+			ext = path.substr(first_dot + 1);
+		}
+
+		auto hash = uf::algo::fnv1a( p );
+
+		if ( ext.empty() ) return FMT_FORMAT("$://{}", hash);
+		return FMT_FORMAT("$://{}.{}", hash, ext);
+	}
+
+	bool cache_exists( pod::Mount& mount, const uf::stl::string& file ) {
+		Guard guard; if ( !guard ) return false;
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::exists( cachedUri );
+	}
+
+	size_t cache_size( pod::Mount& mount, const uf::stl::string& file ) {
+		Guard guard; if ( !guard ) return 0;
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::size( cachedUri );
+	}
+
+	size_t cache_mtime(pod::Mount& mount, const uf::stl::string& file) {
+		Guard guard; if ( !guard ) return 0;
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::mtime( cachedUri );
+	}
+
+	bool cache_read(pod::Mount& mount, const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer) {
+		Guard guard; if ( !guard ) return false;
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::read( cachedUri, buffer );
+	}
+
+	size_t cache_write( pod::Mount& mount, const uf::stl::string& file, const void* buffer, size_t size ) {
+		Guard guard; if ( !guard ) return 0;
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::write( cachedUri, buffer, size );
+	}
+
+	pod::File cache_open( pod::Mount& mount, const uf::stl::string& file ) {
+		Guard guard; if ( !guard ) return {};
+
+		uf::stl::string cachedUri = cached_path( file );
+		return uf::vfs::open( cachedUri );
+	}
+
+	pod::Mount createCacheMount( const uf::stl::string& uri, int priority) {
+		uf::stl::string prefix;
+		uf::stl::string path;
+		uf::io::splitUri( uri, prefix, path );
+
+		return pod::Mount{
+			.prefix = prefix,
+			.path = path,
+			.priority = priority,
+			.exists = ::cache_exists,
+			.size = ::cache_size,
+			.mtime = ::cache_mtime,
+			.read = ::cache_read,
+			.write = ::cache_write,
+			.open = ::cache_open,
+		};
+	}
+}
+
+UF_VFS_MOUNT_CPP( ::createCacheMount, "cache://", 2000 );
+UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "$://" VFS_BASE "cache", -1000 );

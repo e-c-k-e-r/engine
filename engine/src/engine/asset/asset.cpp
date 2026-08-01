@@ -364,11 +364,15 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	
 		#if UF_USE_DC_TEXCONV
 			uf::stl::string target = "dtex";
+		#if !UF_CONVERSION_TO_CACHE
 			uf::stl::string output = uf::io::replace_extension( filename, target );
-			bool exists = uf::io::exists( output );
-			bool physical = uf::vfs::isPhysical( filename );
-			bool stale = exists ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
-			if ( extension != target && !exists && physical && stale ) {
+			if ( !uf::vfs::isPhysical( filename ) ) output = "cache://" + output;
+		#else
+			uf::stl::string output = "cache://" + uf::io::replace_extension( filename, target );
+		#endif
+			bool stale = uf::io::exists( output ) ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
+			if ( extension != target && stale ) {
+				UF_MSG_DEBUG("Converting image: {} => {}", filename, output );
 				pod::Vector2ui size = { 32, 32 };
 				uf::stl::string filter = "linear";
 				uf::stl::string format = "auto";
@@ -376,7 +380,6 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 				auto img = asset.scale( size, filter);
 				auto dtex = ext::texconv::convert( img, format );
 				ext::texconv::save( dtex, output );
-				UF_MSG_DEBUG("Converting image: {} => {}", filename, output );
 			}
 		#endif
 		} break;
@@ -387,11 +390,14 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 
 		#if UF_USE_ADP_ENCODER
 			uf::stl::string target = "adp";
+		#if !UF_CONVERSION_TO_CACHE
 			uf::stl::string output = uf::io::replace_extension( filename, target );
-			bool exists = uf::io::exists( output );
-			bool physical = uf::vfs::isPhysical( filename );
-			bool stale = exists ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
-			if ( extension != target && !exists && physical && stale ) {
+			if ( !uf::vfs::isPhysical( filename ) ) output = "cache://" + output;
+		#else
+			uf::stl::string output = "cache://" + uf::io::replace_extension( filename, target );
+		#endif
+			bool stale = uf::io::exists( output ) ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
+			if ( extension != target && stale ) {
 				pod::PCM pcm;
 				uf::stl::vector<uint8_t> encoded;
 				if ( uf::audio::decode( filename, pcm ) ) {

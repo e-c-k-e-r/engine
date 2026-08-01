@@ -40,20 +40,41 @@ void uf::console::initialize() {
 	});
 
 	uf::console::registerCommand("callHook", "Calls a hook, passing the arguments as a JSON object", [&]( const uf::stl::string& arguments )->uf::stl::string{
-		auto match = uf::string::match( arguments, "/^\"?(.+?)\"?(?: (.+?))?$/" );
-		if ( match.empty() ) return "invalid invocation";
+		if ( arguments.empty() ) return "invalid invocation";
 
-		uf::stl::vector<pod::Hook::userdata_t> results;
-		if ( match.size() > 2 ) {
-			ext::json::Value json;
-			ext::json::decode( json, match[2] );
+		uf::stl::string hookName;
+		uf::stl::string jsonArgs;
+		size_t spaceIdx = uf::stl::string::npos;
 
-			results = uf::hooks.call( match[1], json );
+		// quoted hook names
+		if ( arguments[0] == '"' ) {
+			size_t endQuote = arguments.find('"', 1);
+			if ( endQuote != uf::stl::string::npos ) {
+				hookName = arguments.substr(1, endQuote - 1);
+				spaceIdx = arguments.find_first_not_of(' ', endQuote + 1);
+				if ( spaceIdx != uf::stl::string::npos ) jsonArgs = arguments.substr(spaceIdx);
+			}
 		} else {
-			results = uf::hooks.call( match[1] );
+			// unquoted hook names
+			spaceIdx = arguments.find(' ');
+			if ( spaceIdx != uf::stl::string::npos ) {
+				hookName = arguments.substr(0, spaceIdx);
+				size_t nextChar = arguments.find_first_not_of(' ', spaceIdx);
+				if ( nextChar != uf::stl::string::npos ) jsonArgs = arguments.substr(nextChar);
+			} else {
+				hookName = arguments;
+			}
 		}
 
-		// this could probably be its own function
+		uf::stl::vector<pod::Hook::userdata_t> results;
+		if ( !jsonArgs.empty() ) {
+			ext::json::Value json;
+			ext::json::decode( json, jsonArgs );
+			results = uf::hooks.call( hookName, json );
+		} else {
+			results = uf::hooks.call( hookName );
+		}
+
 		uf::stl::string s_result = "";
 		for ( auto i = 0; i < results.size(); ++i ) {
 			auto& res = results[i];
@@ -62,20 +83,29 @@ void uf::console::initialize() {
 			else s_result += FMT_FORMAT("\n[{}] => Userdata: {}", i, (void*) res);
 		}
 
-		return "Hook executed: " + match[1] + s_result;
+		return "Hook executed: " + hookName + s_result;
 	});
 	
 	uf::console::registerCommand("json", "Modifies the gamestate by setting a JSON value", [&]( const uf::stl::string& arguments )->uf::stl::string{
-		auto match = uf::string::match( arguments, "/^(.+?) *= *(.+?)$/" );
-		if ( match.empty() ) {
+		size_t eqPos = arguments.find('=');
+
+		// query
+		if ( eqPos == uf::stl::string::npos ) {
 			uf::Serializer target = uf::config;
-			return ext::json::encode( arguments == "" ? target : target.path( arguments ), {
+			uf::stl::string query = arguments;
+			query.erase(query.find_last_not_of(" \t") + 1);
+
+			return ext::json::encode( query == "" ? target : target.path( query ), {
 				.pretty = true
 			} );
 		}
-		
-		uf::stl::string keyString = match[1];
-		uf::stl::string valueString = match[2];
+
+		// set mode
+		uf::stl::string keyString = arguments.substr(0, eqPos);
+		keyString.erase(keyString.find_last_not_of(" \t") + 1);
+
+		uf::stl::string valueString = arguments.substr(eqPos + 1);
+		valueString.erase(0, valueString.find_first_not_of(" \t"));
 
 		uf::Serializer value;
 		value.deserialize(valueString);
@@ -108,27 +138,41 @@ void uf::console::initialize() {
 	});
 
 	uf::console::registerCommand("entity", "Modifies the gamestate by setting a JSON value for an entity", [&]( const uf::stl::string& arguments )->uf::stl::string{
-		auto match = uf::string::match( arguments, "/^(\\d+)/" );
-		if ( match.empty() ) return "invalid invocation";
-		
-		uf::stl::string IDstring = match[1];
+		size_t firstSpace = arguments.find(' ');
+		uf::stl::string IDstring = arguments.substr(0, firstSpace);
+		if ( IDstring.empty() ) return "invalid invocation";
+
 		size_t ID = std::stoi( IDstring );
 		uf::Object* entity = (uf::Object*) uf::Entity::globalFindByUid( ID );
 		if ( !entity ) return "entity not found: " + IDstring;
+
 		entity->callHook( "object:Serialize.%UID%" );
 		auto& metadata = entity->getComponent<uf::Serializer>();
 
-		match = uf::string::match( arguments, "/^\\d+ (.+?) *= *(.+?)$/" );
-		if ( match.empty() ) {
-			match = uf::string::match( arguments, "/^\\d+ (.+?)$/" );
+		// only ID provided
+		if ( firstSpace == uf::stl::string::npos ) {
 			uf::Serializer target = metadata;
-			return ext::json::encode( !match.empty() && match[1] != "" ? target.path( match[1] ) : target, {
-				.pretty = true
-			} );
+			return ext::json::encode( target, { .pretty = true } );
 		}
 
-		uf::stl::string keyString = match[1];
-		uf::stl::string valueString = match[2];
+		uf::stl::string remainder = arguments.substr(firstSpace + 1);
+		remainder.erase(0, remainder.find_first_not_of(" \t"));
+
+		size_t eqPos = remainder.find('=');
+
+		// query mode
+		if ( eqPos == uf::stl::string::npos ) {
+			uf::Serializer target = metadata;
+			remainder.erase(remainder.find_last_not_of(" \t") + 1);
+			return ext::json::encode( remainder != "" ? target.path( remainder ) : target, { .pretty = true } );
+		}
+
+		// set mode
+		uf::stl::string keyString = remainder.substr(0, eqPos);
+		keyString.erase(keyString.find_last_not_of(" \t") + 1);
+
+		uf::stl::string valueString = remainder.substr(eqPos + 1);
+		valueString.erase(0, valueString.find_first_not_of(" \t"));
 
 		uf::Serializer value;
 		value.deserialize(valueString);
@@ -151,10 +195,26 @@ uf::stl::string uf::console::execute( const uf::stl::string& input ) {
 	uf::console::print("> " + input);
 
 	uf::stl::string output;
-	auto match = uf::string::match( input, "/^(.+?)(?: (.+?))?$/" );
-	if ( !match.empty() ) {
-		uf::stl::string command = match[1];
-		uf::stl::string arguments = match.size() > 2 ? match[2] : "";
+
+	size_t firstChar = input.find_first_not_of(" \t");
+
+	if ( firstChar != uf::stl::string::npos ) {
+		size_t spacePos = input.find(' ', firstChar);
+
+		uf::stl::string command;
+		uf::stl::string arguments = "";
+
+		if ( spacePos != uf::stl::string::npos ) {
+			command = input.substr(firstChar, spacePos - firstChar);
+
+			size_t argStart = input.find_first_not_of(" \t", spacePos);
+			if ( argStart != uf::stl::string::npos ) {
+				arguments = input.substr(argStart);
+			}
+		} else {
+			command = input.substr(firstChar);
+		}
+
 		output = uf::console::execute( command, arguments );
 	} else {
 		output = "Unknown command: " + input;

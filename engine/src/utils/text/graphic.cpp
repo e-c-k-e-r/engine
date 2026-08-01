@@ -312,16 +312,26 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 	for ( const auto& g : layout ) {
 		auto hash = FMT_FORMAT( "{}", uf::glyph::hashSettings(g.code, metadata) );
 
+		auto& anchor = g.anchor;
+	#if EXT_COLOR_FLOATS
+		auto& color = g.color;
+	#else
+		pod::Vector4ub color = uf::vector::clamp( g.color, 0, 1 ) * 255;
+	#endif
+
+	/*
+		pod::Vector3f anchor = { g.anchor[0], g.anchor[1], 0.0f };
 	#if EXT_COLOR_FLOATS
 		auto& color = g.color;
 	#else
 		pod::Vector4ub color = {
-			(uint8_t)(g.color[0] * 255),
-			(uint8_t)(g.color[1] * 255),
-			(uint8_t)(g.color[2] * 255),
-			(uint8_t)(g.color[3] * 255)
+			(uint8_t)(CLAMP(g.color[0], 0, 1) * 255),
+			(uint8_t)(CLAMP(g.color[1], 0, 1) * 255),
+			(uint8_t)(CLAMP(g.color[2], 0, 1) * 255),
+			(uint8_t)(CLAMP(g.color[3], 0, 1) * 255)
 		};
 	#endif
+	*/
 		// insert indices
 		uint16_t idx = (uint16_t) vertices.size();
 		indices.insert( indices.end(), { idx, idx + 1, idx + 2, idx, idx + 2, idx + 3 });
@@ -333,15 +343,15 @@ void uf::glyph::generateMesh( const uf::stl::vector<pod::GlyphBox>& layout, cons
 		auto p3 = pod::Vector2f{ g.box.x + g.box.w, g.box.y + g.box.h };
 
 	#if UF_USE_OPENGL
-		vertices.emplace_back(::GlyphVertex{g.anchor + p0, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{g.anchor + p1, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{g.anchor + p2, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color});
-		vertices.emplace_back(::GlyphVertex{g.anchor + p3, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{anchor + p0, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{anchor + p1, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{anchor + p2, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color});
+		vertices.emplace_back(::GlyphVertex{anchor + p3, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color});
 	#else
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color, p0});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color, p1});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color, p2});
-		vertices.emplace_back(::GlyphVertex{g.anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color, p3});
+		vertices.emplace_back(::GlyphVertex{anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 1.0f }, hash), color, p0});
+		vertices.emplace_back(::GlyphVertex{anchor, atlas.mapUv(pod::Vector2f{ 0.0f, 0.0f }, hash), color, p1});
+		vertices.emplace_back(::GlyphVertex{anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 0.0f }, hash), color, p2});
+		vertices.emplace_back(::GlyphVertex{anchor, atlas.mapUv(pod::Vector2f{ 1.0f, 1.0f }, hash), color, p3});
 	#endif
 	}
 

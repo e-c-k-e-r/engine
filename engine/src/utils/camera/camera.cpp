@@ -3,7 +3,11 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
+#if UF_USE_OPENGL
+bool uf::matrix::reverseInfiniteProjection = false;
+#else
 bool uf::matrix::reverseInfiniteProjection = true;
+#endif
 
 pod::Vector3f uf::camera::eye( const pod::Camera& camera, int i ) {
 	if ( i < 0 ) i = 0; 
