@@ -666,7 +666,7 @@ namespace {
 			ext = path.substr(first_dot + 1);
 		}
 
-		auto hash = uf::algo::fnv1a( p );
+		auto hash = uf::algo::fnv1a<uint32_t>( p );
 
 		if ( ext.empty() ) return FMT_FORMAT("$://{}", hash);
 		return FMT_FORMAT("$://{}.{}", hash, ext);

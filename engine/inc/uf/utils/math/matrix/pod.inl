@@ -500,6 +500,17 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 	m(3,2) = 1;
 	m(3,3) = 0;
 
+#if UF_ENV_DREAMCAST
+	if ( zfar <= 0 ) {
+		m(2,2) = 1;
+		m(2,3) = -2 * znear;
+	} else {
+		T sum = zfar + znear;
+		T range = zfar - znear;
+		m(2,2) = sum / range;
+		m(2,3) = -(2 * zfar * znear) / range;
+	}
+#else
 	if ( zfar <= 0 ) {
 		m(2,2) = 0;
 		m(2,3) = znear;
@@ -508,6 +519,7 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 		m(2,2) = zfar / range;
 		m(2,3) = -(zfar * znear) / range;
 	}
+#endif
 
 	return m;
 }

@@ -81,12 +81,12 @@ template<typename T>
 bool uf::vector::notEquals( const T& left, const T& right ) {
 #if UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> ) {
-		return uf::simd::all( uf::simd::notEquals( left, right ) );
+		return uf::simd::any( uf::simd::notEquals( left, right ) );
 	}
 #endif
-	bool result = true;
+	bool result = false;
 	FOR_EACH(T::size, {
-		if ( !(left[i] != right[i]) ) result = false;
+		if ( left[i] != right[i] ) result = true;
 	});
 	return result;
 }
@@ -160,12 +160,12 @@ template<typename T>
 bool uf::vector::notEquals( const T& left, const typename T::type_t right ) {
 #if UF_USE_SIMD
 	if constexpr ( simd_able_v<typename T::type_t> && T::size == 4 ) {
-		return uf::simd::all( uf::simd::notEquals( left, right ) );
+		return uf::simd::any( uf::simd::notEquals( left, right ) );
 	}
 #endif
-	bool result = true;
+	bool result = false;
 	FOR_EACH(T::size, {
-		if ( !(left[i] != right) ) result = false;
+		if ( left[i] != right ) result = true;
 	});
 	return result;
 }

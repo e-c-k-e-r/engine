@@ -405,6 +405,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	CommandBuffer::InfoDraw drawCommandInfoBase = {};
 	drawCommandInfoBase.type = ext::opengl::enums::Command::DRAW;
 	drawCommandInfoBase.descriptor = descriptor;
+
 	if ( descriptor.inputs.index.count ) drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
 
 	for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
@@ -425,7 +426,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 		drawCommandInfoBase.color.pointer = &uniforms->color;
 		drawCommandInfoBase.color.value = uniforms->color;
-		drawCommandInfoBase.color.enabled = drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+		drawCommandInfoBase.color.enabled = true; // drawCommandInfoBase.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 	}
 
 	struct {
@@ -555,23 +556,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		}
 	*/
 	}
-
-/*
-	if ( uf::matrix::reverseInfiniteProjection ) {
-		for ( auto it = drawCommandInfos.opaques.rbegin(); it != drawCommandInfos.opaques.rend(); ++it ) {
-			auto& drawCommandInfo = (*it);
-			commandBuffer.record(drawCommandInfo);
-		}
-		for ( auto it = drawCommandInfos.translucents.rbegin(); it != drawCommandInfos.translucents.rend(); ++it ) {
-			auto& drawCommandInfo = (*it);
-			commandBuffer.record(drawCommandInfo);
-		}
-	} else {
-		for ( auto& drawCommandInfo : drawCommandInfos.opaques ) commandBuffer.record(drawCommandInfo);
-		for ( auto& drawCommandInfo : drawCommandInfos.translucents ) commandBuffer.record(drawCommandInfo);
-	}
-*/
-//	UF_MSG_DEBUG("END")
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();

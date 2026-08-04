@@ -15,12 +15,9 @@ const uf::stl::string ext::opengl::RenderTargetRenderMode::getType() const {
 ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
 	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata.json["descriptor"]);
-	if ( metadata.type == "depth" ) {
-	//	descriptor.cullMode = GL_CULL_MODE_NONE;
-	}
 
-//	descriptor.depth.write = true;
-//	descriptor.depth.test = false;
+	descriptor.depth.write = true;
+	descriptor.depth.test = false;
 
 	// invalidate
 	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {

@@ -206,6 +206,7 @@ void ext::opengl::Texture::fromBuffers(
 	this->initialize(device, viewType, texWidth, texHeight, texDepth, layers);
 	this->format = format;
 
+#if 0
 #if UF_ENV_DREAMCAST
 	if ( internalFormat > 0 ) {
 		this->mips = 0;
@@ -217,6 +218,8 @@ void ext::opengl::Texture::fromBuffers(
 	} else if ( this->depth == 1 ) {
 		this->mips = uf::vector::mips( pod::Vector3ui{ texWidth, texHeight, texDepth } );
 	}
+#endif
+	this->mips = 1;
 
 	if ( this->mips > 1 ) {
 		switch ( sampler.descriptor.filter.min ) {

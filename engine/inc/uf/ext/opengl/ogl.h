@@ -69,7 +69,7 @@
 #if GL_VALIDATION_ENABLED
 	#define GL_ERROR_CHECK(f) {																									\
 		{f;}																													\
-		if ( ext::opengl::settings::validation::enabled ) {																				\
+		if ( ext::opengl::settings::validation::enabled ) {																		\
 			GLenum res = glGetError();																							\
 			if (res != GL_NO_ERROR) GL_DEBUG_MESSAGE("[Validation Error] {}: {}", #f, ext::opengl::errorString( res )); 		\
 		}																														\

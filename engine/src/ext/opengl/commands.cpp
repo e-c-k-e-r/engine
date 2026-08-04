@@ -10,8 +10,6 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
 
-#define STATE_COND(...) (::shadowState.invalidated || (__VA_ARGS__))
-
 namespace {
 	bool matrix_equals( const pod::Matrix4f* a, const pod::Matrix4f* b ) {
 		if ( !a || !b ) return false;
@@ -75,11 +73,12 @@ namespace {
 			lastModelPtr = nullptr;
 			modelViewDirty = true;
 			projectionDirty = true;
+
 			blendEnabled = false;
 			alphaTestEnabled = false;
 			alphaCutoff = -1.0f;
 
-			color = {1,1,1,1};
+			color = {-1,-1,-1,-1};
 			lineWidth = 1.0f;
 
 			cullEnabled = false;
@@ -88,9 +87,6 @@ namespace {
 
 			depthTestEnabled = false;
 			depthWriteEnabled = true;
-			depthMin = 0.0f;
-			depthMax = 1.0f;
-			depthOp = GL_LEQUAL;
 
 			boundTexture0 = 0;
 			boundTexture1 = 0;
@@ -104,21 +100,11 @@ namespace {
 			texCoord0ArrayEnabled = false;
 			texCoord1ArrayEnabled = false;
 
-		/*
 			GL_ERROR_CHECK(glDisable(GL_BLEND));
 			GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
-
 			GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
-			GL_ERROR_CHECK(glCullFace(GL_BACK));
-			GL_ERROR_CHECK(glFrontFace(GL_CCW));
-
 			GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 			GL_ERROR_CHECK(glDepthMask(GL_TRUE));
-			GL_ERROR_CHECK(glDepthRange(0.0f, 1.0f));
-			GL_ERROR_CHECK(glDepthFunc(GL_LEQUAL));
-
-			GL_ERROR_CHECK(glColor4f(1.0f, 1.0f, 1.0f, 1.0f));
-			GL_ERROR_CHECK(glLineWidth(1.0f));
 
 			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
@@ -135,7 +121,6 @@ namespace {
 			GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
 			GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
 			GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
-		*/
 		}
 
 		void update( const ext::opengl::CommandBuffer::InfoDraw::Matrices& matrices ) {
@@ -338,6 +323,7 @@ void ext::opengl::CommandBuffer::submit() {
 			case ext::opengl::enums::Command::VIEWPORT: {
 				InfoViewport* info = (InfoViewport*) header;
 				GL_ERROR_CHECK(glViewport(info->corner[0], info->corner[1], info->size[0], info->size[1]));
+
 			} break;
 			case ext::opengl::enums::Command::VARIANT: {
 				InfoVariant* info = (InfoVariant*) header;
@@ -361,6 +347,7 @@ void ext::opengl::CommandBuffer::submit() {
 			} break;
 		}
 	}
+
 	state = 3;
 	mutex->unlock();
 }
@@ -477,7 +464,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		::shadowState.depthMin = drawInfo.descriptor.depth.min;
 		::shadowState.depthMax = drawInfo.descriptor.depth.max;
 	}
-	if ( drawInfo.descriptor.depth.operation != ::shadowState.depthOp ) {
+
+	if ( drawInfo.descriptor.depth.test && drawInfo.descriptor.depth.operation != ::shadowState.depthOp ) {
 		GL_ERROR_CHECK(glDepthFunc(drawInfo.descriptor.depth.operation));
 		::shadowState.depthOp = drawInfo.descriptor.depth.operation;
 	}
@@ -495,7 +483,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
 		::shadowState.depthWriteEnabled = drawInfo.descriptor.depth.write;
 	}
-
 	pod::Vector4f color = {1,1,1,1};
 	if ( drawInfo.color.enabled ) {
 		color = drawInfo.color.pointer ? *drawInfo.color.pointer : drawInfo.color.value;
@@ -627,7 +614,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
 		::shadowState.colorArrayEnabled = false;
 	}
-
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
@@ -650,8 +636,10 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			::shadowState.boundTexture0 = drawInfo.textures.primary.image;
 		}
 
+		GLenum texEnv = (drawInfo.attributes.color.pointer || drawInfo.color.enabled) ? GL_MODULATE : GL_REPLACE;
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, uvStride, uvPtr));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, texEnv));
+		//GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
 	} else {
 		if ( ::shadowState.tex0Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));

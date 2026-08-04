@@ -207,17 +207,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
 			}
 
-		#if 0 && UF_USE_OPENGL
-			if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
-			
-			// set depth 
-			for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-				float* position = (float*) (static_cast<uint8_t*>(positionAttribute.pointer) + i * positionAttribute.stride );
-				position[2] = metadata.depth;
-			}
-		#endif
-
-
 			if ( !metadata.initialized ) {
 				graphic.initialize( metadata.renderMode );
 				graphic.initializeMesh( mesh );
