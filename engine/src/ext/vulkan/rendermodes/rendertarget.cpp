@@ -19,22 +19,12 @@ const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
-
 	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
 	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
-		if ( metadata.json["reverse depth"].as<bool>(uf::matrix::reverseInfiniteProjection) ) {
-			descriptor.depth.operation = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
-			descriptor.depth.min = 1.0f;
-			descriptor.depth.max = 0.0f;
-		} else {
-			descriptor.depth.operation = ext::vulkan::enums::Compare::LESS;
-			descriptor.depth.min = 0.0f;
-			descriptor.depth.max = 1.0f;
-		}
 	}
 	return descriptor;
 }

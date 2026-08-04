@@ -11,6 +11,53 @@
 #include <uf/engine/graph/graph.h>
 
 namespace {
+	inline bool isReverseZProjection( const pod::Matrix4f& proj ) {
+		return proj(2,2) <= 0.0f && proj(2,3) > 0.0f;
+	}
+
+	void patch_commands( uf::stl::vector<ext::opengl::CommandBuffer::userdata_t>& infos ) {
+		// modify state as necessary
+		bool isReverseZ = false;
+		for ( auto& info : infos ) {
+		#if UF_COMMAND_BUFFER_USERDATA
+			auto* header = (ext::opengl::CommandBuffer::Info*) (void*) info;
+		#else
+			auto* header = (ext::opengl::CommandBuffer::Info*) info;
+		#endif
+			if ( header->type != ext::opengl::enums::Command::DRAW ) continue;
+			auto* drawInfo = (ext::opengl::CommandBuffer::InfoDraw*) header;
+			if ( !drawInfo->matrices.projection || !isReverseZProjection( *drawInfo->matrices.projection ) ) continue;
+			isReverseZ = true;
+			break;
+		}
+
+		if ( isReverseZ ) {
+			for ( auto& info : infos ) {
+			#if UF_COMMAND_BUFFER_USERDATA
+				auto* header = (ext::opengl::CommandBuffer::Info*) (void*) info;
+			#else
+				auto* header = (ext::opengl::CommandBuffer::Info*) info;
+			#endif
+				if ( header->type == ext::opengl::enums::Command::CLEAR ) {
+					auto* info = (ext::opengl::CommandBuffer::InfoClear*) header;
+					info->depth = 0.0f;
+				} else if ( header->type == ext::opengl::enums::Command::DRAW ) {
+					auto* info = (ext::opengl::CommandBuffer::InfoDraw*) header;
+
+					info->descriptor.depth.min = 0.0f;
+					info->descriptor.depth.max = 1.0f;
+
+					GLenum op = info->descriptor.depth.operation;
+					if ( op == GL_LESS ) {
+						info->descriptor.depth.operation = GL_GREATER;
+					} else if ( op == GL_LEQUAL ) {
+						info->descriptor.depth.operation = GL_GEQUAL;
+					}
+				}
+			}
+		}
+	}
+
 	bool matrix_equals( const pod::Matrix4f* a, const pod::Matrix4f* b ) {
 		if ( !a || !b ) return false;
 		return uf::matrix::equals( *a, *b );
@@ -223,6 +270,9 @@ void ext::opengl::CommandBuffer::start() {
 }
 void ext::opengl::CommandBuffer::end() {
 	if ( state != 1 ) return;
+
+	//::patch_commands( infos );
+
 	state = 2;
 	mutex->unlock();
 }
@@ -300,7 +350,8 @@ void ext::opengl::CommandBuffer::submit() {
 	if ( infos.empty() ) return;
 	mutex->lock();
 
-	::shadowState.invalidate();
+	//::shadowState.invalidate();
+	::patch_commands( infos );
 
 	for ( auto& info : infos ) {
 	#if UF_COMMAND_BUFFER_USERDATA
@@ -459,15 +510,17 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		}
 	}
 
-	if ( drawInfo.descriptor.depth.min != ::shadowState.depthMin || drawInfo.descriptor.depth.max != ::shadowState.depthMax ) {
-		GL_ERROR_CHECK(glDepthRange(drawInfo.descriptor.depth.min, drawInfo.descriptor.depth.max));
-		::shadowState.depthMin = drawInfo.descriptor.depth.min;
-		::shadowState.depthMax = drawInfo.descriptor.depth.max;
-	}
+	if ( drawInfo.descriptor.depth.test ) {
+		if ( drawInfo.descriptor.depth.min != ::shadowState.depthMin || drawInfo.descriptor.depth.max != ::shadowState.depthMax ) {
+			GL_ERROR_CHECK(glDepthRange(drawInfo.descriptor.depth.min, drawInfo.descriptor.depth.max));
+			::shadowState.depthMin = drawInfo.descriptor.depth.min;
+			::shadowState.depthMax = drawInfo.descriptor.depth.max;
+		}
 
-	if ( drawInfo.descriptor.depth.test && drawInfo.descriptor.depth.operation != ::shadowState.depthOp ) {
-		GL_ERROR_CHECK(glDepthFunc(drawInfo.descriptor.depth.operation));
-		::shadowState.depthOp = drawInfo.descriptor.depth.operation;
+		if ( drawInfo.descriptor.depth.test && drawInfo.descriptor.depth.operation != ::shadowState.depthOp ) {
+			GL_ERROR_CHECK(glDepthFunc(drawInfo.descriptor.depth.operation));
+			::shadowState.depthOp = drawInfo.descriptor.depth.operation;
+		}
 	}
 
 	if ( drawInfo.descriptor.depth.test != ::shadowState.depthTestEnabled ) {
@@ -600,7 +653,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		::shadowState.normalArrayEnabled = false;
 	}
 
-	if ( drawInfo.attributes.color.pointer ) {
+	if ( drawInfo.attributes.color.pointer && !drawInfo.color.enabled ) {
 		if ( !::shadowState.colorArrayEnabled ) {
 			GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 			::shadowState.colorArrayEnabled = true;

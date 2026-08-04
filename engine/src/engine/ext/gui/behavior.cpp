@@ -570,7 +570,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 				.color = metadata.color,
 
 				.mode = 0, // metadata.shader,
-				.depth = uf::matrix::reverseInfiniteProjection ? 1 - metadata.depth : metadata.depth,
+				.depth = metadata.depth,
 			};
 			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), uniformBuffer );
 

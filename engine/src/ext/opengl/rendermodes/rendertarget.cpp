@@ -48,20 +48,13 @@ void ext::opengl::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
 
-	float depthClear = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
-	for ( auto graphic : graphics ) {
-		auto descriptor = bindGraphicDescriptor(graphic->descriptor);
-		depthClear = descriptor.depth.max;
-		break;
-	}
-	
 	auto& commands = getCommands();	
 	commands.start(); {
 		if ( !ext::opengl::hasRenderMode("", true) ) {		
 			CommandBuffer::InfoClear clearCommandInfo = {};
 			clearCommandInfo.type = enums::Command::CLEAR;
 			clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
-			clearCommandInfo.depth = depthClear;
+			clearCommandInfo.depth = 1.0f;
 			clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 			commands.record(clearCommandInfo);
 		}

@@ -870,8 +870,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	if ( storage.textures.map.count("lightmap_atlas") > 0 ) {
 		graphMetadataJson["baking"]["enabled"] = false;
 		textureDescriptors["lightmap_atlas"].srgb = false;
-
-		if ( graphMetadataJson["lights"]["lightmap"].as<bool>() ) {
+		if ( sceneMetadataJson["light"]["lightmaps"].as<bool>(true) ) {
 		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
 			::convertLightmap( storage.images["lightmap_atlas"].data );
 		#endif
@@ -879,6 +878,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			for ( auto& name : graph.primitives ) {
 				auto& primitives = storage.primitives[name];
 				for ( auto& primitive : primitives ) {
+					primitive.instance.auxID = -1;
 					primitive.instance.lightmapID = -1;
 				}
 			}

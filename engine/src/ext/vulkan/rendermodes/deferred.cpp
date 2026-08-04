@@ -721,15 +721,6 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 ext::vulkan::GraphicDescriptor ext::vulkan::DeferredRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
 	if ( descriptor.renderMode != "" ) descriptor.invalidated = true;
-	if ( metadata.json["reverse depth"].as<bool>(uf::matrix::reverseInfiniteProjection) ) {
-		descriptor.depth.operation = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
-		descriptor.depth.min = 1.0f;
-		descriptor.depth.max = 0.0f;
-	} else {
-		descriptor.depth.operation = ext::vulkan::enums::Compare::LESS;
-		descriptor.depth.min = 0.0f;
-		descriptor.depth.max = 1.0f;
-	}
 	return descriptor;
 }
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {

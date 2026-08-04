@@ -207,6 +207,15 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 	descriptor.bind.height = this->height ? this->height : settings::height;
 	descriptor.bind.depth = metadata.eyes;
 	descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	if ( metadata.json["reverse depth"].as<bool>(uf::matrix::reverseInfiniteProjection) ) {
+		descriptor.depth.operation = ext::vulkan::enums::Compare::GREATER_OR_EQUAL;
+		descriptor.depth.min = 1.0f;
+		descriptor.depth.max = 0.0f;
+	} else {
+		descriptor.depth.operation = ext::vulkan::enums::Compare::LESS;
+		descriptor.depth.min = 0.0f;
+		descriptor.depth.max = 1.0f;
+	}
 
 	descriptor.parse( metadata.json["descriptor"] );
 

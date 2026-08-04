@@ -181,6 +181,11 @@ void ext::vulkan::BaseRenderMode::render() {
 		uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"Deferred", "Compute:RT", "RenderTarget"}, false);
 
 		float depthClear = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+		for ( auto graphic : graphics ) {
+			auto descriptor = bindGraphicDescriptor(graphic->descriptor);
+			depthClear = descriptor.depth.max;
+			break;
+		}
 		uf::stl::vector<VkClearValue> clearValues;
 		for ( auto& attachment : renderTarget.attachments ) {
 			pod::Vector4f clearColor = uf::vector::decode( sceneMetadataJson["system"]["renderer"]["clear values"][(int) clearValues.size()], pod::Vector4f{0, 0, 0, 0} );
@@ -290,7 +295,6 @@ void ext::vulkan::BaseRenderMode::destroy() {
 
 ext::vulkan::GraphicDescriptor ext::vulkan::BaseRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
-
 	descriptor.depth.test = false;
 	descriptor.depth.write = false;
 	return descriptor;

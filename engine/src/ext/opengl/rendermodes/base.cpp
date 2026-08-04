@@ -22,6 +22,7 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	this->width = windowSize.x;
 	this->height = windowSize.y;
 
+
 #if 0
 	GL_ERROR_CHECK(glDisable(GL_BLEND));
 	GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
