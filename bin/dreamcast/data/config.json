@@ -3,7 +3,7 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": false,
-				"lightmaps": true,
+				"lightmaps": false,
 				"max": 1
 			},
 			"textures": {

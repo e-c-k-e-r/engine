@@ -284,9 +284,47 @@ void ext::opengl::Texture::update( uf::Image& image, uint32_t layer ) {
 void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer ) {
 #if UF_ENV_DREAMCAST || UF_USE_OPENGL_GLDC
 	if ( internalFormat > 0 ) {
+		bool compressed = false;
+		switch ( internalFormat ) {
+			case GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS:
+			case GL_COMPRESSED_RGB_565_VQ_TWID_KOS:
+			case GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS:
+			case GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS:
+			case GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS:
+			case GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS:
+			case GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS:
+			case GL_COMPRESSED_RGB_565_VQ_KOS:
+			case GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS:
+			case GL_COMPRESSED_ARGB_1555_VQ_KOS:
+			case GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS:
+			case GL_COMPRESSED_ARGB_4444_VQ_KOS:
+				compressed = true;
+			break;
+		}
 	GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glBindTexture(viewType, image));
-		GL_ERROR_CHECK(glCompressedTexImage2DARB( viewType, 0, internalFormat, width, height, 0, bufferSize, data));
+		if ( compressed ) {
+			GL_ERROR_CHECK(glCompressedTexImage2DARB( viewType, 0, internalFormat, width, height, 0, bufferSize, data));
+		} else {
+			GLenum format = GL_RGBA;
+			GLenum type = GL_UNSIGNED_BYTE;
+			switch ( internalFormat ) {
+				case GL_ARGB1555_TWID_KOS: {
+					format = GL_BGRA;
+					type   = GL_UNSIGNED_SHORT_1_5_5_5_REV_TWID_KOS;
+				} break;
+				case GL_RGB565_TWID_KOS: {
+					format = GL_RGB;
+					type   = GL_UNSIGNED_SHORT_5_6_5_TWID_KOS;
+				} break;
+				case GL_ARGB4444_TWID_KOS: {
+					format = GL_BGRA;
+					type   = GL_UNSIGNED_SHORT_4_4_4_4_REV_TWID_KOS;
+				} break;
+			}
+
+			GL_ERROR_CHECK(glTexImage2D( viewType, 0, internalFormat, width, height, 0, format, type, data));
+		}
 		if ( this->mips > 1 ) GL_ERROR_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
 		GL_ERROR_CHECK(glBindTexture(viewType, 0));
 	GL_MUTEX_UNLOCK();

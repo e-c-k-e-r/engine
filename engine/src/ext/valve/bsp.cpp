@@ -445,7 +445,8 @@ namespace impl {
 				vert.position = impl::convertPos( basePos + (dVert.vec * dVert.dist) );
 				vert.uv = finalUv;
 
-				vert.st = uf::atlas::mapUv( context.lightmapAtlas, finalSt, impl::faceHash( faceID ) );
+			//	vert.st = uf::atlas::mapUv( context.lightmapAtlas, finalSt, impl::faceHash( faceID ) );
+				vert.st = finalSt;
 				vert.color = { 255, 255, 255, dVert.alpha };
 			}
 		}
@@ -534,7 +535,7 @@ namespace impl {
 			v.st.x = (uf::vector::dot( vertex, info.lightmapVecs[0] ) + 0.5f - face.lightmapTextureMins.x) / (face.lightmapTextureSize.x + 1.0f);
 			v.st.y = (uf::vector::dot( vertex, info.lightmapVecs[1] ) + 0.5f - face.lightmapTextureMins.y) / (face.lightmapTextureSize.y + 1.0f);
 
-			v.st = uf::atlas::mapUv( context.lightmapAtlas, v.st, impl::faceHash( faceID ) );
+		//	v.st = uf::atlas::mapUv( context.lightmapAtlas, v.st, impl::faceHash( faceID ) );
 
 			pod::Vector3f t = uf::vector::normalize( impl::convertPos( info.textureVecs[0], 1.0f ) );
 			pod::Vector3f b = uf::vector::normalize( impl::convertPos( info.textureVecs[1], 1.0f ) );
@@ -693,8 +694,11 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	}
 
 	// read lightmaps
-	auto atlasImageID = graph.images.size();
-	auto atlasTextureID = graph.textures.size();
+	struct Lightmap {
+		uf::Image image;
+		pod::Atlas::hash_t hash;
+	};
+	uf::stl::unordered_map<uint32_t, Lightmap> faceLightmaps;
 
 	for ( size_t i = 3; i < context.lighting.size(); i += 4 ) {
 		int8_t exp = (int8_t)context.lighting[i];
@@ -703,27 +707,14 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	for ( auto faceID = 0; faceID < context.faces.size(); ++faceID ) {
 		const auto& face = context.faces[faceID];
 		if ( face.lightofs == -1 || context.lighting.empty() ) continue;
-		
+
 		size_t width  = face.lightmapTextureSize.x + 1;
 		size_t height = face.lightmapTextureSize.y + 1;
-	
 
 		uf::Image image;
 		image.loadFromBuffer( (uint8_t*)(context.lighting.data() + face.lightofs), { width, height }, 8, 4 );
 
-		uf::atlas::add( context.lightmapAtlas, image, impl::faceHash( faceID ) );
-	}
-	
-	{	
-		UF_MSG_DEBUG("Generating new lightmap atlas...");
-		uf::atlas::generate( context.lightmapAtlas, 1 );
-		//UF_MSG_DEBUG("Generated lightmap atlas.");
-
-		auto& imageKey = graph.images.emplace_back("lightmap_atlas");
-		auto& textureKey = graph.textures.emplace_back("lightmap_atlas");
-		
-		storage.images[imageKey].data = uf::atlas::get( context.lightmapAtlas );
-		storage.textures[textureKey].index = atlasImageID;
+		faceLightmaps[faceID] = { std::move(image), impl::faceHash( faceID ) };
 	}
 
 	// read entities
@@ -812,7 +803,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 	// read models
 	for ( auto m = 0; m < context.models.size(); ++m ) {
 		const auto& model = context.models[m];
-		uf::stl::unordered_map<int32_t, impl::Meshlet> meshlets; // group by material IDs
+		uf::stl::unordered_map<uint64_t, impl::Meshlet> meshlets;
 		uf::stl::unordered_map<int32_t, impl::Meshlet> skyboxMeshlets; // segregate skybox geometry
 
 		for ( auto i = 0; i < model.numfaces; ++i ) {
@@ -844,7 +835,6 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				pod::Vector3f p2 = context.vertices[v2];
 
 				pod::Vector3f normal = uf::vector::normalize(uf::vector::cross(p1 - p0, p2 - p0));
-
 				pod::Vector3f testPos = p0 + normal * 2.0f;
 
 				int32_t testLeafIdx = impl::findLeaf(context, testPos);
@@ -857,12 +847,10 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			}
 
 			// read brush
-			auto& meshlet = (isSkybox ? skyboxMeshlets : meshlets)[materialID];
+			uint64_t mletKey = ((uint64_t)faceID << 32) | (uint32_t)materialID;
+			auto& meshlet = (isSkybox ? skyboxMeshlets[materialID] : meshlets[mletKey]);
 			meshlet.primitive.instance.materialID = materialID;
-			
-			if ( 0 <= face.lightofs ) {
-				meshlet.primitive.instance.lightmapID = atlasTextureID;
-			}
+			meshlet.primitive.instance.lightmapID = faceID; // preserve face index for atlasing
 
 			if ( !context.cubemapIDs.empty() ) {
 				int32_t pivotSurfEdge = context.surfedges[face.firstedge];
@@ -871,24 +859,16 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 				meshlet.primitive.instance.cubemapID = impl::findClosestCubemap( context, p0 );
 			}
-			
+
 			if ( face.dispinfo != -1 ) {
 				impl::buildDisplacement( context, meshlet, faceID );
 				continue;
 			}
 
-			
 			const auto edgeID = face.firstedge;
 			int32_t pivotSurfEdge = context.surfedges[edgeID];
 			uint16_t pivotVertID = pivotSurfEdge >= 0 ? context.edges[pivotSurfEdge].x : context.edges[-pivotSurfEdge].y;
 			pod::Vector3f p0 = impl::convertPos( context.vertices[pivotVertID] );
-
-		/*
-			// some faces are wrong when doing it this way
-			const auto& plane = context.planes[face.planenum];
-			pod::Vector3f faceNormal = uf::vector::normalize( impl::convertPos( plane.normal, 1.0f ) );
-			if ( face.side != 0 ) faceNormal = -faceNormal;
-		*/
 
 			pod::Vector3f faceNormal = {0.0f, 0.0f, 0.0f};
 			for ( int16_t i = 1; i < face.numedges - 1; ++i ) {
@@ -896,7 +876,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 				int32_t se2 = context.surfedges[edgeID + i + 1];
 
 				uint16_t v1 = se1 >= 0 ? context.edges[se1].x : context.edges[-se1].y;
-				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context .edges[-se2].y;
+				uint16_t v2 = se2 >= 0 ? context.edges[se2].x : context.edges[-se2].y;
 
 				pod::Vector3f p1 = impl::convertPos( context.vertices[v1] );
 				pod::Vector3f p2 = impl::convertPos( context.vertices[v2] );
@@ -931,27 +911,173 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 			auto& mesh = storage.meshes[meshName];
 			auto& primitives = storage.primitives[meshName];
 
-			// recompute bounds from min/max to center-extent
-			size_t primitiveID = 0;
-			for ( auto& [ _, meshlet ] : meshlets ) {
-				auto& bounds = meshlet.primitive.instance.bounds;
-				bounds.center = ( bounds.max + bounds.min ) * 0.5f;
-				bounds.extent = uf::vector::abs( bounds.max - bounds.min ) * 0.5f;
-
-				meshlet.primitive.instance.primitiveID = primitiveID++;
-				meshlet.primitive.drawCommand.indices = meshlet.indices.size();
-				meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
-			}
-
-			// slice worldspawn
 			if ( m == 0 ) {
 				uf::meshgrid::Grid grid;
 				grid.divisions = {8, 1, 8};
 				auto mlets = uf::stl::values( meshlets );
+
+				for ( size_t i = 0; i < mlets.size(); ++i ) {
+					auto& mlet = mlets[i];
+					mlet.primitive.drawCommand.indices = mlet.indices.size();
+					mlet.primitive.drawCommand.vertices = mlet.vertices.size();
+					mlet.primitive.instance.primitiveID = (uint32_t)i;
+					mlet.primitive.instance.bounds = uf::mesh::bounds( mlet.vertices );
+
+					uf::mesh::tangents( mlet.vertices, mlet.indices );
+				}
+
 				auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
-				mesh.compile( partitioned, primitives );
+
+				uf::stl::unordered_map<size_t, uf::stl::vector<impl::Meshlet>> nodeGroups;
+				for ( auto& slice : partitioned ) {
+					nodeGroups[slice.primitive.instance.auxID].push_back(std::move(slice));
+				}
+
+				uf::stl::vector<impl::Meshlet> finalPartitioned;
+
+				for ( auto& [nodeID, slices] : nodeGroups ) {
+					uf::stl::unordered_set<uint32_t> uniqueFaces;
+					for ( const auto& slice : slices ) {
+						if ( slice.primitive.instance.lightmapID != -1 ) {
+							uniqueFaces.insert(slice.primitive.instance.lightmapID);
+						}
+					}
+
+					pod::Atlas nodeAtlas;
+					for ( uint32_t faceID : uniqueFaces ) {
+						auto it = faceLightmaps.find(faceID);
+						if ( it != faceLightmaps.end() ) {
+							uf::atlas::add( nodeAtlas, it->second.image, it->second.hash );
+						}
+					}
+
+					int32_t textureID = -1;
+					if ( !nodeAtlas.tiles.empty() ) {
+						auto imageID = graph.images.size();
+						textureID = (int32_t)graph.textures.size();
+
+						auto lightmapKey = FMT_FORMAT("lightmap.node_{}", nodeID);
+
+						uf::atlas::generate(nodeAtlas, 1);
+						auto& imageKey = graph.images.emplace_back(lightmapKey);
+						auto& textureKey = graph.textures.emplace_back(lightmapKey);
+
+						storage.images[imageKey].data = uf::atlas::get( nodeAtlas );
+						storage.textures[textureKey].index = imageID;
+
+						graph.metadata["lightmaps"][lightmapKey] = textureID;
+					}
+
+					uf::stl::unordered_map<uint32_t, impl::Meshlet> mergedMeshlets;
+
+					for ( auto& slice : slices ) {
+						uint32_t matID = slice.primitive.instance.materialID;
+						uint32_t faceID = slice.primitive.instance.lightmapID;
+
+						auto& merged = mergedMeshlets[matID];
+						merged.primitive.instance.materialID = matID;
+						merged.primitive.instance.lightmapID = textureID;
+						merged.primitive.instance.auxID = nodeID;
+
+						uint32_t vertOffset = (uint32_t)merged.vertices.size();
+						for ( auto idx : slice.indices ) {
+							merged.indices.push_back(idx + vertOffset);
+						}
+
+						for ( auto& vert : slice.vertices ) {
+							auto lmIt = faceLightmaps.find(faceID);
+							if ( lmIt != faceLightmaps.end() ) {
+								vert.st = uf::atlas::mapUv(nodeAtlas, vert.st, lmIt->second.hash);
+							}
+							merged.vertices.push_back(std::move(vert));
+						}
+					}
+
+					for ( auto& [_, merged] : mergedMeshlets ) {
+						finalPartitioned.push_back(std::move(merged));
+					}
+				}
+
+				size_t primitiveID = 0;
+				for ( auto& mlet : finalPartitioned ) {
+					mlet.primitive.drawCommand.indices = mlet.indices.size();
+					mlet.primitive.drawCommand.vertices = mlet.vertices.size();
+					mlet.primitive.instance.primitiveID = primitiveID++;
+					mlet.primitive.instance.bounds = uf::mesh::bounds( mlet.vertices );
+
+					uf::mesh::tangents( mlet.vertices, mlet.indices );
+				}
+
+				mesh.compile( finalPartitioned, primitives );
 			} else {
-				mesh.compile( meshlets, primitives );
+				uf::stl::unordered_set<uint32_t> uniqueFaces;
+				for ( const auto& [_, mlet] : meshlets ) {
+					if ( mlet.primitive.instance.lightmapID != -1 ) {
+						uniqueFaces.insert(mlet.primitive.instance.lightmapID);
+					}
+				}
+
+				pod::Atlas modelAtlas;
+				for ( uint32_t faceID : uniqueFaces ) {
+					auto it = faceLightmaps.find(faceID);
+					if ( it != faceLightmaps.end() ) {
+						uf::atlas::add( modelAtlas, it->second.image, it->second.hash );
+					}
+				}
+
+				int32_t textureID = -1;
+				if ( !modelAtlas.tiles.empty() ) {
+					auto imageID = graph.images.size();
+					textureID = (int32_t)graph.textures.size();
+
+					auto lightmapKey = FMT_FORMAT("lightmap.model_{}", m);
+
+					uf::atlas::generate(modelAtlas, 1);
+					auto& imageKey = graph.images.emplace_back(lightmapKey);
+					auto& textureKey = graph.textures.emplace_back(lightmapKey);
+
+					storage.images[imageKey].data = uf::atlas::get( modelAtlas );
+					storage.textures[textureKey].index = imageID;
+
+					graph.metadata["lightmaps"][lightmapKey] = textureID;
+				}
+
+				uf::stl::unordered_map<uint32_t, impl::Meshlet> mergedMeshlets;
+				for ( auto& [_, mlet] : meshlets ) {
+					uint32_t matID = mlet.primitive.instance.materialID;
+					uint32_t faceID = mlet.primitive.instance.lightmapID;
+
+					auto& merged = mergedMeshlets[matID];
+					merged.primitive.instance.materialID = matID;
+					merged.primitive.instance.lightmapID = textureID;
+
+					uint32_t vertOffset = (uint32_t)merged.vertices.size();
+					for ( auto idx : mlet.indices ) {
+						merged.indices.push_back(idx + vertOffset);
+					}
+
+					for ( auto& vert : mlet.vertices ) {
+						auto lmIt = faceLightmaps.find(faceID);
+						if ( lmIt != faceLightmaps.end() ) {
+							vert.st = uf::atlas::mapUv(modelAtlas, vert.st, lmIt->second.hash);
+						}
+						merged.vertices.push_back(std::move(vert));
+					}
+				}
+
+				size_t primitiveID = 0;
+				for ( auto& [_, merged] : mergedMeshlets ) {
+					merged.primitive.instance.bounds = uf::mesh::bounds( merged.vertices );
+					merged.primitive.instance.bounds.center = ( merged.primitive.instance.bounds.max + merged.primitive.instance.bounds.min ) * 0.5f;
+					merged.primitive.instance.bounds.extent = uf::vector::abs( merged.primitive.instance.bounds.max - merged.primitive.instance.bounds.min ) * 0.5f;
+
+					merged.primitive.instance.primitiveID = primitiveID++;
+					merged.primitive.drawCommand.indices = merged.indices.size();
+					merged.primitive.drawCommand.vertices = merged.vertices.size();
+					uf::mesh::tangents( merged.vertices, merged.indices );
+				}
+
+				mesh.compile( mergedMeshlets, primitives );
 			}
 		}
 
@@ -962,6 +1088,19 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 			auto& mesh = storage.meshes[meshName];
 			auto& primitives = storage.primitives[meshName];
+
+			size_t primitiveID = 0;
+			for ( auto& [_, mlet] : skyboxMeshlets ) {
+				mlet.primitive.instance.bounds = uf::mesh::bounds( mlet.vertices );
+				mlet.primitive.instance.bounds.center = ( mlet.primitive.instance.bounds.max + mlet.primitive.instance.bounds.min ) * 0.5f;
+				mlet.primitive.instance.bounds.extent = uf::vector::abs( mlet.primitive.instance.bounds.max - mlet.primitive.instance.bounds.min ) * 0.5f;
+
+				mlet.primitive.instance.primitiveID = primitiveID++;
+				mlet.primitive.drawCommand.indices = mlet.indices.size();
+				mlet.primitive.drawCommand.vertices = mlet.vertices.size();
+				uf::mesh::tangents( mlet.vertices, mlet.indices );
+			}
+
 			mesh.compile( skyboxMeshlets, primitives );
 
 			// create a skybox node for this

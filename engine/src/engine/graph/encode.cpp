@@ -437,8 +437,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				filter = "linear";
 				dtexFormat = "RGB565";
 				auto* pixels = (pod::Vector4ub*) img.getPixels().data();
-				auto& size = img.getDimensions();
-				for ( auto p = 0; p < size.x * size.y; ++p ) {
+				auto& s = img.getDimensions();
+				for ( auto p = 0; p < s.x * s.y; ++p ) {
 					auto& pixel = pixels[p];
 					if ( pixel.w == 0 ) {
 						pixel = {0,0,0,255};
@@ -463,7 +463,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				}
 			}
 
-			img = img.scale( size, filter );
+			img = img.scale( uf::vector::min( img.getDimensions(), size ), filter );
 			uf::stl::vector<uint8_t> dtexBytes;
 			auto dtex = ext::texconv::convert( img, dtexFormat );
 			ext::texconv::save( dtex, dtexBytes );

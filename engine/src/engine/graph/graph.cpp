@@ -824,6 +824,11 @@ void uf::graph::process( pod::Graph& graph ) {
 	auto& graphMetadataValve = graphMetadataJson["valve"];
 	auto& graphMetadataDark = graphMetadataJson["dark"];
 	auto& storage = uf::graph::getStorage( graph );
+
+	// set simple on dreamcast for debugging purposes
+#if UF_ENV_DREAMCAST
+	graphMetadataJson["debug"]["simple"] = true;
+#endif
 	
 	std::lock_guard<std::mutex> lock(*storage.mutex);
 	uf::graph::initialize( storage );
@@ -874,6 +879,25 @@ void uf::graph::process( pod::Graph& graph ) {
 		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
 			::convertLightmap( storage.images["lightmap_atlas"].data );
 		#endif
+		} else {
+			for ( auto& name : graph.primitives ) {
+				auto& primitives = storage.primitives[name];
+				for ( auto& primitive : primitives ) {
+					primitive.instance.auxID = -1;
+					primitive.instance.lightmapID = -1;
+				}
+			}
+		}
+	// cringer hack for per-cell lightmaps
+	} else if ( graphMetadataJson["lightmaps"].isObject() ) {
+		graphMetadataJson["baking"]["enabled"] = false;
+		if ( sceneMetadataJson["light"]["lightmaps"].as<bool>(true) ) {
+			ext::json::forEach( graphMetadataJson["lightmaps"], [&]( const uf::stl::string& key, const ext::json::Value& value ) {
+				textureDescriptors[key].srgb = false;
+			#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
+				::convertLightmap( storage.images[key].data );
+			#endif
+			});
 		} else {
 			for ( auto& name : graph.primitives ) {
 				auto& primitives = storage.primitives[name];
@@ -1350,13 +1374,17 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 	uf::Serializer loadJson;
 	
+	// worldspawn
+	if ( node.name == "worldspawn" ) {
+		graph.settings.stream.world = node.index;
+	} else if ( graphMetadataJson["debug"]["simple"].as<bool>() ) {
+		node.metadata["valve"] = ext::json::null();
+		node.metadata["dark"] = ext::json::null();
+	}
+	
 	// convert metadata["valve"] into internal values:
 	auto& metadataValve = node.metadata["valve"];
 	if ( ext::json::isObject( metadataValve ) ) {
-		// worldspawn
-		if ( node.name == "worldspawn" ) {
-			graph.settings.stream.world = node.index;
-		}
 
 		// bind io connectivity
 		if ( ext::json::isArray( metadataValve["connections"] ) || metadataValve["targetname"].is<uf::stl::string>() ) {
@@ -1638,11 +1666,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		}
 	}
 
-	// what a mess
-	auto model = uf::transform::model( transform );
-	
+	// temporarily disable models for non-worldspawn
+	if ( graphMetadataJson["debug"]["simple"].as<bool>() && node.name != "worldspawn" ) node.mesh = -1;
+
 	// 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
+		auto model = uf::transform::model( transform );
 		node.object = ::allocateObjectID( storage );
 		auto objectKeyName = ::keyedID( node.object );
 
@@ -2576,7 +2605,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 			uf::image::open( image, pending.buffer, formatHint, false );
 
 		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
-			if ( key == "lightmap_atlas" ) {
+			if ( key.starts_with("lightmap") ) {
 				::convertLightmap( image );
 			}
 		#endif

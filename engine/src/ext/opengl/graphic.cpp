@@ -516,12 +516,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 				if ( 0 <= textureID ) {
 					auto texture2DID = textures[textureID].index;
-					drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
+					if ( 0 <= texture2DID && texture2DID < this->material.textures.size() ) drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
 				}
 				if ( 0 <= lightmapID ) {
 					auto textureID = lightmapID;
 					auto texture2DID = textures[lightmapID].index;
-					drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
+					if ( 0 <= texture2DID && texture2DID < this->material.textures.size() ) drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 				}
 				if ( drawCommandInfo.blend.modeAlpha == pod::Material::AlphaMode::BLEND ) {
 					drawCommandInfo.descriptor.renderTarget = 1;

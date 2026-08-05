@@ -488,7 +488,6 @@ namespace impl {
 
 		uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uint8_t>> palettes;
 		uf::stl::vector<int32_t> textureToMaterialId;
-		pod::Atlas lightmapAtlas;
 
 		template<typename T>
 		bool findInheritedProperty(int32_t objId, const uf::stl::unordered_map<int32_t, T>& propMap, T& outValue) const {
@@ -1225,6 +1224,8 @@ namespace impl {
 		}
 	}
 
+#if 0
+	#define PER_CELL 0
 	void parseWorld( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
 		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
 
@@ -1252,13 +1253,19 @@ namespace impl {
 			uf::stl::vector<impl::WRLightInfo> lmInfos;
 			uf::stl::vector<int16_t> animLightList;
 			uf::stl::vector<uint16_t> lightIndices;
+			pod::Atlas lightmapAtlas;
 		};
 		uf::stl::vector<ParsedCell> cells( header->numCells );
+		uf::stl::unordered_map<size_t, size_t> cellToLightmapTexture;
+		pod::Atlas lightmapAtlas;
 
 		// fill cell information
 		for ( uint32_t c = 0; c < cells.size(); ++c ) {
 			auto& cell = cells[c];
 			cell.cellIdx = c;
+		#if PER_CELL
+			auto& lightmapAtlas = cell.lightmapAtlas;
+		#endif
 
 			const auto* cellHeader = reader.read<impl::WRCellHeader>();
 			if ( !cellHeader ) break;
@@ -1331,7 +1338,7 @@ namespace impl {
 						}
 
 						if ( layer == 0 ) {
-							uf::atlas::add( ctx.lightmapAtlas, image, impl::darkFaceHash(c, i) );
+							uf::atlas::add( lightmapAtlas, image, impl::darkFaceHash(c, i) );
 						} else {
 							int currentLayer = 1;
 							int lightID = -1;
@@ -1348,7 +1355,7 @@ namespace impl {
 							}
 
 							pod::Atlas::hash_t animHash = FMT_FORMAT("c_{}_p_{}_anim_{}", c, i, lightID);
-							uf::atlas::add( ctx.lightmapAtlas, image, animHash );
+							uf::atlas::add( lightmapAtlas, image, animHash );
 						}
 					}
 				} else {
@@ -1360,29 +1367,56 @@ namespace impl {
 			if ( lightCount ) {
 				reader.read( *lightCount, cell.lightIndices );
 			}
+
+			// combine lightmap into atlas
+		#if PER_CELL
+			if ( !lightmapAtlas.tiles.empty() ) {
+				auto imageID = graph.images.size();
+				auto textureID = graph.textures.size();
+
+				auto lightmapKey = FMT_FORMAT("lightmap.{}", cell.cellIdx);
+
+				uf::atlas::generate(lightmapAtlas, 1);
+				auto& imageKey = graph.images.emplace_back(lightmapKey);
+				auto& textureKey = graph.textures.emplace_back(lightmapKey);
+
+				storage.images[imageKey].data = uf::atlas::get( lightmapAtlas );
+				storage.textures[textureKey].index = imageID;
+
+				cellToLightmapTexture[cell.cellIdx] = textureID;
+				graph.metadata["lightmaps"][lightmapKey] = textureID; // icky
+			}
+		#endif
 		}
 
-		auto atlasImageID = -1;
-		auto atlasTextureID = -1;
+	#if !PER_CELL
+		if ( !lightmapAtlas.tiles.empty() ) {
+			auto imageID = graph.images.size();
+			auto textureID = graph.textures.size();
 
-		// combine lightmap into atlas
-		if ( !ctx.lightmapAtlas.tiles.empty() ) {
-			atlasImageID = graph.images.size();
-			atlasTextureID = graph.textures.size();
+			auto lightmapKey = FMT_FORMAT("lightmap.{}", 0);
 
-			uf::atlas::generate(ctx.lightmapAtlas, 1);
-			auto& imageKey = graph.images.emplace_back("lightmap_atlas");
-			auto& textureKey = graph.textures.emplace_back("lightmap_atlas");
+			uf::atlas::generate(lightmapAtlas, 1);
+			auto& imageKey = graph.images.emplace_back(lightmapKey);
+			auto& textureKey = graph.textures.emplace_back(lightmapKey);
 
-			storage.images[imageKey].data = uf::atlas::get( ctx.lightmapAtlas );
-			storage.textures[textureKey].index = atlasImageID;
+			storage.images[imageKey].data = uf::atlas::get( lightmapAtlas );
+			storage.textures[textureKey].index = imageID;
+
+			cellToLightmapTexture[0] = textureID;
+			graph.metadata["lightmaps"][lightmapKey] = textureID; // icky
 		}
+	#endif
 
 		// build mesh from cells
 		uf::stl::vector<uint32_t> indices;
 		uf::stl::vector<pod::Vector2f> uvs;
 		uf::stl::vector<pod::Vector2f> sts;
 		for ( const auto& cell : cells ) {
+		#if PER_CELL
+			auto& lightmapAtlas = cell.lightmapAtlas;
+		#endif
+
 			uint8_t solidPolys = cell.header.numPolygons - cell.header.numPortals;
 			for ( uint8_t p = 0; p < solidPolys; ++p ) {
 				const auto& poly = cell.polys[p];
@@ -1409,12 +1443,16 @@ namespace impl {
 				if ( materialID == -1 ) {
 					materialID = 0;
 				}
+			#if PER_CELL
+				int32_t cellID = cell.cellIdx;
+			#else
+				int32_t cellID = 0;
+			#endif
 
 				// prepare meshlet
-				//auto& meshlet = meshlets[std::make_pair(cell.cellIdx, materialID)];
-				auto& meshlet = meshlets[((uint64_t)(cell.cellIdx) << 32) | (uint32_t)(materialID)];
+				auto& meshlet = meshlets[((uint64_t)(cellID) << 32) | (uint32_t)(materialID)];
 				meshlet.primitive.instance.materialID = materialID;
-				meshlet.primitive.instance.lightmapID = atlasTextureID;
+				meshlet.primitive.instance.lightmapID = cellToLightmapTexture[cellID];
 
 				pod::Vector3f origin = cell.vertices[cell.polyIndices[p][texInfo.originVertex]];
 
@@ -1486,7 +1524,7 @@ namespace impl {
 					vert.normal = impl::convertPos_NewDark( plane.normal, 1.0f );
 					vert.color = { 255, 255, 255, 255 };
 					vert.uv = uvs[v];
-					vert.st = uf::atlas::mapUv(ctx.lightmapAtlas, (sts[v] + lmSh) / lmSize, impl::darkFaceHash(cell.cellIdx, p));
+					vert.st = uf::atlas::mapUv(lightmapAtlas, (sts[v] + lmSh) / lmSize, impl::darkFaceHash(cell.cellIdx, p));
 				}
 
 				// triangle strip => triangle
@@ -1502,22 +1540,29 @@ namespace impl {
 
 		size_t primitiveID = 0;
 		for ( auto& [ meshletKey, meshlet ] : meshlets ) {
-		//	auto& [ auxID, matID ] = meshletKey;
-			uint32_t auxID = (uint32_t)(meshletKey >> 32);
+			uint32_t cellID = (uint32_t)(meshletKey >> 32);
 			uint32_t matID = (uint32_t)(meshletKey & 0xFFFFFFFF);
 
 			meshlet.primitive.drawCommand.indices = meshlet.indices.size();
 			meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 			meshlet.primitive.instance.materialID = matID;
-			meshlet.primitive.instance.auxID = auxID;
+			meshlet.primitive.instance.auxID = cellID;
+			meshlet.primitive.instance.lightmapID = cellToLightmapTexture[cellID];
 			meshlet.primitive.instance.primitiveID = primitiveID++;
 			meshlet.primitive.instance.bounds = uf::mesh::bounds( meshlet.vertices );
 
 			uf::mesh::tangents( meshlet.vertices, meshlet.indices );
 		}
 
-		mesh.compile( meshlets, primitives );
-
+		if ( true ) {
+			uf::meshgrid::Grid grid;
+			grid.divisions = {8, 1, 8};
+			auto mlets = uf::stl::values( meshlets );
+			auto partitioned = uf::meshgrid::partition( grid, mlets, EPS, true, true );
+			mesh.compile( partitioned, primitives );
+		} else {
+			mesh.compile( meshlets, primitives );
+		}
 
 		auto nodeID = graph.nodes.size();
 		auto& node = graph.nodes.emplace_back();
@@ -1525,6 +1570,369 @@ namespace impl {
 		node.mesh = (int32_t)(graph.meshes.size() - 1);
 		graph.root.children.emplace_back(nodeID);
 	}
+#else
+	void parseWorld( pod::Graph& graph, impl::DarkContext& ctx, const impl::DarkDBInvItem& item ) {
+		uf::stl::reader reader(ctx.buffer, item.start(), item.len());
+
+		const auto* header = reader.read<impl::WRHeader>();
+		if ( !header ) return;
+
+		auto& storage = uf::graph::getStorage(graph);
+		uf::stl::string meshName = "worldspawn";
+		graph.meshes.emplace_back(meshName);
+		graph.primitives.emplace_back(meshName);
+
+		auto& mesh = storage.meshes[meshName];
+		auto& primitives = storage.primitives[meshName];
+
+		struct ParsedCell {
+			uint32_t cellIdx;
+			impl::WRCellHeader header;
+			uf::stl::vector<pod::Vector3f> vertices;
+			uf::stl::vector<impl::WRPolygon> polys;
+			uf::stl::vector<impl::WRPolygonTexturing> texInfo;
+			uf::stl::vector<uf::stl::vector<uint8_t>> polyIndices;
+			uf::stl::vector<impl::WRPlane> planes;
+			uf::stl::vector<impl::WRLightInfo> lmInfos;
+			uf::stl::vector<int16_t> animLightList;
+			uf::stl::vector<uint16_t> lightIndices;
+		};
+
+		struct Lightmap {
+			pod::Image image;
+			pod::Atlas::hash_t hash;
+		};
+
+		uf::stl::vector<ParsedCell> cells( header->numCells );
+		uf::stl::unordered_map<uint32_t, uf::stl::vector<Lightmap>> faceLightmaps;
+
+		for ( uint32_t c = 0; c < cells.size(); ++c ) {
+			auto& cell = cells[c];
+			cell.cellIdx = c;
+
+			const auto* cellHeader = reader.read<impl::WRCellHeader>();
+			if ( !cellHeader ) break;
+			cell.header = *cellHeader;
+
+			reader.read( cell.header.numVertices, cell.vertices );
+			reader.read( cell.header.numPolygons, cell.polys );
+			reader.read( cell.header.numTextured, cell.texInfo );
+
+			const auto* numIndices = reader.read<uint32_t>();
+			if ( !numIndices ) break;
+			if ( reader.remaining() < *numIndices ) break;
+
+			cell.polyIndices.resize( cell.header.numPolygons );
+			for ( uint8_t i = 0; i < cell.header.numPolygons; ++i ) {
+				reader.read( cell.polys[i].count, cell.polyIndices[i] );
+			}
+
+			reader.read( cell.header.numPlanes, cell.planes );
+			reader.read( cell.header.numAnimLights, cell.animLightList );
+			reader.read( cell.header.numTextured, cell.lmInfos );
+
+			uint32_t lightPixelSize = 2;
+			for ( uint8_t i = 0; i < cell.header.numTextured; ++i ) {
+				int lmCount = 1;
+				uint32_t flags = cell.lmInfos[i].animflags;
+				while ( flags ) {
+					if ( flags & 1 ) lmCount++;
+					flags >>= 1;
+				}
+
+				uint32_t w = cell.lmInfos[i].lx;
+				uint32_t h = cell.lmInfos[i].ly;
+				uint32_t lmSizeBytes = w * h * lightPixelSize;
+				uint32_t totalLmBytes = lmSizeBytes * lmCount;
+
+				if ( lmSizeBytes > 0 && reader.remaining() >= totalLmBytes ) {
+					uf::stl::vector<uint16_t> samples;
+					reader.read( w * h * lmCount, samples );
+
+					uint32_t faceID = (c << 16) | i;
+
+					for ( int layer = 0; layer < lmCount; ++layer ) {
+						pod::Image image;
+						image.size = { w, h };
+						image.channels = 4;
+						image.bpp = 32;
+						image.pixels.resize( w * h * 4 );
+
+						for ( auto y = 0; y < h; ++y ) {
+							for ( auto x = 0; x < w; ++x ) {
+								uint16_t sample = samples[(layer * w * h) + (y * w + x)];
+								auto color = pod::Vector3f{
+									(float)((sample >> 10) & 0x1F),
+									(float)((sample >>  5) & 0x1F),
+									(float)((sample   ) & 0x1F),
+								} / 31.0f;
+
+								color = uf::vector::pow( color, 2.2f );
+								impl::encodeRGBE( color, &image.pixels[(y * w + x) * 4] );
+							}
+						}
+
+						pod::Atlas::hash_t hash;
+						if ( layer == 0 ) {
+							hash = FMT_FORMAT("c_{}_p_{}", c, i);
+						} else {
+							int currentLayer = 1;
+							int lightID = -1;
+							for ( int bit = 0; bit < 32; ++bit ) {
+								if ( cell.lmInfos[i].animflags & (1 << bit) ) {
+									if ( currentLayer == layer ) {
+										if ( bit < cell.animLightList.size() ) {
+											lightID = cell.animLightList[bit];
+										}
+										break;
+									}
+									currentLayer++;
+								}
+							}
+							hash = FMT_FORMAT("c_{}_p_{}_anim_{}", c, i, lightID);
+						}
+
+						faceLightmaps[faceID].push_back({ std::move(image), hash });
+					}
+				} else {
+					reader.skip( totalLmBytes );
+				}
+			}
+
+			const auto* lightCount = reader.read<uint32_t>();
+			if ( lightCount ) {
+				reader.read( *lightCount, cell.lightIndices );
+			}
+		}
+
+		uf::stl::vector<impl::Meshlet> unpartitionedMeshlets;
+		uf::stl::vector<uint32_t> indices;
+		uf::stl::vector<pod::Vector2f> uvs;
+		uf::stl::vector<pod::Vector2f> sts;
+
+		for ( const auto& cell : cells ) {
+			uint8_t solidPolys = cell.header.numPolygons - cell.header.numPortals;
+			for ( uint8_t p = 0; p < solidPolys; ++p ) {
+				const auto& poly = cell.polys[p];
+				if ( p >= cell.header.numTextured || poly.plane >= cell.header.numPlanes) continue;
+
+				const auto& lm = cell.lmInfos[p];
+				const auto& texInfo = cell.texInfo[p];
+				const auto& plane = cell.planes[poly.plane];
+
+				indices.clear(); indices.resize(poly.count);
+				uvs.clear(); uvs.resize(poly.count);
+				sts.clear(); sts.resize(poly.count);
+
+				int32_t materialID = -1;
+				uf::stl::string matName = "";
+				if ( texInfo.txt < ctx.textureToMaterialId.size() ) {
+					materialID = ctx.textureToMaterialId[texInfo.txt];
+					if ( materialID >= 0 && materialID < graph.materials.size() ) {
+						matName = graph.materials[materialID];
+					}
+				}
+				if ( materialID == -1 ) materialID = 0;
+
+				uint32_t faceID = (cell.cellIdx << 16) | p;
+
+				impl::Meshlet meshlet;
+				meshlet.primitive.instance.materialID = materialID;
+				meshlet.primitive.instance.lightmapID = faceID;
+
+				pod::Vector3f origin = cell.vertices[cell.polyIndices[p][texInfo.originVertex]];
+
+				pod::Vector2f mag2 = { uf::vector::dot(texInfo.axisU, texInfo.axisU), uf::vector::dot(texInfo.axisV, texInfo.axisV) };
+				float dotp = uf::vector::dot( texInfo.axisU, texInfo.axisV );
+
+				pod::Vector2f sh = pod::Vector2f{ (float)texInfo.u, (float)texInfo.v } / 4096.0f;
+
+				pod::Vector2f texSize = { 64.0f, 64.0f };
+				if ( !matName.empty() && storage.images.map.count(matName) ) {
+					const auto& img = storage.images[matName].data;
+					if ( img.size.x > 0 && img.size.y > 0 ) {
+						texSize = { (float)img.size.x, (float)img.size.y };
+					}
+				}
+
+				pod::Vector2f rs = texSize / 64.0f;
+
+				pod::Vector2f lmBase = { (float)lm.u, (float)lm.v };
+				pod::Vector2f texBase = { (float)texInfo.u, (float)texInfo.v };
+				pod::Vector2f lsh = (pod::Vector2f{0.5f, 0.5f} - lmBase) + (texBase / 1024.0f);
+
+				float corr = 0.0f;
+				float det = ( mag2.x * mag2.y - dotp * dotp );
+				if ( std::abs(det) > EPS ) corr = 1.0f / det;
+
+				pod::Vector2f c = { corr * mag2.y, corr * mag2.x };
+				float cross = corr * dotp;
+
+				pod::Vector2f minSt = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+
+				for ( uint8_t v = 0; v < poly.count; ++v ) {
+					pod::Vector3f pos = cell.vertices[cell.polyIndices[p][v]];
+					pod::Vector3f vrel = pos - origin;
+
+					pod::Vector2f pr = { uf::vector::dot(texInfo.axisU, vrel), uf::vector::dot(texInfo.axisV, vrel) };
+					pod::Vector2f proj;
+
+					if ( dotp == 0.0f ) {
+						proj = pr / mag2;
+					} else {
+						proj.x = pr.x * c.x - pr.y * cross;
+						proj.y = pr.y * c.y - pr.x * cross;
+					}
+
+					uvs[v] = (proj + sh) / rs;
+					sts[v] = (proj * 4.0f) + lsh;
+
+					minSt = uf::vector::min(minSt, sts[v]);
+				}
+
+				pod::Vector2f lmSh = {
+					impl::findWrap(minSt.x),
+					impl::findWrap(minSt.y)
+				};
+
+				pod::Vector2f lmSize = {
+					lm.lx > 0 ? (float)(lm.lx) : 0.5f,
+					lm.ly > 0 ? (float)(lm.ly) : 0.5f
+				};
+
+				for ( uint8_t v = 0; v < poly.count; ++v ) {
+					indices[v] = meshlet.vertices.size();
+
+					auto& vert = meshlet.vertices.emplace_back();
+					vert.position = impl::convertPos_NewDark( cell.vertices[cell.polyIndices[p][v]] );
+					vert.normal = impl::convertPos_NewDark( plane.normal, 1.0f );
+					vert.color = { 255, 255, 255, 255 };
+					vert.uv = uvs[v];
+					vert.st = (sts[v] + lmSh) / lmSize;
+				}
+
+				for ( uint8_t t = 1; t < poly.count - 1; ++t ) {
+					meshlet.indices.emplace_back(indices[0]);
+					meshlet.indices.emplace_back(indices[t]);
+					meshlet.indices.emplace_back(indices[t + 1]);
+				}
+
+				unpartitionedMeshlets.push_back(std::move(meshlet));
+			}
+		}
+
+		if ( unpartitionedMeshlets.empty() ) return;
+
+		uf::meshgrid::Grid grid;
+		grid.divisions = {8, 1, 8};
+
+		for ( size_t i = 0; i < unpartitionedMeshlets.size(); ++i ) {
+			auto& mlet = unpartitionedMeshlets[i];
+			mlet.primitive.drawCommand.indices = mlet.indices.size();
+			mlet.primitive.drawCommand.vertices = mlet.vertices.size();
+			mlet.primitive.instance.primitiveID = (uint32_t)i;
+			mlet.primitive.instance.bounds = uf::mesh::bounds( mlet.vertices );
+
+			uf::mesh::tangents( mlet.vertices, mlet.indices );
+		}
+
+		auto partitioned = uf::meshgrid::partition( grid, unpartitionedMeshlets, EPS, true, true );
+
+		uf::stl::unordered_map<size_t, uf::stl::vector<impl::Meshlet>> nodeGroups;
+		for ( auto& slice : partitioned ) {
+			nodeGroups[slice.primitive.instance.auxID].push_back(std::move(slice));
+		}
+
+		uf::stl::vector<impl::Meshlet> finalPartitioned;
+
+		for ( auto& [nodeID, slices] : nodeGroups ) {
+			uf::stl::unordered_set<uint32_t> uniqueFaces;
+			for ( const auto& slice : slices ) {
+				if ( slice.primitive.instance.lightmapID != -1 ) {
+					uniqueFaces.insert(slice.primitive.instance.lightmapID);
+				}
+			}
+
+			pod::Atlas nodeAtlas;
+			for ( uint32_t faceID : uniqueFaces ) {
+				auto it = faceLightmaps.find(faceID);
+				if ( it != faceLightmaps.end() ) {
+					for ( const auto& entry : it->second ) {
+						uf::atlas::add( nodeAtlas, entry.image, entry.hash );
+					}
+				}
+			}
+
+			int32_t textureID = -1;
+			if ( !nodeAtlas.tiles.empty() ) {
+				auto imageID = graph.images.size();
+				textureID = (int32_t)graph.textures.size();
+
+				auto lightmapKey = FMT_FORMAT("lightmap.node_{}", nodeID);
+
+				uf::atlas::generate(nodeAtlas, 1);
+				auto& imageKey = graph.images.emplace_back(lightmapKey);
+				auto& textureKey = graph.textures.emplace_back(lightmapKey);
+
+				storage.images[imageKey].data = uf::atlas::get( nodeAtlas );
+				storage.textures[textureKey].index = imageID;
+
+				graph.metadata["lightmaps"][lightmapKey] = textureID;
+			}
+
+			uf::stl::unordered_map<uint32_t, impl::Meshlet> mergedMeshlets;
+
+			for ( auto& slice : slices ) {
+				uint32_t matID = slice.primitive.instance.materialID;
+				uint32_t faceID = slice.primitive.instance.lightmapID;
+
+				auto& merged = mergedMeshlets[matID];
+				merged.primitive.instance.materialID = matID;
+				merged.primitive.instance.lightmapID = textureID;
+				merged.primitive.instance.auxID = nodeID;
+
+				uint32_t vertOffset = (uint32_t)merged.vertices.size();
+				for ( auto idx : slice.indices ) {
+					merged.indices.push_back(idx + vertOffset);
+				}
+
+				for ( auto& vert : slice.vertices ) {
+					auto lmIt = faceLightmaps.find(faceID);
+					if ( lmIt != faceLightmaps.end() ) {
+						uint32_t c = faceID >> 16;
+						uint32_t p = faceID & 0xFFFF;
+						pod::Atlas::hash_t hash = FMT_FORMAT("c_{}_p_{}", c, p);
+						vert.st = uf::atlas::mapUv(nodeAtlas, vert.st, hash);
+					}
+					merged.vertices.push_back(std::move(vert));
+				}
+			}
+
+			for ( auto& [_, merged] : mergedMeshlets ) {
+				finalPartitioned.push_back(std::move(merged));
+			}
+		}
+
+		size_t primitiveID = 0;
+		for ( auto& mlet : finalPartitioned ) {
+			mlet.primitive.drawCommand.indices = mlet.indices.size();
+			mlet.primitive.drawCommand.vertices = mlet.vertices.size();
+			mlet.primitive.instance.primitiveID = primitiveID++;
+			mlet.primitive.instance.bounds = uf::mesh::bounds( mlet.vertices );
+
+			uf::mesh::tangents( mlet.vertices, mlet.indices );
+		}
+
+		mesh.compile( finalPartitioned, primitives );
+
+		auto nodeID = graph.nodes.size();
+		auto& node = graph.nodes.emplace_back();
+		node.name = "worldspawn";
+		node.mesh = (int32_t)(graph.meshes.size() - 1);
+		graph.root.children.emplace_back(nodeID);
+	}
+
+#endif
 
 	void loadObjects( pod::Graph& graph, const impl::DarkContext& ctx ) {
 		for ( auto objectID = 0; objectID < ctx.objects.size(); ++objectID ) {

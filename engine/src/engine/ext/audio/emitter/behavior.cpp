@@ -60,7 +60,10 @@ void ext::AudioEmitterBehavior::initialize( uf::Object& self ) {
 			auto payload = uf::asset::resolveToPayload(filename, "");
 			payload.type = uf::asset::Type::AUDIO;
 			payload.metadata["streamed"] = false; // json["streamed"];
-			uf::asset::load( payload );
+			filename = uf::asset::load( payload );
+		}
+		if ( filename.empty() ) {
+			return;
 		}
 
 		pod::AudioClip* clip = &uf::asset::get<pod::AudioClip>( filename );

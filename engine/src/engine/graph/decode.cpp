@@ -316,7 +316,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	serializer.readFromFile( filename );
 	graph.name = filename;
 	graph.metadata = metadata;
-	graph.metadata.merge( serializer["metadata"], true );
+	graph.metadata.import( serializer["metadata"] );
 
 #if UF_GRAPH_LOAD_MULTITHREAD
 	auto tasks = uf::thread::schedule(true);
