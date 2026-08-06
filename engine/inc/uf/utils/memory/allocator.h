@@ -6,17 +6,11 @@
 #include <type_traits>
 
 #define UF_MEMORYPOOL_USE_ALLOCATOR 1
-#if UF_ENV_DREAMCAST
-	#define UF_MEMORYPOOL_OVERRIDE_DEFAULT 0
-#else
-	#define UF_MEMORYPOOL_OVERRIDE_DEFAULT 1
-#endif
-
-
+#define UF_MEMORYPOOL_OVERRIDE_DEFAULT 1
 #if __clang__
 	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
 #else
-	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
+	#define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE  1
 #endif
 
 namespace uf {

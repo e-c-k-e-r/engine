@@ -372,10 +372,17 @@ void uf::graph::import( pod::Graph::Storage& target, pod::Graph::Storage& storag
 		target.joints.merge(std::move(storage.joints));
 		target.entities.merge(std::move(storage.entities));
 		
-		for ( auto& v :storage.lights ) target.lights.emplace_back(std::move(v));
-		for ( auto& v :storage.shadow2Ds ) target.shadow2Ds.emplace_back(std::move(v));
-		for ( auto& v :storage.shadowCubes ) target.shadowCubes.emplace_back(std::move(v));
-		for ( auto& v :storage.flattenedPrimitives ) target.flattenedPrimitives.emplace_back(std::move(v));
+		target.lights.reserve(target.lights.size() + storage.lights.size());
+		for ( auto& v : storage.lights ) target.lights.emplace_back(std::move(v));
+
+		target.shadow2Ds.reserve(target.shadow2Ds.size() + storage.shadow2Ds.size());
+		for ( auto& v : storage.shadow2Ds ) target.shadow2Ds.emplace_back(std::move(v));
+
+		target.shadowCubes.reserve(target.shadowCubes.size() + storage.shadowCubes.size());
+		for ( auto& v : storage.shadowCubes ) target.shadowCubes.emplace_back(std::move(v));
+
+		target.flattenedPrimitives.reserve(target.flattenedPrimitives.size() + storage.flattenedPrimitives.size());
+		for ( auto& v : storage.flattenedPrimitives ) target.flattenedPrimitives.emplace_back(std::move(v));
 	} else {
 		target.primitives.import(storage.primitives);
 		target.instances.import(storage.instances);
@@ -391,9 +398,16 @@ void uf::graph::import( pod::Graph::Storage& target, pod::Graph::Storage& storag
 		target.joints.import(storage.joints);
 		target.entities.import(storage.entities);
 		
+		target.lights.reserve(target.lights.size() + storage.lights.size());
 		for ( auto& v :storage.lights ) target.lights.emplace_back(v);
+		
+		target.shadow2Ds.reserve(target.shadow2Ds.size() + storage.shadow2Ds.size());
 		for ( auto& v :storage.shadow2Ds ) target.shadow2Ds.emplace_back(v);
+		
+		target.shadowCubes.reserve(target.shadowCubes.size() + storage.shadowCubes.size());
 		for ( auto& v :storage.shadowCubes ) target.shadowCubes.emplace_back(v);
+		
+		target.flattenedPrimitives.reserve(target.flattenedPrimitives.size() + storage.flattenedPrimitives.size());
 		for ( auto& v :storage.flattenedPrimitives ) target.flattenedPrimitives.emplace_back(v);
 	}
 }

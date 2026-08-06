@@ -16,7 +16,7 @@
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
-	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
+	#define UF_DEBUG_TIMER_MULTITRACE(...) { UF_TIMER_MULTITRACE(__VA_ARGS__); DC_STATS(); }
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
 #else
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
@@ -608,10 +608,13 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	#endif
 	});
 
+	UF_DEBUG_TIMER_MULTITRACE("Executing tasks");
 	uf::thread::execute( tasks );
+	UF_DEBUG_TIMER_MULTITRACE("Processing IO");
 	uf::asset::processIO();
 
 	// process images
+	UF_DEBUG_TIMER_MULTITRACE("Processing pending images");
 	for ( auto& pending : pendingImages ) {
 		auto& image = storage.images[pending.name].data;
 
@@ -622,6 +625,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	}
 
 	// process meshes that need to be minified because I can't easily tie it to the callback
+	UF_DEBUG_TIMER_MULTITRACE("Processing meshes for minification");
 	for ( auto& name : meshesToMinify ) {
 		auto& mesh = storage.meshes[name];
 		mesh.prune( { "position", "uv", "st" } );
@@ -630,24 +634,26 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	}
 
 	// re-reference all transform parents
+	UF_DEBUG_TIMER_MULTITRACE("Re-referencing nodes");
 	for ( auto& node : graph.nodes ) {
 		if ( 0 <= node.parent && node.parent < graph.nodes.size() && node.index != node.parent ) {
 			node.transform.reference = &graph.nodes[node.parent].transform;
 		}
 	}
-	UF_DEBUG_TIMER_MULTITRACE_END("Processing graph...");
 
 
 	// migrate
+	UF_DEBUG_TIMER_MULTITRACE("Migrating storage");
 	if ( graph.storage && uf::graph::storageMode != pod::Graph::Storage::GRAPH ) {
 		auto* pointer = graph.storage;
 		graph.storage = NULL;
 		auto& storage = *pointer;
 		auto& target = uf::graph::getStorage( graph );
-		uf::graph::import( target, storage );
+		uf::graph::import( target, storage, true );
 		delete pointer;
 	}
 
+	UF_DEBUG_TIMER_MULTITRACE_END("Loaded graph.");
 #if UF_ENV_DREAMCAST
 	DC_STATS();
 #endif

@@ -464,31 +464,30 @@ void UF_API uf::initialize() {
 		// check if we are even allowed to use memory pools
 		bool enabled = configMemoryPoolJson["enabled"].as(true);
 		auto deduceSize = [enabled]( const ext::json::Value& value ) -> size_t {
-		if ( !enabled ) return 0;
-		if ( value.is<size_t>() ) return value.as<size_t>();
-		if ( value.is<uf::stl::string>() ) {
-			uf::stl::string str = value.as<uf::stl::string>();
-			if (str.empty()) return 0;
+			if ( !enabled ) return 0;
+			if ( value.is<size_t>() ) return value.as<size_t>();
+			if ( value.is<uf::stl::string>() ) {
+				uf::stl::string str = value.as<uf::stl::string>();
+				if (str.empty()) return 0;
 
-			char* endPtr = nullptr;
-			size_t requested = std::strtoull(str.c_str(), &endPtr, 10);
+				char* endPtr = nullptr;
+				size_t requested = std::strtoull(str.c_str(), &endPtr, 10);
 
-			if (endPtr == str.c_str()) return 0;
+				if (endPtr == str.c_str()) return 0;
 
-			while (*endPtr == ' ') endPtr++;
+				while (*endPtr == ' ') endPtr++;
 
-			// Check for the multiplier
-			if (*endPtr != '\0') {
-				switch (*endPtr) {
-					case 'K': case 'k': return requested * 1024;
-					case 'M': case 'm': return requested * 1024 * 1024;
-					case 'G': case 'g': return requested * 1024 * 1024 * 1024;
+				if (*endPtr != '\0') {
+					switch (*endPtr) {
+						case 'K': case 'k': return requested * 1024;
+						case 'M': case 'm': return requested * 1024 * 1024;
+						case 'G': case 'g': return requested * 1024 * 1024 * 1024;
+					}
 				}
+				return requested;
 			}
-			return requested;
-		}
-		return 0;
-	};
+			return 0;
+		};
 		// set memory pool alignment requirements
 		uf::memoryPool::alignment = configMemoryPoolJson["alignment"].as( uf::memoryPool::alignment );
 		// set memory pool sizes

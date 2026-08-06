@@ -384,13 +384,11 @@ void ext::opengl::CommandBuffer::submit() {
 				InfoDraw* info = (InfoDraw*) header;
 				::shadowState.update( info->matrices );
 
-			/*
 				if ( ext::opengl::settings::pipelines::culling && info->attributes.instance.pointer && info->attributes.instance.length == sizeof(pod::Instance) ) {
 					const pod::Instance& instance = *(pod::Instance*) info->attributes.instance.pointer;
 
 					if ( !::inside( instance, ::shadowState.ndc ) ) continue;
 				}
-			*/
 
 				drawIndexed( *info );
 			} break;

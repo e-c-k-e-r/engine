@@ -12,6 +12,7 @@
 		"./scripts/player.lua"
 	],
 	"system": {
+		"noclipped": true,
 		"hot reload": {
 			"enabled": true
 		}

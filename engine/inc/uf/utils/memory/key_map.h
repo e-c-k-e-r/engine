@@ -101,11 +101,14 @@ void uf::stl::KeyMap<T,Key>::merge( KeyMap<T, Key>&& other ) {
 	this->reserve( this->keys.size() + other.keys.size() );
 
 	for ( auto& key : other.keys ) {
+		T&& value = std::move(other.map.at(key));
+
 		if ( this->map.count(key) == 0 ) {
 			this->indices[key] = this->keys.size();
 			this->keys.emplace_back(key);
 		}
-		this->map[key] = other.map.at(key);
+
+		this->map[key] = std::move(value);
 	}
 
 	other.clear();

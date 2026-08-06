@@ -278,28 +278,31 @@ namespace {
 
 #include <dc/pvr.h>
 uf::stl::string spec::dreamcast::malloc_stats( bool verbose ) {
-	std::stringstream str;
-
 	if ( verbose ) {
-		str << "malloc Info:\n"
-			"\tarena " << uf::string::si( mallinfo().arena, "B" ) << " (non-mmapped space allocated from system)\n"
-			"\tordblks " << uf::string::si( mallinfo().ordblks, "B" ) << " (number of free chunks)\n"
-			"\tsmblks " << uf::string::si( mallinfo().smblks, "B" ) << " (number of fastbin blocks)\n"
-			"\tusmblks " << uf::string::si( mallinfo().usmblks, "B" ) << " (maximum total allocated space)\n"
-			"\tfsmblks " << uf::string::si( mallinfo().fsmblks, "B" ) << " (space available in freed fastbin blocks)\n"
-			"\tuordblks " << uf::string::si( mallinfo().uordblks, "B" ) << " (total allocated space)\n"
-			"\tfordblks " << uf::string::si( mallinfo().fordblks, "B" ) << " (total free space)\n"
-			"\tkeepcost " << uf::string::si( mallinfo().keepcost, "B" ) << " (top-most, releasable (via malloc_trim) space)\n";
-	} else {
-		str << "malloc Info: Free: " << uf::string::si( mallinfo().arena - mallinfo().uordblks, "B" ) << " | Used: " << uf::string::si( mallinfo().uordblks, "B" );
+		return FMT_FORMAT("malloc Info:\n"
+			"\tarena {} (non-mmapped space allocated from system)\n"
+			"\tordblks {} (number of free chunks)\n"
+			"\tsmblks {} (number of fastbin blocks)\n"
+			"\tusmblks {} (maximum total allocated space)\n"
+			"\tfsmblks {} (space available in freed fastbin blocks)\n"
+			"\tuordblks {} (total allocated space)\n"
+			"\tfordblks {} (total free space)\n"
+			"\tkeepcost {} (top-most, releasable (via malloc_trim) space)\n",
+			uf::string::si( mallinfo().arena, "B" ),
+			uf::string::si( mallinfo().ordblks, "B" ),
+			uf::string::si( mallinfo().smblks, "B" ),
+			uf::string::si( mallinfo().usmblks, "B" ),
+			uf::string::si( mallinfo().fsmblks, "B" ),
+			uf::string::si( mallinfo().uordblks, "B" ),
+			uf::string::si( mallinfo().fordblks, "B" ),
+			uf::string::si( mallinfo().keepcost, "B" )
+		);
 	}
-	
-	return str.str();
+
+	return FMT_FORMAT("malloc Info: Free: {} | Used: {}", uf::string::si( mallinfo().arena - mallinfo().uordblks, "B" ), uf::string::si( mallinfo().uordblks, "B" ));
 }
 
 uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
-	std::stringstream str;
-
 	if ( verbose ) {
 		/*
 			"PVR malloc Info:\n"
@@ -313,12 +316,8 @@ uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
 			"\tfordblks " << uf::string::si( pvr_int_mallinfo().fordblks, "B" ) << " (total free space)\n"
 			"\tkeepcost " << uf::string::si( pvr_int_mallinfo().keepcost, "B" ) << " (top-most, releasable (via malloc_trim) space)";
 		*/
-	} else {
-		str << "PVR malloc Info: Free: " << uf::string::si( pvr_mem_available(), "B" );
 	}
-	
-
-	return str.str();
+	return FMT_FORMAT("PVR malloc Info: Free: {}", uf::string::si( pvr_mem_available(), "B" ));
 }
 
 spec::dreamcast::Window::Window() : m_context(NULL) {}

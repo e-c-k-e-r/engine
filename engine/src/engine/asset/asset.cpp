@@ -373,11 +373,11 @@ uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 			bool stale = uf::io::exists( output ) ? uf::io::mtime( filename ) > uf::io::mtime( output ) : true;
 			if ( extension != target && stale ) {
 				UF_MSG_DEBUG("Converting image: {} => {}", filename, output );
-				pod::Vector2ui size = { 32, 32 };
+				pod::Vector2ui size = { 32, 32 }; // 64, 64 doesn't render...
 				uf::stl::string filter = "linear";
 				uf::stl::string format = "auto";
 
-				auto img = asset.scale( size, filter);
+				auto img = asset.scale( size, filter );
 				auto dtex = ext::texconv::convert( img, format );
 				ext::texconv::save( dtex, output );
 			}

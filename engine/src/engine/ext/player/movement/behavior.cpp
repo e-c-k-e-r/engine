@@ -26,6 +26,13 @@ void ext::PlayerMovementBehavior::initialize(uf::Object& self) {
 	auto& metadata = this->getComponent<ext::PlayerMovementBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
+
+	if ( metadata.noclipped ) {
+		auto& physicsBody = this->getComponent<pod::PhysicsBody>();
+		uf::physics::setGravity(physicsBody, pod::Vector3f{0,0,0});
+		uf::physics::setColliderCategory(physicsBody, "NONE");
+		uf::physics::setColliderMask(physicsBody, "NONE");
+	}
 }
 
 void ext::PlayerMovementBehavior::tick(uf::Object& self) {

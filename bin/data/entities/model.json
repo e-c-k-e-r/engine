@@ -11,6 +11,7 @@
 	"metadata": {
 		"graph": {
 			"debug": {
+			//	"simple": true,
 				"no cleanup": false,
 				"print": {
 					"tree": false,
@@ -79,8 +80,8 @@
 				"tag": "worldspawn",
 				"player": "info_player_start",
 				"enabled": "auto",
-				"radius": 32,
-				"every": 1
+				"radius": 50,
+				"every": 4
 			}
 		}
 	}

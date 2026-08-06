@@ -3,7 +3,7 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": false,
-				"lightmaps": false,
+				"lightmaps": true,
 				"max": 1
 			},
 			"textures": {
@@ -26,7 +26,7 @@
 					"rebuild on tick begin": false
 				},
 				"pipelines": {
-					"culling": false
+					"culling": true
 				},
 				"experimental": {
 					"rebuild on tick begin": false,
@@ -108,15 +108,15 @@
 			}
 		},
 		"memory pool": {
-			"enabled": false, // probably should be enabled
-			"subPools": false,
-			"alignment": 4,
-			"override": false,
-			"size": "1024 KiB",
+			"enabled": false,
+			"subPools": true, // allocates subpools out of the global pool
+			"alignment": 8,
+			"override": true,
+			"size": "8 MiB", // change later
 			"pools": {
-				"entity": "128 KiB",
+				"entity": "256 KiB",
 				"userdata": "128 KiB",
-				"component": "128 KiB"
+				"component": "512 KiB"
 			}
 		},
 		"render modes": { "gui": true, "deferred": true },
