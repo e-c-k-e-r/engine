@@ -70,7 +70,7 @@
 				"warmup": true,
 				"block": true,
 				"resolve invalid": true,
-				"iterations": 10,
+				"iterations": 5,
 				"gjk": false
 			},
 			"correction": {
@@ -78,6 +78,18 @@
 				"percent": 0.2,
 				"slop": 0.01, // 0.005
 				"max": 0.1 // 0.2
+			},
+			"bvh": {
+				"bodies": {
+					"capacity": 4,
+					"flatten": false,
+					"sah": false
+				},
+				"meshes": {
+					"capacity": 4,
+					"flatten": false,
+					"sah": false
+				}
 			},
 			"debug draw": {
 				"static": false,
@@ -108,11 +120,11 @@
 			}
 		},
 		"memory pool": {
-			"enabled": false,
-			"subPools": true, // allocates subpools out of the global pool
-			"alignment": 8,
+			"enabled": true,
+			"subPools": true,
+			"alignment": 16,
 			"override": true,
-			"size": "8 MiB", // change later
+			"size": "0 MiB", // "8 MiB", // change later
 			"pools": {
 				"entity": "256 KiB",
 				"userdata": "128 KiB",

@@ -16,7 +16,7 @@
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
-	#define UF_DEBUG_TIMER_MULTITRACE(...) { UF_TIMER_MULTITRACE(__VA_ARGS__); DC_STATS(); }
+	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__);
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
 #else
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
@@ -267,9 +267,9 @@ namespace {
 			}
 		};
 
-		queue( mesh.instance.attributes );
 		queue( mesh.indirect.attributes );
 		if ( !deferred ) {
+			queue( mesh.instance.attributes );
 			queue( mesh.vertex.attributes );
 			queue( mesh.index.attributes );
 		}
@@ -516,7 +516,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
-			UF_DEBUG_TIMER_MULTITRACE("Reading image={}", name);
+			//UF_DEBUG_TIMER_MULTITRACE("Reading image={}", name);
 			storage.images[name] = {
 				.data = decodeImage( value, graph, name, pendingImages ),
 			};

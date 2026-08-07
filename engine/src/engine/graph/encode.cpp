@@ -429,8 +429,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 
 		#if UF_USE_DC_TEXCONV
 			auto img = uf::Image(image);
-			pod::Vector2ui size = { 32, 32 };
-			uf::stl::string filter = "nearest";
+			pod::Vector2ui size = { 64, 64 };
+			uf::stl::string filter = "linear"; // "nearest"
 			uf::stl::string dtexFormat = "ARGB4444";
 			if ( name.starts_with("lightmap") || img.getFormat() == uf::renderer::enums::Format::R8G8B8A8_RGBE ) {
 				size = { 128, 128 };
@@ -462,8 +462,9 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 					pixel = { (uint8_t)(linear.x), (uint8_t)(linear.y), (uint8_t)(linear.z), 255 };
 				}
 			}
+			size = uf::vector::clamp( size, pod::Vector2ui{ 4, 4 }, img.getDimensions() );
 
-			img = img.scale( uf::vector::min( img.getDimensions(), size ), filter );
+			img = img.scale( size, filter );
 			uf::stl::vector<uint8_t> dtexBytes;
 			auto dtex = ext::texconv::convert( img, dtexFormat );
 			ext::texconv::save( dtex, dtexBytes );

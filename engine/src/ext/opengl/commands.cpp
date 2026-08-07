@@ -198,7 +198,7 @@ namespace {
 
 	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
 		#pragma unroll
-		for ( auto p = 0; p < 4; ++p ) {
+		for ( auto p = 0; p < 6; ++p ) {
 			int i = p / 2;
 			int j = p % 2;
 			int s = 1 - (j * 2);

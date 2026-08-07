@@ -33,17 +33,17 @@ void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelForm
 		if (!twiddled && index == 1) {
 			uint16_t yuv[2];
 			RGBtoYUV422(savedTexel[0], texel, yuv[0], yuv[1]);
-			stream.write(reinterpret_cast<char*>(&yuv[0]), 2);
-			stream.write(reinterpret_cast<char*>(&yuv[1]), 2);
+			stream.write((char*)(&yuv[0]), 2);
+			stream.write((char*)(&yuv[1]), 2);
 			index = 0;
 		} else if (twiddled && index == 3) {
 			uint16_t yuv[4];
 			RGBtoYUV422(savedTexel[0], savedTexel[2], yuv[0], yuv[2]);
 			RGBtoYUV422(savedTexel[1], texel, yuv[1], yuv[3]);
-			stream.write(reinterpret_cast<char*>(&yuv[0]), 2);
-			stream.write(reinterpret_cast<char*>(&yuv[1]), 2);
-			stream.write(reinterpret_cast<char*>(&yuv[2]), 2);
-			stream.write(reinterpret_cast<char*>(&yuv[3]), 2);
+			stream.write((char*)(&yuv[0]), 2);
+			stream.write((char*)(&yuv[1]), 2);
+			stream.write((char*)(&yuv[2]), 2);
+			stream.write((char*)(&yuv[3]), 2);
 			index = 0;
 		} else {
 			savedTexel[index] = texel;
@@ -51,7 +51,7 @@ void convertAndWriteTexel(std::ostream& stream, const RGBA& texel, int pixelForm
 		}
 	} else {
 		uint16_t val = to16BPP(texel, pixelFormat);
-		stream.write(reinterpret_cast<char*>(&val), 2);
+		stream.write((char*)(&val), 2);
 	}
 }
 
@@ -233,9 +233,9 @@ static void devectorizeRGB(const ImageContainer& srcImages, const uf::stl::vecto
 
 	for (int i=0; i<srcImages.imageCount(); i++) {
 		const auto& srcImage = srcImages.getByIndex(i);
-		if (srcImage.width() == 1 || srcImage.height() == 1)
+		if (srcImage.width() < MIN_MIPMAP_VQ || srcImage.height() < MIN_MIPMAP_VQ)
 			continue;
-		Image img(srcImage.width()/2, srcImage.height()/2/*, Image::Format_Indexed8*/);
+		Image img(srcImage.width()/2, srcImage.height()/2);
 		img.allocateIndexed(256);
 		for (int y=0; y<img.height(); y++) {
 			for (int x=0; x<img.width(); x++) {
@@ -250,10 +250,12 @@ static void devectorizeRGB(const ImageContainer& srcImages, const uf::stl::vecto
 
 	for (int i=0; i<vq.codeCount(); i++) {
 		const Vec<12>& vec = vq.codeVector(i);
-		RGBA tl = {vec[0], vec[1], vec[2]};
-		RGBA tr = {vec[3], vec[4], vec[5]};
-		RGBA bl = {vec[6], vec[7], vec[8]};
-		RGBA br = {vec[9], vec[10], vec[11]};
+
+		RGBA tl = { NORMALIZE(vec[0]), NORMALIZE(vec[1]), NORMALIZE(vec[2]), 255 };
+		RGBA tr = { NORMALIZE(vec[3]), NORMALIZE(vec[4]), NORMALIZE(vec[5]), 255 };
+		RGBA bl = { NORMALIZE(vec[6]), NORMALIZE(vec[7]), NORMALIZE(vec[8]), 255 };
+		RGBA br = { NORMALIZE(vec[9]), NORMALIZE(vec[10]), NORMALIZE(vec[11]), 255 };
+
 		uint64_t quad = packQuad(tl, tr, bl, br, pixelFormat);
 		codebook.push_back(quad);
 	}
@@ -264,9 +266,9 @@ static void devectorizeARGB(const ImageContainer& srcImages, const uf::stl::vect
 
 	for (int i=0; i<srcImages.imageCount(); i++) {
 		const auto& srcImage = srcImages.getByIndex(i);
-		if (srcImage.width() == 1 || srcImage.height() == 1)
+		if (srcImage.width() < MIN_MIPMAP_VQ || srcImage.height() < MIN_MIPMAP_VQ)
 			continue;
-		Image img(srcImage.width()/2, srcImage.height()/2/*, Image::Format_Indexed8*/);
+		Image img(srcImage.width()/2, srcImage.height()/2);
 		img.allocateIndexed(256);
 		for (int y=0; y<img.height(); y++) {
 			for (int x=0; x<img.width(); x++) {
@@ -281,10 +283,12 @@ static void devectorizeARGB(const ImageContainer& srcImages, const uf::stl::vect
 
 	for (int i=0; i<vq.codeCount(); i++) {
 		const Vec<16>& vec = vq.codeVector(i);
-		RGBA tl = {vec[1], vec[2], vec[3], vec[0]};
-		RGBA tr = {vec[5], vec[6], vec[7], vec[4]};
-		RGBA bl = {vec[9], vec[10], vec[11], vec[8]};
-		RGBA br = {vec[13], vec[14], vec[15], vec[12]};
+
+		RGBA tl = { NORMALIZE(vec[1]), NORMALIZE(vec[2]), NORMALIZE(vec[3]), NORMALIZE(vec[0]) };
+		RGBA tr = { NORMALIZE(vec[5]), NORMALIZE(vec[6]), NORMALIZE(vec[7]), NORMALIZE(vec[4]) };
+		RGBA bl = { NORMALIZE(vec[9]), NORMALIZE(vec[10]), NORMALIZE(vec[11]), NORMALIZE(vec[8]) };
+		RGBA br = { NORMALIZE(vec[13]), NORMALIZE(vec[14]), NORMALIZE(vec[15]), NORMALIZE(vec[12]) };
+
 		uint64_t quad = packQuad(tl, tr, bl, br, format);
 		codebook.push_back(quad);
 	}

@@ -34,6 +34,7 @@
 #define MIPMAP_OFFSET_8BPP  3
 #define MIPMAP_OFFSET_16BPP 6
 
+#define NORMALIZE(x) ((uint8_t)(x * 255.0f))
 
 int nextPowerOfTwo(int x);
 bool isValidSize(int width, int height, int textureType);

@@ -17,7 +17,7 @@
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
-	#define UF_DEBUG_TIMER_MULTITRACE(...) { UF_TIMER_MULTITRACE(__VA_ARGS__); DC_STATS(); }
+	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
 #else
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
@@ -1093,7 +1093,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		process( graph, index, *graph.root.entity );
 
 		auto& node = graph.nodes[index];
-		if ( node.entity ) UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", node.name);
+	//	if ( node.entity ) UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", node.name);
 	}
 
 	// spawn player if not already spawned
@@ -1402,8 +1402,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			float baseMass = graph.metadata["valve"]["models"][meshName]["mass"].as<float>(1.0f);
 			float massScale = metadataValve["massScale"].as<float>(1.0f);
 			// flag as static
-			// if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
-			// massScale = 0;
+			//if ( node.name.starts_with("prop_static") || motionDisabled ) massScale = 0;
+			massScale = 0;
 			float mass = baseMass * massScale;
 
 			node.metadata["physics"]["type"] = massScale ? "obb" : "mesh";

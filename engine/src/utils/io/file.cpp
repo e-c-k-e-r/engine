@@ -187,9 +187,9 @@ bool uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer,  const uf::stl::str
 
 bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
 #if UF_ENV_DREAMCAST
-	const size_t THRESHOLD = 2 * 1024 * 1024;
+	const size_t THRESHOLD = 256 * 1024; // 256K
 #else
-	const size_t THRESHOLD = 16 * 1024 * 1024;
+	const size_t THRESHOLD = 16 * 1024 * 1024; // 16M
 #endif
 
 	uf::stl::string extension = uf::io::extension(filename);

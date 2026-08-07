@@ -117,12 +117,12 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false, // to-do: fix issues
+					"vxgi": true, // to-do: fix issues
 					"culling": false,
 					"bloom": true,
 					"dof": true,
 					"rt": false,
-					"fsr": false,
+					"fsr": true,
 					"postProcess": false // "postProcess.chromab" // false
 				},
 				"formats": {
@@ -316,12 +316,12 @@
 				"enabled": false
 			},
 			"fsr": {
-				"enabled": false,
+				"enabled": true,
 				"upscale": true,
 				"interpolation": true, // it works but i don't think it's presenting the frame
 				"sharpness": 0,
 				"jitter scale": 0.0625,
-				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
+				"preset": "ultra" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"vr" :  {
 				"enable" : false

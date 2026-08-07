@@ -139,6 +139,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 	auto& configEnginePhysicsJson = configEngineJson["physics"];
 	auto& configEnginePhysicsSolverJson = configEnginePhysicsJson["solvers"];
 	auto& configEnginePhysicsCorrectionJson = configEnginePhysicsJson["correction"];
+	auto& configEnginePhysicsBvhJson = configEnginePhysicsJson["bvh"];
 	auto& configEnginePhysicsDebugDrawJson = configEnginePhysicsJson["debug draw"];
 #if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	auto& configEngineExtFfxJson = configEngineExtJson["fsr"];
@@ -288,6 +289,14 @@ void UF_API uf::load( ext::json::Value& json ) {
 			uf::physics::settings.baumgarteCorrectionPercent = configEnginePhysicsCorrectionJson["percent"].as(uf::physics::settings.baumgarteCorrectionPercent);
 			uf::physics::settings.baumgarteCorrectionSlop = configEnginePhysicsCorrectionJson["slop"].as(uf::physics::settings.baumgarteCorrectionSlop);
 			uf::physics::settings.maxLinearCorrection = configEnginePhysicsCorrectionJson["max"].as(uf::physics::settings.maxLinearCorrection);
+		}
+		if ( ext::json::isObject( configEnginePhysicsBvhJson ) ) {
+			uf::physics::settings.broadphaseBvhCapacity = configEnginePhysicsBvhJson["bodies"]["capacity"].as(uf::physics::settings.broadphaseBvhCapacity);
+			uf::physics::settings.flattenBvhBodies = configEnginePhysicsBvhJson["bodies"]["flatten"].as(uf::physics::settings.flattenBvhBodies);
+			uf::physics::settings.useBvhSahBodies = configEnginePhysicsBvhJson["bodies"]["sah"].as(uf::physics::settings.useBvhSahBodies);
+			uf::physics::settings.meshBvhCapacity = configEnginePhysicsBvhJson["meshes"]["capacity"].as(uf::physics::settings.meshBvhCapacity);
+			uf::physics::settings.flattenBvhMeshes = configEnginePhysicsBvhJson["meshes"]["flatten"].as(uf::physics::settings.flattenBvhMeshes);
+			uf::physics::settings.useBvhSahMeshes = configEnginePhysicsBvhJson["meshes"]["sah"].as(uf::physics::settings.useBvhSahMeshes);
 		}
 		if ( ext::json::isObject( configEnginePhysicsDebugDrawJson ) ) {
 			if ( configEnginePhysicsDebugDrawJson["static"].as<bool>() ) uf::physics::settings.debugDraw.mask |= pod::Collider::CATEGORY_STATIC;

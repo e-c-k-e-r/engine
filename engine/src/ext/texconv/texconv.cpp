@@ -13,6 +13,7 @@
 #include <uf/ext/texconv/texconv.h>
 
 #include <uf/utils/memory/vector_stream.h>
+#include <uf/utils/io/vfs.h>
 
 namespace {
 	uf::stl::unordered_map<uf::stl::string,int> formats = {
@@ -137,8 +138,9 @@ bool UF_API ext::texconv::save( const pod::Dtex& dtex, const uf::stl::string& _f
 		uf::io::write( outputFilename, dtex.imageData );
 	}
 	if ( !dtex.paletteData.empty() ) {
-		uf::io::write( outputFilename, dtex.paletteData );
+		uf::io::write( paletteFilename, dtex.paletteData );
 	}
+
 	if ( preview ) {
 		generatePreview( outputFilename, paletteFilename, previewFilename, "" );
 	}

@@ -79,10 +79,10 @@ static RGBA toCartesian(uint16_t SR) {
 	float R = ((SR & 0xFF) / 255.0) * DOUBLE_PI;
 	if (R > M_PI) R -= DOUBLE_PI;
 	RGBA color;
-	color.r = (sin(S) * cos(R) + 1.0f) * 0.5f;
-	color.g = (sin(S) * sin(R) + 1.0f) * 0.5f;
-	color.b = (cos(S) + 1.0f) * 0.5f;
-	color.a = 1;
+	color.r = NORMALIZE((sin(S) * cos(R) + 1.0f) * 0.5f);
+	color.g = NORMALIZE((sin(S) * sin(R) + 1.0f) * 0.5f);
+	color.b = NORMALIZE((cos(S) + 1.0f) * 0.5f);
+	color.a = 255;
 	return color;
 }
 
