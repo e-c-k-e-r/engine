@@ -429,8 +429,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 
 		#if UF_USE_DC_TEXCONV
 			auto img = uf::Image(image);
-			pod::Vector2ui size = { 64, 64 };
-			uf::stl::string filter = "linear"; // "nearest"
+			pod::Vector2ui size = { 32, 32 };
+			uf::stl::string filter = "nearest";
 			uf::stl::string dtexFormat = "ARGB4444";
 			if ( name.starts_with("lightmap") || img.getFormat() == uf::renderer::enums::Format::R8G8B8A8_RGBE ) {
 				size = { 128, 128 };

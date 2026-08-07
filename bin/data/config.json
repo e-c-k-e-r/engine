@@ -424,8 +424,8 @@
 				"auto validate": false
 			},
 			"loader": {
-				"assert": false,
-				"async": false // to-do: fix
+				"assert": "auto",
+				"async": "auto" // unironically works on opengl, not on vulkan
 			},
 			"hooks": {
 				"defer lazy calls": true

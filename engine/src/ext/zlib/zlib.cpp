@@ -201,19 +201,24 @@ bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vec
 
 			for ( size_t i = currentReqIdx; i < requests.size(); ++i ) {
 				auto& req = requests[i];
+
+				if ( req.start >= chunkEnd ) break;
+
 				if ( chunkEnd > req.start && chunkStart < req.start + req.len ) {
 					size_t copyStart = (chunkStart < req.start) ? (req.start - chunkStart) : 0;
 					size_t copyLen = std::min(have - copyStart, (req.start + req.len) - (chunkStart + copyStart));
-
 					size_t destOffset = (chunkStart + copyStart) - req.start;
+
 					std::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
-				}
-				if ( chunkEnd >= req.start + req.len && i == currentReqIdx ) {
-					currentReqIdx++;
 				}
 			}
 
+			while ( currentReqIdx < requests.size() && chunkEnd >= requests[currentReqIdx].start + requests[currentReqIdx].len ) {
+				currentReqIdx++;
+			}
+
 			uncompressedOffset += have;
+
 			if ( currentReqIdx >= requests.size() ) return false;
 
 		} while (strm.avail_out == 0);

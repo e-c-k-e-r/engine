@@ -193,9 +193,27 @@ void UF_API uf::load( ext::json::Value& json ) {
 		uf::Entity::deleteChildrenOnDestroy = configEngineDebugJson["entity"]["delete children on destroy"].as( uf::Entity::deleteChildrenOnDestroy );
 		uf::Entity::deleteComponentsOnDestroy = configEngineDebugJson["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
 
-		uf::Object::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::Object::assertionLoad );
-		uf::asset::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::asset::assertionLoad );
-		uf::asset::asyncQueue = configEngineDebugJson["loader"]["async"].as( uf::asset::asyncQueue );
+		// debug builds should signal a missing asset with a crash, release should just gracefully emit an error
+		if ( configEngineDebugJson["loader"]["assert"].as<uf::stl::string>() == "auto" ) {
+		#if UF_DEBUG
+			uf::Object::assertionLoad = true;
+			uf::asset::assertionLoad = true;
+		#else
+			uf::Object::assertionLoad = false;
+			uf::asset::assertionLoad = false;
+		#endif
+		} else {
+			uf::Object::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::Object::assertionLoad );
+			uf::asset::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::asset::assertionLoad );
+		}
+		if ( configEngineDebugJson["loader"]["async"].as<uf::stl::string>() == "auto" ) {
+			uf::asset::asyncQueue = false; // to-do: fix
+		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
+			uf::asset::asyncQueue = true;
+		#endif
+		} else {
+			uf::asset::asyncQueue = configEngineDebugJson["loader"]["async"].as( uf::asset::asyncQueue );
+		}
 		
 		uf::userdata::autoDestruct = configEngineDebugJson["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
 		uf::userdata::autoValidate = configEngineDebugJson["userdata"]["auto validate"].as( uf::userdata::autoValidate );

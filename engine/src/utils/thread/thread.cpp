@@ -137,6 +137,15 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_queue);
 	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_container);
 
+	// hardcoded cringe
+	if ( thread.name == uf::thread::mainThreadName ) {
+		if ( thread.queue.empty() ) return;
+		std::unique_lock<std::mutex> lock(thread.mutex);
+		std::swap( local_queue, thread.queue );
+		for ( auto& function : local_queue ) function();
+		return;
+	}
+
 #if UF_THREAD_METRICS
 	uint32_t tasksThisFrame = 0;
 	auto frameStart = std::chrono::high_resolution_clock::now();

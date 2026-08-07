@@ -201,8 +201,9 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 		else uf::vfs::read(filename, fullBuffer);
 
 		for ( auto& req : requests ) {
-			if ( req.start + req.len <= fullBuffer.size() ) {
-				std::memcpy(req.dest, fullBuffer.data() + req.start, req.len);
+			if ( req.start < fullBuffer.size() ) {
+				size_t copyLen = std::min(req.len, fullBuffer.size() - req.start);
+				std::memcpy(req.dest, fullBuffer.data() + req.start, copyLen);
 			}
 		}
 		return true;
@@ -211,11 +212,18 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 	if ( extension == "gz" ) return ext::zlib::decompressScatter(filename, requests);
 	if ( extension == "lz4" ) return ext::lz4::decompressScatter(filename, requests);
 
+	pod::File file = uf::vfs::open(filename);
+	if ( !file ) return false;
+
 	for ( auto& req : requests ) {
-		uf::stl::vector<uint8_t> temp;
-		uf::vfs::readRange( filename, req.start, req.len, temp );
-		std::memcpy(req.dest, temp.data(), temp.size());
+		if ( req.len == 0 ) continue;
+
+		if ( file.seek(file.handle, req.start, SEEK_SET) ) {
+			file.read(file.handle, req.dest, req.len);
+		}
 	}
+
+	file.close(file.handle);
 	return true;
 }
 

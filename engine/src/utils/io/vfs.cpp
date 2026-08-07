@@ -68,7 +68,7 @@ namespace {
 			}
 			return false;
 		#else
-			static struct stat buffer;
+			static thread_local struct stat buffer;
 			return stat(path.c_str(), &buffer) == 0;
 		#endif
 	}
@@ -81,7 +81,7 @@ namespace {
 	}
 	size_t vfs_mtime( pod::Mount& mount, const uf::stl::string& file ) {
 		uf::stl::string path = mount.path + file;
-		static struct stat buffer;
+		static thread_local struct stat buffer;
 		if ( stat(path.c_str(), &buffer) != 0 ) return 0;
 		return buffer.st_mtime;
 	}
@@ -177,6 +177,7 @@ namespace {
 
 		size_t currentOffset = 0;
 		for (const auto& r : ranges) {
+			is.clear();
 			is.seekg(r.start, std::ios::beg);
 			is.read((char*)(buffer.data() + currentOffset), r.len);
 			currentOffset += static_cast<size_t>(is.gcount());

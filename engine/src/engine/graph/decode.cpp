@@ -536,8 +536,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		bool preferMinified = false;
 	#endif
 
-		if ( graph.settings.stream.enabled ) preferMinified = false;
-
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 

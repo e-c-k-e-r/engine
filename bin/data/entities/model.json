@@ -81,7 +81,7 @@
 				"player": "info_player_start",
 				"enabled": "auto",
 				"radius": 50,
-				"every": 4
+				"every": 1
 			}
 		}
 	}
