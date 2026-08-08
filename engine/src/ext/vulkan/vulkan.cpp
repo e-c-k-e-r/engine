@@ -361,18 +361,18 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	ext::vulkan::states::rebuild = true;
 }
 ext::vulkan::RenderMode* ext::vulkan::getCurrentRenderMode() {
-	return getCurrentRenderMode( std::this_thread::get_id() );
+	return getCurrentRenderMode( uf::thread::current_id() );
 }
-ext::vulkan::RenderMode* ext::vulkan::getCurrentRenderMode( std::thread::id id ) {
+ext::vulkan::RenderMode* ext::vulkan::getCurrentRenderMode( uf::thread::id_t id ) {
 //	bool exists = ext::vulkan::currentRenderMode.has(id);
 //	auto& currentRenderMode = ext::vulkan::currentRenderMode.get(id);
 //	return currentRenderMode;
 	return ext::vulkan::currentRenderMode.get(id);
 }
 void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode ) {
-	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
+	return setCurrentRenderMode( renderMode, uf::thread::current_id() );
 }
-void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, std::thread::id id ) {
+void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, uf::thread::id_t id ) {
 	ext::vulkan::currentRenderMode.get(id) = renderMode;
 }
 

@@ -167,7 +167,7 @@ namespace uf {
 			uint8_t* pointer = NULL;
 		};
 		struct Input {
-			uf::stl::vector<Attribute> attributes;
+			uf::stl::static_vector<Attribute> attributes;
 			size_t count = 0; // how many elements is the input using
 			size_t first = 0; // base index to start from
 			size_t size = 0; // size of one element in the input's buffer
@@ -197,29 +197,42 @@ namespace uf {
 			uf::Mesh::Input vertex;
 			uf::Mesh::Input index;
 			int32_t indirectIndex = -1;
-			
-			uf::stl::unordered_map<uf::stl::string, uf::Mesh::AttributeView> attributes;
 
+			uf::stl::static_vector<uf::Mesh::AttributeView> attributes;
 
 			bool has( const uf::stl::string& name ) const {
-				return attributes.count( name ) > 0;
+				for ( const auto& attrView : attributes ) {
+					if ( attrView.attribute.descriptor.name == name ) return true;
+				}
+				return false;
 			}
+
 			const AttributeView& operator[]( const uf::stl::string& name ) const {
-				if ( auto it = attributes.find( name ); it != attributes.end() ) return it->second;
+				for ( const auto& attrView : attributes ) {
+					if ( attrView.attribute.descriptor.name == name ) return attrView;
+				}
 				UF_EXCEPTION("invalid view name: {}", name);
 			}
 		};
 		typedef uf::stl::vector<uf::Mesh::View> views_t;
 
+		struct State {
+			const uint8_t* pointer = nullptr;
+			size_t size = 0;
+		};
+
 		uf::stl::vector<buffer_t> buffers;
 
 		// mega cringe, but i'd like to have a way to cache it
 		uf::stl::vector<uf::Mesh::View> buffer_views;
+		// more cringe, but it helps avoid unneeded descriptor updates
+		uf::stl::vector<State> buffer_state;
 	protected:
 		void _destroy( uf::Mesh::Input& input );
 		void _bind();
 		void _updateDescriptor( uf::Mesh::Input& input );
 		void _updateViews();
+		void _updateViewPointers();
 		uf::Mesh::Attribute _remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i = 0 ) const;
 
 		bool _hasV( const uf::Mesh::Input& input, const uf::stl::vector<uf::renderer::AttributeDescriptor>& descriptors ) const;

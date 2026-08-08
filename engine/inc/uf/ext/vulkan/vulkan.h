@@ -204,9 +204,9 @@ namespace ext {
 		uf::stl::vector<RenderMode*> UF_API getRenderModes( const uf::stl::vector<uf::stl::string>&, bool = true );
 		void UF_API removeRenderMode( RenderMode*, bool = true );
 		RenderMode* UF_API getCurrentRenderMode();
-		RenderMode* UF_API getCurrentRenderMode( std::thread::id );
+		RenderMode* UF_API getCurrentRenderMode( uf::thread::id_t );
 		void UF_API setCurrentRenderMode( RenderMode* renderMode );
-		void UF_API setCurrentRenderMode( RenderMode* renderMode,  std::thread::id );
+		void UF_API setCurrentRenderMode( RenderMode* renderMode,  uf::thread::id_t );
 
 		void UF_API initialize( bool = false );
 		void UF_API tick();

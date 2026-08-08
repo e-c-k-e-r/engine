@@ -187,9 +187,11 @@ bool uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer,  const uf::stl::str
 
 bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
 #if UF_ENV_DREAMCAST
-	const size_t THRESHOLD = 256 * 1024; // 256K
+	const size_t THRESHOLD = 16 * 1024; // 16K
+	const size_t CHUNK_SIZE = 8 * 1024;
 #else
 	const size_t THRESHOLD = 16 * 1024 * 1024; // 16M
+	const size_t CHUNK_SIZE = 0;
 #endif
 
 	uf::stl::string extension = uf::io::extension(filename);
@@ -218,9 +220,8 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 	for ( auto& req : requests ) {
 		if ( req.len == 0 ) continue;
 
-		if ( file.seek(file.handle, req.start, SEEK_SET) ) {
-			file.read(file.handle, req.dest, req.len);
-		}
+		if ( !file.seek(file.handle, req.start, SEEK_SET) ) continue;
+		file.stream(file.handle, req.dest, req.len, CHUNK_SIZE);
 	}
 
 	file.close(file.handle);

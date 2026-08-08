@@ -80,7 +80,7 @@
 				"tag": "worldspawn",
 				"player": "info_player_start",
 				"enabled": "auto",
-				"radius": 16,
+				"radius": 50,
 				"every": 1
 			}
 		}

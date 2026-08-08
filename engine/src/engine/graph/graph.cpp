@@ -2176,7 +2176,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	auto& entity = node.entity->as<uf::Object>();
 	auto& metadataJson = entity.getComponent<uf::Serializer>();
 	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-	auto tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+	//auto tag = ext::json::find( node.name, graphMetadataJson["tags"] );
 
 	auto meshName = graph.meshes[node.mesh];
 	auto& mesh = storage.meshes.map[meshName];
@@ -2201,8 +2201,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				rebuild = true;
 			}
 			if ( rebuild ) {
+			#if !UF_USE_OPENGL
 				::bindBuffers( graph, graphic, mesh );
 				::bindAddresses( graph, graphic, mesh, primitives );
+			#endif
 				uf::renderer::states::rebuild = true;
 				storage.stale = true;
 			}
@@ -2212,10 +2214,13 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 
 	// bind mesh to physics state
-	{
+	if ( false ) {
+		auto phyziks = metadataJson["physics"];
+	/*
 		auto phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
 		else metadataJson["physics"] = phyziks;
+	*/
 
 		if ( ext::json::isObject( phyziks ) ) {
 			uf::stl::string type = phyziks["type"].as<uf::stl::string>();
@@ -2509,8 +2514,9 @@ void uf::graph::reload( pod::Graph& graph ) {
 
 					uf::stl::unordered_map<size_t, size_t> bufferSizes;
 					uf::stl::unordered_map<size_t, uf::stl::vector<Chunk>> chunks;
+					uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> completedBuffers;
 
-					std::atomic<int> pendingReads{0};
+					uf::stl::atomic<int> pendingReads{0};
 				};
 
 				auto ctx = std::make_shared<SparseContext>();
@@ -2564,6 +2570,12 @@ void uf::graph::reload( pod::Graph& graph ) {
 					}
 				}
 
+				for ( auto& [bufID, size] : ctx->bufferSizes ) {
+					if ( size > 0 ) {
+						ctx->completedBuffers[bufID].resize(size);
+					}
+				}
+
 				ctx->pendingReads.store(actualReadsToPerform);
 
 				auto finalizeStream = [ctx, graphPtr = &graph]() {
@@ -2572,12 +2584,8 @@ void uf::graph::reload( pod::Graph& graph ) {
 					auto& targetMesh = storage.meshes.map[currentGraph.meshes[ctx->meshID]];
 					auto& targetPrimitives = storage.primitives.map[currentGraph.primitives[ctx->meshID]];
 
-					for (auto& [b, size] : ctx->bufferSizes) {
-						if (size == 0) continue;
-						targetMesh.buffers[b].resize(size);
-						for (auto& chunk : ctx->chunks[b]) {
-							std::memcpy(targetMesh.buffers[b].data() + chunk.offset, chunk.data.data(), chunk.data.size());
-						}
+					for ( auto& [b, buf] : ctx->completedBuffers ) {
+						std::swap(targetMesh.buffers[b], buf);
 					}
 
 					targetMesh.vertex.count = ctx->vertexCount;
@@ -2591,11 +2599,14 @@ void uf::graph::reload( pod::Graph& graph ) {
 					}
 
 					targetMesh.updateDescriptor();
-					for ( auto nodeID : ctx->deps ) uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
 
-					#if UF_USE_OPENGL
+					for ( auto nodeID : ctx->deps ) {
+						uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
+					}
+
+				#if UF_USE_OPENGL
 					uf::renderer::states::rebuild = true;
-					#endif
+				#endif
 				};
 
 				if ( actualReadsToPerform > 0 ) {
@@ -2617,11 +2628,12 @@ void uf::graph::reload( pod::Graph& graph ) {
 								size_t readBytes = count * stride;
 								size_t writeOffset = bufferWriteOffsets[bufID];
 
-								auto cb = [ctx, finalizeStream, bufID, writeOffset](uf::stl::vector<uint8_t>&& buffer) mutable {
-									uf::thread::queue( uf::thread::mainThreadName, [ctx, finalizeStream, bufID, writeOffset, data = std::move(buffer)]() mutable {
-										ctx->chunks[bufID].push_back({writeOffset, std::move(data)});
-										if ( ctx->pendingReads.fetch_sub(1) == 1 ) finalizeStream();
-									});
+								uint8_t* destPtr = ctx->completedBuffers[bufID].data() + writeOffset;
+
+								auto cb = [ctx, finalizeStream]() mutable {
+									if ( ctx->pendingReads.fetch_sub(1) == 1 ) {
+										uf::thread::queue( uf::thread::mainThreadName, finalizeStream );
+									}
 								};
 
 								auto& region = meshStream.buffers[bufID];
@@ -2630,6 +2642,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 									region.filename,
 									region.offset + (id * stride),
 									readBytes,
+									destPtr,
 									cb
 								);
 								bufferWriteOffsets[bufID] += readBytes;
@@ -2655,7 +2668,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 			for ( auto& attr : mesh.vertex.attributes ) if ( !processedBuffers.count(attr.buffer) && (mesh.buffers[attr.buffer].empty() && !meshStream.buffers.empty()) ) { buffersToLoad++; processedBuffers.insert(attr.buffer); }
 
 			if ( buffersToLoad > 0 ) {
-				auto pendingBufferCount = std::make_shared<std::atomic<int>>(buffersToLoad);
+				auto pendingBufferCount = std::make_shared<uf::stl::atomic<int>>(buffersToLoad);
 				auto newBuffers = std::make_shared<uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>>>();
 
 				auto finishedCallback = std::make_shared<pod::Thread::function_t>([newBuffers, graphPtr = &graph, meshID, deps = std::move(work.dependentNodes)]() mutable {

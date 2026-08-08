@@ -1,91 +1,103 @@
-#if !UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST
 #include <uf/utils/thread/thread.h>
-#include <uf/utils/io/iostream.h>
-#include <future>
+
+struct KOSLock {
+	mutex_t* m;
+	KOSLock(mutex_t& mutex) : m(&mutex) { mutex_lock(m); }
+	~KOSLock() { mutex_unlock(m); }
+};
+
+#define LOCK_MUTEX(m) KOSLock lock_##__LINE__(m)
 
 uf::thread::container_t uf::thread::threads;
 float uf::thread::limiter = 1.0f / 120.0f;
 uint32_t uf::thread::workers = 1;
-uf::thread::id_t uf::thread::mainThreadId = std::this_thread::get_id();
+uf::thread::id_t uf::thread::mainThreadId = nullptr;
 bool uf::thread::async = false;
 uf::stl::string uf::thread::mainThreadName = "Main";
 uf::stl::string uf::thread::workerThreadName = "Worker";
 uf::stl::string uf::thread::asyncThreadName = "Async";
 
 namespace {
-	std::mutex mutex;
+	mutex_t global_mutex = MUTEX_INITIALIZER;
 }
 
-#define UF_THREAD_ANNOUNCE(...) UF_MSG_DEBUG(__VA_ARGS__)
+static void* kos_thread_bootstrap(void* arg) {
+	pod::Thread* t = static_cast<pod::Thread*>(arg);
+	uf::thread::tick(*t);
+	return nullptr;
+}
 
 void uf::thread::start( pod::Thread& thread ) { if ( thread.running ) return;
-	thread.thread = std::thread( uf::thread::tick, std::ref(thread) );
 	thread.running = true;
+	thread.thread = thd_create(0, kos_thread_bootstrap, &thread);
+	if ( thread.thread ) {
+		if (!thread.name.empty()) {
+			thd_set_label(thread.thread, thread.name.c_str());
+		}
+
+		if (thread.name != uf::thread::mainThreadName) {
+			thd_set_prio(thread.thread, PRIO_DEFAULT + 5);
+		}
+	}
 }
+
 void uf::thread::quit( pod::Thread& thread ) { if ( !thread.running ) return;
 	{
-		std::lock_guard<std::mutex> lock(thread.mutex);
+		LOCK_MUTEX(thread.mutex);
 		thread.running = false;
 	}
-	thread.conditions.queued.notify_all();
-	if ( thread.thread.joinable() ) thread.thread.join();
+	cond_broadcast(&thread.conditions.queued);
+	if ( thread.thread ) {
+		thd_join(thread.thread, nullptr);
+		thread.thread = nullptr;
+	}
 }
+
 void uf::thread::tick( pod::Thread& thread ) {
-#if UF_ENV_WINDOWS
-	bool res = SetThreadAffinityMask(GetCurrentThread(), (1ull << thread.affinity));
-#endif
 	thread.timer.start();
-	
 	while ( thread.running ) {
 		uf::thread::process( thread );
 	}
 }
 
 pod::Thread& uf::thread::fetchWorker( const uf::stl::string& name ) {
-	static uf::stl::atomic<int> current = 0;
+	static volatile int current = 0;
 	int limit = uf::thread::workers;
 	int tries = 0;
 
 	while ( tries++ < limit ) {
-		int val = current.fetch_add(1, std::memory_order_relaxed);
+		int val = __atomic_fetch_add(&current, 1, __ATOMIC_RELAXED);
 		auto workerName = FMT_FORMAT("{} {}", name, val % limit);
 		auto& pod = uf::thread::get( workerName );
-		if ( std::this_thread::get_id() == pod.thread.get_id() ) continue; // do not queue to current thread
+		if ( thd_get_current() == pod.thread ) continue;
 		return pod;
 	}
 	UF_EXCEPTION("cannot find free worker");
 }
+
 pod::Thread::Tasks uf::thread::schedule( bool async, bool wait ) {
-	return schedule( async ? uf::thread::workerThreadName : uf::thread::mainThreadName, wait );
+	return schedule( async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, wait );
 }
+
 pod::Thread::Tasks uf::thread::schedule( const uf::stl::string& name, bool wait ) {
 	pod::Thread::Tasks tasks = {
 		.name = name,
 		.waits = wait,
 	};
-
 	return tasks;
 }
+
 std::shared_ptr<pod::Thread::Tasks::Tracker> uf::thread::execute( pod::Thread::Tasks& tasks ) {
 	auto tracker = std::make_shared<pod::Thread::Tasks::Tracker>();
 	if ( tasks.container.empty() ) return tracker;
 
-	tracker->pending.store( tasks.container.size(), std::memory_order_relaxed );
+	__atomic_store_n(&tracker->pending, tasks.container.size(), __ATOMIC_RELEASE);
 
 	if ( tasks.name == uf::thread::mainThreadName ) {
-	#if UF_THREAD_METRICS
-		auto& thread = uf::thread::get( uf::thread::mainThreadName );
-		uint32_t tasksThisFrame = 0;
-		for ( auto& task : tasks.container ) {
-			task();
-			++tasksThisFrame;
-		}
-		thread.metrics.tasksProcessed.store(tasksThisFrame, std::memory_order_relaxed);
-	#else
 		for ( auto& task : tasks.container ) task();
-	#endif
 		tasks.container.clear();
-		tracker->pending.store(0, std::memory_order_release);
+		__atomic_store_n(&tracker->pending, 0, __ATOMIC_RELEASE);
 	} else {
 		for ( auto& task : tasks.container ) {
 			auto& worker = uf::thread::fetchWorker( tasks.name );
@@ -94,9 +106,10 @@ std::shared_ptr<pod::Thread::Tasks::Tracker> uf::thread::execute( pod::Thread::T
 				struct Decrementer {
 					std::shared_ptr<pod::Thread::Tasks::Tracker> t;
 					~Decrementer() {
-						if ( t->pending.fetch_sub(1, std::memory_order_release) == 1 ) {
-							std::lock_guard<std::mutex> lock(t->mutex);
-							t->cv.notify_all();
+						if ( __atomic_sub_fetch(&t->pending, 1, __ATOMIC_RELEASE) == 0 ) {
+							mutex_lock(&t->mutex);
+							cond_broadcast(&t->cv);
+							mutex_unlock(&t->mutex);
 						}
 					}
 				} dec{ tracker };
@@ -109,193 +122,171 @@ std::shared_ptr<pod::Thread::Tasks::Tracker> uf::thread::execute( pod::Thread::T
 	}
 	return tracker;
 }
+
 void uf::thread::wait( std::shared_ptr<pod::Thread::Tasks::Tracker> tracker ) {
 	if ( !tracker ) return;
-	std::unique_lock<std::mutex> lock(tracker->mutex);
-	tracker->cv.wait(lock, [&]{ return tracker->pending.load(std::memory_order_acquire) == 0; });
+	mutex_lock(&tracker->mutex);
+	while (__atomic_load_n(&tracker->pending, __ATOMIC_ACQUIRE) > 0) {
+		cond_wait(&tracker->cv, &tracker->mutex);
+	}
+	mutex_unlock(&tracker->mutex);
 }
 
 void uf::thread::add( pod::Thread& thread, const pod::Thread::function_t& function ) {
-	std::lock_guard<std::mutex> lock(thread.mutex);
+	LOCK_MUTEX(thread.mutex);
 	thread.container.emplace_back( function );
 }
+
 void uf::thread::queue( const pod::Thread::container_t& functions ) {
 	for ( auto& function : functions )
-		uf::thread::queue( uf::thread::fetchWorker(), function ); // dispatch tasks across all worker threads
+		uf::thread::queue( uf::thread::fetchWorker(), function );
 }
+
 void uf::thread::queue( const pod::Thread::function_t& function ) {
 	return uf::thread::queue( uf::thread::fetchWorker(), function );
 }
+
 void uf::thread::queue( pod::Thread& thread, const pod::Thread::function_t& function ) {
 	{
-		std::lock_guard<std::mutex> lock(thread.mutex);
+		LOCK_MUTEX(thread.mutex);
 		thread.queue.emplace_back( function );
-		thread.pending.fetch_add(1);
+		__atomic_add_fetch(&thread.pending, 1, __ATOMIC_SEQ_CST);
 	}
-	thread.conditions.queued.notify_one();
+	cond_signal(&thread.conditions.queued);
 }
-void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.name) ) return; // ops
+
+void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.name) ) return;
 	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_queue);
 	STATIC_THREAD_LOCAL(pod::Thread::container_t, local_container);
 
-	// hardcoded cringe
 	if ( thread.name == uf::thread::mainThreadName ) {
 		if ( thread.queue.empty() ) return;
-		std::unique_lock<std::mutex> lock(thread.mutex);
+		mutex_lock(&thread.mutex);
 		std::swap( local_queue, thread.queue );
+		mutex_unlock(&thread.mutex);
 		for ( auto& function : local_queue ) function();
 		return;
 	}
 
-#if UF_THREAD_METRICS
-	uint32_t tasksThisFrame = 0;
-	auto frameStart = std::chrono::high_resolution_clock::now();
-	auto idleStart = std::chrono::high_resolution_clock::now();
-#endif
-
 	// wait for work
 	{
-		std::unique_lock<std::mutex> lock(thread.mutex);
+		mutex_lock(&thread.mutex);
 		if ( thread.limiter > 0 ) {
 			long long sleep_ms = (thread.limiter * 1000.0f) - thread.timer.elapsed().asMilliseconds();
 			if ( sleep_ms > 0 ) {
-				thread.conditions.queued.wait_for(lock, std::chrono::milliseconds(sleep_ms), [&]{
-					return !thread.queue.empty() || !thread.running;
-				});
+				thd_sleep(sleep_ms);
 			}
 			thread.timer.reset();
 		} else {
-			thread.conditions.queued.wait(lock, [&]{
-				return (!thread.container.empty() || !thread.queue.empty()) || !thread.running;
-			});
+			while (thread.queue.empty() && thread.container.empty() && thread.running) {
+				cond_wait(&thread.conditions.queued, &thread.mutex);
+			}
 		}
 
-		if ( !thread.running ) return;
+		if ( !thread.running ) {
+			mutex_unlock(&thread.mutex);
+			return;
+		}
 		std::swap( local_queue, thread.queue );
+		mutex_unlock(&thread.mutex);
 	}
-
-	// update stats
-#if UF_THREAD_METRICS
-	{	
-		std::chrono::duration<float, std::milli> idleTime = std::chrono::high_resolution_clock::now() - idleStart;
-		thread.metrics.idleTimeMs.store(idleTime.count(), std::memory_order_relaxed);
-	}
-	auto activeStart = std::chrono::high_resolution_clock::now();
-#endif
 
 	// iterate through queued work
 	for ( auto& function : local_queue ) {
-	#if UF_EXCEPTIONS
-		try {
-	#endif
-			function();
-	#if UF_EXCEPTIONS
-		} catch ( std::exception& e ) {
-			UF_MSG_ERROR("Thread {} (UID: {}) caught exception: {}", thread.name, thread.uid, e.what());
+		function();
+		if ( __atomic_sub_fetch(&thread.pending, 1, __ATOMIC_SEQ_CST) == 0 ) {
+			mutex_lock(&thread.mutex);
+			cond_broadcast(&thread.conditions.finished);
+			mutex_unlock(&thread.mutex);
 		}
-	#endif
-		if ( thread.pending.fetch_sub(1) == 1 ) {
-			thread.conditions.finished.notify_all();
-		}
-	#if UF_THREAD_METRICS
-		++tasksThisFrame;
-	#endif
 	}
 
 	// buffer persistent work
 	{
-		std::lock_guard<std::mutex> lock(thread.mutex);
+		LOCK_MUTEX(thread.mutex);
 		local_container = thread.container;
 	}
 
 	// iterate through persistent work
 	for ( auto& function : local_container ) {
-	#if UF_EXCEPTIONS
-		try {
-	#endif
-			function();
-	#if UF_EXCEPTIONS
-		} catch ( std::exception& e ) {
-			UF_MSG_ERROR("Thread {} (UID: {}) caught exception: {}", thread.name, thread.uid, e.what());
-		}
-	#endif
-	#if UF_THREAD_METRICS
-		++tasksThisFrame;
-	#endif
+		function();
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(thread.mutex);
-		thread.conditions.finished.notify_all();
+		LOCK_MUTEX(thread.mutex);
+		cond_broadcast(&thread.conditions.finished);
 	}
-
-	// update metrics
-#if UF_THREAD_METRICS
-	{
-		std::chrono::duration<float, std::milli> activeTime = std::chrono::high_resolution_clock::now() - activeStart;
-		std::chrono::duration<float, std::milli> frameTime = std::chrono::high_resolution_clock::now() - frameStart;
-
-		thread.metrics.activeTimeMs.store(activeTime.count(), std::memory_order_relaxed);
-		thread.metrics.totalFrameTimeMs.store(frameTime.count(), std::memory_order_relaxed);
-		thread.metrics.tasksProcessed.store(tasksThisFrame, std::memory_order_relaxed);
-	}
-#endif
 }
+
 void uf::thread::wait( pod::Thread& thread ) {
-	std::unique_lock<std::mutex> lock(thread.mutex);
-	thread.conditions.finished.wait(lock, [&]{ return thread.pending.load() == 0; });
-//	while ( thread.pending.load() > 0 ) std::this_thread::yield();
+	mutex_lock(&thread.mutex);
+	while (__atomic_load_n(&thread.pending, __ATOMIC_ACQUIRE) > 0) {
+		cond_wait(&thread.conditions.finished, &thread.mutex);
+	}
+	mutex_unlock(&thread.mutex);
 }
 
-uf::stl::string uf::thread::name( uf::thread::id_t id ) {
+uf::stl::string uf::thread::name( id_t id ) {
 	if ( id == uf::thread::mainThreadId ) return uf::thread::mainThreadName;
 	for ( auto& [ name, thread ] : uf::thread::threads ) {
-		if ( thread->thread.get_id() == id ) return name;
+		if ( thread->thread == id ) return name;
 	}
 	return "?";
 }
+
 const uf::stl::string& uf::thread::name( const pod::Thread& thread ) {
 	return thread.name;
 }
+
 uf::thread::id_t uf::thread::id( const pod::Thread& thread ) {
 	if ( thread.name == uf::thread::mainThreadName ) return uf::thread::mainThreadId;
-	return thread.thread.get_id();
+	return thread.thread;
 }
+
 pod::Thread::id_t uf::thread::uid( const pod::Thread& thread ) {
 	return thread.uid;
 }
+
 bool uf::thread::running( const pod::Thread& thread ) {
 	return thread.running;
-}
-uf::thread::id_t uf::thread::current_id() {
-	return std::this_thread::get_id();
 }
 
 void uf::thread::terminate() {
 	uf::thread::container_t local_threads;
 	{
-		std::unique_lock<std::mutex> lock(::mutex);
+		LOCK_MUTEX(::global_mutex);
 		std::swap( local_threads, uf::thread::threads );
 	}
 
 	for ( auto& [ key, thread ] : local_threads ) {
 		uf::thread::quit( *thread );
+		mutex_destroy(&thread->mutex);
+		cond_destroy(&thread->conditions.queued);
+		cond_destroy(&thread->conditions.finished);
 		delete thread;
 	}
 }
+
 pod::Thread& uf::thread::create( const uf::stl::string& name, bool start, bool locks ) {
+	if ( !uf::thread::mainThreadId ) {
+		uf::thread::mainThreadId = thd_get_current();
+	}
+
 	if ( name == uf::thread::mainThreadName ) start = false;
 
 	pod::Thread* pointer = NULL;
 	{
-		std::unique_lock<std::mutex> lock(::mutex);
+		LOCK_MUTEX(::global_mutex);
 		uf::thread::threads[name] = (pointer = new pod::Thread);
 	}
 	pod::Thread& thread = *pointer;
 
 	static auto limit = uf::thread::workers;
 	static pod::Thread::id_t uids = 0;
-	static pod::Thread::id_t threads = std::thread::hardware_concurrency();
+
+	mutex_init(&thread.mutex, MUTEX_TYPE_NORMAL);
+	cond_init(&thread.conditions.queued);
+	cond_init(&thread.conditions.finished);
 
 	thread.name = name;
 	thread.uid = uids++;
@@ -307,19 +298,20 @@ pod::Thread& uf::thread::create( const uf::stl::string& name, bool start, bool l
 
 	return thread;
 }
+
 void uf::thread::destroy( pod::Thread& thread ) {
 	auto& name = thread.name;
 	if ( !uf::thread::has( name ) ) return; // oops
 
 	uf::thread::quit( thread );
 	{
-		std::unique_lock<std::mutex> lock(::mutex);
+		LOCK_MUTEX(::global_mutex);
 		uf::thread::threads.erase( name );
 	}
 	delete &thread; // shortcut, references from threads should always be from the map anyways
 }
 bool uf::thread::has( const uf::stl::string& name ) {
-	std::unique_lock<std::mutex> lock(::mutex);
+	LOCK_MUTEX(::global_mutex);
 	return uf::thread::threads.count( name ) > 0;
 }
 
@@ -328,12 +320,8 @@ pod::Thread& uf::thread::get( const uf::stl::string& name ) {
 	return *uf::thread::threads[name];
 }
 
-#if UF_THREAD_METRICS
-uf::stl::unordered_map<uf::stl::string, pod::Thread::Performance::tuple_t> uf::thread::collectStats() {
-	uf::stl::unordered_map<uf::stl::string, pod::Thread::Performance::tuple_t> stats;
-	// possible mutex issue
-	for ( auto& [ key, thread ] : uf::thread::threads ) stats[thread->name] = thread->metrics.collect();
-	return stats;
+uf::thread::id_t uf::thread::current_id() {
+	return thd_get_current();
 }
-#endif
+
 #endif

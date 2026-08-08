@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cstring>
 
-size_t ext::lz4::bufferSize = 16384;
+size_t ext::lz4::bufferSize = 16384; // 16K
 
 bool ext::lz4::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename ) {
 	LZ4F_dctx* dctx;
@@ -151,19 +151,28 @@ bool ext::lz4::decompressScatter( const uf::stl::string& filename, uf::stl::vect
 		return a.start < b.start;
 	});
 
-	LZ4F_dctx* dctx;
-	if ( LZ4F_isError( LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION)) ) return false;
+	static thread_local LZ4F_dctx* dctx = nullptr;
+	if ( !dctx ) {
+		if ( LZ4F_isError( LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION)) ) {
+			return false;
+		}
+	} else {
+		LZ4F_resetDecompressionContext(dctx);
+	}
 
+	STATIC_THREAD_LOCAL(uf::stl::vector<uint8_t>, outBufferLocal);
+	outBufferLocal.resize(ext::lz4::bufferSize);
+
+	uint8_t* outBuffer = outBufferLocal.data();
 	size_t uncompressedOffset = 0;
 	size_t currentReqIdx = 0;
-	uint8_t outBuffer[ext::lz4::bufferSize];
 
 	bool success = uf::vfs::stream(filename, ext::lz4::bufferSize, [&](const uint8_t* data, size_t size) -> bool {
 		size_t srcSize = size;
 		const uint8_t* srcPtr = data;
 
 		while ( srcSize > 0 ) {
-			size_t dstSize = sizeof(outBuffer);
+			size_t dstSize = outBufferLocal.size();
 			size_t consumed = srcSize;
 			size_t ret = LZ4F_decompress(dctx, outBuffer, &dstSize, srcPtr, &consumed, nullptr);
 
@@ -201,7 +210,6 @@ bool ext::lz4::decompressScatter( const uf::stl::string& filename, uf::stl::vect
 		return true;
 	});
 
-	LZ4F_freeDecompressionContext(dctx);
 	return success;
 }
 

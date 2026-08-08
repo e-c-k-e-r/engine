@@ -154,6 +154,72 @@ namespace {
 		#endif
 	}
 
+#if UF_ENV_DREAMCAST
+	bool vfs_readRange( pod::Mount& mount, const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string path = mount.path + file;
+
+		file_t fd = fs_open(path.c_str(), O_RDONLY);
+		if (fd == FILEHND_INVALID) return false;
+
+		if (fs_seek(fd, start, SEEK_SET) < 0) {
+			fs_close(fd);
+			return false;
+		}
+
+		buffer.resize(len);
+		ssize_t readBytes = fs_read(fd, buffer.data(), len);
+		fs_close(fd);
+
+		if (readBytes < 0) {
+			buffer.clear();
+			return false;
+		}
+		buffer.resize(static_cast<size_t>(readBytes));
+		return true;
+	}
+
+	bool vfs_readRanges( pod::Mount& mount, const uf::stl::string& file, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer ) {
+		uf::stl::string path = mount.path + file;
+
+		file_t fd = fs_open(path.c_str(), O_RDONLY);
+		if (fd == FILEHND_INVALID) return false;
+
+		size_t totalBytes = 0;
+		for (const auto& r : ranges) totalBytes += r.len;
+		buffer.resize(totalBytes);
+
+		size_t currentOffset = 0;
+		for (const auto& r : ranges) {
+			if (fs_seek(fd, r.start, SEEK_SET) < 0) continue;
+			ssize_t readBytes = fs_read(fd, buffer.data() + currentOffset, r.len);
+			if (readBytes > 0) {
+				currentOffset += readBytes;
+			}
+		}
+		fs_close(fd);
+		buffer.resize(currentOffset);
+		return true;
+	}
+
+	bool vfs_stream( pod::Mount& mount, const uf::stl::string& file, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
+		uf::stl::string path = mount.path + file;
+
+		file_t fd = fs_open(path.c_str(), O_RDONLY);
+		if (fd == FILEHND_INVALID) return false;
+
+		uf::stl::vector<uint8_t> buffer(chunkSize);
+		while (true) {
+			ssize_t bytesRead = fs_read(fd, buffer.data(), chunkSize);
+			if (bytesRead <= 0) break;
+
+			if (!callback(buffer.data(), bytesRead)) break;
+
+			thd_pass();
+		}
+		fs_close(fd);
+		return true;
+	}
+#else
 	bool vfs_readRange( pod::Mount& mount, const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary);
@@ -201,10 +267,34 @@ namespace {
 		}
 		return true;
 	}
-
+#endif
 	//
 	size_t disk_file_read(void* handle, void* buffer, size_t bytes) {
 		return fread(buffer, 1, bytes, (FILE*)handle);
+	}
+	size_t disk_file_stream(void* handle, void* buffer, size_t bytes, size_t chunkSize) {
+	#if UF_ENV_DREAMCAST
+		if ( bytes > chunkSize ) {
+			uint8_t* destPtr = reinterpret_cast<uint8_t*>(buffer);
+			size_t remaining = bytes;
+			size_t totalRead = 0;
+
+			while ( remaining > 0 ) {
+				size_t toRead = std::min(remaining, chunkSize);
+				size_t bytesRead = fread(destPtr, 1, toRead, (FILE*)handle);
+				if ( bytesRead == 0 ) break;
+
+				destPtr += bytesRead;
+				remaining -= bytesRead;
+				totalRead += bytesRead;
+
+				thd_pass();
+			}
+
+			return totalRead;
+		}
+	#endif
+		return ::disk_file_read( handle, buffer, bytes );
 	}
 	bool disk_file_seek(void* handle, long offset, int origin) {
 		return fseek((FILE*)handle, offset, origin) == 0;
@@ -224,6 +314,7 @@ namespace {
 		return pod::File{
 			.handle = f,
 			.read = disk_file_read,
+			.stream = disk_file_stream,
 			.seek = disk_file_seek,
 			.tell = disk_file_tell,
 			.close = disk_file_close
@@ -253,6 +344,9 @@ namespace {
 			return tempBuffer.size();
 		}
 		return 0;
+	}
+	size_t fallback_file_stream(void* handle, void* buffer, size_t bytes, size_t chunkSize) {
+		return ::fallback_file_read(handle, buffer, bytes);
 	}
 
 	bool fallback_file_seek(void* handle, long offset, int origin) {
@@ -576,6 +670,7 @@ pod::File uf::vfs::open( const uf::stl::string& path ) {
 		return pod::File{
 			.handle = state,
 			.read = fallback_file_read,
+			.stream = fallback_file_stream,
 			.seek = fallback_file_seek,
 			.tell = fallback_file_tell,
 			.close = fallback_file_close

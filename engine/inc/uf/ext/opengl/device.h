@@ -54,7 +54,7 @@ namespace ext {
 			void destroyTexture( GLuint& );
 
 			spec::Context& activateContext();
-			spec::Context& activateContext(std::thread::id);
+			spec::Context& activateContext(uf::thread::id_t);
 		};
 	}
 }

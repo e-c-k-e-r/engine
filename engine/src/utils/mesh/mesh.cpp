@@ -137,11 +137,38 @@ uf::Mesh uf::Mesh::alias() const {
 	return alias;
 }
 void uf::Mesh::updateDescriptor() {
+	bool needsUpdate = false;
+
+	if ( buffer_views.empty() ) {
+		needsUpdate = true;
+	} else if ( buffer_state.size() != buffers.size() ) {
+		needsUpdate = true;
+	} else {
+		for ( size_t i = 0; i < buffers.size(); ++i ) {
+			if ( buffer_state[i].pointer != buffers[i].data() ) {
+				needsUpdate = true;
+				break;
+			}
+			if ( buffer_state[i].size != buffers[i].size() ) {
+				needsUpdate = true;
+				break;
+			}
+		}
+	}
+	if ( !needsUpdate ) return;
+
 	_updateDescriptor(vertex);
 	_updateDescriptor(index);
 	_updateDescriptor(instance);
 	_updateDescriptor(indirect);
+
 	_updateViews();
+
+	buffer_state.resize(buffers.size());
+	for ( size_t i = 0; i < buffers.size(); ++i ) {
+		buffer_state[i].pointer = buffers[i].data();
+		buffer_state[i].size = buffers[i].size();
+	}
 }
 void uf::Mesh::bind( const uf::Mesh& mesh ) {
 	vertex.attributes = mesh.vertex.attributes;
@@ -390,19 +417,27 @@ uf::Mesh::View uf::Mesh::makeView( const uf::stl::vector<uf::stl::string>& wante
 	view.vertex = vertex;
 	view.index  = index;
 
-	if ( wanted.size() ) {
-		for ( auto& attr : vertex.attributes ) {
-			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[attr.descriptor.name] = { attr };
+	if ( !wanted.empty() ) {
+		view.attributes.reserve(wanted.size() + 1);
+		for (auto& attr : vertex.attributes) {
+			for (const auto& w : wanted) {
+				if (attr.descriptor.name == w) {
+					view.attributes.emplace_back( AttributeView{ attr } );
+					break;
+				}
+			}
 		}
 	} else {
+		view.attributes.reserve(vertex.attributes.size() + 1);
 		for ( auto& attr : vertex.attributes ) {
-			view.attributes[attr.descriptor.name] = { attr };
+			view.attributes.emplace_back( AttributeView{ attr } );
 		}
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"] = { index.attributes[lod] };
+		Attribute indexAttr = index.attributes[lod];
+		indexAttr.descriptor.name = "index";
+		view.attributes.emplace_back( AttributeView{ indexAttr } );
 	}
 
 	return view;
@@ -413,32 +448,47 @@ uf::Mesh::View uf::Mesh::makeView( size_t i, const uf::stl::vector<uf::stl::stri
 	view.index  = remapIndexInput(i, lod);
 	view.indirectIndex = i;
 
-	if ( wanted.size() ) {
+	if ( !wanted.empty() ) {
+		view.attributes.reserve(wanted.size() + 1);
 		for (auto& attr : vertex.attributes) {
-			if ( std::find(wanted.begin(), wanted.end(), attr.descriptor.name ) == wanted.end() ) continue;
-			view.attributes[attr.descriptor.name] = { attr };
+			for (const auto& w : wanted) {
+				if (attr.descriptor.name == w) {
+					view.attributes.emplace_back( AttributeView{ attr } );
+					break;
+				}
+			}
 		}
 	} else {
-		for ( auto& attr : vertex.attributes ) view.attributes[attr.descriptor.name] = { attr };
+		view.attributes.reserve(vertex.attributes.size() + 1);
+		for ( auto& attr : vertex.attributes ) {
+			view.attributes.emplace_back( AttributeView{ attr } );
+		}
 	}
 
 	if ( !index.attributes.empty() ) {
-		view.attributes["index"] = { index.attributes[lod] };
+		Attribute indexAttr = index.attributes[lod];
+		indexAttr.descriptor.name = "index";
+		view.attributes.emplace_back( AttributeView{ indexAttr } );
 	}
 
 	return view;
 }
 uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::stl::string>& wanted, size_t lod ) const {
 	uf::stl::vector<uf::Mesh::View> views;
+
 	if ( indirect.count > 0 ) {
+		auto startTime = uf::time::time();
 		for ( auto i = 0; i < indirect.count; i++ ) {
 			auto view = makeView( i, wanted, lod );
-			if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
+		//	if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
 			views.emplace_back( view );
 		}
+		auto endTime = uf::time::time() - startTime;
 	} else {
-		views.emplace_back( makeView(wanted, lod) );
+		auto view = makeView(wanted, lod);
+		views.emplace_back( view );
 	}
+
 	return views;
 }
 
@@ -524,7 +574,95 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	}
 }
 void uf::Mesh::_updateViews() {
-	buffer_views = makeViews();
+	size_t targetSize = (indirect.count > 0) ? indirect.count : 1;
+	if ( buffer_views.size() != targetSize ) {
+		buffer_views = makeViews();
+	} else {
+		_updateViewPointers();
+	}
+}
+void uf::Mesh::_updateViewPointers() {
+	if ( indirect.count > 0 ) {
+		auto startTime = uf::time::time();
+		const pod::DrawCommand* drawCommands = reinterpret_cast<const pod::DrawCommand*>(getBuffer(indirect, 0).data());
+
+		for ( size_t i = 0; i < buffer_views.size(); ++i ) {
+			auto& view = buffer_views[i];
+			const auto& drawCommand = drawCommands[i];
+
+			view.vertex.first = drawCommand.vertexID;
+			view.vertex.count = drawCommand.vertices;
+
+			view.index.first = drawCommand.indexID;
+			view.index.count = drawCommand.indices;
+
+			for ( auto& attr : view.vertex.attributes ) {
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				} else {
+					attr.pointer = nullptr;
+					attr.length = 0;
+				}
+			}
+
+			for ( auto& attr : view.index.attributes ) {
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				} else {
+					attr.pointer = nullptr;
+					attr.length = 0;
+				}
+			}
+
+			for ( auto& attrView : view.attributes ) {
+				auto& attr = attrView.attribute;
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				} else {
+					attr.pointer = nullptr;
+					attr.length = 0;
+				}
+			}
+		}
+		auto endTime = uf::time::time() - startTime;
+	} else {
+		if ( !buffer_views.empty() ) {
+			auto& view = buffer_views.front();
+
+			view.vertex.count  = vertex.count;
+			view.vertex.first  = vertex.first;
+			view.vertex.size   = vertex.size;
+			view.vertex.offset = vertex.offset;
+
+			view.index.count  = index.count;
+			view.index.first  = index.first;
+			view.index.size   = index.size;
+			view.index.offset = index.offset;
+
+			for ( auto& attr : view.vertex.attributes ) {
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				}
+			}
+			for ( auto& attr : view.index.attributes ) {
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				}
+			}
+			for ( auto& attrView : view.attributes ) {
+				auto& attr = attrView.attribute;
+				if ( attr.buffer >= 0 && attr.buffer < buffers.size() && !buffers[attr.buffer].empty() ) {
+					attr.pointer = buffers[attr.buffer].data() + attr.offset;
+					attr.length = buffers[attr.buffer].size();
+				}
+			}
+		}
+	}
 }
 uf::Mesh::Attribute uf::Mesh::_remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i ) const {
 	UF_ASSERT( i < indirect.count );

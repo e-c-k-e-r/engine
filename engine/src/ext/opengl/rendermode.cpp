@@ -77,10 +77,10 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	this->synchronize();
 //	bindPipelines( graphics );
 	createCommandBuffers( graphics );
-	this->mostRecentCommandPoolId = std::this_thread::get_id();
+	this->mostRecentCommandPoolId = uf::thread::current_id();
 	this->rebuild = false;
 }
-ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands( std::thread::id id ) {
+ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands( uf::thread::id_t id ) {
 	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
 	auto& commands = this->commands.get(id); //this->commands[id];
 	if ( !exists ) {

@@ -22,7 +22,7 @@ namespace ext {
 			QueueEnum queueType{QueueEnum::TRANSFER};
 			VkCommandBuffer handle{VK_NULL_HANDLE};
 			VkFence fence{VK_NULL_HANDLE};
-			std::thread::id threadId{std::this_thread::get_id()};
+			uf::thread::id_t threadId{uf::thread::current_id()};
 			
 			pod::Checkpoint* checkpoint = NULL;
 
@@ -111,7 +111,7 @@ namespace ext {
 					uf::stl::vector<VkFence> fences;
 				};
 
-				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<std::thread::id, CommandBuffer>> commandBuffers;
+				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<uf::thread::id_t, CommandBuffer>> commandBuffers;
 				
 				uf::stl::vector<Buffer> buffers;
 				uf::stl::vector<AccelerationStructure> ass;
@@ -173,8 +173,8 @@ namespace ext {
 
 			VkQueue getQueue( QueueEnum );
 			VkCommandPool getCommandPool( QueueEnum );
-			VkQueue getQueue( QueueEnum, std::thread::id );
-			VkCommandPool getCommandPool( QueueEnum, std::thread::id );
+			VkQueue getQueue( QueueEnum, uf::thread::id_t );
+			VkCommandPool getCommandPool( QueueEnum, uf::thread::id_t );
 
 			// RAII
 			void initialize();

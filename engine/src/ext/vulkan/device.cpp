@@ -653,7 +653,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 		VK_UNREGISTER_HANDLE(commandBuffer);
 	} else {
 		ext::vulkan::mutex.lock();
-		auto& transient = this->transient.commandBuffers[queueType][std::this_thread::get_id()];
+		auto& transient = this->transient.commandBuffers[queueType][uf::thread::current_id()];
 		transient.commandBuffers.emplace_back(commandBuffer);
 		transient.fences.emplace_back(fence);
 		ext::vulkan::mutex.unlock();
@@ -677,7 +677,7 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 		.immediate = immediate,
 		.queueType = queueType,
 		.handle = this->createCommandBuffer( level, queueType, true, true ),
-		.threadId = std::this_thread::get_id(),
+		.threadId = uf::thread::current_id(),
 	};
 }
 void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer& commandBuffer ) {
@@ -798,12 +798,12 @@ ext::vulkan::Buffer ext::vulkan::Device::fetchTransientBuffer(
 	return buffer.alias();
 }
 VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum) {
-	return this->getCommandPool( queueEnum, std::this_thread::get_id() );
+	return this->getCommandPool( queueEnum, uf::thread::current_id() );
 }
 VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum ) {
-	return this->getQueue( queueEnum, std::this_thread::get_id() );
+	return this->getQueue( queueEnum, uf::thread::current_id() );
 }
-VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, uf::thread::id_t id ) {
 	auto& device = *this;
 	
 	uint32_t index{0};
@@ -839,7 +839,7 @@ VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueE
 	}
 	return pool;
 }
-VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, uf::thread::id_t id ) {
 	auto& device = *this;
 
 	uint32_t familyIndex = 0;

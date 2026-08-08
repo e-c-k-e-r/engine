@@ -258,7 +258,11 @@ void UF_API uf::load( ext::json::Value& json ) {
 
 		// Set worker threads
 		if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
+		#if UF_ENV_DREAMCAST
+			auto threads = 1;
+		#else
 			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
+		#endif
 			configEngineThreadJson["workers"] = threads;
 			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
 			UF_MSG_DEBUG("Using {} worker threads", threads);

@@ -256,12 +256,12 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	createCommandBuffers( graphics );
 	//unlockMutex();
 
-	this->mostRecentCommandPoolId = std::this_thread::get_id();
+	this->mostRecentCommandPoolId = uf::thread::current_id();
 	this->rebuild = false;
 	this->rerecord = false;
 	this->execute = true;
 }
-ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( std::thread::id id ) {
+ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( uf::thread::id_t id ) {
 	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
 	auto& commands = this->commands.get(id); //this->commands[id];
 	if ( !exists ) {
@@ -277,16 +277,16 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 	}
 	return commands;
 }
-void ext::vulkan::RenderMode::lockMutex( std::thread::id id ) {
+void ext::vulkan::RenderMode::lockMutex( uf::thread::id_t id ) {
 	this->commands.lockMutex( id );
 }
-bool ext::vulkan::RenderMode::tryMutex( std::thread::id id ) {
+bool ext::vulkan::RenderMode::tryMutex( uf::thread::id_t id ) {
 	return this->commands.tryMutex( id );
 }
-void ext::vulkan::RenderMode::unlockMutex( std::thread::id id ) {
+void ext::vulkan::RenderMode::unlockMutex( uf::thread::id_t id ) {
 	this->commands.unlockMutex( id );
 }
-std::lock_guard<std::mutex> ext::vulkan::RenderMode::guardMutex( std::thread::id id ) {
+std::lock_guard<std::mutex> ext::vulkan::RenderMode::guardMutex( uf::thread::id_t id ) {
 	return this->commands.guardMutex( id );
 }
 void ext::vulkan::RenderMode::cleanupAllCommands() {
@@ -312,7 +312,7 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 	}
 	container.clear();
 }
-void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
+void ext::vulkan::RenderMode::cleanupCommands( uf::thread::id_t id ) {
 	auto& container = this->commands.container();
 	for ( auto& pair : container ) {
 		if ( pair.first == id ) continue;

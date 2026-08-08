@@ -132,9 +132,9 @@ void ext::opengl::Device::destroy() {
 	spec::Context::globalCleanup();
 }
 spec::Context& ext::opengl::Device::activateContext() {
-	return activateContext( std::this_thread::get_id() );
+	return activateContext( uf::thread::current_id() );
 }
-spec::Context& ext::opengl::Device::activateContext( std::thread::id id ) {
+spec::Context& ext::opengl::Device::activateContext( uf::thread::id_t id ) {
 	bool exists = this->contexts.has(id);
 	auto& context = this->contexts.get(id);
 	if ( !exists ) {

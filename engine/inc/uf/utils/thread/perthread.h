@@ -11,7 +11,7 @@ namespace uf {
 	public:
 		typedef T type_t;
 		typedef std::shared_ptr<std::mutex> mutex_type_t;
-		typedef std::thread::id id_t;
+		typedef uf::thread::id_t id_t;
 		typedef uf::stl::map<id_t, type_t> container_t;
 		typedef uf::stl::map<id_t, mutex_type_t> mutex_container_t;
 	protected:
@@ -21,16 +21,16 @@ namespace uf {
 	public:
 		ThreadUnique() : m_mutex(std::make_shared<std::mutex>()) {}
 
-		bool has( id_t id = std::this_thread::get_id() ) const;
-		T& get( id_t id = std::this_thread::get_id() );
+		bool has( id_t id = uf::thread::current_id() ) const;
+		T& get( id_t id = uf::thread::current_id() );
 		container_t& container();
 	
-		mutex_type_t getMutex( id_t id = std::this_thread::get_id() );
-		void lockMutex( id_t id = std::this_thread::get_id() );
-		bool tryMutex( id_t id = std::this_thread::get_id() );
-		void unlockMutex( id_t id = std::this_thread::get_id() );
-		std::lock_guard<std::mutex> guardMutex( id_t id = std::this_thread::get_id() );
-		void cleanup( id_t id = std::this_thread::get_id() );
+		mutex_type_t getMutex( id_t id = uf::thread::current_id() );
+		void lockMutex( id_t id = uf::thread::current_id() );
+		bool tryMutex( id_t id = uf::thread::current_id() );
+		void unlockMutex( id_t id = uf::thread::current_id() );
+		std::lock_guard<std::mutex> guardMutex( id_t id = uf::thread::current_id() );
+		void cleanup( id_t id = uf::thread::current_id() );
 	};
 }
 

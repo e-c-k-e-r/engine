@@ -53,7 +53,7 @@ namespace ext {
 			GLhandle(VkSemaphore) renderCompleteSemaphore;
 			uf::stl::vector<GLhandle(VkFence)> fences;
 			
-			std::thread::id mostRecentCommandPoolId;
+			uf::thread::id_t mostRecentCommandPoolId;
 			uf::ThreadUnique<CommandBuffer> commands;
 
 			virtual ~RenderMode();
@@ -75,7 +75,7 @@ namespace ext {
 			virtual const uf::stl::string getName() const;
 			virtual const uf::stl::string getType() const;
 
-			virtual CommandBuffer& getCommands( std::thread::id = std::this_thread::get_id() );
+			virtual CommandBuffer& getCommands( uf::thread::id_t = uf::thread::current_id() );
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			virtual void bindGraphicPushConstants( ext::opengl::Graphic*, size_t = 0 );

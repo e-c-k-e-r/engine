@@ -11,6 +11,19 @@
 #include <uf/engine/graph/graph.h>
 
 #define UF_PHYSICS_TEST 0
+#define UF_PHYSICS_METRICS 0
+
+#if UF_PHYSICS_METRICS
+	#define UF_PHYSICS_TIMER_MULTITRACE_START(...) UF_PHYSICS_TIMER_MULTITRACE_START(__VA_ARGS__)
+	#define UF_PHYSICS_TIMER_MULTITRACE(...) UF_PHYSICS_TIMER_MULTITRACE(__VA_ARGS__)
+	#define UF_PHYSICS_TIMER_MULTITRACE_END(...) UF_PHYSICS_TIMER_MULTITRACE_END(__VA_ARGS__)
+	#define UF_PHYSICS_METRICS_(f) { f; }
+#else
+#define UF_PHYSICS_TIMER_MULTITRACE_START(...) {}
+	#define UF_PHYSICS_TIMER_MULTITRACE(...) {}
+	#define UF_PHYSICS_TIMER_MULTITRACE_END(...) {}
+	#define UF_PHYSICS_METRICS_(f) {}
+#endif
 
 pod::PhysicsSettings uf::physics::settings;
 
@@ -56,7 +69,7 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		return;
 	}
 
-	//UF_TIMER_MULTITRACE_START("Tick Step Begin");
+	UF_PHYSICS_TIMER_MULTITRACE_START("Tick Step Begin");
 	static float accumulator = 0;
 	accumulator += dt; 
 
@@ -66,9 +79,9 @@ void uf::physics::tick( pod::World& world, float dt ) {
 		if ( uf::physics::settings.substeps > 0 ) uf::physics::substep( world, timestep, uf::physics::settings.substeps ); 
 		else uf::physics::step( world, timestep ); 
 		accumulator -= timestep; 
-		//UF_TIMER_MULTITRACE("Tick Accumulation Step");
+		UF_PHYSICS_TIMER_MULTITRACE("Tick Accumulation Step");
 	}
-	//UF_TIMER_MULTITRACE_END("Tick Step Complete");
+	UF_PHYSICS_TIMER_MULTITRACE_END("Tick Step Complete");
 
 	if ( uf::physics::settings.debugDraw.mask != pod::Collider::CATEGORY_NONE ) impl::draw( world, dt );
 }
@@ -90,7 +103,7 @@ void uf::physics::substep( pod::World& world, float dt, int substeps ) {
 	}
 }
 void uf::physics::step( pod::World& world, float dt ) {
-	//UF_TIMER_MULTITRACE_START("Physics Step Begin");
+	UF_PHYSICS_TIMER_MULTITRACE_START("Physics Step Begin");
 	auto& bodies = world.bodies;
 	auto& constraints = world.constraints;
 	auto& dynamicBvh = world.dynamicBvh;
@@ -137,7 +150,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 
 	for ( auto* body : bodies ) impl::integrateKinematic( *body, dt );
 	for ( auto* body : bodies ) impl::integrate( *body, dt );
-	//UF_TIMER_MULTITRACE("Integration & Flattening");
+	UF_PHYSICS_TIMER_MULTITRACE("Integration & Flattening");
 
 	// rebuild static bvh if dirty
 	if ( staticBvh.dirty && uf::physics::settings.useSplitBvhs ) {
@@ -157,7 +170,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		} break;
 	}
 
-	//UF_TIMER_MULTITRACE("BVH Updates");
+	UF_PHYSICS_TIMER_MULTITRACE("BVH Updates");
 
 	// query for overlaps
 	pod::BVH::pairs_t pairs;
@@ -166,21 +179,23 @@ void uf::physics::step( pod::World& world, float dt ) {
 		impl::queryOverlaps( dynamicBvh, staticBvh, pairs );
 	}
 
-	//UF_TIMER_MULTITRACE("Broadphase Overlap Queries");
+	UF_PHYSICS_TIMER_MULTITRACE("Broadphase Overlap Queries");
 
 	// build islands from overlaps
 	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Island>, islands);
 	impl::buildIslands( pairs, bodies, constraints, islands );
 
-	//UF_TIMER_MULTITRACE("Island Generation");
+	UF_PHYSICS_TIMER_MULTITRACE("Island Generation");
 
 	if ( uf::physics::settings.warmupSolver ) impl::prepareManifoldCache( uf::physics::settings.manifoldsCache, islands, bodies );
 
-	std::atomic<long long> timeNarrowphase{0};
-	std::atomic<long long> timeVelocitySolver{0};
-	std::atomic<long long> timePositionSolver{0};
-	std::atomic<long long> timeConstraints{0};
-	std::atomic<long long> timeCache{0};
+#if UF_PHYSICS_METRICS
+	uf::stl::atomic<long long> timeNarrowphase{0};
+	uf::stl::atomic<long long> timeVelocitySolver{0};
+	uf::stl::atomic<long long> timePositionSolver{0};
+	uf::stl::atomic<long long> timeConstraints{0};
+	uf::stl::atomic<long long> timeCache{0};
+#endif
 
 	// iterate islands
 	//#pragma omp parallel for schedule(dynamic)
@@ -205,7 +220,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		}
 
 		// iterate overlap pairs
-		//auto tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		UF_PHYSICS_METRICS_(auto tStart = TIMER_TRACE.elapsed().asMicroseconds());
 		for ( auto& [ ia, ib ] : island.pairs ) {
 			auto& a = *bodies[ia];
 			auto& b = *bodies[ib];
@@ -264,31 +279,33 @@ void uf::physics::step( pod::World& world, float dt ) {
 			// store manifold
 			manifolds.emplace_back( manifold );
 		}
-		//timeNarrowphase += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
+		UF_PHYSICS_METRICS_(timeNarrowphase += (TIMER_TRACE.elapsed().asMicroseconds() - tStart));
 		// pass manifolds to solver
-		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		UF_PHYSICS_METRICS_(tStart = TIMER_TRACE.elapsed().asMicroseconds());
 		impl::solveManifold( manifolds, dt );
-		//timeVelocitySolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
+		UF_PHYSICS_METRICS_(timeVelocitySolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart));
 		// do position correction
-		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		UF_PHYSICS_METRICS_(tStart = TIMER_TRACE.elapsed().asMicroseconds());
 		impl::solvePositions( manifolds, dt );
-		//timePositionSolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
+		UF_PHYSICS_METRICS_(timePositionSolver += (TIMER_TRACE.elapsed().asMicroseconds() - tStart));
 		// solve constraints
-		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		UF_PHYSICS_METRICS_(tStart = TIMER_TRACE.elapsed().asMicroseconds());
 		impl::solveConstraints( constraints, dt );
-		//timeConstraints += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
+		UF_PHYSICS_METRICS_(timeConstraints += (TIMER_TRACE.elapsed().asMicroseconds() - tStart));
 		// cache manifold positions
-		//tStart = TIMER_TRACE.elapsed().asMicroseconds();
+		UF_PHYSICS_METRICS_(tStart = TIMER_TRACE.elapsed().asMicroseconds());
 		impl::updateManifoldCache( island, previousCollisions, uf::physics::settings.manifoldsCache );
-		//timeCache += (TIMER_TRACE.elapsed().asMicroseconds() - tStart);
+		UF_PHYSICS_METRICS_(timeCache += (TIMER_TRACE.elapsed().asMicroseconds() - tStart));
 	});
 	uf::thread::execute( tasks );
-	//UF_TIMER_MULTITRACE("Narrowphase & Solvers (Threaded)");
-	//UF_MSG_DEBUG("  -> Manifold Gen: {} us", timeNarrowphase.load());
-	//UF_MSG_DEBUG("  -> Vel Solver  : {} us", timeVelocitySolver.load());
-	//UF_MSG_DEBUG("  -> Pos Solver  : {} us", timePositionSolver.load());
-	//UF_MSG_DEBUG("  -> Constraints : {} us", timeConstraints.load());
-	//UF_MSG_DEBUG("  -> Cache	   : {} us", timeCache.load());
+#if UF_PHYSICS_METRICS
+	UF_TIMER_MULTITRACE("Narrowphase & Solvers (Threaded)");
+	UF_MSG_DEBUG("  -> Manifold Gen: {} us", timeNarrowphase.load());
+	UF_MSG_DEBUG("  -> Vel Solver  : {} us", timeVelocitySolver.load());
+	UF_MSG_DEBUG("  -> Pos Solver  : {} us", timePositionSolver.load());
+	UF_MSG_DEBUG("  -> Constraints : {} us", timeConstraints.load());
+	UF_MSG_DEBUG("  -> Cache	   : {} us", timeCache.load());
+#endif
 
 	{
 		activeCollisions.clear();
@@ -307,11 +324,11 @@ void uf::physics::step( pod::World& world, float dt ) {
 			activeCollisions.insert(activeCollisions.end(), island.active.begin(), island.active.end());
 			collisionEvents.insert(collisionEvents.end(), island.events.begin(), island.events.end());
 		}
-		//UF_TIMER_MULTITRACE("Event Dispatch (Insert)");
+		UF_PHYSICS_TIMER_MULTITRACE("Event Dispatch (Insert)");
 
 		std::sort(activeCollisions.begin(), activeCollisions.end());
 		
-		//UF_TIMER_MULTITRACE("Sort Active Array");
+		UF_PHYSICS_TIMER_MULTITRACE("Sort Active Array");
 
 		auto itPrev = previousCollisions.begin();
 		auto itAct = activeCollisions.begin();
@@ -339,7 +356,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 			}
 		}
 
-		//UF_TIMER_MULTITRACE("Event Dispatch (Sweep & Exit)");
+		UF_PHYSICS_TIMER_MULTITRACE("Event Dispatch (Sweep & Exit)");
 	}
 
 
@@ -381,8 +398,8 @@ void uf::physics::step( pod::World& world, float dt ) {
 		}
 	}
 
-	//UF_TIMER_MULTITRACE("Transform Unflattening");
-	//UF_TIMER_MULTITRACE_END("Physics Step Complete");
+	UF_PHYSICS_TIMER_MULTITRACE("Transform Unflattening");
+	UF_PHYSICS_TIMER_MULTITRACE_END("Physics Step Complete");
 }
 
 void uf::physics::setMass( pod::PhysicsBody& body, float mass ) {

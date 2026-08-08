@@ -236,18 +236,18 @@ void ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool free ) {
 	ext::opengl::states::rebuild = true;
 }
 ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode() {
-	return getCurrentRenderMode( std::this_thread::get_id() );
+	return getCurrentRenderMode( uf::thread::current_id() );
 }
-ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode( std::thread::id id ) {
+ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode( uf::thread::id_t id ) {
 //	bool exists = ext::opengl::currentRenderMode.has(id);
 //	auto& currentRenderMode = ext::opengl::currentRenderMode.get(id);
 //	return currentRenderMode;
 	return ext::opengl::currentRenderMode.get(id);
 }
 void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode ) {
-	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
+	return setCurrentRenderMode( renderMode, uf::thread::current_id() );
 }
-void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode, std::thread::id id ) {
+void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode, uf::thread::id_t id ) {
 	ext::opengl::currentRenderMode.get(id) = renderMode;
 }
 

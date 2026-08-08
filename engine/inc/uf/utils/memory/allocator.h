@@ -27,6 +27,9 @@ namespace uf {
 	template <class T>
 	struct Allocator {
 		typedef T value_type;
+		typedef std::true_type propagate_on_container_swap;
+		typedef std::true_type propagate_on_container_move_assignment;
+		typedef std::true_type is_always_equal;
 
 		Allocator() = default;
 		template <class U> constexpr Allocator( const Allocator<U>& ) noexcept {}
@@ -51,6 +54,9 @@ namespace uf {
 	template <class T>
 	struct Mallocator {
 		typedef T value_type;
+		typedef std::true_type propagate_on_container_swap;
+		typedef std::true_type propagate_on_container_move_assignment;
+		typedef std::true_type is_always_equal;
 
 		Mallocator() = default;
 		template <class U> constexpr Mallocator( const Mallocator<U>& ) noexcept {}

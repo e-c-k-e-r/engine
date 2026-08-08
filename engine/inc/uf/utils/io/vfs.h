@@ -14,6 +14,7 @@ namespace pod {
 		void* handle = nullptr;
 
 		size_t (*read)(void* handle, void* buffer, size_t bytes) = nullptr;
+		size_t (*stream)(void* handle, void* buffer, size_t bytes, size_t chunkSize) = nullptr;
 		bool   (*seek)(void* handle, long offset, int origin) = nullptr;
 		size_t (*tell)(void* handle) = nullptr;
 		void   (*close)(void* handle) = nullptr;

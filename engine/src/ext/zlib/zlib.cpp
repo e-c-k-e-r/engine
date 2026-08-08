@@ -14,7 +14,7 @@
 #endif
 
 
-size_t ext::zlib::bufferSize = 16384;
+size_t ext::zlib::bufferSize = 16384; // 16K
 
 bool ext::zlib::decompressFromFile( uf::stl::vector<uint8_t>& buffer, const uf::stl::string& filename, int flag ) {
 	size_t fileSize = uf::vfs::size(filename);

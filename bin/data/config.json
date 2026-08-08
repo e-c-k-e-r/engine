@@ -117,12 +117,12 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": true, // to-do: fix issues
+					"vxgi": false, // to-do: fix issues
 					"culling": false,
 					"bloom": true,
 					"dof": true,
 					"rt": false,
-					"fsr": true,
+					"fsr": false,
 					"postProcess": false // "postProcess.chromab" // false
 				},
 				"formats": {
@@ -316,7 +316,7 @@
 				"enabled": false
 			},
 			"fsr": {
-				"enabled": true,
+				"enabled": false,
 				"upscale": true,
 				"interpolation": true, // it works but i don't think it's presenting the frame
 				"sharpness": 0,

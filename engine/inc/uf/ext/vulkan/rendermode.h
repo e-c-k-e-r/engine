@@ -68,7 +68,7 @@ namespace ext {
 			uf::renderer::QueueEnum queueEnum = {};
 			
 			typedef uf::stl::vector<VkCommandBuffer> commands_container_t;
-			std::thread::id mostRecentCommandPoolId;
+			uf::thread::id_t mostRecentCommandPoolId;
 			uf::ThreadUnique<commands_container_t> commands;
 
 			constexpr static int32_t CALLBACK_BEGIN = -1;
@@ -83,14 +83,14 @@ namespace ext {
 			
 			uf::Image screenshot(size_t = 0, size_t = 0);
 
-			commands_container_t& getCommands( std::thread::id = std::this_thread::get_id() );
-			void lockMutex( std::thread::id = std::this_thread::get_id() );
-			bool tryMutex( std::thread::id = std::this_thread::get_id() );
-			void unlockMutex( std::thread::id = std::this_thread::get_id() );
-			std::lock_guard<std::mutex> guardMutex( std::thread::id = std::this_thread::get_id() );
+			commands_container_t& getCommands( uf::thread::id_t = uf::thread::current_id() );
+			void lockMutex( uf::thread::id_t = uf::thread::current_id() );
+			bool tryMutex( uf::thread::id_t = uf::thread::current_id() );
+			void unlockMutex( uf::thread::id_t = uf::thread::current_id() );
+			std::lock_guard<std::mutex> guardMutex( uf::thread::id_t = uf::thread::current_id() );
 			
 			void cleanupAllCommands();
-			void cleanupCommands( std::thread::id = std::this_thread::get_id() );
+			void cleanupCommands( uf::thread::id_t = uf::thread::current_id() );
 			
 			ext::vulkan::Graphic& getBlitter();
 			virtual RenderTarget& getRenderTarget(size_t = 0);
