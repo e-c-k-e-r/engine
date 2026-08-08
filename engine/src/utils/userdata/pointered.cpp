@@ -2,6 +2,7 @@
 #include <uf/utils/string/base64.h> 		// base64
 #include <cstdlib> 							// malloc, free
 #include <cstring> 							// memcpy
+#include <uf/utils/memory/memcpy.h>
 
 // Constructs a pod::PointeredUserdata struct
 pod::PointeredUserdata uf::pointeredUserdata::create( size_t len, const void* data, UF_USERDATA_CTTI_TYPE type ) {
@@ -41,7 +42,7 @@ pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedM
 #endif
 	auto& trait = uf::pointeredUserdata::getTrait( userdata.type );
 	if ( data && userdata.type != UF_USERDATA_CTTI(void) ) trait.constructor( userdata.data, data );
-	else if ( data ) memcpy( userdata.data, data, requestedLen );
+	else if ( data ) uf::stl::memcpy( userdata.data, data, requestedLen );
 	else memset( userdata.data, 0, requestedLen );
 	//UF_MSG_DEBUG("Calling create: {}: {}", trait.name, (void*) userdata.data);
 	return userdata;

@@ -3,6 +3,7 @@
 #include <uf/utils/io/file.h>
 #include <uf/utils/io/vfs.h>
 #include <uf/utils/userdata/userdata.h>
+#include <uf/utils/memory/memcpy.h>
 #include <cstring>
 #include <algorithm>
 #include <fstream>
@@ -209,7 +210,7 @@ bool ext::zlib::decompressScatter( const uf::stl::string& filename, uf::stl::vec
 					size_t copyLen = std::min(have - copyStart, (req.start + req.len) - (chunkStart + copyStart));
 					size_t destOffset = (chunkStart + copyStart) - req.start;
 
-					std::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
+					uf::stl::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
 				}
 			}
 
@@ -344,7 +345,7 @@ namespace {
 		size_t toRead = (bytes > bytesLeft) ? bytesLeft : bytes;
 
 		if (toRead > 0) {
-			std::memcpy(buffer, stream->data + stream->cursor, toRead);
+			uf::stl::memcpy(buffer, stream->data + stream->cursor, toRead);
 			stream->cursor += toRead;
 		}
 		return toRead;

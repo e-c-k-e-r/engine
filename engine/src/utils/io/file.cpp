@@ -2,6 +2,7 @@
 #include <uf/utils/io/vfs.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/hash.h>
+#include <uf/utils/memory/memcpy.h>
 
 #include <sys/stat.h>
 #include <algorithm>
@@ -205,7 +206,7 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 		for ( auto& req : requests ) {
 			if ( req.start < fullBuffer.size() ) {
 				size_t copyLen = std::min(req.len, fullBuffer.size() - req.start);
-				std::memcpy(req.dest, fullBuffer.data() + req.start, copyLen);
+				uf::stl::memcpy(req.dest, fullBuffer.data() + req.start, copyLen);
 			}
 		}
 		return true;

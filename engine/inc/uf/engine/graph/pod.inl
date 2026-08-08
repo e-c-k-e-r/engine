@@ -139,6 +139,10 @@ namespace pod {
 	};
 
 	struct ImageStream {
-		StreamRegion buffer;
+		pod::StreamRegion buffer;
+	};
+
+	struct BvhStream {
+		pod::StreamRegion buffer;
 	};
 }

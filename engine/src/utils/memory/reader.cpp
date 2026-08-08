@@ -1,6 +1,6 @@
 #include <uf/utils/memory/reader.h>
 
-uf::stl::reader::reader( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length, bool zeroCopy ) : m_buffer(buffer), m_offset(offset), m_endOffset(offset + length), m_zeroCopy( zeroCopy ) {
+uf::stl::reader::reader( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length, bool zeroCopy, bool aligned ) : m_buffer(buffer), m_offset(offset), m_endOffset(offset + length), m_zeroCopy( zeroCopy ), m_aligned( aligned ) {
 
 }
 

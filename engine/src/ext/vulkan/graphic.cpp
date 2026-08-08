@@ -6,6 +6,7 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/memory/memcpy.h>
 
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
@@ -1683,7 +1684,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			mat = uf::matrix::transpose(mat); // might need to not do this
 
 			auto& instanceVK = instancesVK.emplace_back();
-			memcpy(&instanceVK.transform, &mat, sizeof(instanceVK.transform));
+			uf::stl::memcpy(&instanceVK.transform, &mat, sizeof(instanceVK.transform));
 			instanceVK.instanceCustomIndex 						= blas.instanceID;
 			instanceVK.accelerationStructureReference			= blas.deviceAddress;
 			instanceVK.flags 									= 0; // VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -1714,7 +1715,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 
 		auto& buffer = this->buffers.at(instanceIndex);
 		void* map = buffer.map();
-		memcpy(map, instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR));
+		uf::stl::memcpy(map, instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR));
 		buffer.unmap();
 	}
 

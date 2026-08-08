@@ -1,9 +1,9 @@
 #include <uf/utils/image/atlas.h>
+#include <uf/utils/memory/memcpy.h>
 #include <bit>
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #include <stb/stb_rect_pack.h>
-
 pod::Atlas::hash_t uf::atlas::add( pod::Atlas& atlas, const pod::Image& image, const pod::Atlas::hash_t& hash ) {
 	size_t index = atlas.tiles.size();
 	if ( atlas.tiles.count( hash ) > 0 ) return hash;
@@ -85,7 +85,7 @@ void uf::atlas::generate( pod::Atlas& atlas, size_t padding ) {
 			size_t dstIndex = ((y + tile.coord.y) * size.x * channels) + (tile.coord.x * channels);
 
 			if ( srcChannels == channels ) {
-				memcpy(&dstBuffer[dstIndex], &srcBuffer[srcIndex], rowSizeSrc * sizeof(decltype(dstBuffer[0])));
+				uf::stl::memcpy(&dstBuffer[dstIndex], &srcBuffer[srcIndex], rowSizeSrc * sizeof(decltype(dstBuffer[0])));
 			} else {
 				for ( size_t x = 0; x < tile.size.x; ++x ) {
 					for ( size_t c = 0; c < srcChannels; ++c ) {
@@ -103,8 +103,8 @@ void uf::atlas::generate( pod::Atlas& atlas, size_t padding ) {
 					size_t botSrcY = tile.coord.y + tile.size.y - 1;
 
 					size_t rowBytes = tile.size.x * channels * sizeof(decltype(dstBuffer[0]));
-					memcpy( &dstBuffer[topDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[topSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
-					memcpy( &dstBuffer[botDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[botSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
+					uf::stl::memcpy( &dstBuffer[topDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[topSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
+					uf::stl::memcpy( &dstBuffer[botDstY * size.x * channels + tile.coord.x * channels], &dstBuffer[botSrcY * size.x * channels + tile.coord.x * channels], rowBytes );
 				}
 
 				// left and right

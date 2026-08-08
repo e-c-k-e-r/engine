@@ -1,6 +1,8 @@
 #include <uf/utils/math/physics/common.h>
 #include <uf/utils/math/physics/broadphase/bvh.h>
 #include <uf/utils/math/physics/narrowphase/ray.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 
 pod::BVH::index_t impl::buildBVHNode( pod::BVH& bvh, const uf::stl::vector<pod::AABB>& bounds, pod::BVH::index_t start, pod::BVH::index_t end, pod::BVH::index_t capacity ) {
 	pod::BVH::Node node{};
@@ -221,12 +223,14 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 	const auto& views = mesh.buffer_views;
 	UF_ASSERT( !views.empty() );
 
+
 	// populate initial indices and bounds
 	for ( auto& view : views ) {
 		auto& indices   = view["index"];
 		auto& positions = view["position"];
 
 		auto tris = view.index.count / 3;
+		
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
 			auto tri = uf::mesh::fetchTriangle( view, indices, positions, triIndexID );
 			auto aabb = impl::computeTriangleAABB( tri );
@@ -460,8 +464,11 @@ pod::BVH::index_t impl::flattenBVH( pod::BVH& bvh, pod::BVH::index_t nodeID ) {
 	if ( nodeID == 0 ) {
 		bvh.flattened.clear();
 		bvh.flatBounds.clear();
+		bvh.primitiveToNode.clear();
+
 		bvh.flattened.reserve(bvh.nodes.size());
 		bvh.flatBounds.reserve(bvh.bounds.size());
+		bvh.primitiveToNode.resize(bvh.indices.size());
 	}
 
 	const auto& node = bvh.nodes[nodeID];
@@ -480,8 +487,12 @@ pod::BVH::index_t impl::flattenBVH( pod::BVH& bvh, pod::BVH::index_t nodeID ) {
 	if ( node.getCount() > 0 ) {
 		flat.start = node.start;
 		flat.setCount(node.getCount());
-		flat.skipIndex = flatID + 1; // next node after this leaf
+		flat.skipIndex = flatID + 1;
 		bvh.flattened[flatID] = flat;
+
+		for ( uint32_t i = 0; i < node.getCount(); ++i ) {
+			bvh.primitiveToNode[bvh.indices[node.start + i]] = flatID;
+		}
 		return flatID + 1;
 	}
 	// internal
@@ -770,14 +781,14 @@ void impl::queryFlatOverlaps( const pod::BVH& bvh, pod::BVH::pairs_t& outPairs )
 
 	for ( pod::BVH::index_t a = 0; a < nodes.size(); ++a ) {
 		const auto& nodeA = nodes[a];
-		if ( nodeA.getCount() <= 0 ) continue;
+		if ( nodeA.getCount() <= 0 || nodeA.isUnloaded() ) continue;
 
 		const auto& boundsA = bounds[a];
 		pod::BVH::index_t b = a + 1;
 		while ( b < nodes.size() ) {
 			const auto& nodeB = nodes[b];
 
-			if ( (nodeA.isAsleep() && nodeB.isAsleep()) || !impl::aabbOverlap( boundsA, bounds[b] ) ) {
+			if ( ( nodeA.isAsleep() && nodeB.isAsleep() ) ||  nodeB.isUnloaded() || !impl::aabbOverlap( boundsA, bounds[b] ) ) {
 				b = nodeB.skipIndex;
 				continue;
 			}
@@ -820,11 +831,13 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::B
 		auto [a, b] = stack.back();
 		stack.pop_back();
 
-		const auto& nodeA = bvhA.flattened[a];
-		const auto& nodeB = bvhB.flattened[b];
+		const auto& nodeA = nodesA[a];
+		const auto& nodeB = nodesB[b];
 
 		if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
-		if ( !impl::aabbOverlap( bvhA.flatBounds[a], bvhB.flatBounds[b] ) ) {
+		if ( nodeA.isUnloaded() || nodeB.isUnloaded() ) continue;
+
+		if ( !impl::aabbOverlap( boundsA[a], boundsB[b] ) ) {
 			continue;
 		}
 
@@ -834,27 +847,25 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, pod::B
 		if ( isLeafA && isLeafB ) {
 			for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
 				for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
-					auto indexA = bvhA.indices[nodeA.start + ia];
-					auto indexB = bvhB.indices[nodeB.start + ib];
-
-				//	if ( indexA > indexB ) std::swap( indexA, indexB );
+					auto indexA = indicesA[nodeA.start + ia];
+					auto indexB = indicesB[nodeB.start + ib];
 					outPairs.emplace_back(indexA, indexB);
 				}
 			}
 		}
 		else if ( isLeafA ) {
-			pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+			pod::BVH::index_t rightB = nodesB[b + 1].skipIndex;
 			stack.emplace_back(a, b + 1);
 			stack.emplace_back(a, rightB);
 		}
 		else if ( isLeafB ) {
-			pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+			pod::BVH::index_t rightA = nodesA[a + 1].skipIndex;
 			stack.emplace_back(a + 1,  b);
 			stack.emplace_back(rightA, b);
 		}
 		else {
-			pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
-			pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+			pod::BVH::index_t rightA = nodesA[a + 1].skipIndex;
+			pod::BVH::index_t rightB = nodesB[b + 1].skipIndex;
 
 			stack.emplace_back(a + 1, b + 1);
 			stack.emplace_back(a + 1, rightB);
@@ -889,6 +900,7 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const 
 		const auto& nodeB = bvhB.flattened[b];
 
 		if ( nodeA.isAsleep() && nodeB.isAsleep() ) continue;
+		if ( nodeA.isUnloaded() || nodeB.isUnloaded() ) continue;
 
 		pod::AABB boundsB_in_A = impl::transformAabbToWorld(boundsB[b], relTransform);
 		if ( !impl::aabbOverlap( boundsA[a], boundsB_in_A ) ) continue;
@@ -899,27 +911,25 @@ void impl::queryFlatOverlaps( const pod::BVH& bvhA, const pod::BVH& bvhB, const 
 		if ( isLeafA && isLeafB ) {
 			for ( pod::BVH::index_t ia = 0; ia < nodeA.getCount(); ++ia ) {
 				for ( pod::BVH::index_t ib = 0; ib < nodeB.getCount(); ++ib ) {
-					auto indexA = bvhA.indices[nodeA.start + ia];
-					auto indexB = bvhB.indices[nodeB.start + ib];
-
-				//	if ( indexA > indexB ) std::swap( indexA, indexB );
+					auto indexA = indicesA[nodeA.start + ia];
+					auto indexB = indicesB[nodeB.start + ib];
 					outPairs.emplace_back(indexA, indexB);
 				}
 			}
 		}
 		else if ( isLeafA ) {
-			pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+			pod::BVH::index_t rightB = nodesB[b + 1].skipIndex;
 			stack.emplace_back(a, b + 1);
 			stack.emplace_back(a, rightB);
 		}
 		else if ( isLeafB ) {
-			pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
+			pod::BVH::index_t rightA = nodesA[a + 1].skipIndex;
 			stack.emplace_back(a + 1,  b);
 			stack.emplace_back(rightA, b);
 		}
 		else {
-			pod::BVH::index_t rightA = bvhA.flattened[a + 1].skipIndex;
-			pod::BVH::index_t rightB = bvhB.flattened[b + 1].skipIndex;
+			pod::BVH::index_t rightA = nodesA[a + 1].skipIndex;
+			pod::BVH::index_t rightB = nodesB[b + 1].skipIndex;
 
 			stack.emplace_back(a + 1, b + 1);
 			stack.emplace_back(a + 1, rightB);
@@ -941,7 +951,7 @@ void impl::queryFlatBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::
 	while ( idx < nodes.size() ) {
 		const auto& node = nodes[idx];
 
-		if ( !node.isAsleep() && impl::aabbOverlap( bounds, bvh.flatBounds[idx] ) ) {
+		if ( !node.isAsleep() && !node.isUnloaded() && impl::aabbOverlap( bounds, bvh.flatBounds[idx] ) ) {
 			// leaf
 			if ( node.getCount() > 0 ) {
 				for ( auto i = 0; i < node.getCount(); ++i ) {
@@ -955,6 +965,7 @@ void impl::queryFlatBVH( const pod::BVH& bvh, const pod::AABB& bounds, uf::stl::
 		}
 	}
 }
+
 void impl::queryFlatBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vector<pod::BVH::index_t>& outIndices, float maxDist ) {
 	auto& nodes = bvh.flattened;
 	auto& indices = bvh.indices;
@@ -965,7 +976,7 @@ void impl::queryFlatBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vect
 	while ( idx < nodes.size() ) {
 		const auto& node = nodes[idx];
 		float tMin, tMax;
-		if ( /*!node.isAsleep() &&*/ impl::rayAabbIntersect( ray, bvh.flatBounds[idx], tMin, tMax ) && tMin <= maxDist ) {
+		if ( !node.isAsleep() && !node.isUnloaded() && impl::rayAabbIntersect( ray, bvh.flatBounds[idx], tMin, tMax ) && tMin <= maxDist ) {
 			// leaf
 			if ( node.getCount() > 0 ) {
 				for ( auto i = 0; i < node.getCount(); ++i ) {
@@ -983,4 +994,95 @@ void impl::queryFlatBVH( const pod::BVH& bvh, const pod::Ray& ray, uf::stl::vect
 void impl::postprocessPairs( pod::BVH::pairs_t& pairs ) {
 	std::sort(pairs.begin(), pairs.end());
 	pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+}
+
+void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, bool active ) {
+	if ( index < bvh.primitiveToNode.size() ) {
+		uint32_t flatNodeID = bvh.primitiveToNode[index];
+		if ( flatNodeID < bvh.flattened.size() ) {
+			bvh.flattened[flatNodeID].setUnloaded(!active);
+		}
+		return;
+	}
+
+	if ( !bvh.nodes.empty() ) {
+		for ( auto& node : bvh.nodes ) {
+			if ( node.getCount() > 0 ) {
+				for ( uint32_t i = 0; i < node.getCount(); ++i ) {
+					if ( bvh.indices[node.start + i] == index ) {
+						node.setUnloaded(!active);
+						return;
+					}
+				}
+			}
+		}
+	}
+}
+
+size_t uf::bvh::serialize( const pod::BVH& bvh, uf::stl::vector<uint8_t>& outBuffer, uint32_t offset ) {
+	uf::stl::writer writer( outBuffer, offset, true );
+
+	writer.write( (uint32_t)( bvh.indices.size() ) );
+	writer.write( (uint32_t)( bvh.nodes.size() ) );
+	writer.write( (uint32_t)( bvh.flattened.size() ) );
+
+	if ( !bvh.indices.empty() ) writer.write( bvh.indices );
+	if ( !bvh.nodes.empty() ) { writer.write( bvh.nodes ); writer.write( bvh.bounds); }
+	if ( !bvh.flattened.empty() ) { writer.write( bvh.flattened ); writer.write( bvh.flatBounds ); writer.write( bvh.primitiveToNode ); }
+
+	return writer.offset() - offset;
+}
+
+bool uf::bvh::deserialize( pod::BVH& bvh, const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length ) {
+	uf::stl::reader reader( buffer, offset, length > 0 ? length : buffer.size(), true, true );
+
+	const uint32_t* pNumIndices = reader.read<uint32_t>();
+	const uint32_t* pNumNodes   = reader.read<uint32_t>();
+	const uint32_t* pNumFlat	= reader.read<uint32_t>();
+
+	if ( !pNumIndices || !pNumNodes || !pNumFlat ) return false;
+
+	uint32_t numIndices = *pNumIndices;
+	uint32_t numNodes   = *pNumNodes;
+	uint32_t numFlat	= *pNumFlat;
+
+	if ( numIndices > 0 ) {
+		if ( !reader.read( numIndices, bvh.indices ) ) return false;
+	} else {
+		bvh.indices.clear();
+	}
+
+	if ( numNodes > 0 ) {
+		if ( numFlat > 0 ) {
+			reader.skip( numNodes * sizeof(pod::BVH::Node) );
+			reader.skip( numNodes * sizeof(pod::AABB) );
+			bvh.nodes.clear();
+			bvh.nodes.shrink_to_fit();
+			bvh.bounds.clear();
+			bvh.bounds.shrink_to_fit();
+		} else {
+			if ( !reader.read( numNodes, bvh.nodes ) ) return false;
+			if ( !reader.read( numNodes, bvh.bounds ) ) return false;
+		}
+	} else {
+		bvh.nodes.clear();
+		bvh.bounds.clear();
+	}
+
+	if ( numFlat > 0 ) {
+		if ( !reader.read( numFlat, bvh.flattened ) ) return false;
+		if ( !reader.read( numFlat, bvh.flatBounds ) ) return false;
+		if ( !reader.read( numIndices, bvh.primitiveToNode ) ) return false;
+	} else {
+		bvh.flattened.clear();
+		bvh.flatBounds.clear();
+		bvh.primitiveToNode.clear();
+	}
+
+	bvh.dirty = false;
+	return true;
+}
+
+void uf::bvh::build( pod::BVH& bvh, const uf::Mesh& mesh ) {
+	return impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
 }

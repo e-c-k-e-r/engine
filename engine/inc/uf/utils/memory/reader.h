@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vector.h"
+#include "memcpy.h"
 
 namespace uf {
 	namespace stl {
@@ -11,8 +12,18 @@ namespace uf {
 			uint32_t m_offset;
 			uint32_t m_endOffset;
 			bool m_zeroCopy; // if true, returns a pointer to the original buffer in memory 
+			bool m_aligned;
+
+			inline void align( size_t alignment ) {
+				if ( !m_aligned ) return;
+
+				uintptr_t addr = (uintptr_t)(m_buffer.data() + m_offset);
+				uintptr_t misaligned = addr % alignment;
+
+				if ( misaligned != 0 ) m_offset += ( alignment - misaligned );
+			}
 		public:
-			reader( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length, bool zeroCopy = true );
+			reader( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length, bool zeroCopy = true, bool aligned = false );
 
 			inline bool eof() const { return m_offset >= m_endOffset; }
 			inline uint32_t offset() const { return m_offset; }
@@ -21,16 +32,18 @@ namespace uf {
 
 			template<typename T>
 			const T* read( size_t readSize = sizeof(T) ) {
+				align( alignof(T) );
+
 				if ( m_offset + readSize > m_endOffset ) return nullptr;
 				if ( !m_zeroCopy ) {
 					static thread_local T copy;
 					memset(&copy, 0, sizeof(T));
 					size_t copySize = std::min(sizeof(T), readSize);
-					memcpy(&copy, m_buffer.data() + m_offset, copySize);
+					uf::stl::memcpy(&copy, m_buffer.data() + m_offset, copySize);
 					m_offset += readSize;
 					return &copy;
 				}
-				
+
 				const T* ptr = (const T*)(m_buffer.data() + m_offset);
 				m_offset += readSize;
 				return ptr;
@@ -38,6 +51,8 @@ namespace uf {
 
 			template<typename T>
 			bool read( size_t count, uf::stl::vector<T>& outArray ) {
+				align( alignof(T) );
+
 				size_t bytes = count * sizeof(T);
 				if ( m_offset + bytes > m_endOffset ) {
 					bytes = m_endOffset - m_offset;
@@ -48,7 +63,7 @@ namespace uf {
 
 				if ( !m_zeroCopy ) {
 					outArray.resize(count);
-					memcpy(outArray.data(), m_buffer.data() + m_offset, bytes);
+					uf::stl::memcpy(outArray.data(), m_buffer.data() + m_offset, bytes);
 				} else {
 					outArray.assign(
 						(const T*)(m_buffer.data() + m_offset),
@@ -57,6 +72,16 @@ namespace uf {
 				}
 				m_offset += bytes;
 				return true;
+			}
+
+			template<typename T>
+			const T* peek() const {
+				uint32_t alignedOffset = m_offset;
+				uint32_t misaligned = alignedOffset % alignof(T);
+				if ( misaligned != 0 ) alignedOffset += ( alignof(T) - misaligned );
+
+				if ( alignedOffset + sizeof(T) > m_endOffset ) return nullptr;
+				return (const T*)(m_buffer.data() + alignedOffset);
 			}
 
 		// to-do: #if C++ >= 20 or something
@@ -70,12 +95,6 @@ namespace uf {
 				return view;
 			}
 		*/
-
-			template<typename T>
-			const T* peek() const {
-				if ( m_offset + sizeof(T) > m_endOffset ) return nullptr;
-				return (const T*)(m_buffer.data() + m_offset);
-			}
 		};
 	}
 }

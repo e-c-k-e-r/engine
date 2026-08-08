@@ -7,6 +7,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/ext/openvr/openvr.h>
+#include <uf/utils/memory/memcpy.h>
 
 #include <set>
 #include <map>
@@ -189,7 +190,7 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 	if ( memoryPool ) buffer = memoryPool->alloc( requestedSize );
 	else buffer = uf::allocator::malloc_m( requestedSize ); // allocate data for the userdata struct, and then some
 #endif
-	if ( data ) memcpy( buffer, data, requestedSize );
+	if ( data ) uf::stl::memcpy( buffer, data, requestedSize );
 	else memset( buffer, 0, requestedSize );
 #endif
 	return index;

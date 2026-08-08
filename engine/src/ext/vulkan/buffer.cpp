@@ -7,6 +7,7 @@
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
+#include <uf/utils/memory/memcpy.h>
 
 void ext::vulkan::Buffer::swap( ext::vulkan::Buffer& buffer ) {
 	std::swap(this->aliased, buffer.aliased);
@@ -195,7 +196,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length ) const 
 	if ( !this->staged ) {
 		auto* self = const_cast<ext::vulkan::Buffer*>(this);
 		void* map = self->map(length);
-		for ( const auto& region : regions ) memcpy(static_cast<char*>(map) + region.dstOffset, data, length);
+		for ( const auto& region : regions ) uf::stl::memcpy(static_cast<char*>(map) + region.dstOffset, data, length);
 		self->unmap();
 		return false;
 	}

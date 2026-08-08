@@ -7,7 +7,7 @@
 #if UF_USE_AICA
 #include <uf/ext/aica/aica.h>
 #endif
-
+#include <uf/utils/memory/memcpy.h>
 #include <uf/ext/audio/pcm.h>
 #include <uf/utils/memory/pool.h>
 #include <cstdio>
@@ -28,7 +28,7 @@ namespace {
 				size_t bytesToCopy = std::min((size_t)(req_bytes - totalRead), bytesLeft);
 
 				if ( bytesToCopy > 0 ) {
-					std::memcpy(buffer + totalRead, pcm_data + source->streamState.consumed, bytesToCopy);
+					uf::stl::memcpy(buffer + totalRead, pcm_data + source->streamState.consumed, bytesToCopy);
 					totalRead += (int)bytesToCopy;
 					source->streamState.consumed += bytesToCopy;
 				}
@@ -64,7 +64,7 @@ void ext::pcm::load( pod::AudioClip& clip, const pod::PCM& pcm ) {
 		clip.alBuffer.buffer(clip.info.format, pcm.samples.data(), (ALsizei) clip.info.size, clip.info.frequency);
 	} else {
 		clip.stream.buffer = malloc( clip.info.size ); // to-do: memory pool
-		std::memcpy( clip.stream.buffer, pcm.samples.data(), clip.info.size );
+		uf::stl::memcpy( clip.stream.buffer, pcm.samples.data(), clip.info.size );
 	}
 }
 

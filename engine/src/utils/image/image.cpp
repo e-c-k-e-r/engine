@@ -4,7 +4,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/io/vfs.h>
 #include <fstream>
-
+#include <uf/utils/memory/memcpy.h>
 #if UF_ENV_DREAMCAST
 
 #define STBI_NO_JPEG
@@ -40,7 +40,7 @@ namespace {
 		exp = exp + (127 - 15);
 		uint32_t f = (exp << 23) | (mant << 13);
 		float val;
-		std::memcpy(&val, &f, sizeof(float));
+		uf::stl::memcpy(&val, &f, sizeof(float));
 
 		return (uint8_t)(std::min(std::max(val, 0.0f), 1.0f) * 255.0f);
 	}
@@ -53,7 +53,7 @@ namespace {
 		exp = exp + (127 - 15);
 		uint32_t f = (exp << 23) | (mant << 13);
 		float val;
-		std::memcpy(&val, &f, sizeof(float));
+		uf::stl::memcpy(&val, &f, sizeof(float));
 		return val;
 	}
 }
@@ -167,14 +167,14 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 			UF_EXCEPTION("IO error: DTEX buffer is too small to contain a header");
 			return false;
 		}
-		memcpy(&header, buffer.data(), sizeof(header));
+		uf::stl::memcpy(&header, buffer.data(), sizeof(header));
 		if ( buffer.size() < sizeof(header) + header.size ) {
 			UF_EXCEPTION("IO error: DTEX buffer is truncated or corrupted");
 			return false;
 		}
 
 		image.pixels.resize(header.size);
-		memcpy( image.pixels.data(), buffer.data() + sizeof(header), header.size );
+		uf::stl::memcpy( image.pixels.data(), buffer.data() + sizeof(header), header.size );
 
 		// palette data:  buffer.data() + sizeof(header) + header.size
 
@@ -230,7 +230,7 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 
 			size_t len = width * height * 4 * sizeof(float);
 			image.pixels.resize( len );
-			std::memcpy( image.pixels.data(), stbi_pixels, len );
+			uf::stl::memcpy( image.pixels.data(), stbi_pixels, len );
 			stbi_image_free(stbi_pixels);
 
 			bpp = 32;
@@ -244,7 +244,7 @@ bool uf::image::open( pod::Image& image, const uf::stl::vector<uint8_t>& buffer,
 
 			size_t len = width * height * 4;
 			image.pixels.resize( len );
-			std::memcpy( image.pixels.data(), stbi_pixels, len );
+			uf::stl::memcpy( image.pixels.data(), stbi_pixels, len );
 			stbi_image_free(stbi_pixels);
 
 			bpp = 8;
@@ -275,7 +275,7 @@ void uf::image::load( pod::Image& image, const pod::Image::pixel_t::type_t* poin
 	image.pixels.clear();
 	image.pixels.resize( len );
 
-	if ( pointer ) memcpy( &image.pixels[0], pointer, len );
+	if ( pointer ) uf::stl::memcpy( &image.pixels[0], pointer, len );
 	else memset( &image.pixels[0], 0, len );
 
 	if ( flip ) uf::image::flip( image );

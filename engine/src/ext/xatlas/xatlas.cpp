@@ -1,6 +1,7 @@
 #if UF_USE_XATLAS
 #include <uf/ext/xatlas/xatlas.h>
 #include <xatlas/xatlas.h>
+#include <uf/utils/memory/memcpy.h>
 
 #define UF_XATLAS_UNWRAP_MULTITHREAD 1
 
@@ -277,7 +278,7 @@ size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 					} else {
 						uint8_t* dstPtr = static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (dstVertexFirst + j);
 						const uint8_t* srcPtr = static_cast<const uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (srcView.vertex.first + ref);
-						std::memcpy(dstPtr, srcPtr, srcAttribute.descriptor.size);
+						uf::stl::memcpy(dstPtr, srcPtr, srcAttribute.descriptor.size);
 					}
 				}
 			}

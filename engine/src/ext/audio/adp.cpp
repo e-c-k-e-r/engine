@@ -1,8 +1,8 @@
 #if UF_USE_ADP
 #include <uf/config.h>
+#include <uf/utils/memory/memcpy.h>
 #include <uf/ext/audio/adp.h>
 #include <uf/utils/io/vfs.h>
-
 #if UF_USE_OPENAL
 #include <uf/ext/openal/openal.h>
 #endif
@@ -367,7 +367,7 @@ uf::stl::vector<uint8_t> ext::adp::encode( const pod::PCM& pcm ) {
 
 	output.resize(sizeof(AdpHeader) + header.dataSize);
 
-	std::memcpy(output.data(), &header, sizeof(AdpHeader));
+	uf::stl::memcpy(output.data(), &header, sizeof(AdpHeader));
 	uint8_t* adpData = output.data() + sizeof(AdpHeader);
 
 	AdpState state[2] = { {0, 127}, {0, 127} };

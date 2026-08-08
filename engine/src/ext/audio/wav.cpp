@@ -1,6 +1,5 @@
 #include <uf/config.h>
 #if UF_USE_WAV
-
 #if UF_USE_OPENAL
 #include <uf/ext/openal/openal.h>
 #endif
@@ -10,6 +9,7 @@
 #endif
 
 #include <uf/ext/audio/wav.h>
+#include <uf/utils/memory/memcpy.h>
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/io/vfs.h>
 #include <cstdio>
@@ -359,8 +359,8 @@ uf::stl::vector<uint8_t> ext::wav::encode( const pod::PCM& pcm ) {
 
 	output.resize(sizeof(WAVHeader) + header.data_size);
 
-	std::memcpy(output.data(), &header, sizeof(WAVHeader));
-	std::memcpy(output.data() + sizeof(WAVHeader), pcm.samples.data(), header.data_size);
+	uf::stl::memcpy(output.data(), &header, sizeof(WAVHeader));
+	uf::stl::memcpy(output.data() + sizeof(WAVHeader), pcm.samples.data(), header.data_size);
 
 	return output;
 }

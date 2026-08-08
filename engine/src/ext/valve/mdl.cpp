@@ -4,6 +4,7 @@
 #include <uf/ext/valve/vtf.h>
 #include <uf/ext/valve/vpk.h>
 #include <uf/ext/valve/common.h>
+#include <uf/utils/memory/memcpy.h>
 
 namespace impl {
 #pragma pack(push, 1)
@@ -285,8 +286,8 @@ bool ext::valve::loadMdl( pod::Graph& graph, const uf::stl::string& filename ) {
 		int targetIndex = 0;
 		for ( int i = 0; i < vvdHdr->numFixups; ++i ) {
 			if ( fixups[i].lod >= 0 ) {
-				std::memcpy(&lod0Vertices[targetIndex], &vvdVertices[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(impl::mstudiovertex_t));
-				if ( vvdTangents ) std::memcpy(&lod0Tangents[targetIndex], &vvdTangents[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(pod::Vector4f));
+				uf::stl::memcpy(&lod0Vertices[targetIndex], &vvdVertices[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(impl::mstudiovertex_t));
+				if ( vvdTangents ) uf::stl::memcpy(&lod0Tangents[targetIndex], &vvdTangents[fixups[i].sourceVertexID], fixups[i].numVertexes * sizeof(pod::Vector4f));
 				targetIndex += fixups[i].numVertexes;
 			}
 		}

@@ -1,5 +1,6 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/memory/memcpy.h>
 
 // Used for per-vertex colors
 UF_VERTEX_DESCRIPTOR(pod::Vertex_3F2F3F4F,
@@ -137,25 +138,33 @@ uf::Mesh uf::Mesh::alias() const {
 	return alias;
 }
 void uf::Mesh::updateDescriptor() {
-	bool needsUpdate = false;
+	bool needsUpdate = (buffer_state.size() != buffers.size());
+	bool hasData = false;
 
-	if ( buffer_views.empty() ) {
-		needsUpdate = true;
-	} else if ( buffer_state.size() != buffers.size() ) {
-		needsUpdate = true;
-	} else {
+	if ( !needsUpdate ) {
 		for ( size_t i = 0; i < buffers.size(); ++i ) {
-			if ( buffer_state[i].pointer != buffers[i].data() ) {
-				needsUpdate = true;
-				break;
-			}
-			if ( buffer_state[i].size != buffers[i].size() ) {
+			const auto& buf = buffers[i];
+			const auto size = buf.size();
+
+			if ( size > 0 ) hasData = true;
+
+			if ( buffer_state[i].size != size || buffer_state[i].pointer != buf.data() ) {
 				needsUpdate = true;
 				break;
 			}
 		}
 	}
-	if ( !needsUpdate ) return;
+
+	if ( !needsUpdate && hasData && buffer_views.empty() ) {
+		needsUpdate = true;
+	}
+
+	if ( !needsUpdate ) {
+		if ( indirect.count > 0 && !buffer_views.empty() ) {
+			_updateViewPointers();
+		}
+		return;
+	}
 
 	_updateDescriptor(vertex);
 	_updateDescriptor(index);
@@ -237,7 +246,7 @@ uf::Mesh uf::Mesh::expand( ) {
 			uint8_t* srcAddr = static_cast<uint8_t*>(srcInput.pointer) + index * srcInput.stride;
 			uint8_t* dstAddr = static_cast<uint8_t*>(dstInput.pointer) + idx * dstInput.stride;
 
-			memcpy( dstAddr, srcAddr, srcInput.descriptor.size );
+			uf::stl::memcpy( dstAddr, srcAddr, srcInput.descriptor.size );
 		}
 	}
 
@@ -286,7 +295,7 @@ void uf::Mesh::interleave() {
 		for ( size_t i = 0; i < vertex.count; ++i ) {
 			uint8_t* dst = interleavedBuffer.data() + (i * interleavedStride) + currentOffset;
 			const uint8_t* src = srcBase + (i * srcStride);
-			memcpy( dst, src, attr.descriptor.size );
+			uf::stl::memcpy( dst, src, attr.descriptor.size );
 		}
 
 		attr.offset = currentOffset;
@@ -479,7 +488,7 @@ uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::s
 	if ( indirect.count > 0 ) {
 		for ( auto i = 0; i < indirect.count; i++ ) {
 			auto view = makeView( i, wanted, lod );
-		//	if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
+			//if ( view.index.count == 0 && view.vertex.count == 0 ) continue; // <= culprit, commenting out triggers the assert
 			views.emplace_back( view );
 		}
 	} else {
@@ -586,7 +595,20 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	}
 }
 void uf::Mesh::_updateViews() {
+	bool hasData = false;
+	for ( const auto& buf : buffers ) {
+		if ( !buf.empty() ) {
+			hasData = true;
+			break;
+		}
+	}
+	if ( !hasData ) {
+		buffer_views.clear();
+		return;
+	}
+
 	size_t targetSize = (indirect.count > 0) ? indirect.count : 1;
+
 	if ( buffer_views.size() != targetSize ) {
 		buffer_views = makeViews();
 	} else {
@@ -788,7 +810,7 @@ void uf::Mesh::_insertVs( uf::Mesh::Input& input, const void* data, size_t size 
 			const uint8_t* srcAddr = pointer + (i * input.size) + srcOffset;
 			uint8_t* dstAddr = dstBase + (i * attrSize);
 
-			memcpy( dstAddr, srcAddr, attrSize );
+			uf::stl::memcpy( dstAddr, srcAddr, attrSize );
 		}
 	}
 }

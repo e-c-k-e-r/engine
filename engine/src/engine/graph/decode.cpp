@@ -11,6 +11,7 @@
 #include <uf/ext/valve/bsp.h>
 #include <uf/ext/lgs/mis.h>
 #include <uf/utils/io/fmt.h>
+#include <uf/utils/math/physics/broadphase/bvh.h>
 
 #define UF_GRAPH_LOAD_MULTITHREAD 0
 
@@ -278,6 +279,28 @@ namespace {
 		return mesh;
 	}
 
+	pod::BVH decodeBvh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& bvhName ) {
+		pod::BVH bvh;
+		auto& storage = uf::graph::getStorage(graph);
+		auto& bvhStream = graph.streams.bvhs[bvhName];
+
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		size_t offset = json["offset"].as<size_t>();
+		size_t length = json["length"].as<size_t>();
+
+		uf::stl::string fullPath = uf::io::directory( graph.name ) + "/" + filename;
+		bvhStream.buffer = pod::StreamRegion{ fullPath, offset, length };
+
+		bool deferred = graph.settings.stream.enabled;
+		if ( !deferred ) {
+			uf::stl::vector<uint8_t> tempBuffer(length);
+			uf::asset::read( fullPath, offset, length, tempBuffer.data() );
+			uf::bvh::deserialize( bvh, tempBuffer, 0, length );
+		}
+
+		return bvh;
+	}
+
 	pod::Node decodeNode( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Node node = pod::Node{
 			.name = json["name"].as<uf::stl::string>(),
@@ -540,10 +563,15 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			auto name = key + value["name"].as<uf::stl::string>();
 
 			bool hasMinifiedAsset = value["min"].isObject();
-			ext::json::Value& json = ( preferMinified && hasMinifiedAsset ) ? value["min"] : value;
+			auto& json = ( preferMinified && hasMinifiedAsset ) ? value["min"] : value;
 
 			storage.meshes[name] = decodeMesh( json, graph, name );
 			graph.meshes.emplace_back(name);
+
+			// should probably be under serializer["bvhs"]
+			if ( value["bvh"].isObject() ) {
+				storage.bvhs[name] = decodeBvh( value["bvh"], graph, name );
+			}
 
 			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled )
 				meshesToMinify.emplace_back( name );

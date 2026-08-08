@@ -227,55 +227,7 @@ namespace pod {
 	};
 }
 
-// BVH
 namespace pod {
-	struct BVH {
-		typedef uint32_t index_t;
-		typedef std::pair<index_t,index_t> pair_t;
-		typedef uf::stl::vector<pair_t> pairs_t;
-		
-		struct Node {
-			BVH::index_t left = 0;
-			BVH::index_t right = 0;
-			BVH::index_t start = 0;
-			BVH::index_t flags = 0;
-
-			BVH::index_t getCount() const { return flags & 0x7FFFFFFF; }
-			bool isAsleep() const { return (flags & 0x80000000u) != 0; }
-			void setCount(BVH::index_t c) { flags = (flags & 0x80000000u) | (c & 0x7FFFFFFF); }
-			void setAsleep(bool a) { flags = (flags & 0x7FFFFFFF) | (a ? 0x80000000u : 0); }
-		};
-		struct FlatNode {
-			BVH::index_t start = 0;
-			BVH::index_t skipIndex = 0;
-			BVH::index_t flags = 0;
-
-			BVH::index_t getCount() const { return flags & 0x7FFFFFFF; }
-			bool isAsleep() const { return (flags & 0x80000000u) != 0; }
-			void setCount(BVH::index_t c) { flags = (flags & 0x80000000u) | (c & 0x7FFFFFFF); }
-			void setAsleep(bool a) { flags = (flags & 0x7FFFFFFF) | (a ? 0x80000000u : 0); }
-		};
-		struct UpdatePolicy {
-			enum class Decision {
-				NONE,	// do nothing
-				REFIT,   // refit bounds
-				REBUILD  // rebuild from scratch
-			};
-			float displacementThreshold = 0.25f; // 25% of AABB size
-			float overlapThreshold = 2.0f;	   // 2x growth in root surface area
-			float dirtyRatioThreshold = 0.3f;	// 30% dirty bodies
-			uint16_t maxFramesBeforeRebuild = 600;   // force rebuild every 600 frames
-		};
-
-		bool dirty = false;
-		uf::stl::vector<pod::BVH::index_t> indices;
-		uf::stl::vector<pod::BVH::Node> nodes;
-		uf::stl::vector<pod::BVH::FlatNode> flattened;
-		
-		uf::stl::vector<pod::AABB> bounds;
-		uf::stl::vector<pod::AABB> flatBounds;
-	};
-
 	struct RayQuery {
 		bool hit = false;
 		const pod::PhysicsBody* body = NULL;
@@ -310,6 +262,7 @@ namespace pod {
 	struct MeshBVH {
 		pod::BVH* bvh;
 		const uf::Mesh* mesh;
+		bool ownsBvh;
 	};
 	typedef MeshBVH ConvexHullBVH;
 

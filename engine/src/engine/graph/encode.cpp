@@ -9,6 +9,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/texconv/texconv.h>
+#include <uf/utils/math/physics/broadphase/bvh.h>
 
 #if !UF_ENV_DREAMCAST
 namespace {
@@ -349,6 +350,20 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				minMesh.interleave();
 
 				json["min"] = encode( minMesh, settings, graph, minBuffer, minBinName );
+			}
+
+			// to-do: should probably be in its own file in the event the broadphase physics BVH gets saved too
+			// it seems that it does cause issues when writing to the mesh's buffer
+			if ( false ) {
+				pod::BVH bvh;
+				uf::bvh::build( bvh, mesh );
+
+				auto offset = meshesBuffer.size();
+				auto length = uf::bvh::serialize( bvh, meshesBuffer );
+
+				json["bvh"]["filename"] = binName;
+				json["bvh"]["offset"] = offset;
+				json["bvh"]["length"] = length;
 			}
 
 			serializer["meshes"].emplace_back(json);

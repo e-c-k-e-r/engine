@@ -529,7 +529,7 @@ namespace impl {
 			size_t len = std::min<size_t>(entry->size, sizeof(T));
 			const void* data = reader.read< char >(len);
 			if ( data ) {
-				std::memcpy(&copy, data, len);
+				uf::stl::memcpy(&copy, data, len);
 				map[entry->objectId] = copy;
 			}
 

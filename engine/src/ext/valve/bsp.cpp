@@ -8,6 +8,7 @@
 
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/memory/unordered_set.h>
+#include <uf/utils/memory/memcpy.h>
 
 namespace impl {
 	struct RGBE {
@@ -573,7 +574,7 @@ namespace impl {
 
 		const uint8_t* src = buffer.data() + lump.offset;
 		for ( size_t i = 0; i < count; ++i ) {
-			std::memcpy(&data[i], src + (i * stride), sizeof(impl::BspLeaf));
+			uf::stl::memcpy(&data[i], src + (i * stride), sizeof(impl::BspLeaf));
 		}
 	}
 

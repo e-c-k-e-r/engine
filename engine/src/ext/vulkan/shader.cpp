@@ -6,6 +6,7 @@
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/memory/memcpy.h>
 
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
@@ -100,19 +101,19 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 		if ( value.is<int>(true) ) {
 			size_t size = sizeof(int32_t);
 			auto get = value.as<int32_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		// is strictly an unsigned int
 		} else if ( value.is<size_t>(true) ) {
 			size_t size = sizeof(uint32_t);
 			auto get = value.as<uint32_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		// is strictly a float
 		} else if ( value.is<float>(true) ) {
 			size_t size = sizeof(float);
 			auto get = value.as<float>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		}
 	#if UF_SHADER_TRACK_NAMES
@@ -133,74 +134,74 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 			size_t size = sizeof(bool); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<bool>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "int8_t" ) {
 			size_t size = sizeof(int8_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 	
 		//	auto get = input.as<int8_t>();
-		//	memcpy( byteBuffer, &get, size );
+		//	uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "uint8_t" ) {
 			size_t size = sizeof(uint8_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 		//	auto get = input.as<uint8_t>();
-		//	memcpy( byteBuffer, &get, size );
+		//	uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "int16_t" ) {
 			size_t size = sizeof(int16_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 		//	auto get = input.as<int16_t>();
-		//	memcpy( byteBuffer, &get, size );
+		//	uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "uint16_t" ) {
 			size_t size = sizeof(uint16_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 		//	auto get = input.as<uint16_t>();
-		//	memcpy( byteBuffer, &get, size );
+		//	uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "int32_t" ) {
 			size_t size = sizeof(int32_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<int32_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "uint32_t" ) {
 			size_t size = sizeof(uint32_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<int32_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "int64_t" ) {
 			size_t size = sizeof(int64_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<uint64_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "uint64_t" ) {
 			size_t size = sizeof(uint64_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<uint64_t>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "half" ) {
 			size_t size = sizeof(float); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 		//	auto get = input.as<float>();
-		//	memcpy( byteBuffer, &get, size );
+		//	uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "float" ) {
 			size_t size = sizeof(float); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<float>();
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		} else if ( primitive == "double" ) {
 			auto get = input.as<double>();
 			size_t size = sizeof(double); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
-			memcpy( byteBuffer, &get, size );
+			uf::stl::memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
 		}
 		return true;
@@ -756,7 +757,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						member["value"] = v;
 						member["validate"] = true;
 					#endif
-						memcpy( &buffer[0], &v, sizeof(v) );
+						uf::stl::memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "uint32_t";
 						definition.value.ui = v;
@@ -768,7 +769,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						member["type"] = "int32_t";
 						member["value"] = v;
 					#endif
-						memcpy( &buffer[0], &v, sizeof(v) );
+						uf::stl::memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "int32_t";
 						definition.value.i = v;
@@ -780,7 +781,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						member["type"] = "float";
 						member["value"] = v;
 					#endif
-						memcpy( &buffer[0], &v, sizeof(v) );
+						uf::stl::memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "float";
 						definition.value.f = v;
@@ -792,7 +793,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						member["type"] = "bool";
 						member["value"] = v;
 					#endif
-						memcpy( &buffer[0], &v, sizeof(v) );
+						uf::stl::memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "bool";
 						definition.value.ui = v;
@@ -810,7 +811,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				//VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<uf::stl::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
 			#endif
 
-				memcpy( &s[offset], &buffer, size );
+				uf::stl::memcpy( &s[offset], &buffer, size );
 				offset += size;
 			}
 		}

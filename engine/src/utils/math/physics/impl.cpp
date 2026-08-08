@@ -721,15 +721,15 @@ void uf::physics::destroy( pod::PhysicsBody& body ) {
 	}
 
 	// remove any pointered collider data
-	if ( body.collider.type == pod::ShapeType::MESH ) {
-		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
-		body.collider.mesh.bvh = NULL;
-		body.collider.mesh.mesh = NULL;
-	}
-	if ( body.collider.type == pod::ShapeType::CONVEX_HULL ) {
-		if ( body.collider.convexHull.bvh ) delete body.collider.convexHull.bvh;
-		body.collider.convexHull.bvh = NULL;
-		body.collider.convexHull.mesh = NULL;
+	switch ( body.collider.type ) {
+		case pod::ShapeType::MESH:
+		case pod::ShapeType::CONVEX_HULL: {
+			if ( body.collider.mesh.bvh && body.collider.mesh.ownsBvh ) {
+				delete body.collider.mesh.bvh;
+			}
+			body.collider.mesh.bvh = NULL;
+			body.collider.mesh.mesh = NULL;
+		} break;
 	}
 }
 

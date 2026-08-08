@@ -80,6 +80,7 @@ namespace pod {
 			uf::stl::unordered_map<uf::stl::string, pod::SkinStream> skins;
 			uf::stl::unordered_map<uf::stl::string, pod::MeshStream> meshes;
 			uf::stl::unordered_map<uf::stl::string, pod::ImageStream> images;
+			uf::stl::unordered_map<uf::stl::string, pod::BvhStream> bvhs;
 		} streams;
 
 		// Local storage, used for save/load
@@ -104,6 +105,7 @@ namespace pod {
 			uf::stl::KeyMap<pod::Animation> animations;
 
 			// maps without direct analogues
+			uf::stl::KeyMap<pod::BVH> bvhs;
 			uf::stl::KeyMap<uf::Atlas> atlases;
 			uf::stl::KeyMap<pod::Instance::Object> objects;
 			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;

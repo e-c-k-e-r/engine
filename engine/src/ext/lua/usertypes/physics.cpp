@@ -102,9 +102,9 @@ namespace binds {
 			UF_ASSERT( self.type == pod::ShapeType::CAPSULE );
 			return self.capsule;
 		}
-		const uf::Mesh& asMesh( pod::Collider& self ) {
+		const uf::Mesh* asMesh( pod::Collider& self ) { // returning a reference causes needless copies
 			UF_ASSERT( self.type == pod::ShapeType::MESH );
-			return *self.mesh.mesh;
+			return self.mesh.mesh;
 		}
 	}
 	namespace constraint {

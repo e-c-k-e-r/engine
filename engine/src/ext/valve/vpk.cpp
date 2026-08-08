@@ -8,6 +8,7 @@
 #include <uf/utils/io/vfs.h>
 #include <uf/utils/userdata/userdata.h>
 #include <uf/engine/asset/asset.h>
+#include <uf/utils/memory/memcpy.h>
 
 #if defined(_WIN32)
 	#include <windows.h>
@@ -162,7 +163,7 @@ namespace {
 
 		if (ctx->cursor < ctx->preloadBytes) {
 			size_t preloadRead = std::min(bytesToRead, ctx->preloadBytes - ctx->cursor);
-			std::memcpy(out, ctx->preloadData + ctx->cursor, preloadRead);
+			uf::stl::memcpy(out, ctx->preloadData + ctx->cursor, preloadRead);
 
 			ctx->cursor += preloadRead;
 			out += preloadRead;
@@ -304,7 +305,7 @@ bool ext::valve::loadVpk( pod::VpkArchive& vpk, const uf::stl::string& path ) {
 
 	auto readBytes = [&](void* dest, size_t len) -> bool {
 		if (offset + len > buffer.size()) return false;
-		std::memcpy(dest, buffer.data() + offset, len);
+		uf::stl::memcpy(dest, buffer.data() + offset, len);
 		offset += len;
 		return true;
 	};
@@ -374,7 +375,7 @@ bool ext::valve::readVpk( const pod::VpkArchive& vpk, const uf::stl::string& pat
 
 	// copy preload
 	if ( entry.metadata.preloadBytes > 0 ) {
-		memcpy(buffer.data(), entry.preloadData.data(), entry.metadata.preloadBytes);
+		uf::stl::memcpy(buffer.data(), entry.preloadData.data(), entry.metadata.preloadBytes);
 	}
 
 	// read payload from disk
@@ -445,7 +446,7 @@ bool ext::valve::readVpkRange( const pod::VpkArchive& vpk, const uf::stl::string
 
 	if ( start < entry.metadata.preloadBytes ) {
 		size_t preloadRead = std::min(len, (size_t)entry.metadata.preloadBytes - start);
-		memcpy(buffer.data(), entry.preloadData.data() + start, preloadRead);
+		uf::stl::memcpy(buffer.data(), entry.preloadData.data() + start, preloadRead);
 
 		bufferOffset += preloadRead;
 		start += preloadRead;

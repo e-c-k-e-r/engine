@@ -12,6 +12,7 @@
 #include <uf/utils/memory/unordered_set.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/ffx/fsr.h>
+#include <uf/utils/math/physics/broadphase/bvh.h>
 
 #include <uf/engine/ext.h>
 
@@ -2213,7 +2214,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	}
 
 	// bind mesh to physics state
-	if ( false ) {
+	{
 		auto& phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
 		else metadataJson["physics"] = phyziks;
@@ -2221,18 +2222,22 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		if ( ext::json::isObject( phyziks ) ) {
 			uf::stl::string type = phyziks["type"].as<uf::stl::string>();
 			bool isMesh = type == "mesh" || type == "hull";
+			bool exists = entity.hasComponent<pod::PhysicsBody>();
 			if ( isMesh ) {
-				bool exists = entity.hasComponent<pod::PhysicsBody>();
+				auto& bvh = storage.bvhs.map[meshName];
+				
+				// update bounds
 				if ( exists ) {
-					// re-initialize
-					auto& body = entity.getComponent<pod::PhysicsBody>();
-					uf::physics::initialize( body, mesh, type != "mesh" );
-				} else {
+				//	body.bounds = impl::computeAABB( body );
+					bvh = {};
+				}
+				{
+				// only need to initialize once, as the pointers will remain the same
 					float mass = phyziks["mass"].as(0.0f);
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
-
 					auto& body = uf::physics::create( entity, mass, center );
-					uf::physics::initialize( body, mesh, type != "mesh" );
+
+					uf::physics::initialize( body, mesh, bvh, type != "mesh" );
 
 					body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
 					body.material.restitution = phyziks["restitution"].as(body.material.restitution);
@@ -2268,6 +2273,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 		bool needsFullLoad = false;
 		bool needsSparseUpdate = false;
 		bool needsFallbackBinding = false;
+		bool needsBvhLoad = false;
 		uf::stl::vector<int8_t> queuedLODs;
 		uf::stl::vector<int32_t> dependentNodes;
 	};
@@ -2300,6 +2306,12 @@ void uf::graph::reload( pod::Graph& graph ) {
 		bool needsGraphicBinding = !entity.hasComponent<uf::renderer::Graphic>();
 		auto& work = pendingMeshes[node.mesh];
 		work.dependentNodes.push_back(node.index);
+
+		auto& bvh = storage.bvhs.map[meshName];
+		auto& bvhStream = graph.streams.bvhs[meshName];
+		if ( bvh.flattened.empty() && bvh.nodes.empty() && bvhStream.buffer.length > 0 ) {
+			work.needsBvhLoad = true;
+		}
 
 		if ( work.queuedLODs.empty() && primitives.size() > 0 ) {
 			work.queuedLODs.resize( primitives.size(), -1 );
@@ -2492,215 +2504,270 @@ void uf::graph::reload( pod::Graph& graph ) {
 		auto& key = graph.meshes[meshID];
 		auto& mesh = storage.meshes.map[key];
 		auto& meshStream = graph.streams.meshes[key];
+		auto& bvhStream = graph.streams.bvhs[key];
 		auto& primitives = storage.primitives.map[graph.primitives[meshID]];
 
 		if ( work.needsSparseUpdate ) {
-				struct ActiveDraw { size_t drawID; int8_t lodLevel; uint32_t fileVertexID; };
-				uf::stl::vector<ActiveDraw> activeDraws;
-				activeDraws.reserve(work.queuedLODs.size());
+			struct ActiveDraw { size_t drawID; int8_t lodLevel; uint32_t fileVertexID; };
+			uf::stl::vector<ActiveDraw> activeDraws;
+			activeDraws.reserve(work.queuedLODs.size());
 
-				struct Chunk { size_t offset; uf::stl::vector<uint8_t> data; };
-				struct SparseContext {
-					int32_t meshID;
-					uf::stl::vector<int32_t> deps;
+			struct Chunk { size_t offset; uf::stl::vector<uint8_t> data; };
+			struct SparseContext {
+				int32_t meshID;
+				uf::stl::vector<int32_t> deps;
 
-					uint32_t vertexCount = 0;
-					uint32_t indexCount = 0;
-					uf::stl::vector<std::pair<size_t, pod::DrawCommand>> updatedCommands;
+				uint32_t vertexCount = 0;
+				uint32_t indexCount = 0;
+				uf::stl::vector<std::pair<size_t, pod::DrawCommand>> updatedCommands;
 
-					uf::stl::unordered_map<size_t, size_t> bufferSizes;
-					uf::stl::unordered_map<size_t, uf::stl::vector<Chunk>> chunks;
-					uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> completedBuffers;
+				uf::stl::unordered_map<size_t, size_t> bufferSizes;
+				uf::stl::unordered_map<size_t, uf::stl::vector<Chunk>> chunks;
+				uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> completedBuffers;
 
-					uf::stl::atomic<int> pendingReads{0};
-				};
+				uf::stl::vector<uint8_t> bvhRawBuffer;
+				uf::stl::atomic<int> pendingReads{0};
+			};
 
-				auto ctx = std::make_shared<SparseContext>();
-				ctx->meshID = meshID;
-				ctx->deps = std::move(work.dependentNodes);
+			auto ctx = std::make_shared<SparseContext>();
+			ctx->meshID = meshID;
+			ctx->deps = std::move(work.dependentNodes);
 
-				auto& attribute = mesh.indirect.attributes.front();
-				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.buffers[attribute.buffer].data();
+			auto& attribute = mesh.indirect.attributes.front();
+			pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.buffers[attribute.buffer].data();
 
-				for ( size_t drawID = 0; drawID < work.queuedLODs.size(); ++drawID ) {
-					auto lodLevel = work.queuedLODs[drawID];
-					if ( lodLevel >= 0 ) {
-						activeDraws.emplace_back(ActiveDraw{drawID, lodLevel, primitives[drawID].lod.levels[lodLevel].vertexID});
-					} else {
-						pod::DrawCommand cmd = {};
-						if ( drawID < mesh.indirect.count ) cmd = drawCommands[drawID];
-						cmd.vertices = 0; cmd.indices = 0; cmd.vertexID = 0; cmd.indexID = 0;
-						ctx->updatedCommands.push_back({drawID, cmd});
+			for ( size_t drawID = 0; drawID < work.queuedLODs.size(); ++drawID ) {
+				auto lodLevel = work.queuedLODs[drawID];
+				if ( lodLevel >= 0 ) {
+					activeDraws.emplace_back(ActiveDraw{drawID, lodLevel, primitives[drawID].lod.levels[lodLevel].vertexID});
+				} else {
+					pod::DrawCommand cmd = {};
+					if ( drawID < mesh.indirect.count ) cmd = drawCommands[drawID];
+					cmd.vertices = 0; cmd.indices = 0; cmd.vertexID = 0; cmd.indexID = 0;
+					ctx->updatedCommands.push_back({drawID, cmd});
+				}
+			}
+
+			std::sort(activeDraws.begin(), activeDraws.end(), [](const ActiveDraw& a, const ActiveDraw& b) {
+				return a.fileVertexID < b.fileVertexID;
+			});
+
+			uf::stl::unordered_map<size_t, size_t> uniqueVertexBuffers;
+			for ( auto& attr : mesh.vertex.attributes ) {
+				uniqueVertexBuffers[attr.buffer] = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+			}
+
+			uf::stl::unordered_map<size_t, size_t> uniqueIndexBuffers;
+			for ( auto& attr : mesh.index.attributes ) {
+				uniqueIndexBuffers[attr.buffer] = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+			}
+
+			int actualReadsToPerform = 0;
+
+			if ( work.needsBvhLoad ) {
+				actualReadsToPerform += 1;
+			}
+			for ( auto& active : activeDraws ) {
+				auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
+
+				if ( lod.indices > 0 ) {
+					actualReadsToPerform += uniqueIndexBuffers.size();
+					for ( auto& [bufID, stride] : uniqueIndexBuffers ) {
+						ctx->bufferSizes[bufID] += lod.indices * stride;
+					}
+				}
+				if ( lod.vertices > 0 ) {
+					actualReadsToPerform += uniqueVertexBuffers.size();
+					for ( auto& [bufID, stride] : uniqueVertexBuffers ) {
+						ctx->bufferSizes[bufID] += lod.vertices * stride;
+					}
+				}
+			}
+
+			for ( auto& [bufID, size] : ctx->bufferSizes ) {
+				if ( size > 0 ) {
+					ctx->completedBuffers[bufID].resize(size);
+				}
+			}
+
+			ctx->pendingReads.store(actualReadsToPerform);
+
+			auto finalizeStream = [ctx, graphPtr = &graph]() {
+				auto& currentGraph = *graphPtr;
+				auto& storage = uf::graph::getStorage(currentGraph);
+				auto& meshKey = currentGraph.meshes[ctx->meshID];
+				auto& targetMesh = storage.meshes.map[meshKey];
+				auto& targetPrimitives = storage.primitives.map[currentGraph.primitives[ctx->meshID]];
+				auto& targetBvh = storage.bvhs.map[meshKey];
+
+				for ( auto& [b, buf] : ctx->completedBuffers ) {
+					std::swap(targetMesh.buffers[b], buf);
+				}
+
+				targetMesh.vertex.count = ctx->vertexCount;
+				targetMesh.index.count = ctx->indexCount;
+
+				if ( !ctx->bvhRawBuffer.empty() ) {
+					uf::bvh::deserialize( targetBvh, ctx->bvhRawBuffer, 0, ctx->bvhRawBuffer.size() );
+					ctx->bvhRawBuffer.clear();
+					ctx->bvhRawBuffer.shrink_to_fit();
+				}
+				bool bvhValid = !targetBvh.flattened.empty() || !targetBvh.nodes.empty();
+
+				auto& indirectAttr = targetMesh.indirect.attributes.front();
+				pod::DrawCommand* targetDrawCommands = (pod::DrawCommand*) targetMesh.buffers[indirectAttr.buffer].data();
+
+				for ( auto& [drawID, cmd] : ctx->updatedCommands ) {
+					targetPrimitives[drawID].drawCommand = cmd;
+					targetDrawCommands[drawID] = cmd;
+
+					if ( bvhValid ) {
+						uf::bvh::flagAsActive( targetBvh, drawID, (cmd.vertices > 0 && cmd.indices > 0) );
 					}
 				}
 
-				std::sort(activeDraws.begin(), activeDraws.end(), [](const ActiveDraw& a, const ActiveDraw& b) {
-					return a.fileVertexID < b.fileVertexID;
-				});
+				targetMesh.updateDescriptor();
 
-				uf::stl::unordered_map<size_t, size_t> uniqueVertexBuffers;
-				for ( auto& attr : mesh.vertex.attributes ) {
-					uniqueVertexBuffers[attr.buffer] = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+				for ( auto nodeID : ctx->deps ) {
+					uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
 				}
 
-				uf::stl::unordered_map<size_t, size_t> uniqueIndexBuffers;
-				for ( auto& attr : mesh.index.attributes ) {
-					uniqueIndexBuffers[attr.buffer] = attr.stride > 0 ? attr.stride : attr.descriptor.size;
+			#if UF_USE_OPENGL
+				uf::renderer::states::rebuild = true;
+			#endif
+			};
+			
+			auto cb = [ctx, finalizeStream]() mutable {
+				if ( ctx->pendingReads.fetch_sub(1) == 1 ) {
+					uf::thread::queue( uf::thread::mainThreadName, finalizeStream );
+				}
+			};
+
+			if ( actualReadsToPerform > 0 ) {
+				uf::stl::unordered_map<size_t, size_t> bufferWriteOffsets;
+
+				if ( work.needsBvhLoad ) {
+					ctx->bvhRawBuffer.resize( bvhStream.buffer.length );
+					uf::asset::read( bvhStream.buffer.filename, bvhStream.buffer.offset, bvhStream.buffer.length, ctx->bvhRawBuffer.data(), cb );
 				}
 
-				int actualReadsToPerform = 0;
 				for ( auto& active : activeDraws ) {
 					auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
 
-					if ( lod.indices > 0 ) {
-						actualReadsToPerform += uniqueIndexBuffers.size();
-						for ( auto& [bufID, stride] : uniqueIndexBuffers ) {
-							ctx->bufferSizes[bufID] += lod.indices * stride;
+					pod::DrawCommand cmd = {};
+					if ( active.drawID < mesh.indirect.count ) cmd = drawCommands[active.drawID];
+					cmd.vertices = lod.vertices; cmd.indices = lod.indices;
+					cmd.vertexID = ctx->vertexCount; cmd.indexID = ctx->indexCount;
+					ctx->updatedCommands.push_back({active.drawID, cmd});
+
+					auto dispatchInterleavedRead = [&](const auto& uniqueBuffers, uint32_t count, uint32_t id) {
+						if ( count == 0 ) return;
+
+						for ( auto& [bufID, stride] : uniqueBuffers ) {
+							size_t readBytes = count * stride;
+							size_t writeOffset = bufferWriteOffsets[bufID];
+
+							uint8_t* destPtr = ctx->completedBuffers[bufID].data() + writeOffset;
+							auto& region = meshStream.buffers[bufID];
+
+							uf::asset::read( region.filename, region.offset + (id * stride), readBytes, destPtr, cb );
+							bufferWriteOffsets[bufID] += readBytes;
 						}
-					}
-					if ( lod.vertices > 0 ) {
-						actualReadsToPerform += uniqueVertexBuffers.size();
-						for ( auto& [bufID, stride] : uniqueVertexBuffers ) {
-							ctx->bufferSizes[bufID] += lod.vertices * stride;
-						}
-					}
+					};
+
+					dispatchInterleavedRead(uniqueIndexBuffers, lod.indices, lod.indexID);
+					dispatchInterleavedRead(uniqueVertexBuffers, lod.vertices, lod.vertexID);
+
+					ctx->vertexCount += lod.vertices;
+					ctx->indexCount  += lod.indices;
 				}
 
-				for ( auto& [bufID, size] : ctx->bufferSizes ) {
-					if ( size > 0 ) {
-						ctx->completedBuffers[bufID].resize(size);
-					}
-				}
-
-				ctx->pendingReads.store(actualReadsToPerform);
-
-				auto finalizeStream = [ctx, graphPtr = &graph]() {
-					auto& currentGraph = *graphPtr;
-					auto& storage = uf::graph::getStorage(currentGraph);
-					auto& targetMesh = storage.meshes.map[currentGraph.meshes[ctx->meshID]];
-					auto& targetPrimitives = storage.primitives.map[currentGraph.primitives[ctx->meshID]];
-
-					for ( auto& [b, buf] : ctx->completedBuffers ) {
-						std::swap(targetMesh.buffers[b], buf);
-					}
-
-					targetMesh.vertex.count = ctx->vertexCount;
-					targetMesh.index.count = ctx->indexCount;
-
-					auto& indirectAttr = targetMesh.indirect.attributes.front();
-					pod::DrawCommand* targetDrawCommands = (pod::DrawCommand*) targetMesh.buffers[indirectAttr.buffer].data();
-					for ( auto& [drawID, cmd] : ctx->updatedCommands ) {
-						targetPrimitives[drawID].drawCommand = cmd;
-						targetDrawCommands[drawID] = cmd;
-					}
-
-					targetMesh.updateDescriptor();
-
-					for ( auto nodeID : ctx->deps ) {
-						uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
-					}
-
-				#if UF_USE_OPENGL
-					uf::renderer::states::rebuild = true;
-				#endif
-				};
-
-				if ( actualReadsToPerform > 0 ) {
-					uf::stl::unordered_map<size_t, size_t> bufferWriteOffsets;
-
-					for ( auto& active : activeDraws ) {
-						auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
-
-						pod::DrawCommand cmd = {};
-						if ( active.drawID < mesh.indirect.count ) cmd = drawCommands[active.drawID];
-						cmd.vertices = lod.vertices; cmd.indices = lod.indices;
-						cmd.vertexID = ctx->vertexCount; cmd.indexID = ctx->indexCount;
-						ctx->updatedCommands.push_back({active.drawID, cmd});
-
-						auto dispatchInterleavedRead = [&](const auto& uniqueBuffers, uint32_t count, uint32_t id) {
-							if ( count == 0 ) return;
-
-							for ( auto& [bufID, stride] : uniqueBuffers ) {
-								size_t readBytes = count * stride;
-								size_t writeOffset = bufferWriteOffsets[bufID];
-
-								uint8_t* destPtr = ctx->completedBuffers[bufID].data() + writeOffset;
-
-								auto cb = [ctx, finalizeStream]() mutable {
-									if ( ctx->pendingReads.fetch_sub(1) == 1 ) {
-										uf::thread::queue( uf::thread::mainThreadName, finalizeStream );
-									}
-								};
-
-								auto& region = meshStream.buffers[bufID];
-
-								uf::asset::read(
-									region.filename,
-									region.offset + (id * stride),
-									readBytes,
-									destPtr,
-									cb
-								);
-								bufferWriteOffsets[bufID] += readBytes;
-							}
-						};
-
-						dispatchInterleavedRead(uniqueIndexBuffers, lod.indices, lod.indexID);
-						dispatchInterleavedRead(uniqueVertexBuffers, lod.vertices, lod.vertexID);
-
-						ctx->vertexCount += lod.vertices;
-						ctx->indexCount  += lod.indices;
-					}
-
-				} else {
-					uf::thread::queue( uf::thread::mainThreadName, finalizeStream );
-				}
-		}
-		else if ( work.needsFullLoad ) {
-			int buffersToLoad = 0;
-			uf::stl::unordered_set<size_t> processedBuffers;
-
-			for ( auto& attr : mesh.index.attributes ) if ( !processedBuffers.count(attr.buffer) && (mesh.buffers[attr.buffer].empty() && !meshStream.buffers.empty()) ) { buffersToLoad++; processedBuffers.insert(attr.buffer); }
-			for ( auto& attr : mesh.vertex.attributes ) if ( !processedBuffers.count(attr.buffer) && (mesh.buffers[attr.buffer].empty() && !meshStream.buffers.empty()) ) { buffersToLoad++; processedBuffers.insert(attr.buffer); }
-
-			if ( buffersToLoad > 0 ) {
-				auto pendingBufferCount = std::make_shared<uf::stl::atomic<int>>(buffersToLoad);
-				auto newBuffers = std::make_shared<uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>>>();
-
-				auto finishedCallback = std::make_shared<pod::Thread::function_t>([newBuffers, graphPtr = &graph, meshID, deps = std::move(work.dependentNodes)]() mutable {
-					auto& currentGraph = *graphPtr;
-					auto& targetMesh = uf::graph::getStorage(currentGraph).meshes.map[currentGraph.meshes[meshID]];
-
-					for (auto& [b, buf] : *newBuffers) targetMesh.buffers[b] = std::move(buf);
-					targetMesh.updateDescriptor();
-					for ( auto nodeID : deps ) uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
-				});
-
-				processedBuffers.clear();
-				auto dispatchFullRead = [&](auto& attributes) {
-					for ( auto& attr : attributes ) {
-						if ( processedBuffers.count(attr.buffer) || (!mesh.buffers[attr.buffer].empty() || meshStream.buffers.empty()) ) continue;
-						processedBuffers.insert( attr.buffer );
-
-						auto cb = [attrBuf = attr.buffer, newBufs = newBuffers, counter = pendingBufferCount, finishCb = finishedCallback](uf::stl::vector<uint8_t>&& buffer) mutable {
-							uf::thread::queue( uf::thread::mainThreadName, [attrBuf, newBufs, counter, finishCb, data = std::move(buffer)]() mutable {
-								(*newBufs)[attrBuf] = std::move(data);
-								if ( counter->fetch_sub(1) == 1 ) (*finishCb)();
-							});
-						};
-						uf::asset::read( meshStream.buffers[attr.buffer].filename, meshStream.buffers[attr.buffer].offset, meshStream.buffers[attr.buffer].length, cb );
-					}
-				};
-
-				dispatchFullRead(mesh.index.attributes);
-				dispatchFullRead(mesh.vertex.attributes);
-			} else if ( work.needsFallbackBinding ) {
-				uf::thread::queue( uf::thread::mainThreadName, [graphPtr = &graph, deps = std::move(work.dependentNodes)]() {
-					for ( auto nodeID : deps ) uf::graph::reload( *graphPtr, graphPtr->nodes[nodeID] );
-				});
+			} else {
+				uf::thread::queue( uf::thread::mainThreadName, finalizeStream );
 			}
-		}
-		else if ( work.needsFallbackBinding ) {
+		} else if ( work.needsFullLoad || work.needsBvhLoad ) {
+			struct FullLoadContext {
+				int32_t meshID;
+				uf::stl::vector<int32_t> deps;
+				uf::stl::unordered_map<size_t, uf::stl::vector<uint8_t>> newBuffers;
+				uf::stl::vector<uint8_t> bvhRawBuffer;
+				uf::stl::atomic<int> pendingReads{0};
+			};
+
+			auto ctx = std::make_shared<FullLoadContext>();
+			ctx->meshID = meshID;
+			ctx->deps = std::move(work.dependentNodes);
+
+			uf::stl::vector<size_t> buffersToLoad;
+			if ( work.needsFullLoad ) {
+				uf::stl::unordered_set<size_t> processedBuffers;
+				auto collectAttributes = [&](const auto& attributes) {
+					for ( auto& attr : attributes ) {
+						if ( processedBuffers.count(attr.buffer) ) continue;
+						if ( mesh.buffers[attr.buffer].empty() && !meshStream.buffers.empty() ) {
+							buffersToLoad.push_back(attr.buffer);
+							processedBuffers.insert(attr.buffer);
+						}
+					}
+				};
+				collectAttributes(mesh.index.attributes);
+				collectAttributes(mesh.vertex.attributes);
+			}
+
+			int totalReads = buffersToLoad.size() + (work.needsBvhLoad ? 1 : 0);
+			ctx->pendingReads.store(totalReads);
+
+			auto finalizeFullLoad = [ctx, graphPtr = &graph]() {
+				auto& currentGraph = *graphPtr;
+				auto& storage = uf::graph::getStorage(currentGraph);
+				auto& meshKey = currentGraph.meshes[ctx->meshID];
+				auto& targetMesh = storage.meshes.map[meshKey];
+				auto& targetBvh = storage.bvhs.map[meshKey];
+
+				for ( auto& [b, buf] : ctx->newBuffers ) {
+					std::swap(targetMesh.buffers[b], buf);
+				}
+				targetMesh.updateDescriptor();
+
+				if ( !ctx->bvhRawBuffer.empty() ) {
+					uf::bvh::deserialize( targetBvh, ctx->bvhRawBuffer, 0, ctx->bvhRawBuffer.size() );
+					ctx->bvhRawBuffer.clear();
+					ctx->bvhRawBuffer.shrink_to_fit();
+				}
+
+				for ( auto nodeID : ctx->deps ) {
+					uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
+				}
+			};
+			
+			auto cb = [ctx, finalizeFullLoad]() mutable {
+				if ( ctx->pendingReads.fetch_sub(1) == 1 ) {
+					uf::thread::queue( uf::thread::mainThreadName, finalizeFullLoad );
+				}
+			};
+
+			if ( totalReads > 0 ) {
+				for ( size_t bufID : buffersToLoad ) {
+					ctx->newBuffers[bufID].resize(meshStream.buffers[bufID].length);
+				}
+				if ( work.needsBvhLoad ) {
+					ctx->bvhRawBuffer.resize(graph.streams.bvhs[key].buffer.length);
+				}
+
+
+				for ( size_t bufID : buffersToLoad ) {
+					auto& region = meshStream.buffers[bufID];
+					uf::asset::read( region.filename, region.offset, region.length, ctx->newBuffers[bufID].data(), cb );
+				}
+
+				if ( work.needsBvhLoad ) {
+					uf::asset::read( bvhStream.buffer.filename, bvhStream.buffer.offset, bvhStream.buffer.length, ctx->bvhRawBuffer.data(), cb );
+				}
+
+			} else {
+				uf::thread::queue( uf::thread::mainThreadName, finalizeFullLoad );
+			}
+		} else if ( work.needsFallbackBinding ) {
 			uf::thread::queue( uf::thread::mainThreadName, [graphPtr = &graph, deps = std::move(work.dependentNodes)]() {
 				for ( auto nodeID : deps ) uf::graph::reload( *graphPtr, graphPtr->nodes[nodeID] );
 			});

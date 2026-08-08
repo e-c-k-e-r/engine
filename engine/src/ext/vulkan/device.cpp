@@ -7,6 +7,7 @@
 #include <uf/utils/window/window.h>
 #include <uf/utils/string/ext.h>
 #include <uf/ext/openvr/openvr.h>
+#include <uf/utils/memory/memcpy.h>
 
 #include <set>
 #include <map>
@@ -774,7 +775,7 @@ VkResult ext::vulkan::Device::createBuffer(
 
 	if ( data != nullptr ) {
 		void* map = buffer.map();
-		memcpy(map, data, size);
+		uf::stl::memcpy(map, data, size);
 		buffer.unmap();
 	}
 

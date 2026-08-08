@@ -5,6 +5,7 @@
 #include <uf/ext/opengl/buffer.h>
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/device.h>
+#include <uf/utils/memory/memcpy.h>
 
 ext::opengl::Buffer ext::opengl::Buffer::alias() const {
 	ext::opengl::Buffer buffer;
@@ -87,7 +88,7 @@ bool ext::opengl::Buffer::update( const void* data, GLsizeiptr length ) const {
 #else
 // CPU-bound buffer
 	void* pointer = device->getBuffer( buffer );
-	if ( pointer && pointer != data ) memcpy( pointer, data, length );
+	if ( pointer && pointer != data ) uf::stl::memcpy( pointer, data, length );
 #endif
 	return false;
 }

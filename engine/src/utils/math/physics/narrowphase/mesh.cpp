@@ -235,22 +235,23 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, bool convex ) {
-	if ( !convex ) {
-		body.collider.type = pod::ShapeType::MESH;
-		body.collider.mesh.mesh = &mesh;
-		if ( body.collider.mesh.bvh ) delete body.collider.mesh.bvh;
+	if ( !body.collider.mesh.bvh ) {
 		body.collider.mesh.bvh = new pod::BVH;
-		
-		auto& bvh = *body.collider.mesh.bvh;
-		impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
+		body.collider.mesh.ownsBvh = true;
 	} else {
-		body.collider.type = pod::ShapeType::CONVEX_HULL;
-		body.collider.convexHull.mesh = &mesh;
-		if ( body.collider.convexHull.bvh ) delete body.collider.convexHull.bvh;
-		body.collider.convexHull.bvh = new pod::BVH;
-		
-		auto& bvh = *body.collider.convexHull.bvh;
-		impl::buildConvexHullBVH( bvh, mesh/*, uf::physics::settings.meshBvhCapacity*/ );
+		*body.collider.mesh.bvh = {};
+	}
+	return uf::physics::initialize( body, mesh, *body.collider.mesh.bvh, convex );
+}
+
+pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, pod::BVH& bvh, bool convex ) {
+	body.collider.type = convex ? pod::ShapeType::CONVEX_HULL : pod::ShapeType::MESH;
+	body.collider.mesh.mesh = &mesh;
+	body.collider.mesh.bvh = &bvh;
+
+	// to-do: move this to the above initialize to allow for deferred BVH building?
+	if ( bvh.nodes.empty() && bvh.flattened.empty() ) {
+		impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
 	}
 
 	body.bounds = impl::computeAABB( body );

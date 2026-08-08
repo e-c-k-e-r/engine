@@ -17,5 +17,6 @@ namespace impl {
 namespace uf {
 	namespace physics {
 		pod::PhysicsBody& UF_API initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, bool convex = false );
+		pod::PhysicsBody& UF_API initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, pod::BVH&, bool convex = false );
 	}
 }

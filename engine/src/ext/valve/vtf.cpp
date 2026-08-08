@@ -4,6 +4,7 @@
 #include <uf/ext/valve/vtf.h>
 #include <uf/ext/valve/vpk.h>
 #include <uf/ext/valve/common.h>
+#include <uf/utils/memory/memcpy.h>
 
 namespace impl {
 	constexpr uint32_t IMAGE_FORMAT_RGBA8888 = 0;
@@ -145,7 +146,7 @@ namespace impl {
 		exp = exp + (127 - 15);
 		uint32_t f = (exp << 23) | (mant << 13);
 		float val;
-		std::memcpy(&val, &f, sizeof(float));
+		uf::stl::memcpy(&val, &f, sizeof(float));
 
 		return (uint8_t)(std::min(std::max(val, 0.0f), 1.0f) * 255.0f);
 	}
@@ -158,7 +159,7 @@ namespace impl {
 		exp = exp + (127 - 15);
 		uint32_t f = (exp << 23) | (mant << 13);
 		float val;
-		std::memcpy(&val, &f, sizeof(float));
+		uf::stl::memcpy(&val, &f, sizeof(float));
 		return val;
 	}
 
@@ -436,7 +437,7 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 				}
 				offset += faceSize * 2;
 			} else if ( header->highResImageFormat == impl::IMAGE_FORMAT_RGBA16161616F ) {
-				std::memcpy(outPixels, data, faceSize * 8);
+				uf::stl::memcpy(outPixels, data, faceSize * 8);
 				offset += faceSize * 8;
 			} else {
 				UF_MSG_ERROR("VTF '{}' has unimplemented format: 0x{:x}", filename, header->highResImageFormat );
@@ -446,7 +447,7 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 				int mode = faceModes[mappedFace];
 				if ( mode == 0 ) continue;
 				uf::stl::vector<uint8_t> temp(faceSize * bytesPerPixel);
-				std::memcpy(temp.data(), outPixels, faceSize * bytesPerPixel);
+				uf::stl::memcpy(temp.data(), outPixels, faceSize * bytesPerPixel);
 
 				int size = header->width;
 				int max = size - 1;
@@ -468,7 +469,7 @@ bool ext::valve::loadVtf( pod::Image& image, const uf::stl::string& filename ) {
 						int srcIdx = (srcY * size + srcX) * bytesPerPixel;
 						int dstIdx = (y * size + x) * bytesPerPixel;
 
-						std::memcpy(&outPixels[dstIdx], &temp[srcIdx], bytesPerPixel);
+						uf::stl::memcpy(&outPixels[dstIdx], &temp[srcIdx], bytesPerPixel);
 					}
 				}
 			}

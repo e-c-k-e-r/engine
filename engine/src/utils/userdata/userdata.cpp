@@ -2,6 +2,7 @@
 #include <uf/utils/string/base64.h> 		// base64
 #include <cstdlib> 							// malloc, free
 #include <cstring> 							// memcpy
+#include <uf/utils/memory/memcpy.h>
 
 uf::MemoryPool uf::userdata::memoryPool;
 bool uf::userdata::autoDestruct = true;
@@ -46,7 +47,7 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t
 	userdata->type = type;
 	auto& trait = uf::userdata::getTrait( userdata->type );
 	if ( data && userdata->type != UF_USERDATA_CTTI(void) ) trait.constructor( userdata->data, data );
-	else if ( data ) memcpy( userdata->data, data, requestedLen );
+	else if ( data ) uf::stl::memcpy( userdata->data, data, requestedLen );
 	else memset( userdata->data, 0, requestedLen );
 	//UF_MSG_DEBUG("Calling create: {}: {}", trait.name, (void*) userdata->data);
 	return userdata;

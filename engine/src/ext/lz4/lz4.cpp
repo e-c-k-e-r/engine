@@ -3,7 +3,7 @@
 #include <uf/utils/io/vfs.h>
 #include <lz4frame.h>
 #include <algorithm>
-#include <cstring>
+#include <uf/utils/memory/memcpy.h>
 
 size_t ext::lz4::bufferSize = 16384; // 16K
 
@@ -192,7 +192,7 @@ bool ext::lz4::decompressScatter( const uf::stl::string& filename, uf::stl::vect
 						size_t copyLen = std::min(dstSize - copyStart, (req.start + req.len)  - (chunkStart + copyStart));
 						size_t destOffset = (chunkStart + copyStart) - req.start;
 
-						std::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
+						uf::stl::memcpy(req.dest + destOffset, outBuffer + copyStart, copyLen);
 					}
 				}
 

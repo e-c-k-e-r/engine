@@ -5,6 +5,7 @@
 #include <uf/utils/math/hash.h>
 #include <algorithm>
 #include <sys/stat.h>
+#include <uf/utils/memory/memcpy.h>
 
 #if UF_ENV_DREAMCAST
 	#include <kos/fs.h>
@@ -339,7 +340,7 @@ namespace {
 
 		uf::stl::vector<uint8_t> tempBuffer;
 		if (state->mount->readRange(*state->mount, state->relativePath, state->offset, toRead, tempBuffer)) {
-			std::memcpy(buffer, tempBuffer.data(), tempBuffer.size());
+			uf::stl::memcpy(buffer, tempBuffer.data(), tempBuffer.size());
 			state->offset += tempBuffer.size();
 			return tempBuffer.size();
 		}
