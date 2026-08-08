@@ -477,13 +477,11 @@ uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::s
 	uf::stl::vector<uf::Mesh::View> views;
 
 	if ( indirect.count > 0 ) {
-		auto startTime = uf::time::time();
 		for ( auto i = 0; i < indirect.count; i++ ) {
 			auto view = makeView( i, wanted, lod );
 		//	if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
 			views.emplace_back( view );
 		}
-		auto endTime = uf::time::time() - startTime;
 	} else {
 		auto view = makeView(wanted, lod);
 		views.emplace_back( view );
@@ -552,6 +550,8 @@ void uf::Mesh::_bind() {
 }
 void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	input.size = 0;
+
+	size_t maxCount = 0;
 	for ( auto& attribute : input.attributes ) {
 		if ( attribute.buffer >= 0 && attribute.buffer < buffers.size() && !buffers[attribute.buffer].empty() ) {
 			auto& buffer = buffers[attribute.buffer];
@@ -571,6 +571,18 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 		if ( attribute.stride == 0 ) {
 			attribute.stride = attribute.descriptor.size;
 		}
+
+		if ( attribute.stride > 0 && attribute.length > attribute.offset ) {
+			size_t availableBytes = attribute.length - attribute.offset;
+			size_t calculatedCount = availableBytes / attribute.stride;
+			if ( calculatedCount > maxCount ) {
+				maxCount = calculatedCount;
+			}
+		}
+	}
+
+	if ( input.count == 0 ) {
+		input.count = maxCount;
 	}
 }
 void uf::Mesh::_updateViews() {
@@ -583,7 +595,6 @@ void uf::Mesh::_updateViews() {
 }
 void uf::Mesh::_updateViewPointers() {
 	if ( indirect.count > 0 ) {
-		auto startTime = uf::time::time();
 		const pod::DrawCommand* drawCommands = reinterpret_cast<const pod::DrawCommand*>(getBuffer(indirect, 0).data());
 
 		for ( size_t i = 0; i < buffer_views.size(); ++i ) {
@@ -627,7 +638,6 @@ void uf::Mesh::_updateViewPointers() {
 				}
 			}
 		}
-		auto endTime = uf::time::time() - startTime;
 	} else {
 		if ( !buffer_views.empty() ) {
 			auto& view = buffer_views.front();

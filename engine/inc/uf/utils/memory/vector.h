@@ -30,7 +30,7 @@ namespace uf {
 		}
 
 		// a little overkill
-		template <typename T, size_t N = 8>
+		template <typename T, size_t N = 12>
 		class static_vector {
 		private:
 			T m_data[N];

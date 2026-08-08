@@ -27,7 +27,6 @@
 
 
 #define UF_GRAPH_EXTENDED 1
-#define UF_GRAPH_SPARSE_READ_MESH 1
 // to-do: fix LOD1+ breaking
 
 namespace {
@@ -785,7 +784,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		graphic.descriptor.aux = 1; // to-do: some global enums for this shit
 	}
 
-	auto tag = ext::json::find( entityName, graphMetadataJson["tags"] );
+	auto tag = metadataJson["graph"];
 	if ( !ext::json::isObject( tag ) ) {
 		tag["renderer"] = graphMetadataJson["renderer"];
 	}
@@ -1062,7 +1061,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 
 			auto filter = uf::renderer::enums::Filter::LINEAR;
-			auto tag = ext::json::find( key, graphMetadataJson["tags"] );
+			auto& tag = (graph.metadata["tags"][key] = ext::json::find( key, graphMetadataJson["tags"] ));
 			if ( !ext::json::isObject( tag ) ) {
 				tag["renderer"] = graphMetadataJson["renderer"];
 			}
@@ -1137,7 +1136,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 
-		auto tag = ext::json::find( name, graphMetadataJson["tags"] );
+		auto& tag = (graph.metadata["tags"][name] = ext::json::find( name, graphMetadataJson["tags"] ));
 		if ( ext::json::isObject( tag ) ) {
 			material.colorBase = uf::vector::decode( tag["material"]["base"], material.colorBase);
 			material.colorEmissive = uf::vector::decode( tag["material"]["emissive"], material.colorEmissive);
@@ -1338,7 +1337,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// ignore pesky light_Orientation nodes
 	if ( uf::string::split( node.name, "_" ).back() == "Orientation" ) ignore = true;
 
-	ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+	auto& tag = (node.metadata["tag"] = ext::json::find( node.name, graphMetadataJson["tags"] ));
 	if ( ext::json::isObject( tag ) ) {
 		if ( graphMetadataJson["baking"]["enabled"].as<bool>(false) && !tag["bake"].as<bool>(true) ) ignore = true;
 		if ( tag["ignore"].as<bool>() ) ignore = true;
@@ -1788,7 +1787,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 	auto& graphMetadataJson = graph.metadata;
 	for ( auto& node : graph.nodes ) {
 		if ( node.skin < 0 || node.mesh < 0 ) continue;
-		ext::json::Value tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+		auto& tag = node.metadata["tag"];
 		if ( ext::json::isNull( tag ) ) tag["physics"] = graphMetadataJson["physics"];
 		if ( tag["physics"]["ragdoll"].as<bool>(false) ) {
 			uf::graph::rigRagdoll( graph, node );
@@ -2176,7 +2175,7 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 	auto& entity = node.entity->as<uf::Object>();
 	auto& metadataJson = entity.getComponent<uf::Serializer>();
 	auto& primitives = storage.primitives.map[graph.primitives[node.mesh]];
-	//auto tag = ext::json::find( node.name, graphMetadataJson["tags"] );
+	auto& tag = node.metadata["tag"];
 
 	auto meshName = graph.meshes[node.mesh];
 	auto& mesh = storage.meshes.map[meshName];
@@ -2215,12 +2214,9 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 
 	// bind mesh to physics state
 	if ( false ) {
-		auto phyziks = metadataJson["physics"];
-	/*
-		auto phyziks = tag["physics"];
+		auto& phyziks = tag["physics"];
 		if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["physics"];
 		else metadataJson["physics"] = phyziks;
-	*/
 
 		if ( ext::json::isObject( phyziks ) ) {
 			uf::stl::string type = phyziks["type"].as<uf::stl::string>();
@@ -2415,7 +2411,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 			texture.srgb = descriptor.srgb;
 
 			auto filter = uf::renderer::enums::Filter::LINEAR;
-			auto tag = ext::json::find( key, graphMetadataJson["tags"] );
+			auto& tag = graph.metadata["tags"][key];
 			if ( !ext::json::isObject( tag ) ) tag["renderer"] = graphMetadataJson["renderer"];
 
 			if ( tag["renderer"]["filter"].is<uf::stl::string>() ) {
