@@ -209,7 +209,6 @@ bool impl::meshHull( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::
 }
 
 void impl::drawMesh( const pod::PhysicsBody& body ) {
-
 	const uf::Mesh* meshData = body.collider.mesh.mesh;
 	auto transform = impl::getTransform( body );
 	if ( !meshData ) return;
@@ -217,9 +216,7 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 	if ( body.inverseMass == 0.0f ) {
 		const auto& bvh = *body.collider.mesh.bvh;
 		if ( !bvh.qBounds.empty() ) {
-			for ( const auto& qBounds : bvh.qBounds ) {
-				uf::debug::drawShape( impl::dequantizeAABB( qBounds, bvh.rootBounds ), transform );
-			}
+			for ( const auto& qBounds : bvh.qBounds ) uf::debug::drawShape( impl::dequantizeAABB( qBounds, bvh.rootBounds ), transform );
 			return;
 		}
 		if ( !bvh.bounds.empty() ) {

@@ -1715,8 +1715,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			else metadataJson["physics"] = phyziks;
 			
 			if ( ext::json::isObject( phyziks ) ) {
-				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
-
+				uf::stl::string type = phyziks["type"].as<uf::stl::string>();
 				bool isMesh = type == "mesh" || type == "hull";
 				if ( !isMesh ) {
 					if ( ext::json::isNull( metadataJson["physics"]["center"] ) ) metadataJson["physics"]["center"] = uf::vector::encode( bounds.center );
@@ -2222,27 +2221,33 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 		if ( ext::json::isObject( phyziks ) ) {
 			uf::stl::string type = phyziks["type"].as<uf::stl::string>();
 			bool isMesh = type == "mesh" || type == "hull";
-			bool exists = entity.hasComponent<pod::PhysicsBody>();
-			if ( isMesh ) {
-				auto& bvh = storage.bvhs.map[meshName];
-				
-				// update bounds
-				if ( exists ) {
-					auto& body = entity.getComponent<pod::PhysicsBody>();
-					uf::physics::update( body );
-				}
-				if ( !exists ) {
-				// only need to initialize once, as the pointers will remain the same
-					float mass = phyziks["mass"].as(0.0f);
+			// cringe
+			if ( isMesh ) {	
+				auto& bvh = storage.bvhs[meshName];
+				float mass = phyziks["mass"].as(0.0f);
+				auto created = entity.hasComponent<pod::PhysicsBody>();
+				auto& body = entity.getComponent<pod::PhysicsBody>();
+				if ( !created ) {
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
-					auto& body = uf::physics::create( entity, mass, center );
-
+					uf::physics::create( entity, mass, center );
+				}
+				bool initialized = false;
+				// to-do: find a better initialization marker
+				switch ( body.collider.type ) {
+					case pod::ShapeType::MESH:
+					case pod::ShapeType::CONVEX_HULL:
+						initialized = true;
+					break;
+				}
+				if ( !initialized ) {
 					uf::physics::initialize( body, mesh, bvh, type != "mesh" );
 
 					body.material.staticFriction = phyziks["friction"].as(body.material.staticFriction);
 					body.material.restitution = phyziks["restitution"].as(body.material.restitution);
 					body.inverseInertiaTensor = uf::vector::decode( phyziks["inertia"], body.inverseInertiaTensor );
 					body.gravity = uf::vector::decode( phyziks["gravity"], body.gravity );
+				} else {
+					uf::physics::update( body );
 				}
 			}
 		}
@@ -2614,7 +2619,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				if ( bvhStream.buffer.length == 0 ) {
 					rebuildBvh = true;
 				}
-				bool bvhValid = !bvh.flatNodes.empty() || !bvh.nodes.empty();
+				bool bvhValid = !bvh.indices.empty();
 
 				auto& indirectAttr = mesh.indirect.attributes.front();
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.buffers[indirectAttr.buffer].data();

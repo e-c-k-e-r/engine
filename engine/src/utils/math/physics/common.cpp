@@ -839,6 +839,12 @@ uf::stl::string impl::getMaterialName( const pod::PhysicsBody& body, uint32_t pa
 bool impl::aabbOverlap( const pod::qAABB& a, const pod::qAABB& b ) {
 	return (a.min <= b.max) && (a.max >= b.min);
 }
+pod::qAABB impl::mergeAabb( const pod::qAABB& a, const pod::qAABB& b ) {
+	return {
+		uf::vector::min( a.min, b.min ),
+		uf::vector::max( a.max, b.max ),
+	};
+}
 pod::qAABB impl::quantizeAABB( const pod::AABB& box, const pod::AABB& root, const pod::Vector3f& invScale ) {
 	pod::Vector3f min = (box.min - root.min) * invScale;
 	pod::Vector3f max = (box.max - root.min) * invScale;
