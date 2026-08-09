@@ -5,6 +5,7 @@
 namespace impl {
 	bool rayTriangleIntersect( const pod::Ray& ray, const pod::Triangle& tri, float& t, float& u, float& v );
 	bool rayAabbIntersect( const pod::Ray& ray, const pod::AABB& box, float& tMin, float& tMax );
+	bool rayAabbIntersect( const pod::Ray& ray, const pod::qAABB& qbox, const pod::AABB& root, float& tMin, float& tMax );
 
 	bool rayAabb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit );
 	bool rayObb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit );

@@ -8,17 +8,15 @@ namespace binds {
 	}
 
 	std::tuple<uint32_t, uint32_t> unpackID( uf::Mesh& self, size_t packedID ) {
-		uint32_t viewID = pod::BVH::unpackView(packedID);
-		uint32_t triID  = pod::BVH::unpackTri(packedID);
-		return std::make_tuple( viewID, triID );
+		return pod::BVH::unpackID( packedID );
 	}
 	std::tuple<const uf::Mesh::View*, size_t> fetchView( uf::Mesh& self, size_t triID ) {
 		const auto* view = uf::mesh::fetchView( self, triID );
 		return std::make_tuple( view, triID );
 	}
 	// to-do: fix
-	const pod::DrawCommand& fetchDrawCommand( uf::Mesh& mesh, size_t triID ) {
-		return uf::mesh::fetchDrawCommand( mesh, triID );
+	const pod::DrawCommand& fetchDrawCommand( uf::Mesh& mesh, size_t viewID ) {
+		return uf::mesh::fetchDrawCommand( mesh, mesh.buffer_views[viewID] );
 	}
 
 	size_t fetchIndex( const uf::Mesh::View& view, const uf::stl::string& name, size_t index ) {

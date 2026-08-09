@@ -79,4 +79,12 @@ namespace impl {
 	std::pair<pod::Vector3f, pod::Vector3f> getCapsuleSegment( const pod::PhysicsBody& body );
 	pod::AABB computeAABB( const pod::PhysicsBody& body );
 	pod::AABB transformAabbToLocal( const pod::AABB& box, const pod::Transform<>& transform );
+
+	/*FORCE_INLINE*/ bool aabbOverlap( const pod::qAABB& a, const pod::qAABB& b );
+	/*FORCE_INLINE*/ pod::qAABB quantizeAABB( const pod::AABB& box, const pod::AABB& root, const pod::Vector3f& invScale );
+	/*FORCE_INLINE*/ pod::AABB dequantizeAABB( const pod::qAABB& qbox, const pod::AABB& root );
+	/*FORCE_INLINE*/ pod::AABB dequantizeAABB( const pod::qAABB& qbox, const pod::AABB& root, const pod::Vector3f& scale );
+	/*FORCE_INLINE*/ pod::Vector3f computeDequantizeScale( const pod::AABB& root );
+	/*FORCE_INLINE*/ pod::Vector3f computeQuantizeScale( const pod::AABB& root );
+
 }

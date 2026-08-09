@@ -216,8 +216,10 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 	// draw BVH instead
 	if ( body.inverseMass == 0.0f ) {
 		const auto& bvh = *body.collider.mesh.bvh;
-		if ( !bvh.flatBounds.empty() ) {
-			for ( const auto& bound : bvh.flatBounds ) uf::debug::drawShape( bound, transform );
+		if ( !bvh.qBounds.empty() ) {
+			for ( const auto& qBounds : bvh.qBounds ) {
+				uf::debug::drawShape( impl::dequantizeAABB( qBounds, bvh.rootBounds ), transform );
+			}
 			return;
 		}
 		if ( !bvh.bounds.empty() ) {
@@ -263,7 +265,7 @@ pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mes
 	body.collider.mesh.ownsBvh = false;
 
 	// to-do: move this to the above initialize to allow for deferred BVH building?
-	if ( bvh.nodes.empty() && bvh.flattened.empty() ) {
+	if ( bvh.nodes.empty() && bvh.flatNodes.empty() ) {
 		impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
 	}
 

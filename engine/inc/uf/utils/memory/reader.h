@@ -32,6 +32,17 @@ namespace uf {
 			inline uint32_t remaining() const { return m_endOffset - m_offset; }
 			inline void skip( size_t bytes ) { m_offset += bytes; }
 
+			
+			template<typename T>
+			void read( T* copy, size_t elements = 1 ) {
+				size_t readSize = sizeof(T) * elements;
+				align( alignof(T) );
+
+				if ( m_offset + readSize > m_endOffset ) return;
+				uf::stl::memcpy(copy, m_buffer.data() + m_offset, readSize);
+				m_offset += readSize;
+			}
+
 			template<typename T>
 			const T* read( size_t readSize = sizeof(T) ) {
 				align( alignof(T) );

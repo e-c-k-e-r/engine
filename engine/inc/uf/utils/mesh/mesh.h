@@ -156,17 +156,14 @@ namespace pod {
 		typedef std::pair<index_t,index_t> pair_t;
 		typedef uf::stl::vector<pair_t> pairs_t;
 		
-		static constexpr uint32_t VIEW_SHIFT = 16;
-		static constexpr uint32_t TRI_MASK   = 0xFFFF;
+		static constexpr pod::BVH::index_t VIEW_SHIFT = 16;
+		static constexpr pod::BVH::index_t TRI_MASK   = 0xFFFF;
 
-		static inline uint32_t packID(uint32_t viewID, uint32_t triID) {
+		static inline pod::BVH::index_t packID( pod::BVH::index_t viewID, pod::BVH::index_t triID ) {
 			return (viewID << VIEW_SHIFT) | (triID & TRI_MASK);
 		}
-		static inline uint32_t unpackView(uint32_t packedID) {
-			return packedID >> VIEW_SHIFT;
-		}
-		static inline uint32_t unpackTri(uint32_t packedID) {
-			return packedID & TRI_MASK;
+		static inline std::pair<pod::BVH::index_t, pod::BVH::index_t> unpackID( pod::BVH::index_t packedID ) {
+			return std::make_pair( packedID >> VIEW_SHIFT, packedID & TRI_MASK );
 		}
 		struct Node {
 			BVH::index_t left = 0;
@@ -184,8 +181,10 @@ namespace pod {
 		};
 
 		struct FlatNode {
-			BVH::index_t start = 0;
-			BVH::index_t skipIndex = 0;
+			union {
+				BVH::index_t start;
+				BVH::index_t skipIndex;
+			};
 			BVH::index_t flags = 0;
 
 			BVH::index_t getCount() const { return flags & 0x3FFFFFFF; }
@@ -195,6 +194,8 @@ namespace pod {
 			void setCount(BVH::index_t c) { flags = (flags & 0xC0000000u) | (c & 0x3FFFFFFF); }
 			void setAsleep(bool a) { flags = (flags & ~0x80000000u) | (a ? 0x80000000u : 0); }
 			void setUnloaded(bool u) { flags = (flags & ~0x40000000u) | (u ? 0x40000000u : 0); }
+			
+			BVH::index_t getSkipIndex( BVH::index_t idx ) const { return (getCount() > 0) ? (idx + 1) : skipIndex; }
 		};
 		struct UpdatePolicy {
 			enum class Decision {
@@ -209,13 +210,15 @@ namespace pod {
 		};
 
 		bool dirty = false;
-		bool flat = false;
+
+		pod::AABB rootBounds;
 		uf::stl::vector<pod::BVH::index_t> indices;
+
 		uf::stl::vector<pod::BVH::Node> nodes;
-		uf::stl::vector<pod::BVH::FlatNode> flattened;
+		uf::stl::vector<pod::BVH::FlatNode> flatNodes;
 		
 		uf::stl::vector<pod::AABB> bounds;
-		uf::stl::vector<pod::AABB> flatBounds;
+		uf::stl::vector<pod::qAABB> qBounds;
 	};
 }
 

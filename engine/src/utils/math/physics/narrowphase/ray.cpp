@@ -52,6 +52,11 @@ bool impl::rayAabbIntersect( const pod::Ray& ray, const pod::AABB& box, float& t
 	return true;
 }
 
+bool impl::rayAabbIntersect( const pod::Ray& ray, const pod::qAABB& qbox, const pod::AABB& root, float& tMin, float& tMax ) {
+	pod::AABB box = impl::dequantizeAABB( qbox, root );
+	return impl::rayAabbIntersect( ray, box, tMin, tMax );
+}
+
 bool impl::rayAabb( const pod::Ray& ray, const pod::PhysicsBody& body, pod::RayQuery& rayHit ) {
 	float tMin = 0.0f;
 	float tMax = FLT_MAX;
@@ -243,9 +248,8 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 	impl::queryBVH( bvh, ray, candidates );
 
 	for ( auto packedID : candidates ) {
-		uint32_t viewID = pod::BVH::unpackView(packedID);
-		uint32_t triID  = pod::BVH::unpackTri(packedID);
-		auto tri = uf::mesh::fetchTriangle( meshData, triID );
+		auto [ viewID, triID ] = pod::BVH::unpackID( packedID );
+		auto tri = uf::mesh::fetchTriangle( meshData, viewID, triID );
 
 		float t, u, v;
 		if ( !impl::rayTriangleIntersect( ray, tri, t, u, v ) ) continue;
@@ -263,7 +267,7 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 		rayHit.contact.point = p;
 		rayHit.contact.normal = n;
 		rayHit.contact.penetration = t;
-		rayHit.contact.featureA = triID;
+		rayHit.contact.featureA = packedID; // could instead pack featureA and featureB with unpacked IDs, but nothing uses this right now
 	}
 
 	return rayHit.hit;

@@ -567,9 +567,7 @@ pod::Vector3f impl::triangleNormal( const pod::TriangleWithNormal& tri ) {
 }
 // if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
 pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t packedID, const pod::PhysicsBody& body ) {
-	// to-do: adjust these better
-	uint32_t viewID = pod::BVH::unpackView(packedID);
-    uint32_t triID  = pod::BVH::unpackTri(packedID);
+	auto [ viewID, triID ] = pod::BVH::unpackID(packedID);
 	auto tri = uf::mesh::fetchTriangle( mesh, viewID, triID );
 
 	auto transform = impl::getTransform( body );
@@ -750,8 +748,7 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 		case pod::ShapeType::CONVEX_HULL: {
 			if ( body.collider.mesh.bvh ) {
 				const auto& bvh = *body.collider.mesh.bvh;
-				if ( !bvh.flatBounds.empty() ) return impl::transformAabbToWorld( bvh.flatBounds[0], transform );
-				if ( !bvh.bounds.empty() ) return impl::transformAabbToWorld( bvh.bounds[0], transform );
+				return impl::transformAabbToWorld( bvh.rootBounds, transform );
 			}
 			const auto& meshData = *body.collider.mesh.mesh;
 			pod::AABB bounds = { {  FLT_MAX,  FLT_MAX,  FLT_MAX }, { -FLT_MAX, -FLT_MAX, -FLT_MAX } };
@@ -824,14 +821,49 @@ float impl::getMaterialTransmittance( const uf::stl::string& materialName ) {
 
 	return 0.2f;
 }
-uf::stl::string impl::getMaterialName( const pod::PhysicsBody& body, uint32_t triID ) {
-	if ( triID == (uint32_t)(-1) ) return "";
+uf::stl::string impl::getMaterialName( const pod::PhysicsBody& body, uint32_t packedID ) {
+	if ( packedID == (uint32_t)(-1) ) return "";
 	if ( body.collider.type != pod::ShapeType::MESH ) return "";
+	auto [ viewID, triID ] = pod::BVH::unpackID( packedID );
 	auto& scene = uf::scene::getCurrentScene();
 	auto& graph = scene.getComponent<pod::Graph>();
 	
 	auto& mesh = *body.collider.mesh.mesh;
-	auto drawCommand = uf::mesh::fetchDrawCommand( mesh, triID );
+	auto& view = mesh.buffer_views[viewID];
+	auto drawCommand = uf::mesh::fetchDrawCommand( mesh, view );
 	auto instance = uf::graph::getInstance( graph, drawCommand.instanceID );
 	return uf::graph::getMaterialName( graph, instance.materialID );
+}
+//
+// quantized AABBs
+bool impl::aabbOverlap( const pod::qAABB& a, const pod::qAABB& b ) {
+	return (a.min <= b.max) && (a.max >= b.min);
+}
+pod::qAABB impl::quantizeAABB( const pod::AABB& box, const pod::AABB& root, const pod::Vector3f& invScale ) {
+	pod::Vector3f min = (box.min - root.min) * invScale;
+	pod::Vector3f max = (box.max - root.min) * invScale;
+
+	return {
+		uf::vector::clamp( min, 0.0f, 65535.0f ),
+		uf::vector::clamp( max, 0.0f, 65535.0f )
+	};
+}
+pod::AABB impl::dequantizeAABB( const pod::qAABB& qbox, const pod::AABB& root ) {
+	pod::Vector3f scale = (root.max - root.min) / 65535.0f;
+	return impl::dequantizeAABB( qbox, root, scale );
+}
+pod::AABB impl::dequantizeAABB( const pod::qAABB& qbox, const pod::AABB& root, const pod::Vector3f& scale ) {
+	return {
+		root.min + static_cast<pod::Vector3f>(qbox.min) * scale,
+		root.min + static_cast<pod::Vector3f>(qbox.max) * scale
+	};
+}
+pod::Vector3f impl::computeDequantizeScale( const pod::AABB& root ) {
+	return (root.max - root.min) * (1.0f / 65535.0f);
+}
+
+pod::Vector3f impl::computeQuantizeScale( const pod::AABB& root ) {
+	pod::Vector3f extent = root.max - root.min;
+	extent = uf::vector::max( extent, pod::Vector3f{EPS, EPS, EPS} );
+	return uf::vector::divide( 65535.0f, extent );
 }

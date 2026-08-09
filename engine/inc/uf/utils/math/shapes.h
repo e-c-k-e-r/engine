@@ -16,6 +16,11 @@ namespace pod {
 		pod::Vector3f max;
 	};
 
+	struct qAABB {
+		pod::Vector3us min;
+		pod::Vector3us max;
+	};
+
 	struct OBB {
 	#if OBB_EXTENT_CENTER
 		pod::Vector3f extent;

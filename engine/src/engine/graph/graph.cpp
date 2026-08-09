@@ -2312,7 +2312,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 
 		auto& bvh = storage.bvhs.map[meshName];
 		auto& bvhStream = graph.streams.bvhs[meshName];
-		if ( bvh.flattened.empty() && bvh.nodes.empty() && bvhStream.buffer.length > 0 ) {
+		if ( bvh.flatNodes.empty() && bvh.nodes.empty() && bvhStream.buffer.length > 0 ) {
 			work.needsBvhLoad = true;
 		}
 
@@ -2614,7 +2614,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				if ( bvhStream.buffer.length == 0 ) {
 					rebuildBvh = true;
 				}
-				bool bvhValid = !bvh.flattened.empty() || !bvh.nodes.empty();
+				bool bvhValid = !bvh.flatNodes.empty() || !bvh.nodes.empty();
 
 				auto& indirectAttr = mesh.indirect.attributes.front();
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.buffers[indirectAttr.buffer].data();

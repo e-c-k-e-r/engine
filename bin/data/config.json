@@ -355,6 +355,18 @@
 				"slop": 0.01, // 0.005
 				"max": 0.1 // 0.2
 			},
+			"bvh": {
+				"bodies": {
+					"capacity": 1,
+					"flatten": true,
+					"sah": true
+				},
+				"meshes": {
+					"capacity": 4,
+					"flatten": true,
+					"sah": true
+				}
+			},
 			"debug draw": {
 				"static": false,
 				"dynamic": false,
