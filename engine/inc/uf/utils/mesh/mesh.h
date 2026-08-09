@@ -156,6 +156,18 @@ namespace pod {
 		typedef std::pair<index_t,index_t> pair_t;
 		typedef uf::stl::vector<pair_t> pairs_t;
 		
+		static constexpr uint32_t VIEW_SHIFT = 16;
+		static constexpr uint32_t TRI_MASK   = 0xFFFF;
+
+		static inline uint32_t packID(uint32_t viewID, uint32_t triID) {
+			return (viewID << VIEW_SHIFT) | (triID & TRI_MASK);
+		}
+		static inline uint32_t unpackView(uint32_t packedID) {
+			return packedID >> VIEW_SHIFT;
+		}
+		static inline uint32_t unpackTri(uint32_t packedID) {
+			return packedID & TRI_MASK;
+		}
 		struct Node {
 			BVH::index_t left = 0;
 			BVH::index_t right = 0;
@@ -197,10 +209,10 @@ namespace pod {
 		};
 
 		bool dirty = false;
+		bool flat = false;
 		uf::stl::vector<pod::BVH::index_t> indices;
 		uf::stl::vector<pod::BVH::Node> nodes;
 		uf::stl::vector<pod::BVH::FlatNode> flattened;
-		uf::stl::vector<pod::BVH::index_t> indicesToNodes;
 		
 		uf::stl::vector<pod::AABB> bounds;
 		uf::stl::vector<pod::AABB> flatBounds;
@@ -685,6 +697,7 @@ namespace uf {
 		pod::Vector3f UF_API fetchVertex( const uf::Mesh::View& view, const uf::Mesh::AttributeView& positions, size_t index );
 		pod::Triangle UF_API fetchTriangle( const uf::Mesh::View& view, const uf::Mesh::AttributeView& indices, const uf::Mesh::AttributeView& positions, size_t triID );
 		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t triID );
+		pod::TriangleWithNormal UF_API fetchTriangle( const uf::Mesh& mesh, size_t viewID, size_t triID );
 
 		const pod::DrawCommand& UF_API fetchDrawCommand( const uf::Mesh& mesh, const uf::Mesh::View& view );
 		const pod::DrawCommand& UF_API fetchDrawCommand( const uf::Mesh& mesh, size_t triID );

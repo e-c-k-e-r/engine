@@ -488,7 +488,7 @@ uf::stl::vector<uf::Mesh::View> uf::Mesh::makeViews( const uf::stl::vector<uf::s
 	if ( indirect.count > 0 ) {
 		for ( auto i = 0; i < indirect.count; i++ ) {
 			auto view = makeView( i, wanted, lod );
-			//if ( view.index.count == 0 && view.vertex.count == 0 ) continue; // <= culprit, commenting out triggers the assert
+			//if ( view.index.count == 0 && view.vertex.count == 0 ) continue;
 			views.emplace_back( view );
 		}
 	} else {
@@ -890,9 +890,17 @@ pod::Triangle uf::mesh::fetchTriangle( const uf::Mesh::View& view, const uf::Mes
 
 pod::TriangleWithNormal uf::mesh::fetchTriangle( const uf::Mesh& mesh, size_t triID ) {
 	const auto* view = uf::mesh::fetchView( mesh, triID );
-	UF_ASSERT( view );
+	UF_ASSERT( view ); // to-do: return a degenerate triangle instead
 	
 	pod::TriangleWithNormal tri = { uf::mesh::fetchTriangle( *view, triID ) };
+	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
+
+	return tri;
+}
+
+pod::TriangleWithNormal uf::mesh::fetchTriangle( const uf::Mesh& mesh, size_t viewID, size_t triID ) {
+	UF_ASSERT( viewID < mesh.buffer_views.size() ); // // to-do: return a degenerate triangle instead
+	pod::TriangleWithNormal tri = { uf::mesh::fetchTriangle( mesh.buffer_views[viewID], triID ) };
 	tri.normal = uf::vector::normalize(uf::vector::cross(tri.points[1] - tri.points[0], tri.points[2] - tri.points[0]));
 
 	return tri;

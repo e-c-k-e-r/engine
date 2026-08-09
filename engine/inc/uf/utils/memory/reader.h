@@ -14,13 +14,15 @@ namespace uf {
 			bool m_zeroCopy; // if true, returns a pointer to the original buffer in memory 
 			bool m_aligned;
 
+			// to-do: actually, properly implement this in a way that isn't a headache
 			inline void align( size_t alignment ) {
+				return;
+			/*
 				if ( !m_aligned ) return;
 
-				uintptr_t addr = (uintptr_t)(m_buffer.data() + m_offset);
-				uintptr_t misaligned = addr % alignment;
-
+				uint32_t misaligned = m_offset % alignment;
 				if ( misaligned != 0 ) m_offset += ( alignment - misaligned );
+			*/
 			}
 		public:
 			reader( const uf::stl::vector<uint8_t>& buffer, uint32_t offset, uint32_t length, bool zeroCopy = true, bool aligned = false );

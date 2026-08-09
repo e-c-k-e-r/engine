@@ -161,13 +161,14 @@ local function getFloorSurface()
 	local collisionEvents = physicsBody:getCollisionEvents()
 	for i, event in ipairs( collisionEvents ) do
 		if event.normal.y <= -0.7 then
-			local tri = event.featureA or event.featureB
+			local packedID = event.featureA or event.featureB
 			local other = event.a == ent and event.a or event.b
 			local collider = other:getCollider()
 
-			if tri ~= nil and collider.type == ShapeType.MESH then
+			if packedID ~= nil and collider.type == ShapeType.MESH then
 				local mesh = collider:asMesh()
-				local drawCommand = mesh:fetchDrawCommand( tri )
+				local viewID, triID = mesh:unpackID( packedID )
+				local drawCommand = mesh:fetchDrawCommand( viewID )
 				local instance = graph:getInstance( drawCommand.instanceID )
 				local materialName = string.lower( graph:getMaterialName( instance.materialID ) )
 

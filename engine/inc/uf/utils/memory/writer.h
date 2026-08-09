@@ -16,13 +16,15 @@ namespace uf {
 					m_buffer.resize( m_offset + bytes );
 				}
 			}
+			// to-do: actually, properly implement this in a way that isn't a headache
 			inline void align( size_t alignment ) {
+				return;
+			/*
 				if ( !m_aligned ) return;
 
-				uintptr_t addr = (uintptr_t)(m_buffer.data() + m_offset);
-				uintptr_t misaligned = addr % alignment;
-
+				uint32_t misaligned = m_offset % alignment;
 				if ( misaligned != 0 ) m_offset += ( alignment - misaligned );
+			*/
 			}
 		public:
 			writer( uf::stl::vector<uint8_t>& buffer, uint32_t offset = 0, bool aligned = false );

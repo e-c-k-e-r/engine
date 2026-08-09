@@ -184,10 +184,8 @@ void impl::buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::Physics
 	bvh.indices.clear();
 	bvh.nodes.clear();
 	bvh.bounds.clear();
-	bvh.indicesToNodes.clear();
 	bvh.bounds.reserve(bodies.size());
 	bvh.indices.reserve(bodies.size());
-	bvh.indicesToNodes.resize(bodies.size(), 0);
 
 	// stores bounds
 	uf::stl::vector<pod::AABB> bounds(bodies.size(), { {FLT_MAX, FLT_MAX, FLT_MAX}, {-FLT_MAX, -FLT_MAX, -FLT_MAX} });
@@ -225,51 +223,47 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 	bvh.indices.clear();
 	bvh.nodes.clear();
 	bvh.bounds.clear();
-	bvh.indicesToNodes.clear();
 	bvh.bounds.reserve( triangles );
 	bvh.indices.reserve( triangles );
-	bvh.indicesToNodes.resize( triangles, 0 );
 
-	// stores bounds
 	uf::stl::vector<pod::AABB> bounds;
 	bounds.reserve( triangles );
+
+	uf::stl::vector<uint32_t> packedMap;
+	packedMap.reserve( triangles );
 
 	const auto& views = mesh.buffer_views;
 	UF_ASSERT( !views.empty() );
 
-
-	// populate initial indices and bounds
+	uint32_t flatTriID = 0;
+	uint32_t viewID = 0;
 	for ( auto& view : views ) {
 		auto& indices   = view["index"];
 		auto& positions = view["position"];
 
 		auto tris = view.index.count / 3;
-		
+
 		for ( auto triIndexID = 0; triIndexID < tris; ++triIndexID ) {
 			auto tri = uf::mesh::fetchTriangle( view, indices, positions, triIndexID );
 			auto aabb = impl::computeTriangleAABB( tri );
-			auto triID = triIndexID + (view.index.first / 3);
-
-		//	if ( triID != bounds.size() ) UF_MSG_DEBUG("triID={}, bounds.size()={}", triID, bounds.size());
-
 			bounds.emplace_back( aabb );
-			bvh.indices.emplace_back( triID ); // triID => mesh.index.buffer[triID * 3];
+			packedMap.emplace_back( pod::BVH::packID(viewID, triIndexID) );
+			bvh.indices.emplace_back( flatTriID++ );
 		}
+		viewID++;
 	}
 
 	UF_ASSERT( !bounds.empty() );
 
-	// recursively build BVH from indices
 	if ( uf::physics::settings.useBvhSahMeshes ) impl::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 	else impl::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
-	// flatten if requested
+
 	if ( uf::physics::settings.flattenBvhMeshes ) {
 		impl::flattenBVH( bvh, 0 );
-		// unstable at times
-		//bvh.nodes.clear();
-		//bvh.bounds.clear();
-		//bvh.nodes.shrink_to_fit();
-		//bvh.bounds.shrink_to_fit();
+	}
+
+	for ( size_t i = 0; i < bvh.indices.size(); ++i ) {
+		bvh.indices[i] = packedMap[bvh.indices[i]];
 	}
 
 	// mark as clean
@@ -285,10 +279,8 @@ void impl::buildConvexHullBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::in
 	bvh.indices.clear();
 	bvh.nodes.clear();
 	bvh.bounds.clear();
-	bvh.indicesToNodes.clear();
 	bvh.bounds.reserve( hullCount );
 	bvh.indices.reserve( hullCount );
-	bvh.indicesToNodes.resize( hullCount, 0 );
 
 	// stores bounds
 	uf::stl::vector<pod::AABB> bounds;
@@ -518,10 +510,6 @@ pod::BVH::index_t impl::flattenBVH( pod::BVH& bvh, pod::BVH::index_t nodeID ) {
 		flat.setCount(node.getCount());
 		flat.skipIndex = flatID + 1;
 		bvh.flattened[flatID] = flat;
-
-		for ( uint32_t i = 0; i < node.getCount(); ++i ) {
-			bvh.indicesToNodes[bvh.indices[node.start + i]] = flatID;
-		}
 		return flatID + 1;
 	}
 	// internal
@@ -1025,47 +1013,22 @@ void impl::postprocessPairs( pod::BVH::pairs_t& pairs ) {
 	pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
 }
 
-void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, bool active ) {
-	if ( index < bvh.indicesToNodes.size() ) {
-		uint32_t flatNodeID = bvh.indicesToNodes[index];
-		if ( flatNodeID < bvh.flattened.size() ) {
-			bvh.flattened[flatNodeID].setUnloaded(!active);
-		}
-		return;
-	}
-
-	if ( !bvh.nodes.empty() ) {
-		for ( auto& node : bvh.nodes ) {
+void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t viewID, bool active ) {
+	if ( !bvh.flattened.empty() ) {
+		for ( auto& node : bvh.flattened ) {
 			if ( node.getCount() > 0 ) {
-				for ( uint32_t i = 0; i < node.getCount(); ++i ) {
-					if ( bvh.indices[node.start + i] == index ) {
-						node.setUnloaded(!active);
-						return;
-					}
-				}
-			}
-		}
-	}
-}
-
-void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, uint32_t count, bool active ) {
-	if ( !bvh.indicesToNodes.empty() ) {
-		for ( uint32_t i = 0; i < count; ++i ) {
-			if ( index + i < bvh.indicesToNodes.size() ) {
-				uint32_t flatNodeID = bvh.indicesToNodes[index + i];
-				if ( flatNodeID < bvh.flattened.size() ) {
-					bvh.flattened[flatNodeID].setUnloaded(!active);
+				uint32_t packedID = bvh.indices[node.start];
+				if ( pod::BVH::unpackView(packedID) == viewID ) {
+					node.setUnloaded(!active);
 				}
 			}
 		}
 	} else if ( !bvh.nodes.empty() ) {
 		for ( auto& node : bvh.nodes ) {
 			if ( node.getCount() > 0 ) {
-				for ( uint32_t i = 0; i < node.getCount(); ++i ) {
-					uint32_t idx = bvh.indices[node.start + i];
-					if ( idx >= index && idx < index + count ) {
-						node.setUnloaded(!active);
-					}
+				uint32_t packedID = bvh.indices[node.start];
+				if ( pod::BVH::unpackView(packedID) == viewID ) {
+					node.setUnloaded(!active);
 				}
 			}
 		}
@@ -1076,12 +1039,10 @@ size_t uf::bvh::serialize( const pod::BVH& bvh, uf::stl::vector<uint8_t>& outBuf
 	uf::stl::writer writer( outBuffer, offset, true );
 
 	writer.write( (uint32_t)( bvh.indices.size() ) );
-	writer.write( (uint32_t)( bvh.indicesToNodes.size() ) );
 	writer.write( (uint32_t)( bvh.nodes.size() ) );
 	writer.write( (uint32_t)( bvh.flattened.size() ) );
 
 	if ( !bvh.indices.empty() ) writer.write( bvh.indices );
-	if ( !bvh.indicesToNodes.empty() ) writer.write( bvh.indicesToNodes );
 	if ( !bvh.nodes.empty() ) { writer.write( bvh.nodes ); writer.write( bvh.bounds); }
 	if ( !bvh.flattened.empty() ) { writer.write( bvh.flattened ); writer.write( bvh.flatBounds ); }
 
@@ -1092,45 +1053,35 @@ bool uf::bvh::deserialize( pod::BVH& bvh, const uf::stl::vector<uint8_t>& buffer
 	uf::stl::reader reader( buffer, offset, length > 0 ? length : buffer.size(), true, true );
 
 	const uint32_t* pNumIndices = reader.read<uint32_t>();
-	const uint32_t* pNumMap	 = reader.read<uint32_t>();
 	const uint32_t* pNumNodes   = reader.read<uint32_t>();
 	const uint32_t* pNumFlat	= reader.read<uint32_t>();
 
-	if ( !pNumIndices || !pNumNodes || !pNumMap || !pNumFlat ) return false;
+	if ( !pNumIndices || !pNumNodes || !pNumFlat ) return false;
 
 	uint32_t numIndices = *pNumIndices;
-	uint32_t numMap	 	= *pNumMap;
 	uint32_t numNodes   = *pNumNodes;
 	uint32_t numFlat	= *pNumFlat;
 
 //	UF_MSG_DEBUG("Indices={}, Map={}, Nodes={}, Flat={}", numIndices, numMap, numNodes, numFlat);
+	bvh.indices.clear();
+	bvh.nodes.clear();
+	bvh.bounds.clear();
+	bvh.flattened.clear();
+	bvh.flatBounds.clear();
 
 	if ( numIndices > 0 ) {
 		if ( !reader.read( numIndices, bvh.indices ) ) return false;
-	} else {
-		bvh.indices.clear();
 	}
 	
-	if ( numMap ) {
-		if ( !reader.read( numMap, bvh.indicesToNodes ) ) return false;
-	} else {
-		bvh.indicesToNodes.clear();
-	}
 
 	if ( numNodes > 0 ) {
 		if ( !reader.read( numNodes, bvh.nodes ) ) return false;
 		if ( !reader.read( numNodes, bvh.bounds ) ) return false;
-	} else {
-		bvh.nodes.clear();
-		bvh.bounds.clear();
 	}
 
 	if ( numFlat > 0 ) {
 		if ( !reader.read( numFlat, bvh.flattened ) ) return false;
 		if ( !reader.read( numFlat, bvh.flatBounds ) ) return false;
-	} else {
-		bvh.flattened.clear();
-		bvh.flatBounds.clear();
 	}
 
 	bvh.dirty = false;

@@ -2603,7 +2603,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				mesh.vertex.count = ctx->vertexCount;
 				mesh.index.count = ctx->indexCount;
 
-				bool rebuildBvh = true;/*
+				bool rebuildBvh = false;
 				if ( !ctx->bvhRawBuffer.empty() ) {
 					if ( !uf::bvh::deserialize( bvh, ctx->bvhRawBuffer ) ) {
 						bvhStream.buffer.length = 0;
@@ -2613,7 +2613,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				}
 				if ( bvhStream.buffer.length == 0 ) {
 					rebuildBvh = true;
-				}*/
+				}
 				bool bvhValid = !bvh.flattened.empty() || !bvh.nodes.empty();
 
 				auto& indirectAttr = mesh.indirect.attributes.front();
@@ -2624,11 +2624,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 					drawCommands[drawID] = cmd;
 
 					if ( bvhValid && !rebuildBvh ) {
-						auto& lod = primitives[drawID].lod.levels[0];
-
-						uint32_t startTri = lod.indexID / 3;
-						uint32_t triCount = lod.indices / 3;
-						uf::bvh::flagAsActive( bvh, startTri, triCount, (cmd.vertices > 0 && cmd.indices > 0) );
+						uf::bvh::flagAsActive( bvh, drawID, (cmd.vertices > 0 && cmd.indices > 0) );
 					}
 				}
 

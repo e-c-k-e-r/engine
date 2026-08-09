@@ -1,6 +1,8 @@
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/memory/alignment.h>
 #include <uf/utils/memory/allocator.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 #include <uf/utils/userdata/userdata.h>
 
 #include <cstring>

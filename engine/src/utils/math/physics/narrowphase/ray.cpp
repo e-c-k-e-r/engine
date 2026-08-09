@@ -242,7 +242,9 @@ bool impl::rayMesh( const pod::Ray& r, const pod::PhysicsBody& body, pod::RayQue
 	candidates.clear();
 	impl::queryBVH( bvh, ray, candidates );
 
-	for ( auto triID : candidates ) {
+	for ( auto packedID : candidates ) {
+		uint32_t viewID = pod::BVH::unpackView(packedID);
+		uint32_t triID  = pod::BVH::unpackTri(packedID);
 		auto tri = uf::mesh::fetchTriangle( meshData, triID );
 
 		float t, u, v;

@@ -7,10 +7,16 @@ namespace binds {
 		self.updateDescriptor();
 	}
 
+	std::tuple<uint32_t, uint32_t> unpackID( uf::Mesh& self, size_t packedID ) {
+		uint32_t viewID = pod::BVH::unpackView(packedID);
+		uint32_t triID  = pod::BVH::unpackTri(packedID);
+		return std::make_tuple( viewID, triID );
+	}
 	std::tuple<const uf::Mesh::View*, size_t> fetchView( uf::Mesh& self, size_t triID ) {
 		const auto* view = uf::mesh::fetchView( self, triID );
 		return std::make_tuple( view, triID );
 	}
+	// to-do: fix
 	const pod::DrawCommand& fetchDrawCommand( uf::Mesh& mesh, size_t triID ) {
 		return uf::mesh::fetchDrawCommand( mesh, triID );
 	}
@@ -56,6 +62,7 @@ UF_LUA_REGISTER_USERTYPE_AND_COMPONENT(uf::Mesh,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( updateDescriptor, UF_LUA_C_FUN( ::binds::updateDescriptor ) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( fetchView, UF_LUA_C_FUN( ::binds::fetchView ) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( fetchDrawCommand, UF_LUA_C_FUN( ::binds::fetchDrawCommand ) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( fetchIndex, UF_LUA_C_FUN( ::binds::fetchIndex ) )
+	UF_LUA_REGISTER_USERTYPE_DEFINE( fetchIndex, UF_LUA_C_FUN( ::binds::fetchIndex ) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( unpackID, UF_LUA_C_FUN( ::binds::unpackID ) )
 )
 #endif

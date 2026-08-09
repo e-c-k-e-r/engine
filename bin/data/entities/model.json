@@ -11,7 +11,7 @@
 	"metadata": {
 		"graph": {
 			"debug": {
-			//	"simple": true,
+				"simple": true,
 				"no cleanup": false,
 				"print": {
 					"tree": false,
@@ -79,7 +79,7 @@
 			"stream": {
 				"tag": "worldspawn",
 				"player": "info_player_start",
-				"enabled": "auto",
+				"enabled": true, // "auto",
 				"radius": 50,
 				"every": 1
 			}

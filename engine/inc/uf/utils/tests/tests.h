@@ -6,65 +6,82 @@
 
 #if 1 || UF_DEBUG
 	#define EXPECT_TRUE(expr) { \
+		bool _val = (expr); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = ((expr));\
+		test.passes = _val;\
 		test.message = FMT_FORMAT("EXPECT_TRUE({})", #expr);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_FALSE(expr) { \
+		bool _val = (expr); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (!(expr));\
+		test.passes = !_val;\
 		test.message = FMT_FORMAT("EXPECT_FALSE({})", #expr);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_EQ(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (((a) == (b)));\
-		test.message = FMT_FORMAT("EXPECT_EQ({}, {}), ({} == {})", #a, #b, a, b);\
+		test.passes = (_a == _b);\
+		test.message = FMT_FORMAT("EXPECT_EQ({}, {}), ({} == {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_GT(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (((a) > (b)));\
-		test.message = FMT_FORMAT("EXPECT_GT({}, {}), ({} > {})", #a, #b, a, b);\
+		test.passes = (_a > _b);\
+		test.message = FMT_FORMAT("EXPECT_GT({}, {}), ({} > {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_LT(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (((a) < (b)));\
-		test.message = FMT_FORMAT("EXPECT_LT({}, {}), ({} < {})", #a, #b, a, b);\
+		test.passes = (_a < _b);\
+		test.message = FMT_FORMAT("EXPECT_LT({}, {}), ({} < {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_GE(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (((a) >= (b)));\
-		test.message = FMT_FORMAT("EXPECT_GE({}, {}), ({} >= {})", #a, #b, a, b);\
+		test.passes = (_a >= _b);\
+		test.message = FMT_FORMAT("EXPECT_GE({}, {}), ({} >= {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_LE(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (((a) <= (b)));\
-		test.message = FMT_FORMAT("EXPECT_LE({}, {}), ({} <= {})", #a, #b, a, b);\
+		test.passes = (_a <= _b);\
+		test.message = FMT_FORMAT("EXPECT_LE({}, {}), ({} <= {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_NEAR(a,b,eps) { \
+		auto _a = (a); \
+		auto _b = (b); \
+		auto _eps = (eps); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (std::fabs((a)-(b)) <= (eps));\
-		test.message = FMT_FORMAT("EXPECT_NEAR({}, {}), ({} == {})", #a, #b, a, b);\
+		test.passes = (std::fabs(_a - _b) <= _eps);\
+		test.message = FMT_FORMAT("EXPECT_NEAR({}, {}), ({} == {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 
 	#define EXPECT_FLOAT_EQ(a,b) { \
+		auto _a = (a); \
+		auto _b = (b); \
 		auto& test = uf::unitTests::tests[uf::unitTests::current];\
-		test.passes = (std::fabs((a)-(b)) <= (1.0e-4f));\
-		test.message = FMT_FORMAT("EXPECT_FLOAT_EQ({}, {}), ({} == {})", #a, #b, a, b);\
+		test.passes = (std::fabs(_a - _b) <= 1.0e-4f);\
+		test.message = FMT_FORMAT("EXPECT_FLOAT_EQ({}, {}), ({} == {})", #a, #b, _a, _b);\
 		UF_MSG_DEBUG("[{}] {}", test.passes ? "PASS" : "FAIL", test.message);\
 	}
 

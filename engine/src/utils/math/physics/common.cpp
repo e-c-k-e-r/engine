@@ -566,8 +566,11 @@ pod::Vector3f impl::triangleNormal( const pod::TriangleWithNormal& tri ) {
 	return tri.normal;
 }
 // if body is a mesh, apply its transform to the triangles, else reorient the normal with respect to the body
-pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t triID, const pod::PhysicsBody& body ) {
-	auto tri = uf::mesh::fetchTriangle( mesh, triID );
+pod::TriangleWithNormal impl::fetchTriangle( const uf::Mesh& mesh, size_t packedID, const pod::PhysicsBody& body ) {
+	// to-do: adjust these better
+	uint32_t viewID = pod::BVH::unpackView(packedID);
+    uint32_t triID  = pod::BVH::unpackTri(packedID);
+	auto tri = uf::mesh::fetchTriangle( mesh, viewID, triID );
 
 	auto transform = impl::getTransform( body );
 

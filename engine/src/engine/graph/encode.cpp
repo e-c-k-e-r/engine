@@ -375,7 +375,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			pod::BVH bvh;
 			uf::bvh::build( bvh, mesh );
 
-			auto length = uf::bvh::serialize( bvh, buffer );
+			auto length = uf::bvh::serialize( bvh, buffer, offset );
 
 			uf::Serializer json;
 			json["name"] = name;

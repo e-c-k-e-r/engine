@@ -576,7 +576,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading BVHs...");
 		ext::json::forEach( serializer["bvhs"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
-		//	storage.bvhs[name] = decodeBvh( value, graph, name );
+			storage.bvhs[name] = decodeBvh( value, graph, name );
 		});
 
 		UF_DEBUG_TIMER_MULTITRACE("Read BVHs");
