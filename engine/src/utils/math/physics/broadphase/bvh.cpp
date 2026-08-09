@@ -184,7 +184,10 @@ void impl::buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::Physics
 	bvh.indices.clear();
 	bvh.nodes.clear();
 	bvh.bounds.clear();
+	bvh.indicesToNodes.clear();
+	bvh.bounds.reserve(bodies.size());
 	bvh.indices.reserve(bodies.size());
+	bvh.indicesToNodes.resize(bodies.size(), 0);
 
 	// stores bounds
 	uf::stl::vector<pod::AABB> bounds(bodies.size(), { {FLT_MAX, FLT_MAX, FLT_MAX}, {-FLT_MAX, -FLT_MAX, -FLT_MAX} });
@@ -203,7 +206,14 @@ void impl::buildBroadphaseBVH( pod::BVH& bvh, const uf::stl::vector<pod::Physics
 	if ( uf::physics::settings.useBvhSahBodies ) impl::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 	else impl::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 	// flatten if requested
-	if ( uf::physics::settings.flattenBvhBodies ) impl::flattenBVH( bvh, 0 );
+	if ( uf::physics::settings.flattenBvhBodies ) {
+		impl::flattenBVH( bvh, 0 );
+		// refitting code requires these to exist still
+	//	bvh.nodes.clear();
+	//	bvh.bounds.clear();
+	//	bvh.nodes.shrink_to_fit();
+	//	bvh.bounds.shrink_to_fit();
+	}
 
 	// mark as clean
 	bvh.dirty = false;
@@ -214,7 +224,11 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 
 	bvh.indices.clear();
 	bvh.nodes.clear();
+	bvh.bounds.clear();
+	bvh.indicesToNodes.clear();
+	bvh.bounds.reserve( triangles );
 	bvh.indices.reserve( triangles );
+	bvh.indicesToNodes.resize( triangles, 0 );
 
 	// stores bounds
 	uf::stl::vector<pod::AABB> bounds;
@@ -249,7 +263,14 @@ void impl::buildMeshBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::index_t 
 	if ( uf::physics::settings.useBvhSahMeshes ) impl::buildBVHNode_SAH( bvh, bounds, 0, bvh.indices.size(), capacity );
 	else impl::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 	// flatten if requested
-	if ( uf::physics::settings.flattenBvhMeshes ) impl::flattenBVH( bvh, 0 );
+	if ( uf::physics::settings.flattenBvhMeshes ) {
+		impl::flattenBVH( bvh, 0 );
+		// unstable at times
+		//bvh.nodes.clear();
+		//bvh.bounds.clear();
+		//bvh.nodes.shrink_to_fit();
+		//bvh.bounds.shrink_to_fit();
+	}
 
 	// mark as clean
 	bvh.dirty = false;
@@ -263,7 +284,11 @@ void impl::buildConvexHullBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::in
 
 	bvh.indices.clear();
 	bvh.nodes.clear();
+	bvh.bounds.clear();
+	bvh.indicesToNodes.clear();
+	bvh.bounds.reserve( hullCount );
 	bvh.indices.reserve( hullCount );
+	bvh.indicesToNodes.resize( hullCount, 0 );
 
 	// stores bounds
 	uf::stl::vector<pod::AABB> bounds;
@@ -285,7 +310,13 @@ void impl::buildConvexHullBVH( pod::BVH& bvh, const uf::Mesh& mesh, pod::BVH::in
 	else impl::buildBVHNode( bvh, bounds, 0, bvh.indices.size(), capacity );
 
 	// flatten if requested
-	if ( uf::physics::settings.flattenBvhMeshes ) impl::flattenBVH( bvh, 0 );
+	if ( uf::physics::settings.flattenBvhMeshes ) {
+		impl::flattenBVH( bvh, 0 );
+		//bvh.nodes.clear();
+		//bvh.bounds.clear();
+		//bvh.nodes.shrink_to_fit();
+		//bvh.bounds.shrink_to_fit();
+	}
 
 	// mark as clean
 	bvh.dirty = false;
@@ -464,11 +495,9 @@ pod::BVH::index_t impl::flattenBVH( pod::BVH& bvh, pod::BVH::index_t nodeID ) {
 	if ( nodeID == 0 ) {
 		bvh.flattened.clear();
 		bvh.flatBounds.clear();
-		bvh.primitiveToNode.clear();
 
 		bvh.flattened.reserve(bvh.nodes.size());
 		bvh.flatBounds.reserve(bvh.bounds.size());
-		bvh.primitiveToNode.resize(bvh.indices.size());
 	}
 
 	const auto& node = bvh.nodes[nodeID];
@@ -491,7 +520,7 @@ pod::BVH::index_t impl::flattenBVH( pod::BVH& bvh, pod::BVH::index_t nodeID ) {
 		bvh.flattened[flatID] = flat;
 
 		for ( uint32_t i = 0; i < node.getCount(); ++i ) {
-			bvh.primitiveToNode[bvh.indices[node.start + i]] = flatID;
+			bvh.indicesToNodes[bvh.indices[node.start + i]] = flatID;
 		}
 		return flatID + 1;
 	}
@@ -997,8 +1026,8 @@ void impl::postprocessPairs( pod::BVH::pairs_t& pairs ) {
 }
 
 void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, bool active ) {
-	if ( index < bvh.primitiveToNode.size() ) {
-		uint32_t flatNodeID = bvh.primitiveToNode[index];
+	if ( index < bvh.indicesToNodes.size() ) {
+		uint32_t flatNodeID = bvh.indicesToNodes[index];
 		if ( flatNodeID < bvh.flattened.size() ) {
 			bvh.flattened[flatNodeID].setUnloaded(!active);
 		}
@@ -1019,16 +1048,42 @@ void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, bool active ) {
 	}
 }
 
+void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, uint32_t count, bool active ) {
+	if ( !bvh.indicesToNodes.empty() ) {
+		for ( uint32_t i = 0; i < count; ++i ) {
+			if ( index + i < bvh.indicesToNodes.size() ) {
+				uint32_t flatNodeID = bvh.indicesToNodes[index + i];
+				if ( flatNodeID < bvh.flattened.size() ) {
+					bvh.flattened[flatNodeID].setUnloaded(!active);
+				}
+			}
+		}
+	} else if ( !bvh.nodes.empty() ) {
+		for ( auto& node : bvh.nodes ) {
+			if ( node.getCount() > 0 ) {
+				for ( uint32_t i = 0; i < node.getCount(); ++i ) {
+					uint32_t idx = bvh.indices[node.start + i];
+					if ( idx >= index && idx < index + count ) {
+						node.setUnloaded(!active);
+					}
+				}
+			}
+		}
+	}
+}
+
 size_t uf::bvh::serialize( const pod::BVH& bvh, uf::stl::vector<uint8_t>& outBuffer, uint32_t offset ) {
 	uf::stl::writer writer( outBuffer, offset, true );
 
 	writer.write( (uint32_t)( bvh.indices.size() ) );
+	writer.write( (uint32_t)( bvh.indicesToNodes.size() ) );
 	writer.write( (uint32_t)( bvh.nodes.size() ) );
 	writer.write( (uint32_t)( bvh.flattened.size() ) );
 
 	if ( !bvh.indices.empty() ) writer.write( bvh.indices );
+	if ( !bvh.indicesToNodes.empty() ) writer.write( bvh.indicesToNodes );
 	if ( !bvh.nodes.empty() ) { writer.write( bvh.nodes ); writer.write( bvh.bounds); }
-	if ( !bvh.flattened.empty() ) { writer.write( bvh.flattened ); writer.write( bvh.flatBounds ); writer.write( bvh.primitiveToNode ); }
+	if ( !bvh.flattened.empty() ) { writer.write( bvh.flattened ); writer.write( bvh.flatBounds ); }
 
 	return writer.offset() - offset;
 }
@@ -1037,33 +1092,34 @@ bool uf::bvh::deserialize( pod::BVH& bvh, const uf::stl::vector<uint8_t>& buffer
 	uf::stl::reader reader( buffer, offset, length > 0 ? length : buffer.size(), true, true );
 
 	const uint32_t* pNumIndices = reader.read<uint32_t>();
+	const uint32_t* pNumMap	 = reader.read<uint32_t>();
 	const uint32_t* pNumNodes   = reader.read<uint32_t>();
 	const uint32_t* pNumFlat	= reader.read<uint32_t>();
 
-	if ( !pNumIndices || !pNumNodes || !pNumFlat ) return false;
+	if ( !pNumIndices || !pNumNodes || !pNumMap || !pNumFlat ) return false;
 
 	uint32_t numIndices = *pNumIndices;
+	uint32_t numMap	 	= *pNumMap;
 	uint32_t numNodes   = *pNumNodes;
 	uint32_t numFlat	= *pNumFlat;
+
+//	UF_MSG_DEBUG("Indices={}, Map={}, Nodes={}, Flat={}", numIndices, numMap, numNodes, numFlat);
 
 	if ( numIndices > 0 ) {
 		if ( !reader.read( numIndices, bvh.indices ) ) return false;
 	} else {
 		bvh.indices.clear();
 	}
+	
+	if ( numMap ) {
+		if ( !reader.read( numMap, bvh.indicesToNodes ) ) return false;
+	} else {
+		bvh.indicesToNodes.clear();
+	}
 
 	if ( numNodes > 0 ) {
-		if ( numFlat > 0 ) {
-			reader.skip( numNodes * sizeof(pod::BVH::Node) );
-			reader.skip( numNodes * sizeof(pod::AABB) );
-			bvh.nodes.clear();
-			bvh.nodes.shrink_to_fit();
-			bvh.bounds.clear();
-			bvh.bounds.shrink_to_fit();
-		} else {
-			if ( !reader.read( numNodes, bvh.nodes ) ) return false;
-			if ( !reader.read( numNodes, bvh.bounds ) ) return false;
-		}
+		if ( !reader.read( numNodes, bvh.nodes ) ) return false;
+		if ( !reader.read( numNodes, bvh.bounds ) ) return false;
 	} else {
 		bvh.nodes.clear();
 		bvh.bounds.clear();
@@ -1072,11 +1128,9 @@ bool uf::bvh::deserialize( pod::BVH& bvh, const uf::stl::vector<uint8_t>& buffer
 	if ( numFlat > 0 ) {
 		if ( !reader.read( numFlat, bvh.flattened ) ) return false;
 		if ( !reader.read( numFlat, bvh.flatBounds ) ) return false;
-		if ( !reader.read( numIndices, bvh.primitiveToNode ) ) return false;
 	} else {
 		bvh.flattened.clear();
 		bvh.flatBounds.clear();
-		bvh.primitiveToNode.clear();
 	}
 
 	bvh.dirty = false;

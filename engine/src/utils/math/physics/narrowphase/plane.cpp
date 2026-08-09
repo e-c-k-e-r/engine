@@ -95,7 +95,6 @@ void impl::drawPlane( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Plane& plane ) {
 	body.collider.type = pod::ShapeType::PLANE;
 	body.collider.plane = plane;
-	body.bounds = impl::computeAABB( body );
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

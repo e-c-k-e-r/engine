@@ -446,6 +446,16 @@ pod::Vector3f uf::physics::getGravity( pod::PhysicsBody& body ) {
 	return uf::vector::isValid( body.gravity ) ? body.gravity : body.world->gravity;
 }
 
+void uf::physics::update( pod::PhysicsBody& body ) {
+	body.bounds = impl::computeAABB( body );
+	uf::physics::updateInertia( body );
+
+	if ( body.inverseMass == 0.0f ) {
+		body.world->staticBvh.dirty = true;
+	} else {
+		body.world->dynamicBvh.dirty = true;
+	}
+}
 void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 	if ( body.inverseMass == 0.0f ) {
 		body.inverseInertiaTensor = { 0.0f, 0.0f, 0.0f };

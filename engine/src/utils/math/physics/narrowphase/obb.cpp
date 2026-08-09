@@ -326,8 +326,6 @@ void impl::drawObb( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::OBB& obb ) {
 	body.collider.type = pod::ShapeType::OBB;
 	body.collider.obb = obb;
-	body.bounds = impl::computeAABB( body );
-
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

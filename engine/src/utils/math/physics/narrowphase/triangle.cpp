@@ -377,7 +377,6 @@ pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Tr
 	if ( uf::vector::magnitude( body.collider.triangle.normal ) < 0.001f ) {
 		body.collider.triangle.normal = impl::triangleNormal( (const pod::Triangle&) tri );
 	}
-	body.bounds = impl::computeAABB( body );
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

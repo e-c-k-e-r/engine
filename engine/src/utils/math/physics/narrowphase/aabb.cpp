@@ -101,8 +101,6 @@ void impl::drawAabb( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::AABB& aabb ) {
 	body.collider.type = pod::ShapeType::AABB;
 	body.collider.aabb = aabb;
-	body.bounds = impl::computeAABB( body );
-
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

@@ -161,7 +161,6 @@ void impl::drawCapsule( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Capsule& capsule ) {
 	body.collider.type = pod::ShapeType::CAPSULE;
 	body.collider.capsule = capsule;
-	body.bounds = impl::computeAABB( body );
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

@@ -2228,10 +2228,10 @@ void uf::graph::reload( pod::Graph& graph, pod::Node& node ) {
 				
 				// update bounds
 				if ( exists ) {
-				//	body.bounds = impl::computeAABB( body );
-					bvh = {};
+					auto& body = entity.getComponent<pod::PhysicsBody>();
+					uf::physics::update( body );
 				}
-				{
+				if ( !exists ) {
 				// only need to initialize once, as the pointers will remain the same
 					float mass = phyziks["mass"].as(0.0f);
 					auto center = uf::vector::decode( phyziks["center"], pod::Vector3f{} );
@@ -2306,15 +2306,14 @@ void uf::graph::reload( pod::Graph& graph ) {
 		bool needsGraphicBinding = !entity.hasComponent<uf::renderer::Graphic>();
 		auto& work = pendingMeshes[node.mesh];
 		work.dependentNodes.push_back(node.index);
+		if ( work.queuedLODs.empty() && primitives.size() > 0 ) {
+			work.queuedLODs.resize( primitives.size(), -1 );
+		}
 
 		auto& bvh = storage.bvhs.map[meshName];
 		auto& bvhStream = graph.streams.bvhs[meshName];
 		if ( bvh.flattened.empty() && bvh.nodes.empty() && bvhStream.buffer.length > 0 ) {
 			work.needsBvhLoad = true;
-		}
-
-		if ( work.queuedLODs.empty() && primitives.size() > 0 ) {
-			work.queuedLODs.resize( primitives.size(), -1 );
 		}
 
 		if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
@@ -2562,22 +2561,18 @@ void uf::graph::reload( pod::Graph& graph ) {
 				uniqueIndexBuffers[attr.buffer] = attr.stride > 0 ? attr.stride : attr.descriptor.size;
 			}
 
-			int actualReadsToPerform = 0;
-
-			if ( work.needsBvhLoad ) {
-				actualReadsToPerform += 1;
-			}
+			int totalReads = work.needsBvhLoad ? 1 : 0;
 			for ( auto& active : activeDraws ) {
 				auto& lod = primitives[active.drawID].lod.levels[active.lodLevel];
 
 				if ( lod.indices > 0 ) {
-					actualReadsToPerform += uniqueIndexBuffers.size();
+					totalReads += uniqueIndexBuffers.size();
 					for ( auto& [bufID, stride] : uniqueIndexBuffers ) {
 						ctx->bufferSizes[bufID] += lod.indices * stride;
 					}
 				}
 				if ( lod.vertices > 0 ) {
-					actualReadsToPerform += uniqueVertexBuffers.size();
+					totalReads += uniqueVertexBuffers.size();
 					for ( auto& [bufID, stride] : uniqueVertexBuffers ) {
 						ctx->bufferSizes[bufID] += lod.vertices * stride;
 					}
@@ -2590,46 +2585,60 @@ void uf::graph::reload( pod::Graph& graph ) {
 				}
 			}
 
-			ctx->pendingReads.store(actualReadsToPerform);
+			ctx->pendingReads.store(totalReads);
 
 			auto finalizeStream = [ctx, graphPtr = &graph]() {
-				auto& currentGraph = *graphPtr;
-				auto& storage = uf::graph::getStorage(currentGraph);
-				auto& meshKey = currentGraph.meshes[ctx->meshID];
-				auto& targetMesh = storage.meshes.map[meshKey];
-				auto& targetPrimitives = storage.primitives.map[currentGraph.primitives[ctx->meshID]];
-				auto& targetBvh = storage.bvhs.map[meshKey];
+				auto& graph = *graphPtr;
+				auto& storage = uf::graph::getStorage(graph);
+				auto& meshKey = graph.meshes[ctx->meshID];
+				auto& mesh = storage.meshes.map[meshKey];
+				auto& primitives = storage.primitives.map[graph.primitives[ctx->meshID]];
+				auto& bvh = storage.bvhs.map[meshKey];
+				auto& bvhStream = graph.streams.bvhs[meshKey];
 
 				for ( auto& [b, buf] : ctx->completedBuffers ) {
-					std::swap(targetMesh.buffers[b], buf);
+					std::swap(mesh.buffers[b], buf);
 				}
 
-				targetMesh.vertex.count = ctx->vertexCount;
-				targetMesh.index.count = ctx->indexCount;
+				mesh.vertex.count = ctx->vertexCount;
+				mesh.index.count = ctx->indexCount;
 
+				bool rebuildBvh = true;/*
 				if ( !ctx->bvhRawBuffer.empty() ) {
-					uf::bvh::deserialize( targetBvh, ctx->bvhRawBuffer, 0, ctx->bvhRawBuffer.size() );
+					if ( !uf::bvh::deserialize( bvh, ctx->bvhRawBuffer ) ) {
+						bvhStream.buffer.length = 0;
+					}
 					ctx->bvhRawBuffer.clear();
 					ctx->bvhRawBuffer.shrink_to_fit();
 				}
-				bool bvhValid = !targetBvh.flattened.empty() || !targetBvh.nodes.empty();
+				if ( bvhStream.buffer.length == 0 ) {
+					rebuildBvh = true;
+				}*/
+				bool bvhValid = !bvh.flattened.empty() || !bvh.nodes.empty();
 
-				auto& indirectAttr = targetMesh.indirect.attributes.front();
-				pod::DrawCommand* targetDrawCommands = (pod::DrawCommand*) targetMesh.buffers[indirectAttr.buffer].data();
+				auto& indirectAttr = mesh.indirect.attributes.front();
+				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.buffers[indirectAttr.buffer].data();
 
 				for ( auto& [drawID, cmd] : ctx->updatedCommands ) {
-					targetPrimitives[drawID].drawCommand = cmd;
-					targetDrawCommands[drawID] = cmd;
+					primitives[drawID].drawCommand = cmd;
+					drawCommands[drawID] = cmd;
 
-					if ( bvhValid ) {
-						uf::bvh::flagAsActive( targetBvh, drawID, (cmd.vertices > 0 && cmd.indices > 0) );
+					if ( bvhValid && !rebuildBvh ) {
+						auto& lod = primitives[drawID].lod.levels[0];
+
+						uint32_t startTri = lod.indexID / 3;
+						uint32_t triCount = lod.indices / 3;
+						uf::bvh::flagAsActive( bvh, startTri, triCount, (cmd.vertices > 0 && cmd.indices > 0) );
 					}
 				}
 
-				targetMesh.updateDescriptor();
+				mesh.updateDescriptor();
+				if ( rebuildBvh ) {
+					uf::bvh::build( bvh, mesh );
+				}
 
 				for ( auto nodeID : ctx->deps ) {
-					uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
+					uf::graph::reload( graph, graph.nodes[nodeID] );
 				}
 
 			#if UF_USE_OPENGL
@@ -2643,7 +2652,7 @@ void uf::graph::reload( pod::Graph& graph ) {
 				}
 			};
 
-			if ( actualReadsToPerform > 0 ) {
+			if ( totalReads > 0 ) {
 				uf::stl::unordered_map<size_t, size_t> bufferWriteOffsets;
 
 				if ( work.needsBvhLoad ) {
@@ -2718,25 +2727,25 @@ void uf::graph::reload( pod::Graph& graph ) {
 			ctx->pendingReads.store(totalReads);
 
 			auto finalizeFullLoad = [ctx, graphPtr = &graph]() {
-				auto& currentGraph = *graphPtr;
-				auto& storage = uf::graph::getStorage(currentGraph);
-				auto& meshKey = currentGraph.meshes[ctx->meshID];
-				auto& targetMesh = storage.meshes.map[meshKey];
-				auto& targetBvh = storage.bvhs.map[meshKey];
+				auto& graph = *graphPtr;
+				auto& storage = uf::graph::getStorage(graph);
+				auto& meshKey = graph.meshes[ctx->meshID];
+				auto& mesh = storage.meshes.map[meshKey];
+				auto& bvh = storage.bvhs.map[meshKey];
 
 				for ( auto& [b, buf] : ctx->newBuffers ) {
-					std::swap(targetMesh.buffers[b], buf);
+					std::swap(mesh.buffers[b], buf);
 				}
-				targetMesh.updateDescriptor();
+				mesh.updateDescriptor();
 
 				if ( !ctx->bvhRawBuffer.empty() ) {
-					uf::bvh::deserialize( targetBvh, ctx->bvhRawBuffer, 0, ctx->bvhRawBuffer.size() );
+					uf::bvh::deserialize( bvh, ctx->bvhRawBuffer );
 					ctx->bvhRawBuffer.clear();
 					ctx->bvhRawBuffer.shrink_to_fit();
 				}
 
 				for ( auto nodeID : ctx->deps ) {
-					uf::graph::reload( currentGraph, currentGraph.nodes[nodeID] );
+					uf::graph::reload( graph, graph.nodes[nodeID] );
 				}
 			};
 			

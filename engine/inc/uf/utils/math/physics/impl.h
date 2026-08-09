@@ -36,6 +36,7 @@ namespace uf {
 		void UF_API setGravity( pod::PhysicsBody&, const pod::Vector3f& = { NAN, NAN, NAN } );
 		pod::Vector3f UF_API getGravity( pod::PhysicsBody& );
 
+		void UF_API update( pod::PhysicsBody& body );
 		void UF_API updateInertia( pod::PhysicsBody& body );
 
 		void UF_API applyForce( pod::PhysicsBody& body, const pod::Vector3f& force );

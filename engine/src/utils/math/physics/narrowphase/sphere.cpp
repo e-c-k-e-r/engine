@@ -104,7 +104,6 @@ void impl::drawSphere( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const pod::Sphere& sphere ) {
 	body.collider.type = pod::ShapeType::SPHERE;
 	body.collider.sphere = sphere;
-	body.bounds = impl::computeAABB( body );
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

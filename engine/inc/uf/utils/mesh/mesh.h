@@ -200,7 +200,7 @@ namespace pod {
 		uf::stl::vector<pod::BVH::index_t> indices;
 		uf::stl::vector<pod::BVH::Node> nodes;
 		uf::stl::vector<pod::BVH::FlatNode> flattened;
-		uf::stl::vector<uint32_t> primitiveToNode;
+		uf::stl::vector<pod::BVH::index_t> indicesToNodes;
 		
 		uf::stl::vector<pod::AABB> bounds;
 		uf::stl::vector<pod::AABB> flatBounds;

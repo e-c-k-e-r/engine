@@ -48,5 +48,6 @@ namespace uf {
 		size_t UF_API serialize( const pod::BVH& bvh, uf::stl::vector<uint8_t>& outBuffer, uint32_t offset = 0 );
 		bool UF_API deserialize( pod::BVH& bvh, const uf::stl::vector<uint8_t>& buffer, uint32_t offset = 0, uint32_t length = 0 );
 		void UF_API flagAsActive( pod::BVH& bvh, uint32_t index, bool active );
+		void UF_API flagAsActive( pod::BVH& bvh, uint32_t index, uint32_t count, bool active );
 	}
 }

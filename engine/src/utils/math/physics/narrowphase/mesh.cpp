@@ -213,7 +213,18 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 	const uf::Mesh* meshData = body.collider.mesh.mesh;
 	auto transform = impl::getTransform( body );
 	if ( !meshData ) return;
-	if ( body.inverseMass == 0.0f ) return;
+	// draw BVH instead
+	if ( body.inverseMass == 0.0f ) {
+		const auto& bvh = *body.collider.mesh.bvh;
+		if ( !bvh.flatBounds.empty() ) {
+			for ( const auto& bound : bvh.flatBounds ) uf::debug::drawShape( bound, transform );
+			return;
+		}
+		if ( !bvh.bounds.empty() ) {
+			for ( const auto& bound : bvh.bounds ) uf::debug::drawShape( bound, transform );
+			return;
+		}
+	}
 
 	size_t totalTriangles = 0;
 	for ( const auto& view : meshData->buffer_views ) totalTriangles += view.index.count / 3;
@@ -237,24 +248,25 @@ void impl::drawMesh( const pod::PhysicsBody& body ) {
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, bool convex ) {
 	if ( !body.collider.mesh.bvh ) {
 		body.collider.mesh.bvh = new pod::BVH;
-		body.collider.mesh.ownsBvh = true;
 	} else {
 		*body.collider.mesh.bvh = {};
 	}
-	return uf::physics::initialize( body, mesh, *body.collider.mesh.bvh, convex );
+	uf::physics::initialize( body, mesh, *body.collider.mesh.bvh, convex );
+	body.collider.mesh.ownsBvh = true;
+	return body;
 }
 
 pod::PhysicsBody& uf::physics::initialize( pod::PhysicsBody& body, const uf::Mesh& mesh, pod::BVH& bvh, bool convex ) {
 	body.collider.type = convex ? pod::ShapeType::CONVEX_HULL : pod::ShapeType::MESH;
 	body.collider.mesh.mesh = &mesh;
 	body.collider.mesh.bvh = &bvh;
+	body.collider.mesh.ownsBvh = false;
 
 	// to-do: move this to the above initialize to allow for deferred BVH building?
 	if ( bvh.nodes.empty() && bvh.flattened.empty() ) {
 		impl::buildMeshBVH( bvh, mesh, uf::physics::settings.meshBvhCapacity );
 	}
 
-	body.bounds = impl::computeAABB( body );
-	uf::physics::updateInertia( body );
+	uf::physics::update( body );
 	return body;
 }

@@ -39,7 +39,7 @@ namespace {
 		return 0;
 	}
 	
-	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& imageName, uf::stl::vector<PendingImage>& pendingImages ) {
+	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& key ) {
 		uf::Image image;
 
 		uf::stl::string filename = "";
@@ -89,23 +89,17 @@ namespace {
 
 		if ( graph.settings.stream.textures ) {
 			auto& storage = uf::graph::getStorage(graph);
-			graph.streams.images[imageName] = { fullPath, offset, length };
+			graph.streams.images[key] = { fullPath, offset, length };
 		} else {
-			pendingImages.push_back({ imageName, {}, extension, layers });
-			auto& pending = pendingImages.back();
-
 			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
 			if ( readLen > 0 ) {
-				pending.buffer.resize(readLen);
-				uf::asset::read( fullPath, offset, readLen, pending.buffer.data()/*, [&graph, &pending]() {
+				uf::asset::read( fullPath, offset, readLen, [&graph, key, extension, layers]( uf::stl::vector<uint8_t>&& buffer ) {
 					auto& storage = uf::graph::getStorage(graph);
-					auto& image = storage.images[pending.name].data;
+					auto& image = storage.images[key].data;
 
-					uf::image::open( image, pending.buffer, pending.extension, false );
-					uf::image::layers( image, pending.layers );
-
-					pending.buffer.clear();
-				}*/ );
+					uf::image::open( image, buffer, extension, false );
+					uf::image::layers( image, layers );
+				} );
 			}
 		}
 
@@ -279,10 +273,10 @@ namespace {
 		return mesh;
 	}
 
-	pod::BVH decodeBvh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& bvhName ) {
+	pod::BVH decodeBvh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& key ) {
 		pod::BVH bvh;
 		auto& storage = uf::graph::getStorage(graph);
-		auto& bvhStream = graph.streams.bvhs[bvhName];
+		auto& bvhStream = graph.streams.bvhs[key];
 
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		size_t offset = json["offset"].as<size_t>();
@@ -293,9 +287,14 @@ namespace {
 
 		bool deferred = graph.settings.stream.enabled;
 		if ( !deferred ) {
-			uf::stl::vector<uint8_t> tempBuffer(length);
-			uf::asset::read( fullPath, offset, length, tempBuffer.data() );
-			uf::bvh::deserialize( bvh, tempBuffer, 0, length );
+			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
+			if ( readLen > 0 ) {
+				uf::asset::read( fullPath, offset, readLen, [&graph, key]( uf::stl::vector<uint8_t>&& buffer ) {
+					auto& storage = uf::graph::getStorage(graph);
+					auto& bvh = storage.bvhs[key];
+					uf::bvh::deserialize( bvh, buffer );
+				} );
+			}
 		}
 
 		return bvh;
@@ -534,14 +533,12 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
 
-		pendingImages.reserve( serializer["images"].size() );
-
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
 			//UF_DEBUG_TIMER_MULTITRACE("Reading image={}", name);
 			storage.images[name] = {
-				.data = decodeImage( value, graph, name, pendingImages ),
+				.data = decodeImage( value, graph, name ),
 			};
 			graph.images.emplace_back(name);
 		});
@@ -568,16 +565,21 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			storage.meshes[name] = decodeMesh( json, graph, name );
 			graph.meshes.emplace_back(name);
 
-			// should probably be under serializer["bvhs"]
-			if ( value["bvh"].isObject() ) {
-				storage.bvhs[name] = decodeBvh( value["bvh"], graph, name );
-			}
-
 			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled )
 				meshesToMinify.emplace_back( name );
 		});
 
 		UF_DEBUG_TIMER_MULTITRACE("Read meshes");
+	});
+
+	tasks.queue([&]{
+		UF_DEBUG_TIMER_MULTITRACE("Reading BVHs...");
+		ext::json::forEach( serializer["bvhs"], [&]( ext::json::Value& value ){
+			auto name = key + value["name"].as<uf::stl::string>();
+		//	storage.bvhs[name] = decodeBvh( value, graph, name );
+		});
+
+		UF_DEBUG_TIMER_MULTITRACE("Read BVHs");
 	});
 
 	tasks.queue([&]{
@@ -639,16 +641,6 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	UF_DEBUG_TIMER_MULTITRACE("Processing IO");
 	uf::asset::processIO();
 
-	// process images
-	UF_DEBUG_TIMER_MULTITRACE("Processing pending images");
-	for ( auto& pending : pendingImages ) {
-		auto& image = storage.images[pending.name].data;
-
-		uf::image::open( image, pending.buffer, pending.extension, false );
-		uf::image::layers( image, pending.layers );
-
-		pending.buffer.clear();
-	}
 
 	// process meshes that need to be minified because I can't easily tie it to the callback
 	UF_DEBUG_TIMER_MULTITRACE("Processing meshes for minification");
