@@ -61,16 +61,21 @@ bool impl::capsulePlane( const pod::PhysicsBody& a, const pod::PhysicsBody& b, p
 	auto [ p1, p2 ] = impl::getCapsuleSegment( capsule );
 	float r = capsule.collider.capsule.radius;
 
-	// the "foot" is just whichever end of the capsule is closest to the normal
-	auto foot = ( uf::vector::dot( normal, p1 ) < uf::vector::dot( normal, p2 ) ) ? p1 : p2;
-	float dist = uf::vector::dot( normal, foot ) - o;
-	if ( dist > r ) return false;
+	bool collided = false;
 
-	auto contact = foot - (normal * r);
-	float penetration = r - dist;
-	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
+	for ( const auto& p : { p1, p2 } ) {
+		float dist = uf::vector::dot( normal, p ) - o;
 
-	return true;
+		if ( dist <= r ) {
+			auto contact = p - normal * ((dist + r) * 0.5f);
+
+			float penetration = r - dist;
+			manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
+			collided = true;
+		}
+	}
+
+	return collided;
 }
 bool impl::capsuleSphere( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod::Manifold& manifold ) {
 	ASSERT_COLLIDER_TYPES( CAPSULE, SPHERE );

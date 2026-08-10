@@ -224,7 +224,33 @@ bool uf::vector::greaterEquals( const T& left, const typename T::type_t right ) 
 //
 template<typename T>
 bool uf::vector::isValid( const T& v ) {
-	return uf::vector::equals( v, v );
+	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
+		bool result = true;
+		FOR_EACH(T::size, {
+			union { float f; uint32_t i; } pun;
+			pun.f = v[i];
+
+			if ( (pun.i & 0x7FFFFFFF) > 0x7F800000 ) {
+				result = false;
+			}
+		});
+		return result;
+	}
+	else if constexpr ( std::is_same_v<typename T::type_t, double> ) {
+		bool result = true;
+		FOR_EACH(T::size, {
+			union { double d; uint64_t i; } pun;
+			pun.d = v[i];
+
+			if ( (pun.i & 0x7FFFFFFFFFFFFFFF) > 0x7FF0000000000000 ) {
+				result = false;
+			}
+		});
+		return result;
+	}
+	else {
+		return true;
+	}
 }
 template<typename T>
 T uf::vector::add( const T& left, const T& right ) {
@@ -569,7 +595,7 @@ T& uf::vector::negate_( T& vector ) {
 template<typename T>
 T& uf::vector::normalize_( T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
-	return ( norm < 1.0e-6 ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
+	return ( norm < EPS ) ? T{} : ( vector = uf::vector::divide((const T&) vector, norm) );
 }
 template<typename T>
 typename T::type_t uf::vector::min( const T& v ) {
@@ -817,19 +843,21 @@ typename T::type_t uf::vector::norm( const T& vector ) {
 }
 template<typename T>
 T uf::vector::normalize( const T& vector ) {
-#if UF_USE_SIMD // causes massive frame drops
+#if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
+	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
+		float magSq = uf::vector::magnitude(vector);
+		if ( magSq < EPS2 ) return vector;
+		return uf::vector::multiply(vector, MATH_fsrra(magSq));
+	}
+#elif UF_USE_SIMD
 	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
 		return uf::simd::normalize( vector );
 	}
 #endif
-	typename T::type_t norm = uf::vector::norm(vector);
-	if ( norm < 1.0e-6 ) return vector;	
-#if UF_ENV_DREAMCAST && UF_ENV_DREAMCAST_SIMD
-	if constexpr ( std::is_same_v<typename T::type_t, float> ) {
-		return uf::vector::multiply(vector, MATH_fsrra(norm));
-	}
-#endif
-	return uf::vector::divide(vector, norm);
+	typename T::type_t magSq = uf::vector::magnitude(vector);
+	if ( magSq < EPS2 ) return vector;
+
+	return uf::vector::multiply(vector, 1.0f / std::sqrt(magSq));
 }
 
 template<typename T>

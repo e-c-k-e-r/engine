@@ -460,12 +460,12 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( ::shadowState.projectionDirty ) {
 		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
 		GL_ERROR_CHECK(glLoadMatrixf( &::shadowState.projection[0] ));
-		::shadowState.projectionDirty = false;		
+		::shadowState.projectionDirty = false;
 	}
 
 	bool needsBlend = drawInfo.blend.modeAlpha > 0;
 	// this might not be necessary
-#if UF_ENV_DREAMCAST
+#if 0 && UF_ENV_DREAMCAST
 	if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) needsBlend = true;
 #endif
 
@@ -757,12 +757,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			::shadowState.texCoord1ArrayEnabled = false;
 		}
 	}
-
-	// this probably isn't necessary
-#if UF_ENV_DREAMCAST
-	GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-	GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-#endif
 
 	{
 		GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));

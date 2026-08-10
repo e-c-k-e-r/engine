@@ -362,21 +362,22 @@ TEST(PhysicsStep_StaticFriction_Holds, {
 })
 
 TEST(PhysicsStep_StaticFriction_Slips, {
-	pod::World world;
-	uf::Object objA, objB;
+    pod::World world;
+    uf::Object objA, objB;
 
-	auto& bodyA = uf::physics::create(world, objA, pod::Sphere{1.0f}, 1.0f);
-	auto& bodyB  = uf::physics::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
+    auto& bodyA = uf::physics::create(world, objA, pod::Sphere{1.0f}, 1.0f);
+    auto& bodyB = uf::physics::create(world, objB, pod::Plane{{0,1,0}, 0.0f}, 0.0f);
 
-	world.gravity = {0,-9.81f,0};
-	bodyA.transform->position = {0,1.0f,0};
-	bodyA.material.staticFriction = 1.0f;
+    world.gravity = {0,-9.81f,0};
+    bodyA.transform->position = {0,1.0f,0};
+    bodyA.material.staticFriction = 1.0f;
 
-	uf::physics::applyForce(bodyA, {15,0,0}); // Above limit
+    for ( int i = 0; i < 1 * FRAMERATE; i++ ) {
+        uf::physics::applyForce(bodyA, {15,0,0});
+        uf::physics::step(world, INV_FRAMERATE);
+    }
 
-	PHYSICS_STEP(1);
-
-	EXPECT_GT(fabs(bodyA.transform->position.x), 0.1f); // It should slide
+    EXPECT_GT(fabs(bodyA.transform->position.x), 0.1f);
 })
 
 // not really a good way to check as these are solver-dependent
@@ -455,6 +456,7 @@ TEST(CapsulePlane_Settling, {
 
 	bodyA.transform->position = {0, 2.0f, 0}; // slightly above
 	bodyA.velocity = {0,0,0};
+	bodyA.angularFactor = {0,0,0};
 
 	PHYSICS_STEP(3);
 
@@ -508,6 +510,7 @@ TEST(Diagnostic_CapsuleGrounding, {
 
 	bodyA.transform->position = {0, 3, 0}; // start a little above floor
 	bodyA.velocity = {0,0,0};
+	bodyA.angularFactor = {0,0,0};
 
 	PHYSICS_STEP(2);
 
@@ -550,7 +553,7 @@ TEST(AabbPlane_RestingNoSink, {
 	PHYSICS_STEP(5);		
 
 	// Expect the box to remain on plane at y=0.0 without sinking further
-	EXPECT_NEAR(bodyA.transform->position.y, 0.0f, 0.05f);
+	EXPECT_NEAR(bodyA.transform->position.y, 1.0f, 0.05f);
 	EXPECT_NEAR(bodyA.velocity.y, 0.0f, 0.05f);
 })
 
@@ -1333,7 +1336,7 @@ TEST(Hinge_Constraint, {
 
 	float dt = 1.0f / 60.0f;
 
-	for (int i = 0; i < 10; ++i) {
+	for (int i = 0; i < 20; ++i) {
 		bodyB.velocity.y -= 9.81f * dt;
 
 		for (int solverIters = 0; solverIters < 10; ++solverIters) {

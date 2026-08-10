@@ -11,14 +11,14 @@ bool impl::planeAabb( const pod::PhysicsBody& a, const pod::PhysicsBody& b, pod:
 	auto normal = uf::vector::normalize( plane.collider.plane.normal );
 	float offset = plane.collider.plane.offset;
 
-	auto center = impl::aabbCenter( aabb.bounds ); // center
-	auto extent = impl::aabbExtent( aabb.bounds ); // half extents
-	float r = fabs(extent.x * normal.x) + fabs(extent.y * normal.y) + fabs(extent.z * normal.z); // effective projection radius of box onto plane normal
+	auto center = impl::aabbCenter( aabb.bounds );
+	auto extent = impl::aabbExtent( aabb.bounds );
+	float r = fabs(extent.x * normal.x) + fabs(extent.y * normal.y) + fabs(extent.z * normal.z);
 
 	float dist = uf::vector::dot( normal, center ) - offset;
 	if ( dist > r ) return false;
 
-	pod::Vector3f contact = center - normal * dist;
+	pod::Vector3f contact = center - normal * ((dist + r) * 0.5f);
 	float penetration = r - dist;
 
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });

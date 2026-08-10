@@ -85,7 +85,7 @@ void ext::PlayerInputBehavior::tick(uf::Object& self) {
 		}
 
 		if ( uf::inputs::controller::states::A ) state.jump = true;
-		if ( uf::inputs::controller::states::B ) state.run = true;
+		if ( uf::inputs::controller::states::B ) state.noclipToggle = true;
 		if ( uf::inputs::controller::states::X ) { state.crouch = true; state.walk = true; }
 		if ( uf::inputs::controller::states::Y ) state.use = true;
 		if ( uf::inputs::controller::states::START ) state.menuToggle = true;

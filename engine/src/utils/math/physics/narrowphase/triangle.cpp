@@ -218,7 +218,7 @@ bool impl::triangleSphere( const pod::TriangleWithNormal& tri, const pod::Physic
 	auto contact = ( center + closest ) * 0.5f;
 	auto normal = ( dist > EPS ) ? ( delta / dist ) : triNormal;
 	float penetration = r - dist;
-	if ( uf::vector::dot( normal, triNormal ) > 0.707f ) normal = triNormal;
+	if ( uf::vector::dot( normal, triNormal ) > 0.98f ) normal = triNormal;
 
 #if REORIENT_NORMALS_ON_CONTACT
 	if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
@@ -295,14 +295,14 @@ bool impl::triangleCapsule( const pod::TriangleWithNormal& tri, const pod::Physi
 
 	// to-do: properly derive the contact information
 	auto triNormal = impl::triangleNormal( tri );
-	auto contact = closest; // ( closestSeg + closest ) * 0.5f;
 	auto normal = ( dist > EPS ) ? ( delta / dist ) : triNormal;
 	float penetration = r - dist;
-	if ( uf::vector::dot( normal, triNormal ) > 0.707f ) normal = triNormal;
+	if ( uf::vector::dot( normal, triNormal ) > 0.98f ) normal = triNormal;
 
 #if REORIENT_NORMALS_ON_CONTACT
 	if ( uf::vector::dot( normal, delta ) < 0.0f ) normal = -normal;
 #endif
+	auto contact = closest - normal * (penetration * 0.5f);
 
 	manifold.points.emplace_back(pod::Contact{ contact, normal, penetration });
 	return true;

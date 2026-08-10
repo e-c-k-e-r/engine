@@ -104,8 +104,8 @@ void impl::computeLocalManifold( pod::Manifold& manifold ) {
 	auto tB = impl::getTransform( b );
 
 	for ( auto& c : manifold.points ) {
-		c.localA = impl::applyInverse( tA, c.point - c.normal * (c.penetration * 0.5f) );
-		c.localB = impl::applyInverse( tB, c.point + c.normal * (c.penetration * 0.5f) );
+		c.localA = impl::applyInverse( tA, c.point + c.normal * (c.penetration * 0.5f) );
+		c.localB = impl::applyInverse( tB, c.point - c.normal * (c.penetration * 0.5f) );
 	}
 }
 
@@ -116,7 +116,6 @@ bool impl::similarContact( const pod::Contact& a, const pod::Contact& b, float d
 void impl::reduceManifold( pod::Manifold& manifold ) {
 	if ( manifold.points.size() <= 4 ) return;
 
-#if 1
 	int idx0 = 0, idx1 = 0, idx2 = 0, idx3 = 0;
 
 	// deepest
@@ -179,35 +178,6 @@ void impl::reduceManifold( pod::Manifold& manifold ) {
 	reducedManifold.points.emplace_back( manifold.points[idx3] );
 
 	manifold.points = std::move( reducedManifold.points );
-#else
-	STATIC_THREAD_LOCAL(uf::stl::vector<pod::Contact>, result);
-	result.reserve(4);
-
-	for ( auto& c : manifold.points ) {
-		if ( !uf::vector::isValid(c.point) ) continue;
-
-		bool merged = false;
-		for ( auto& r : result ) {
-			if ( !impl::similarContact(c, r) ) continue;
-			if ( c.penetration > r.penetration ) r = c;
-			merged = true;
-			break;
-		}
-		if ( !merged ) {
-			if ( result.size() < 4 ) {
-				result.emplace_back(c);
-			} else {
-				auto weakest = 0;
-				for ( auto i = 1; i < 4; i++ ) {
-					if ( result[i].penetration < result[weakest].penetration ) weakest = i;
-				}
-				if ( c.penetration > result[weakest].penetration ) result[weakest] = c;
-			}
-		}
-	}
-
-	manifold.points = result;
-#endif
 }
 
 void impl::mergeManifold( pod::Manifold& manifold ) {

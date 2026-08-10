@@ -19,7 +19,7 @@
 #define ASSERT_COLLIDER_TYPES( A, B ) UF_ASSERT( a.collider.type == pod::ShapeType::A && b.collider.type == pod::ShapeType::B );
 
 #define REORIENT_NORMALS_ON_FETCH 0
-#define REORIENT_NORMALS_ON_CONTACT 1
+#define REORIENT_NORMALS_ON_CONTACT 0
 
 #define REVERSE_COLLIDER( a, b, fun )\
 	auto start = manifold.points.size();\

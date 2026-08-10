@@ -212,11 +212,12 @@ void impl::integrate( pod::PhysicsBody& body, float dt ) {
 		} else if ( body.velocity.y > ref.y ) body.velocity.y = ref.y;
 	}
 
+
 	// linear integration
 	pod::Vector3f acceleration = (body.forceAccumulator * body.inverseMass);
 	acceleration += gravity; // apply gravity
+	acceleration *= body.linearFactor;
 
-	acceleration = acceleration * body.linearFactor;
 	body.velocity += acceleration * dt;
 	body.velocity = body.velocity * body.linearFactor;
 

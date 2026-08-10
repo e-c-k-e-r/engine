@@ -199,7 +199,12 @@ void uf::physics::step( pod::World& world, float dt ) {
 
 	// iterate islands
 	//#pragma omp parallel for schedule(dynamic)
-	auto tasks = uf::thread::schedule(true);
+#if UF_ENV_DREAMCAST
+	bool multithread = false;
+#else
+	bool multithread = true;
+#endif
+	auto tasks = uf::thread::schedule(multithread, true);
 	for ( auto& island : islands ) tasks.queue([&]{
 		auto& manifolds = island.manifolds;
 		auto& constraints = island.constraints;
@@ -232,18 +237,16 @@ void uf::physics::step( pod::World& world, float dt ) {
 			// did not collide
 			if ( !impl::generateManifold( a, b, manifold, dt ) ) continue;
 
+			// reorient if needed
+			bool shouldReorient = true;
+			auto posA = impl::getPosition(a);
+			for ( auto& c : manifold.points ) {
+				pod::Vector3f toB = c.point - posA;
+				if ( uf::vector::dot( c.normal, toB ) < 0.0f ) c.normal = -c.normal;
+				//  c.normal = impl::orientNormalToAB( a, b, c.normal );
+			}
 			// compute local points (for reprojection)
 			impl::computeLocalManifold( manifold );
-
-			// bodies with meshes already reorient the normal to the triangle's center
-			bool shouldReorient = true;
-			// do not do it for meshes because it'll reorient to the mesh's origin
-			if ( a.collider.type == pod::ShapeType::MESH || b.collider.type == pod::ShapeType::MESH ) shouldReorient = false;
-			// do not do it for planes
-			//if ( a.collider.type == pod::ShapeType::PLANE || b.collider.type == pod::ShapeType::PLANE ) shouldReorient = false;
-			if ( shouldReorient ) {
-				for ( auto& c : manifold.points ) c.normal = impl::orientNormalToAB( a, b, c.normal );
-			}
 			// retrieve accumulated impulses
 			if ( uf::physics::settings.warmupSolver ) {
 				auto it = uf::physics::settings.manifoldsCache.find( pairKey );
@@ -327,6 +330,7 @@ void uf::physics::step( pod::World& world, float dt ) {
 		UF_PHYSICS_TIMER_MULTITRACE("Event Dispatch (Insert)");
 
 		std::sort(activeCollisions.begin(), activeCollisions.end());
+
 		
 		UF_PHYSICS_TIMER_MULTITRACE("Sort Active Array");
 
@@ -355,6 +359,9 @@ void uf::physics::step( pod::World& world, float dt ) {
 				++itAct;
 			}
 		}
+		//for ( auto& event : collisionEvents ) {
+		//	UF_MSG_DEBUG("event: state={}, a={}, b={}, point={}, normal={}, impulse={}", (int) event.state, uf::string::toString( *event.a->object ), uf::string::toString( *event.b->object ), uf::string::toString( event.point ), uf::string::toString( event.normal ), event.impulse );
+		//}
 
 		UF_PHYSICS_TIMER_MULTITRACE("Event Dispatch (Sweep & Exit)");
 	}

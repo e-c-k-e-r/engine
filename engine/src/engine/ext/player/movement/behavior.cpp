@@ -107,7 +107,7 @@ void ext::PlayerMovementBehavior::tick(uf::Object& self) {
 	metadata.walking = (input.movement.x != 0 || input.movement.y != 0);
 	metadata.running = input.run;
 
-	if ( metadata.walking && !metadata.noclipped && physicsBody.object ) {
+	if ( false && metadata.walking && !metadata.noclipped && physicsBody.object ) {
 		float stepHeight = 0.65f;
 		float lookAhead = 0.15f;
 

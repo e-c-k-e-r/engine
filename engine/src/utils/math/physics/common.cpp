@@ -413,13 +413,18 @@ float impl::segmentTriangleDistanceSq( const pod::Vector3f& p0, const pod::Vecto
 		n /= std::sqrt( denom );
 		float d0 = uf::vector::dot( p0 - tri.points[0], n );
 		float d1 = uf::vector::dot( p1 - tri.points[0], n );
+
 		if ( (d0 * d1) <= 0.0f ) {
-			float t = d0 / (d0 - d1);
-			auto q = p0 + (p1 - p0) * t;
-			if ( impl::pointInTriangle( q, tri ) ) {
-				outSeg = q;
-				outTri = q;
-				return 0.0f;
+			float denom = d0 - d1;
+
+			if ( std::abs(denom) > EPS ) {
+				float t = d0 / denom;
+				auto q = p0 + (p1 - p0) * t;
+				if ( impl::pointInTriangle( q, tri ) ) {
+					outSeg = q;
+					outTri = q;
+					return 0.0f;
+				}
 			}
 		}
 	}
