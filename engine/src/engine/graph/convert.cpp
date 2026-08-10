@@ -361,6 +361,7 @@ void uf::graph::import( pod::Graph::Storage& target, pod::Graph::Storage& storag
 		target.primitives.merge(std::move(storage.primitives));
 		target.instances.merge(std::move(storage.instances));
 		target.meshes.merge(std::move(storage.meshes));
+		target.bvhs.merge(std::move(storage.bvhs));
 		target.images.merge(std::move(storage.images));
 		target.materials.merge(std::move(storage.materials));
 		target.textures.merge(std::move(storage.textures));
@@ -387,6 +388,7 @@ void uf::graph::import( pod::Graph::Storage& target, pod::Graph::Storage& storag
 		target.primitives.import(storage.primitives);
 		target.instances.import(storage.instances);
 		target.meshes.import(storage.meshes);
+		target.bvhs.import(storage.bvhs);
 		target.images.import(storage.images);
 		target.materials.import(storage.materials);
 		target.textures.import(storage.textures);

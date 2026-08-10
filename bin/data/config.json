@@ -437,7 +437,7 @@
 			},
 			"loader": {
 				"assert": "auto",
-				"async": "auto" // unironically works on opengl, not on vulkan
+				"async": "auto"
 			},
 			"hooks": {
 				"defer lazy calls": true

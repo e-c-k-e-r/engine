@@ -208,7 +208,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 			uf::asset::assertionLoad = configEngineDebugJson["loader"]["assert"].as( uf::asset::assertionLoad );
 		}
 		if ( configEngineDebugJson["loader"]["async"].as<uf::stl::string>() == "auto" ) {
-			uf::asset::asyncQueue = false; // to-do: fix
+			uf::asset::asyncQueue = false; // to-do: find out why vulkan really does not like this
 		#if UF_USE_OPENGL && !UF_ENV_DREAMCAST
 			uf::asset::asyncQueue = true;
 		#endif

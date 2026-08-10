@@ -25,14 +25,10 @@
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 
-namespace {
-	struct PendingImage {
-		uf::stl::string name;
-		uf::stl::vector<uint8_t> buffer;
-		uf::stl::string extension;
-		size_t layers;
-	};
+// to force deferred loading
+#define DEFERRED(...) __VA_ARGS__
 
+namespace {
 	size_t deduceFormat( const uf::stl::string& format ) {
 		if ( format == "ARGB4444" ) return uf::renderer::enums::Format::R4G4B4A4_UNORM_PACK16;
 		if ( format == "RGB565" ) return uf::renderer::enums::Format::R5G6B5_UNORM_PACK16;
@@ -86,17 +82,17 @@ namespace {
 		}
 
 		uf::stl::string fullPath = uf::io::directory( graph.name ) + "/" + filename;
+		auto& storage = uf::graph::getStorage(graph);
+		graph.streams.images[key] = { fullPath, offset, length };
 
-		if ( graph.settings.stream.textures ) {
-			auto& storage = uf::graph::getStorage(graph);
-			graph.streams.images[key] = { fullPath, offset, length };
-		} else {
+		bool deferred = DEFERRED(graph.settings.stream.textures);
+		if ( !deferred ) {
 			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
 			if ( readLen > 0 ) {
-				uf::asset::read( fullPath, offset, readLen, [&graph, key, extension, layers]( uf::stl::vector<uint8_t>&& buffer ) {
+				uf::asset::read( graph.streams.queue, fullPath, offset, readLen, [&graph, key, extension, layers]( uf::stl::vector<uint8_t>&& buffer ) {
 					auto& storage = uf::graph::getStorage(graph);
 					auto& image = storage.images[key].data;
-
+				
 					uf::image::open( image, buffer, extension, false );
 					uf::image::layers( image, layers );
 				} );
@@ -123,6 +119,7 @@ namespace {
 		auto& storage = uf::graph::getStorage(graph);
 		auto& animStream = graph.streams.animations[animName];
 
+		bool deferred = DEFERRED(graph.settings.stream.animations);
 		ext::json::forEach( json["samplers"], [&]( ext::json::Value& value ){
 			auto& sampler = animation.samplers.emplace_back();
 			sampler.interpolator = value["interpolator"].as(sampler.interpolator);
@@ -135,19 +132,19 @@ namespace {
 			size_t outputsOffset = value["outputs"]["offset"].as<size_t>();
 			size_t outputsLen = value["outputs"]["length"].as<size_t>();
 
-			if ( graph.settings.stream.animations ) {
-				pod::AnimationStream::SamplerStream sStream;
-				sStream.inputs = { binPath, inputsOffset, inputsLen };
-				sStream.outputs = { binPath, outputsOffset, outputsLen };
-				animStream.samplers.emplace_back(sStream);
-			} else {
+			pod::AnimationStream::SamplerStream sStream;
+			sStream.inputs = { binPath, inputsOffset, inputsLen };
+			sStream.outputs = { binPath, outputsOffset, outputsLen };
+			animStream.samplers.emplace_back(sStream);
+			
+			if ( !deferred ) {
 				if ( inputsLen > 0 ) {
 					sampler.inputs.resize(inputsCount);
-					uf::asset::read( binPath, inputsOffset, inputsLen, (uint8_t*)(sampler.inputs.data()) );
+					uf::asset::read( graph.streams.queue, binPath, inputsOffset, inputsLen, (uint8_t*)(sampler.inputs.data()) );
 				}
 				if ( outputsLen > 0 ) {
 					sampler.outputs.resize(outputsCount);
-					uf::asset::read( binPath, outputsOffset, outputsLen, (uint8_t*)(sampler.outputs.data()) );
+					uf::asset::read( graph.streams.queue, binPath, outputsOffset, outputsLen, (uint8_t*)(sampler.outputs.data()) );
 				}
 			}
 		});
@@ -172,6 +169,7 @@ namespace {
 			skin.joints.emplace_back( value.as<int32_t>() );
 		});
 
+		bool deferred = DEFERRED(graph.settings.stream.enabled);
 		if ( json["inverseBindMatrices"].isObject() ) {
 			auto& invJson = json["inverseBindMatrices"];
 			size_t count = invJson["count"].as<size_t>();
@@ -181,13 +179,12 @@ namespace {
 
 			auto& storage = uf::graph::getStorage(graph);
 			auto& skinStream = graph.streams.skins[skinName];
+			skinStream.inverseBindMatrices = { binPath, offset, length };
 
-			if ( graph.settings.stream.enabled ) {
-				skinStream.inverseBindMatrices = { binPath, offset, length };
-			} else {
+			if ( !deferred ) {
 				if ( length > 0 ) {
 					skin.inverseBindMatrices.resize(count);
-					uf::asset::read( binPath, offset, length, (uint8_t*)(skin.inverseBindMatrices.data()) );
+					uf::asset::read( graph.streams.queue, binPath, offset, length, (uint8_t*)(skin.inverseBindMatrices.data()) );
 				}
 			}
 		}
@@ -195,9 +192,7 @@ namespace {
 		return skin;
 	}
 
-	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName ) {
-		uf::Mesh mesh;
-
+	void decodeMesh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& meshName, uf::Mesh& mesh ) {
 		#define DESERIALIZE_MESH(N) {\
 			auto& input = json["inputs"][#N];\
 			mesh.N.attributes.reserve( input["attributes"].size() );\
@@ -230,7 +225,7 @@ namespace {
 		auto& meshStream = graph.streams.meshes[meshName];
 
 		mesh.buffers.reserve( json["buffers"].size() );
-		bool deferred = graph.settings.stream.enabled;
+		bool deferred = DEFERRED(graph.settings.stream.enabled);
 
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			uf::stl::string filename;
@@ -258,7 +253,7 @@ namespace {
 				if ( region.length == 0 ) continue;
 
 				mesh.buffers[attr.buffer].resize(region.length);
-				uf::asset::read( region.filename, region.offset, region.length, mesh.buffers[attr.buffer].data() );
+				uf::asset::read( graph.streams.queue, region.filename, region.offset, region.length, mesh.buffers[attr.buffer].data() );
 			}
 		};
 
@@ -270,11 +265,9 @@ namespace {
 		}
 
 		mesh.updateDescriptor();
-		return mesh;
 	}
 
-	pod::BVH decodeBvh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& key ) {
-		pod::BVH bvh;
+	void decodeBvh( ext::json::Value& json, pod::Graph& graph, const uf::stl::string& key, pod::BVH& bvh ) {
 		auto& storage = uf::graph::getStorage(graph);
 		auto& bvhStream = graph.streams.bvhs[key];
 
@@ -285,19 +278,17 @@ namespace {
 		uf::stl::string fullPath = uf::io::directory( graph.name ) + "/" + filename;
 		bvhStream.buffer = pod::StreamRegion{ fullPath, offset, length };
 
-		bool deferred = graph.settings.stream.enabled;
+		bool deferred = DEFERRED(graph.settings.stream.enabled);
 		if ( !deferred ) {
 			size_t readLen = length > 0 ? length : uf::io::size( fullPath );
 			if ( readLen > 0 ) {
-				uf::asset::read( fullPath, offset, readLen, [&graph, key]( uf::stl::vector<uint8_t>&& buffer ) {
+				uf::asset::read( graph.streams.queue, fullPath, offset, readLen, [&graph, key]( uf::stl::vector<uint8_t>&& buffer ) {
 					auto& storage = uf::graph::getStorage(graph);
 					auto& bvh = storage.bvhs[key];
-					uf::bvh::deserialize( bvh, buffer );
+					auto res = uf::bvh::deserialize( bvh, buffer );
 				} );
 			}
 		}
-
-		return bvh;
 	}
 
 	pod::Node decodeNode( ext::json::Value& json, pod::Graph& graph ) {
@@ -405,9 +396,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	uf::stl::string key = graph.metadata["key"].as<uf::stl::string>("");
 	if ( key != "" ) key += ":";
 	
-	uf::stl::vector<PendingImage> pendingImages;
 	uf::stl::vector<uf::stl::string> meshesToMinify;
-
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading material information...");
 		auto& node = serializer["materials"];
@@ -420,6 +409,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				auto names = node["names"].as<uf::stl::vector<uf::stl::string>>();
 
 				graph.materials.reserve(names.size());
+				storage.materials.reserve(names.size());
+
 				for (size_t i = 0; i < names.size(); ++i) {
 					auto name = key + names[i];
 					storage.materials[name] = rawMaterials[i];
@@ -442,6 +433,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				auto names = node["names"].as<uf::stl::vector<uf::stl::string>>();
 
 				graph.textures.reserve(names.size());
+				storage.textures.reserve(names.size());
+
 				for (size_t i = 0; i < names.size(); ++i) {
 					auto name = key + names[i];
 					storage.textures[name] = rawTextures[i];
@@ -464,6 +457,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				auto names = node["names"].as<uf::stl::vector<uf::stl::string>>();
 
 				graph.samplers.reserve(names.size());
+				storage.samplers.reserve(names.size());
+
 				for (size_t i = 0; i < names.size(); ++i) {
 					auto name = key + names[i];
 					storage.samplers[name] = rawSamplers[i];
@@ -486,6 +481,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 				auto names = node["names"].as<uf::stl::vector<uf::stl::string>>();
 
 				graph.lights.reserve(names.size());
+				storage.lights.reserve(names.size());
+
 				for (size_t i = 0; i < names.size(); ++i) {
 					auto name = key + names[i];
 					graph.lights[name] = rawLights[i];
@@ -505,10 +502,11 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			allPrimitives = reinterpret_cast<pod::Primitive*>(ioBuf.data());
 		}
 
-		auto& primNode = serializer["primitives"];
-		graph.primitives.reserve( primNode.size() );
+		auto count = serializer["primitives"].size();
+		graph.primitives.reserve( count );
+		storage.primitives.reserve( count );
 
-		ext::json::forEach( primNode, [&]( ext::json::Value& value ){
+		ext::json::forEach( serializer["primitives"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
 
 			graph.primitives.emplace_back(name);
@@ -531,7 +529,9 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
-		graph.images.reserve( serializer["images"].size() );
+		auto count = serializer["images"].size();
+		graph.images.reserve( count );
+		storage.images.reserve( count );
 
 		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
@@ -549,6 +549,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading meshes...");
 		graph.meshes.reserve( serializer["meshes"].size() );
+		storage.meshes.reserve( serializer["meshes"].size() );
 
 	#if UF_USE_OPENGL
 		bool preferMinified = true;
@@ -562,7 +563,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			bool hasMinifiedAsset = value["min"].isObject();
 			auto& json = ( preferMinified && hasMinifiedAsset ) ? value["min"] : value;
 
-			storage.meshes[name] = decodeMesh( json, graph, name );
+			decodeMesh( json, graph, name, storage.meshes[name] );
 			graph.meshes.emplace_back(name);
 
 			if ( preferMinified && !hasMinifiedAsset && !graph.settings.stream.enabled )
@@ -574,9 +575,10 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading BVHs...");
+		storage.bvhs.reserve( serializer["bvhs"].size() );
 		ext::json::forEach( serializer["bvhs"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
-			storage.bvhs[name] = decodeBvh( value, graph, name );
+			decodeBvh( value, graph, name, storage.bvhs[name] );
 		});
 
 		UF_DEBUG_TIMER_MULTITRACE("Read BVHs");
@@ -587,7 +589,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 		auto& animNode = serializer["animations"];
 
 		if ( animNode.isObject() ) {
-			storage.animations.map.reserve( animNode.size() );
+			storage.animations.reserve( animNode.size() );
+
 			ext::json::forEach( animNode, [&]( const uf::stl::string& rawName, ext::json::Value& value ){
 				auto name = key + rawName;
 				storage.animations[name] = decodeAnimation( value, graph, name );
@@ -595,7 +598,8 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 			});
 		}
 		else if ( animNode.isArray() ) {
-			storage.animations.map.reserve( animNode.size() );
+			storage.animations.reserve( animNode.size() );
+
 			ext::json::forEach( animNode, [&]( ext::json::Value& value ){
 				uf::stl::string path = directory + "/" + value.as<uf::stl::string>();
 				uf::Serializer json;
@@ -612,6 +616,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	tasks.queue([&]{
 		UF_DEBUG_TIMER_MULTITRACE("Reading skinning information...");
 		graph.skins.reserve( serializer["skins"].size() );
+		storage.skins.reserve( serializer["skins"].size() );
 
 		ext::json::forEach( serializer["skins"], [&]( ext::json::Value& value ){
 			auto name = key + value["name"].as<uf::stl::string>();
@@ -639,8 +644,7 @@ void uf::graph::load( pod::Graph& graph, const uf::stl::string& filename, const 
 	UF_DEBUG_TIMER_MULTITRACE("Executing tasks");
 	uf::thread::execute( tasks );
 	UF_DEBUG_TIMER_MULTITRACE("Processing IO");
-	uf::asset::processIO();
-
+	uf::asset::processIO( graph.streams.queue, false, true );
 
 	// process meshes that need to be minified because I can't easily tie it to the callback
 	UF_DEBUG_TIMER_MULTITRACE("Processing meshes for minification");

@@ -13,9 +13,9 @@ namespace uf {
 			class Hash = std::hash<Key>,
 			class KeyEqual = std::equal_to<Key>,
 		#if UF_MEMORYPOOL_USE_ALLOCATOR
-			class Allocator = std::allocator<Key>
-		#else
 			class Allocator = uf::Allocator<Key>
+		#else
+			class Allocator = std::allocator<Key>
 		#endif
 		>
 		using unordered_set = std::unordered_set<Key, Hash, KeyEqual, Allocator>;

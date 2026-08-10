@@ -463,20 +463,36 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		::shadowState.projectionDirty = false;		
 	}
 
-	if ( drawInfo.blend.modeAlpha > 0 ) {
-		if ( !::shadowState.alphaTestEnabled ) {
-			GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
-			::shadowState.alphaTestEnabled = true;
+	bool needsBlend = drawInfo.blend.modeAlpha > 0;
+	// this might not be necessary
+#if UF_ENV_DREAMCAST
+	if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) needsBlend = true;
+#endif
+
+	if ( needsBlend ) {
+		if ( drawInfo.blend.modeAlpha > 0 ) {
+			if ( !::shadowState.alphaTestEnabled ) {
+				GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
+				::shadowState.alphaTestEnabled = true;
+			}
+			if ( ::shadowState.alphaCutoff != drawInfo.blend.alphaCutoff ) {
+				GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
+				::shadowState.alphaCutoff = drawInfo.blend.alphaCutoff;
+			}
+		} else {
+			if ( ::shadowState.alphaTestEnabled ) {
+				GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
+				::shadowState.alphaTestEnabled = false;
+			}
 		}
-		if ( ::shadowState.alphaCutoff != drawInfo.blend.alphaCutoff ) {
-			GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
-			::shadowState.alphaCutoff = drawInfo.blend.alphaCutoff;
-		}
+
 		if ( !::shadowState.blendEnabled ) {
 			GL_ERROR_CHECK(glEnable(GL_BLEND));
-			GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 			::shadowState.blendEnabled = true;
 		}
+
+		GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
 	} else {
 		if ( ::shadowState.alphaTestEnabled ) {
 			GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
@@ -543,7 +559,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glColor4f( color[0], color[1], color[2], color[3] ));
 		::shadowState.color = color;
 	}
-
 	
 	GLenum vertexType = GL_FLOAT;
 	switch ( drawInfo.attributes.position.descriptor.type ) {
@@ -665,6 +680,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
 		::shadowState.colorArrayEnabled = false;
 	}
+
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
@@ -690,7 +706,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GLenum texEnv = (drawInfo.attributes.color.pointer || drawInfo.color.enabled) ? GL_MODULATE : GL_REPLACE;
 		GL_ERROR_CHECK(glTexCoordPointer(2, uvType, uvStride, uvPtr));
 		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, texEnv));
-		//GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, drawInfo.attributes.color.pointer ? GL_MODULATE : GL_REPLACE));
 	} else {
 		if ( ::shadowState.tex0Enabled ) {
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
@@ -742,6 +757,12 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			::shadowState.texCoord1ArrayEnabled = false;
 		}
 	}
+
+	// this probably isn't necessary
+#if UF_ENV_DREAMCAST
+	GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+	GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+#endif
 
 	{
 		GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));

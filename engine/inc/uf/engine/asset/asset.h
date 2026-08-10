@@ -13,6 +13,30 @@
 namespace uf {
 	namespace asset {
 		typedef uf::Hooks::name_t callback_t;
+		struct Job {
+			typedef uf::stl::vector<Job> container_t;
+
+			uf::asset::callback_t callback = "";
+			uf::stl::string type = "";
+			uf::asset::Payload payload = {};
+		};
+		struct Read {
+			typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<Read>> container_t;
+
+			size_t offset;
+			size_t length;
+			uint8_t* dest;
+			std::function<void()> callback;
+			std::function<void(uf::stl::vector<uint8_t>&&)> callbackBuffered;
+		};
+		struct Stream {
+			typedef uf::stl::unordered_map<uf::stl::string, uf::stl::vector<Stream>> container_t;
+
+			size_t offset;
+			size_t length;
+			size_t chunkSize;
+			std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback;
+		};
 
 	#if UF_COMPONENT_POINTERED_USERDATA
 		typedef pod::PointeredUserdata userdata_t;
@@ -22,6 +46,7 @@ namespace uf {
 
 		extern UF_API bool assertionLoad;
 		extern UF_API bool asyncQueue;
+		extern UF_API bool deferQueues;
 		
 		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> map;
 
@@ -33,13 +58,21 @@ namespace uf {
 		// URL or file path
 		void UF_API processQueue();
 		void UF_API processIO();
+		
+		void UF_API processIO( const uf::asset::Read::container_t& pendingReads, bool async = uf::asset::asyncQueue, bool wait = false );
+		void UF_API processIO( const uf::asset::Stream::container_t& pendingStreams, bool async = uf::asset::asyncQueue, bool wait = false );
+		void UF_API processIO( const uf::asset::Read::container_t& pendingReads, const uf::asset::Stream::container_t& pendingStreams, bool async = uf::asset::asyncQueue, bool wait = false );
 
 		void UF_API cache( const uf::asset::callback_t&, const uf::asset::Payload& );
 		void UF_API load( const uf::asset::callback_t&, const uf::asset::Payload& );
 
 		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback = {} );
-		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, std::function<void(uf::stl::vector<uint8_t>&&)> callback = {} );
+		void UF_API read( const uf::stl::string& filename, size_t offset, size_t length, std::function<void(uf::stl::vector<uint8_t>&&)> callback );
 		void UF_API stream( const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback );
+
+		void UF_API read( uf::asset::Read::container_t& container, const uf::stl::string& filename, size_t offset, size_t length, uint8_t* dest, std::function<void()> callback = {} );
+		void UF_API read( uf::asset::Read::container_t& container, const uf::stl::string& filename, size_t offset, size_t length, std::function<void(uf::stl::vector<uint8_t>&&)> callback );
+		void UF_API stream( uf::asset::Stream::container_t& container, const uf::stl::string& filename, size_t offset, size_t length, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size, size_t fileOffset)> callback );
 
 		uf::stl::string UF_API cache( uf::asset::Payload& );
 		uf::stl::string UF_API load( uf::asset::Payload& );

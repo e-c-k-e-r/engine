@@ -81,6 +81,8 @@ namespace pod {
 			uf::stl::unordered_map<uf::stl::string, pod::MeshStream> meshes;
 			uf::stl::unordered_map<uf::stl::string, pod::ImageStream> images;
 			uf::stl::unordered_map<uf::stl::string, pod::BvhStream> bvhs;
+
+			uf::asset::Read::container_t queue;
 		} streams;
 
 		// Local storage, used for save/load

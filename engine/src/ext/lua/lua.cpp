@@ -313,6 +313,10 @@ namespace binds {
 	}
 }
 
+namespace {
+	std::mutex mutex;
+}
+
 void ext::lua::initialize() {
 	if ( !ext::lua::enabled ) return;
 
@@ -477,6 +481,7 @@ pod::LuaScript ext::lua::script( const uf::stl::string& filename ) {
 }
 void ext::lua::script( const uf::stl::string& filename, pod::LuaScript& script ) {
 	if ( !ext::lua::enabled ) return;
+	std::lock_guard<std::mutex> lock(::mutex);
 	script.file = filename;
 	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
 }

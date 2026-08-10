@@ -486,7 +486,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				auto& material = materials[materialID];
 				auto textureID = material.indexAlbedo;
 
-				auto& infos = pool[textureID];
+				uint32_t drawHash = ( (uint32_t)(textureID & 0xFFFF) ) | ( ((uint32_t)(lightmapID & 0xFFFF)) << 16 );
+
+				auto& infos = pool[drawHash];
 				CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
 			//	CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
 
@@ -511,6 +513,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
 
 				if ( drawCommandInfo.color.value.w == 0.0f ) {
+					infos.pop_back();
 					continue;
 				}
 
@@ -526,7 +529,11 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				if ( drawCommandInfo.blend.modeAlpha == pod::Material::AlphaMode::BLEND ) {
 					drawCommandInfo.descriptor.renderTarget = 1;
 				}
-				commandBuffer.record( drawCommandInfo );
+			}
+		}
+		for ( auto& [ drawHash, infos ] : pool ) {
+			for ( auto& info : infos ) {
+				commandBuffer.record( info );
 			}
 		}
 	} else {		

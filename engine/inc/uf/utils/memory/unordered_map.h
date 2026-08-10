@@ -15,9 +15,9 @@ namespace uf {
 			class Hash = uf::algo::hasher,
 			class KeyEqual = std::equal_to<Key>,
 		#if UF_MEMORYPOOL_USE_ALLOCATOR
-			class Allocator = std::allocator<std::pair<const Key, T>>
-		#else
 			class Allocator = uf::Allocator<std::pair<const Key, T>>
+		#else
+			class Allocator = std::allocator<std::pair<const Key, T>>
 		#endif
 		>
 		using unordered_map = std::unordered_map<Key, T, Hash, KeyEqual, Allocator>;

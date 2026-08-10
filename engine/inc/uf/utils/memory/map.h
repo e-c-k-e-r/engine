@@ -12,9 +12,9 @@ namespace uf {
 			class T,
 			class Compare = std::less<Key>,
 		#if UF_MEMORYPOOL_USE_ALLOCATOR
-			class Allocator = std::allocator<std::pair<const Key, T>>
-		#else
 			class Allocator = uf::Allocator<std::pair<const Key, T>>
+		#else
+			class Allocator = std::allocator<std::pair<const Key, T>>
 		#endif
 		>
 		using map = std::map<Key, T, Compare, Allocator>;

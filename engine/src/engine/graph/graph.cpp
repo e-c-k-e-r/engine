@@ -2317,8 +2317,9 @@ void uf::graph::reload( pod::Graph& graph ) {
 
 		auto& bvh = storage.bvhs.map[meshName];
 		auto& bvhStream = graph.streams.bvhs[meshName];
-		if ( bvh.flatNodes.empty() && bvh.nodes.empty() && bvhStream.buffer.length > 0 ) {
+		if ( bvh.indices.empty() && bvhStream.buffer.length > 0 ) {
 			work.needsBvhLoad = true;
+			UF_MSG_DEBUG("Queued BVH load={}", meshName);
 		}
 
 		if ( radius > 0 && mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
