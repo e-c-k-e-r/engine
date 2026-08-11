@@ -10,6 +10,8 @@
 
 #include <uf/ext/audio/vorbis.h>
 #include <uf/utils/memory/pool.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 #include <uf/utils/io/vfs.h>
 #include <vector>
 #include <cstring>
@@ -136,6 +138,14 @@ namespace {
 				}
 				totalRead += result;
 			}
+		#if UF_USE_AICA
+			int alignedBytes = (totalRead + 31) & ~31;
+			if ( alignedBytes > req_bytes ) alignedBytes = req_bytes;
+			if ( alignedBytes > totalRead ) {
+				std::memset(buffer + totalRead, 0, alignedBytes - totalRead);
+				totalRead = alignedBytes;
+			}
+		#endif
 			return totalRead;
 		}
 	}
@@ -172,7 +182,7 @@ void ext::vorbis::open( pod::AudioSource& source ) {
 	OggVorbis_File* vorbisFile = new OggVorbis_File;
 	ov_callbacks callbacks = { funs::read, funs::seek, funs::close, funs::tell };
 
-	if ( ov_open_callbacks((void*) ctx, vorbisFile, NULL, -1, callbacks) < 0 ) {
+	if ( ov_open_callbacks((void*) ctx, vorbisFile, NULL, 0, callbacks) < 0 ) {
 		UF_MSG_ERROR("Vorbis: failed to open file: {}", clip->filename);
 		delete ctx; delete vorbisFile;
 		return;
@@ -227,7 +237,7 @@ void ext::vorbis::load( pod::AudioClip& clip ) {
 	OggVorbis_File* vorbisFile = new OggVorbis_File;
 	ov_callbacks callbacks = { funs::read, funs::seek, funs::close, funs::tell };
 
-	if ( ov_open_callbacks((void*) ctx, vorbisFile, NULL, clip.streamed ? -1 : 0, callbacks) < 0 ) {
+	if ( ov_open_callbacks((void*) ctx, vorbisFile, NULL, 0, callbacks) < 0 ) {
 		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: {}", clip.filename);
 		delete ctx; delete vorbisFile;
 		return;
@@ -427,17 +437,20 @@ uf::stl::vector<uint8_t> ext::vorbis::encode( const pod::PCM& pcm ) {
 	ogg_stream_packetin(&os, &header_comm);
 	ogg_stream_packetin(&os, &header_code);
 
+	// Instantiate the writer!
+	uf::stl::writer writer(output);
+
 	auto flush_ogg_pages = [&](bool force) {
 		ogg_page og;
 		if ( force ) {
 			while ( ogg_stream_flush(&os, &og) != 0 ) {
-				output.insert(output.end(), og.header, og.header + og.header_len);
-				output.insert(output.end(), og.body, og.body + og.body_len);
+				writer.write(og.header, og.header_len);
+				writer.write(og.body, og.body_len);
 			}
 		} else {
 			while ( ogg_stream_pageout(&os, &og) != 0 ) {
-				output.insert(output.end(), og.header, og.header + og.header_len);
-				output.insert(output.end(), og.body, og.body + og.body_len);
+				writer.write(og.header, og.header_len);
+				writer.write(og.body, og.body_len);
 			}
 		}
 	};

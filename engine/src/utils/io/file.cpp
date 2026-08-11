@@ -20,24 +20,118 @@
 	#define GetCurrentDir getcwd
 #endif
 
+#define CACHE_QUERIES 1
+
+// cache queries by key and value in the event redundant I/O or string processing calls are made (namely for exists)
+#if CACHE_QUERIES
+	#define QUERY_CACHE( query, type )\
+		static thread_local std::pair<uf::stl::string, type> qkv;\
+		if ( !qkv.first.empty() && qkv.first == query ) return qkv.second;\
+		qkv.first = query;
+
+	#define CACHE_QUERY( value ) qkv.second = value;
+#else
+	#define QUERY_CACHE( query, type ) {}
+	#define CACHE_QUERY( value ) value;
+#endif
+
+namespace {
+	uf::stl::string resolveURI( const uf::stl::string& _filename, const uf::stl::string& _root = "" ) {
+		QUERY_CACHE( _root + _filename, uf::stl::string );
+		if ( _filename.length() >= 8 && _filename.substr(0,8) == "https://" ) return CACHE_QUERY(_filename);
+
+		uf::stl::string f = uf::io::normalize( _filename );
+		uf::stl::string root = uf::io::normalize( _root );
+		bool schemeResolved = f.find("://") != uf::stl::string::npos;
+		bool fAlreadyHasScheme = schemeResolved;
+
+		// process macros (only %root%)
+		if ( !schemeResolved && f.starts_with("%root%") ) {
+			f = f.substr(6);
+			root = "data://";
+			schemeResolved = true;
+		}
+
+		// explicit relative path
+		if ( !schemeResolved && f.length() >= 2 && f.substr(0, 2) == "./" ) {
+			f = f.substr(2);
+			if ( root.empty() ) schemeResolved = true;
+		}
+
+		// explicit absolute
+		if ( !fAlreadyHasScheme && f.length() > 0 && f[0] == '/' ) {
+			root = "";
+		}
+
+		// deduce scheme and apply
+		if ( !schemeResolved && f.substr(0, 3) != "../" ) {
+			if ( root.empty() ) {
+				uf::stl::string deducedScheme = uf::io::assetScheme( f );
+
+				if ( deducedScheme != "data://" ) {
+					root = deducedScheme;
+					schemeResolved = true;
+				} else {
+					root = deducedScheme;
+				}
+			}
+		}
+
+		// absolute system paths
+		bool isWindowsAbsolute = !fAlreadyHasScheme && f.length() >= 2 && std::isalpha(f[0]) && f[1] == ':';
+		bool isUnixAbsolute = !fAlreadyHasScheme && !schemeResolved && f.length() > 0 && f[0] == '/';
+
+		if ( isWindowsAbsolute || isUnixAbsolute ) {
+			root = "sys://";
+			if ( isUnixAbsolute ) f = f.substr(1); // might not be necessary because of the final normalization?
+		}
+
+		// apply root
+		if ( !fAlreadyHasScheme && !root.empty() ) {
+			if ( f.length() > 0 && f[0] == '/' ) f = f.substr(1);
+
+			// remove cringe like `tex://textures/`
+			for ( const auto& mount : uf::vfs::mounts ) {
+				if ( root != mount.prefix ) continue;
+
+				uf::stl::string target = mount.path;
+				if (target.back() == '/') target.pop_back();
+				target = target.substr(target.find_last_of('/') + 1) + "/";
+
+				if ( f.starts_with(target) ) f = f.substr(target.length());
+				break;
+			}
+
+			if ( root.back() != '/') root += "/";
+			f = root + f;
+		}
+
+		return CACHE_QUERY(uf::io::normalize( f ));
+	}
+}
+
 const uf::stl::string uf::io::root = UF_IO_ROOT;
 
 uf::stl::string uf::io::absolute( const uf::stl::string& path ) {
+	QUERY_CACHE( path, uf::stl::string );
 	char buff[FILENAME_MAX];
 	GetCurrentDir( buff, FILENAME_MAX );
-	return uf::stl::string(buff) + path;
+	return CACHE_QUERY(uf::stl::string(buff) + path);
 }
 uf::stl::string uf::io::filename( const uf::stl::string& str ) {
-	return str.substr( str.find_last_of('/') + 1 );
+	QUERY_CACHE( str, uf::stl::string );
+	return CACHE_QUERY(str.substr( str.find_last_of('/') + 1 ));
 }
 uf::stl::string uf::io::basename( const uf::stl::string& filename ) {
+	QUERY_CACHE( filename, uf::stl::string );
 	uf::stl::string str = uf::io::filename( filename );
 	uf::stl::string extension = uf::io::extension( filename );
-	return uf::string::replace( str, "." + extension, "" );
+	return CACHE_QUERY(uf::string::replace( str, "." + extension, "" ));
 }
 uf::stl::string uf::io::extension( const uf::stl::string& str ) {
+	QUERY_CACHE( str, uf::stl::string );
 	uf::stl::string filename = uf::io::filename(str);
-	return filename.substr( filename.find_last_of('.') + 1 );
+	return CACHE_QUERY(filename.substr( filename.find_last_of('.') + 1 ));
 }
 uf::stl::string uf::io::extension( const uf::stl::string& str, int32_t count ) {
 	uf::stl::string filename = uf::io::filename(str);
@@ -56,29 +150,35 @@ uf::stl::string uf::io::extension( const uf::stl::string& str, int32_t count ) {
 	return extension;
 }
 uf::stl::string uf::io::remove_extension( const uf::stl::string& str ) {
+	QUERY_CACHE( str, uf::stl::string );
 	size_t last_dot = str.find_last_of('.');
 	size_t last_slash = str.find_last_of('/');
 	if ( last_dot != uf::stl::string::npos && (last_slash == uf::stl::string::npos || last_dot > last_slash) ) {
-		return str.substr( 0, last_dot );
+		return CACHE_QUERY(str.substr( 0, last_dot ));
 	}
-	return str;
+	return CACHE_QUERY(str);
 }
 uf::stl::string uf::io::replace_extension( const uf::stl::string& str, const uf::stl::string& new_ext ) {
+	QUERY_CACHE( str + new_ext, uf::stl::string );
 	uf::stl::string base = uf::io::remove_extension( str );
-	if ( new_ext.empty() ) return base;
-	if ( new_ext[0] == '.' ) return base + new_ext;
-	return base + "." + new_ext;
+	if ( new_ext.empty() ) return CACHE_QUERY(base);
+	if ( new_ext[0] == '.' ) return CACHE_QUERY(base + new_ext);
+	return CACHE_QUERY(base + "." + new_ext);
 }
 uf::stl::string uf::io::directory( const uf::stl::string& str ) {
-	return str.substr( 0, str.find_last_of('/') ) + "/";
+	QUERY_CACHE( str, uf::stl::string );
+	return CACHE_QUERY(str.substr( 0, str.find_last_of('/') ) + "/");
 }
 uf::stl::vector<uf::stl::string> uf::io::list( const uf::stl::string& dir, const uf::stl::string& extension ) {
-	return uf::vfs::list( uf::io::resolveURI(dir), extension );
+	QUERY_CACHE( dir + extension, uf::stl::vector<uf::stl::string> );
+	return CACHE_QUERY(uf::vfs::list( uf::io::resolveURI(dir), extension ));
 }
 size_t uf::io::size( const uf::stl::string& filename ) {
-	return uf::vfs::size( uf::io::resolveURI(filename) );
+	QUERY_CACHE( filename, size_t );
+	return CACHE_QUERY(uf::vfs::size( uf::io::resolveURI(filename) ));
 }
 uf::stl::string uf::io::normalize( const uf::stl::string& path ) {
+	QUERY_CACHE( path, uf::stl::string );
 	uf::stl::string clean = path;
 
 	std::replace(clean.begin(), clean.end(), '\\', '/');
@@ -94,7 +194,7 @@ uf::stl::string uf::io::normalize( const uf::stl::string& path ) {
 
 	clean = uf::string::replace(clean, "//", "/");
 
-	return scheme + clean;
+	return CACHE_QUERY(scheme + clean);
 }
 // would just use readAsBuffer and convert to string, but that's double the memory cost
 bool uf::io::readAsString( uf::stl::string& buffer, const uf::stl::string& _filename, const uf::stl::string& hash ) {
@@ -269,19 +369,23 @@ size_t uf::io::compress( const uf::stl::string& filename, const void* buffer, si
 }
 
 uf::stl::string uf::io::hash( const uf::stl::string& filename ) {
-	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
+	QUERY_CACHE( filename, uf::stl::string );
+	return CACHE_QUERY(uf::string::sha256( uf::io::readAsBuffer( filename ) ));
 }
 bool uf::io::exists( const uf::stl::string& filename ) {
-	return uf::vfs::exists( uf::io::resolveURI(filename) );
+	QUERY_CACHE( filename, bool );
+	return CACHE_QUERY(uf::vfs::exists( uf::io::resolveURI(filename) ));
 }
 size_t uf::io::mtime( const uf::stl::string& filename ) {
-	return uf::vfs::mtime( uf::io::resolveURI(filename) );
+	QUERY_CACHE( filename, size_t );
+	return CACHE_QUERY(uf::vfs::mtime( uf::io::resolveURI(filename) ));
 }
 bool uf::io::mkdir( const uf::stl::string& filename ) {
 	return uf::vfs::mkdir( uf::io::resolveURI(filename) );
 }
 
 uf::stl::string uf::io::assetType( const uf::stl::string& _filename ) {
+	QUERY_CACHE( _filename, uf::stl::string );
 	// remove .gz
 	uf::stl::string filename = uf::string::replace( _filename, ".gz", "" );
 
@@ -290,137 +394,93 @@ uf::stl::string uf::io::assetType( const uf::stl::string& _filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
 
 	// a map does allocations, an if ladder is easy
-	if ( basename == "graph.json" ) return "model";
-	if ( basename == "scene.json" ) return "scene";
-	if ( extension == "json" ) return "entity";
-	if ( extension == "png" ) return "texture";
-	if ( extension == "glb" ) return "model";
-	if ( extension == "gltf" ) return "model";
-	if ( extension == "graph" ) return "model";
-	if ( extension == "ogg" ) return "audio";
-	if ( extension == "wav" ) return "audio";
-	if ( extension == "spv" ) return "shader";
-	if ( extension == "lua" ) return "script";
-	return "";
+	if ( basename == "graph.json" ) return CACHE_QUERY("model");
+	if ( basename == "scene.json" ) return CACHE_QUERY("scene");
+	if ( extension == "json" ) return CACHE_QUERY("entity");
+	if ( extension == "png" ) return CACHE_QUERY("texture");
+	if ( extension == "glb" ) return CACHE_QUERY("model");
+	if ( extension == "gltf" ) return CACHE_QUERY("model");
+	if ( extension == "graph" ) return CACHE_QUERY("model");
+	if ( extension == "ogg" ) return CACHE_QUERY("audio");
+	if ( extension == "wav" ) return CACHE_QUERY("audio");
+	if ( extension == "spv" ) return CACHE_QUERY("shader");
+	if ( extension == "lua" ) return CACHE_QUERY("script");
+	return CACHE_QUERY("");
 }
 
 // to-do: map to above
 uf::stl::string uf::io::assetScheme( const uf::stl::string& _filename ) {
+	QUERY_CACHE( _filename, uf::stl::string );
 	uf::stl::string filename = uf::string::replace( _filename, ".gz", "" );
 	uf::stl::string basename = uf::io::filename( filename );
 	uf::stl::string extension = uf::io::extension( filename );
 
-	if ( basename == "graph.json" ) return "mdl://";
-	if ( basename == "scene.json" ) return "scene://";
-	if ( extension == "json" ) return "ent://";
-	if ( extension == "png" || extension == "dtex" ) return "tex://";
-	if ( extension == "glb" || extension == "gltf" || extension == "graph" ) return "mdl://";
-	if ( extension == "ogg" || extension == "wav" || extension == "adp" ) return "snd://";
-	if ( extension == "spv" ) return "spv://";
-	if ( extension == "lua" ) return "lua://";
+	if ( basename == "graph.json" ) return CACHE_QUERY("mdl://");
+	if ( basename == "scene.json" ) return CACHE_QUERY("scene://");
+	if ( extension == "json" ) return CACHE_QUERY("ent://");
+	if ( extension == "png" || extension == "dtex" ) return CACHE_QUERY("tex://");
+	if ( extension == "glb" || extension == "gltf" || extension == "graph" ) return CACHE_QUERY("mdl://");
+	if ( extension == "ogg" || extension == "wav" || extension == "adp" ) return CACHE_QUERY("snd://");
+	if ( extension == "spv" ) return CACHE_QUERY("spv://");
+	if ( extension == "lua" ) return CACHE_QUERY("lua://");
 
-	return "data://";
+	return CACHE_QUERY("data://");
 }
 
 uf::stl::string uf::io::resolveURI( const uf::stl::string& _filename, const uf::stl::string& _root ) {
-	if ( _filename.length() >= 8 && _filename.substr(0,8) == "https://" ) return _filename;
-
-	uf::stl::string f = uf::io::normalize( _filename );
-	uf::stl::string root = uf::io::normalize( _root );
-	bool schemeResolved = f.find("://") != uf::stl::string::npos;
-	bool fAlreadyHasScheme = schemeResolved;
-
-	// process macros (only %root%)
-	if ( !schemeResolved && f.starts_with("%root%") ) {
-		f = f.substr(6);
-		root = "data://";
-		schemeResolved = true;
-	}
-
-	// explicit relative path
-	if ( !schemeResolved && f.length() >= 2 && f.substr(0, 2) == "./" ) {
-		f = f.substr(2);
-		if ( root.empty() ) schemeResolved = true;
-	}
-
-	// explicit absolute
-	if ( !fAlreadyHasScheme && f.length() > 0 && f[0] == '/' ) {
-		root = "";
-	}
-
-	// deduce scheme and apply
-	if ( !schemeResolved && f.substr(0, 3) != "../" ) {
-		if ( root.empty() ) {
-			uf::stl::string deducedScheme = uf::io::assetScheme( f );
-
-			if ( deducedScheme != "data://" ) {
-				root = deducedScheme;
-				schemeResolved = true;
-			} else {
-				root = deducedScheme;
-			}
-		}
-	}
-
-	// absolute system paths
-	bool isWindowsAbsolute = !fAlreadyHasScheme && f.length() >= 2 && std::isalpha(f[0]) && f[1] == ':';
-	bool isUnixAbsolute = !fAlreadyHasScheme && !schemeResolved && f.length() > 0 && f[0] == '/';
-
-	if ( isWindowsAbsolute || isUnixAbsolute ) {
-		root = "sys://";
-		if ( isUnixAbsolute ) f = f.substr(1); // might not be necessary because of the final normalization?
-	}
-
-	// apply root
-	if ( !fAlreadyHasScheme && !root.empty() ) {
-		if ( f.length() > 0 && f[0] == '/' ) f = f.substr(1);
-
-		// remove cringe like `tex://textures/`
-		for ( const auto& mount : uf::vfs::mounts ) {
-			if ( root != mount.prefix ) continue;
-
-			uf::stl::string target = mount.path;
-			if (target.back() == '/') target.pop_back();
-			target = target.substr(target.find_last_of('/') + 1) + "/";
-
-			if ( f.starts_with(target) ) f = f.substr(target.length());
-			break;
-		}
-
-		if ( root.back() != '/') root += "/";
-		f = root + f;
-	}
-
-	return uf::io::preferred( uf::io::normalize( f ) );
+	QUERY_CACHE( _root + _filename, uf::stl::string );
+	return CACHE_QUERY(uf::io::preferred( ::resolveURI( _filename, _root ) ));
 }
 
 // attempts to coerce files into a preferred one if it exists
 uf::stl::string uf::io::preferred( const uf::stl::string& filename ) {
-	// remove .gz
-	auto extension = "." + uf::io::extension( uf::string::replace( filename, ".gz", "" ) );
-	auto preferredExtension = extension;
-	// deduce asset type
+	QUERY_CACHE( filename, uf::stl::string );
+	uf::stl::string compressionSuffix = "";
+	if ( filename.ends_with(".gz") ) {
+		compressionSuffix = ".gz";
+	} else if ( filename.ends_with(".lz4") ) {
+		compressionSuffix = ".lz4";
+	}
+
+	uf::stl::string cleanFilename = filename;
+	if ( !compressionSuffix.empty() ) {
+		cleanFilename = cleanFilename.substr(0, cleanFilename.length() - compressionSuffix.length());
+	}
+
+	auto extension = "." + uf::io::extension( cleanFilename );
 	auto assetType = uf::io::assetType( extension );
 
-	// to-do: make this config.json defineable
 #if UF_ENV_DREAMCAST
-	if ( assetType == "texture" ) preferredExtension = ".dtex";
-	else if ( assetType == "audio" ) preferredExtension = ".adp";
+	static const uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uf::stl::string>> PREFERENCES = {
+		{ "audio",   { ".adp", ".wav", ".ogg" } },
+		{ "texture", { ".dtex", ".png", ".jpg" } }
+	};
 #else
-	if ( assetType == "texture" ) preferredExtension = ".png";
-	else if ( assetType == "audio" ) preferredExtension = ".ogg";
+	static const uf::stl::unordered_map<uf::stl::string, uf::stl::vector<uf::stl::string>> PREFERENCES = {
+		{ "audio",   { ".ogg", ".wav", ".adp" } },
+		{ "texture", { ".png", ".jpg", ".dtex" } }
+	};
 #endif
 
-	// no change
-	if ( extension == preferredExtension ) return filename;
-	// create preferred path
-	uf::stl::string preferredPath = uf::string::replace( filename, extension, preferredExtension );
-	// pick it if exists
-	if ( uf::io::exists( preferredPath ) ) return preferredPath;
-	// prefer cached path
-	uf::stl::string cachePath = "cache://" + preferredPath;
-	// pick it if it exists
-	if ( uf::io::exists( cachePath ) ) return cachePath;
+	auto it = PREFERENCES.find( assetType );
+	if ( it == PREFERENCES.end() ) {
+		return CACHE_QUERY(filename);
+	}
 
-	return filename;
+	const auto& extensionList = it->second;
+	uf::stl::string basePath = cleanFilename.substr(0, cleanFilename.length() - extension.length());
+
+	for ( const auto& prefExt : extensionList ) {
+		uf::stl::string candidatePath = ::resolveURI( basePath + prefExt + compressionSuffix );
+
+		if ( uf::vfs::exists( candidatePath ) ) {
+			return CACHE_QUERY(candidatePath);
+		}
+		uf::stl::string cachePath = uf::io::normalize( "cache://" + candidatePath );
+		if ( uf::vfs::exists( cachePath ) ) {
+			return CACHE_QUERY(cachePath);
+		}
+	}
+
+	return CACHE_QUERY(filename);
 }

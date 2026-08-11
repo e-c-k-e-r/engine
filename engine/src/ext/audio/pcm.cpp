@@ -7,7 +7,8 @@
 #if UF_USE_AICA
 #include <uf/ext/aica/aica.h>
 #endif
-#include <uf/utils/memory/memcpy.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 #include <uf/ext/audio/pcm.h>
 #include <uf/utils/memory/pool.h>
 #include <cstdio>
@@ -41,6 +42,16 @@ namespace {
 					}
 				}
 			}
+
+		#if UF_USE_AICA
+			int alignedBytes = (totalRead + 31) & ~31;
+			if ( alignedBytes > req_bytes ) alignedBytes = req_bytes;
+			if ( alignedBytes > totalRead ) {
+				std::memset(buffer + totalRead, 0, alignedBytes - totalRead);
+				totalRead = alignedBytes;
+			}
+		#endif
+
 			return totalRead;
 		}
 	}

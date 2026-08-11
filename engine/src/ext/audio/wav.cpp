@@ -9,8 +9,9 @@
 #endif
 
 #include <uf/ext/audio/wav.h>
-#include <uf/utils/memory/memcpy.h>
 #include <uf/utils/memory/pool.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 #include <uf/utils/io/vfs.h>
 #include <cstdio>
 #include <cstring>
@@ -65,6 +66,8 @@ namespace {
 			drwav_uint64 totalFramesRead = 0;
 			int16_t* bufferPtr = (int16_t*)buffer;
 
+			int zeroFrameReads = 0;
+
 			while ( totalFramesRead < framesToRead ) {
 				drwav_uint64 framesRead = drwav_read_pcm_frames_s16(wav, framesToRead - totalFramesRead, bufferPtr);
 
@@ -72,6 +75,12 @@ namespace {
 				bufferPtr += (framesRead * wav->channels);
 
 				if ( framesRead == 0 ) {
+					zeroFrameReads++;
+					if ( zeroFrameReads > 3 ) {
+						UF_MSG_WARNING("WAV: Stream break forced to prevent infinite loop on: {}", clip->filename);
+						break;
+					}
+
 					if ( !source->info.pending.empty() ) {
 						uf::stl::string nextFile = source->info.pending.front();
 						source->info.pending.erase(source->info.pending.begin());
@@ -98,10 +107,23 @@ namespace {
 					} else {
 						break;
 					}
+				} else {
+					zeroFrameReads = 0;
 				}
 			}
 
-			return (int)(totalFramesRead * frameSize);
+			int totalBytes = (int)(totalFramesRead * frameSize);
+
+		#if UF_USE_AICA
+			int alignedBytes = (totalBytes + 31) & ~31;
+			if ( alignedBytes > req_bytes ) alignedBytes = req_bytes;
+			if ( alignedBytes > totalBytes ) {
+				std::memset(buffer + totalBytes, 0, alignedBytes - totalBytes);
+				totalBytes = alignedBytes;
+			}
+		#endif
+
+			return totalBytes;
 		}
 
 		bool decode( drwav* wav, pod::PCM& pcm ) {
@@ -357,10 +379,9 @@ uf::stl::vector<uint8_t> ext::wav::encode( const pod::PCM& pcm ) {
 	header.data_size = (uint32_t)(pcm.samples.size() * sizeof(int16_t));
 	header.overallSize = sizeof(WAVHeader) - 8 + header.data_size;
 
-	output.resize(sizeof(WAVHeader) + header.data_size);
-
-	uf::stl::memcpy(output.data(), &header, sizeof(WAVHeader));
-	uf::stl::memcpy(output.data() + sizeof(WAVHeader), pcm.samples.data(), header.data_size);
+	uf::stl::writer writer(output);
+	writer.write(header);
+	writer.write(pcm.samples.data(), pcm.samples.size());
 
 	return output;
 }

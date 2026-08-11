@@ -1,6 +1,7 @@
 #if UF_USE_ADP
 #include <uf/config.h>
-#include <uf/utils/memory/memcpy.h>
+#include <uf/utils/memory/reader.h>
+#include <uf/utils/memory/writer.h>
 #include <uf/ext/audio/adp.h>
 #include <uf/utils/io/vfs.h>
 #if UF_USE_OPENAL
@@ -67,12 +68,27 @@ namespace {
 		AdpVfsContext* ctx = (AdpVfsContext*)source->streamState.handle;
 
 	#if UF_USE_AICA
-		size_t bytesRead = ctx->file.read(ctx->file.handle, buffer, req_bytes);
-		if ( bytesRead == 0 && source->settings.loop ) {
-			ctx->file.seek(ctx->file.handle, ctx->dataOffset, SEEK_SET);
-			bytesRead = ctx->file.read(ctx->file.handle, buffer, req_bytes);
+		int bytesRead = 0;
+		while ( bytesRead < req_bytes ) {
+			size_t read = ctx->file.read(ctx->file.handle, buffer + bytesRead, req_bytes - bytesRead);
+			if ( read == 0 ) {
+				if ( source->settings.loop ) {
+					ctx->file.seek(ctx->file.handle, ctx->dataOffset, SEEK_SET);
+					continue;
+				}
+				break;
+			}
+			bytesRead += read;
 		}
-		return (int)bytesRead;
+
+		int alignedBytes = (bytesRead + 31) & ~31;
+		if ( alignedBytes > req_bytes ) alignedBytes = req_bytes;
+		if ( alignedBytes > bytesRead ) {
+			std::memset(buffer + bytesRead, 0, alignedBytes - bytesRead);
+			bytesRead = alignedBytes;
+		}
+
+		return bytesRead;
 	#else
 		int16_t* pcmOut = (int16_t*)buffer;
 		int totalPcmSamplesNeeded = req_bytes / sizeof(int16_t);
@@ -105,7 +121,7 @@ namespace {
 	#endif
 	}
 
-	bool decode( const AdpHeader& header, const uint8_t* rawAdp, pod::PCM& pcm ) {
+	bool decode( const AdpHeader& header, const uf::stl::vector<uint8_t>& rawAdp, pod::PCM& pcm ) {
 		pcm.channels = header.channels;
 		pcm.sampleRate = header.sampleRate;
 		pcm.samples.resize(header.totalSamples * header.channels);
@@ -113,17 +129,21 @@ namespace {
 		AdpState decState[2] = { {0, 127}, {0, 127} };
 		size_t sampleIdx = 0;
 
+		uf::stl::reader reader(rawAdp, 0, rawAdp.size());
+		const uint8_t* adpData = reader.read<uint8_t>(header.dataSize);
+		if ( !adpData ) return false;
+
 		if ( header.channels == 1 ) {
 			for ( size_t i = 0; i < header.dataSize; ++i ) {
-				pcm.samples[sampleIdx++] = decode_sample(rawAdp[i] & 0x0F, decState[0]);
+				pcm.samples[sampleIdx++] = decode_sample(adpData[i] & 0x0F, decState[0]);
 				if ( sampleIdx < pcm.samples.size() ) {
-					pcm.samples[sampleIdx++] = decode_sample((rawAdp[i] >> 4) & 0x0F, decState[0]);
+					pcm.samples[sampleIdx++] = decode_sample((adpData[i] >> 4) & 0x0F, decState[0]);
 				}
 			}
 		} else if ( header.channels == 2 ) {
 			for ( size_t i = 0; i < header.dataSize; ++i ) {
-				pcm.samples[sampleIdx++] = decode_sample(rawAdp[i] & 0x0F, decState[0]); // Left
-				pcm.samples[sampleIdx++] = decode_sample((rawAdp[i] >> 4) & 0x0F, decState[1]); // Right
+				pcm.samples[sampleIdx++] = decode_sample(adpData[i] & 0x0F, decState[0]); // Left
+				pcm.samples[sampleIdx++] = decode_sample((adpData[i] >> 4) & 0x0F, decState[1]); // Right
 			}
 		}
 		return true;
@@ -154,14 +174,14 @@ void ext::adp::load( pod::AudioClip& clip ) {
 
 	UF_MSG_DEBUG("filename={}, streamed={}", clip.filename, clip.streamed);
 	if ( !clip.streamed ) {
-		std::vector<uint8_t> rawAdp(ctx->header.dataSize);
+		uf::stl::vector<uint8_t> rawAdp(ctx->header.dataSize);
 		ctx->file.read(ctx->file.handle, rawAdp.data(), ctx->header.dataSize);
 
 	#if UF_USE_AICA
 		clip.alBuffer.buffer(clip.info.format, rawAdp.data(), (ALsizei)rawAdp.size(), clip.info.frequency);
 	#else
 		pod::PCM pcm;
-		if ( ::decode(ctx->header, rawAdp.data(), pcm) ) {
+		if ( ::decode(ctx->header, rawAdp, pcm) ) {
 			clip.alBuffer.buffer(clip.info.format, pcm.samples.data(), (ALsizei)(pcm.samples.size() * sizeof(int16_t)), clip.info.frequency);
 		}
 	#endif
@@ -296,11 +316,11 @@ bool ext::adp::decode( const uf::stl::string& filename, pod::PCM& pcm ) {
 		return false;
 	}
 
-	std::vector<uint8_t> rawAdp(header.dataSize);
+	uf::stl::vector<uint8_t> rawAdp(header.dataSize);
 	file.read(file.handle, rawAdp.data(), header.dataSize);
 	file.close(file.handle);
 
-	return ::decode(header, rawAdp.data(), pcm);
+	return ::decode(header, rawAdp, pcm);
 }
 
 #if UF_USE_ADP_ENCODER
@@ -356,8 +376,10 @@ namespace {
 
 uf::stl::vector<uint8_t> ext::adp::encode( const pod::PCM& pcm ) {
 	uf::stl::vector<uint8_t> output;
+	if ( pcm.samples.empty() ) return output;
 
 	AdpHeader header;
+	uf::stl::memcpy(header.magic, "ADPF", 4);
 	header.channels = pcm.channels;
 	header.sampleRate = pcm.sampleRate;
 
@@ -365,10 +387,10 @@ uf::stl::vector<uint8_t> ext::adp::encode( const pod::PCM& pcm ) {
 	header.totalSamples = totalFrames;
 	header.dataSize = (totalFrames * pcm.channels + 1) / 2;
 
-	output.resize(sizeof(AdpHeader) + header.dataSize);
+	uf::stl::writer writer(output);
+	writer.write(header);
 
-	uf::stl::memcpy(output.data(), &header, sizeof(AdpHeader));
-	uint8_t* adpData = output.data() + sizeof(AdpHeader);
+	uint8_t* adpData = writer.reserve<uint8_t>(header.dataSize);
 
 	AdpState state[2] = { {0, 127}, {0, 127} };
 

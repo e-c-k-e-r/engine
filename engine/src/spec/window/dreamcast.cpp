@@ -12,10 +12,10 @@
 
 /*
 
-INIT_NONE        	-- don't do any auto init
-INIT_IRQ     		-- Enable IRQs
+INIT_NONE			-- don't do any auto init
+INIT_IRQ	 		-- Enable IRQs
 INIT_THD_PREEMPT 	-- Enable pre-emptive threading
-INIT_NET     		-- Enable networking (including sockets)
+INIT_NET	 		-- Enable networking (including sockets)
 INIT_MALLOCSTATS 	-- Enable a call to malloc_stats() right before shutdown
 
 */
@@ -277,7 +277,17 @@ namespace {
 }
 
 #include <dc/pvr.h>
+
+extern "C" {
+	unsigned int _glMaxTextureMemory();
+	unsigned int _glFreeTextureMemory();
+	unsigned int _glUsedTextureMemory();
+	unsigned int _glFreeContiguousTextureMemory();
+}
+
+
 uf::stl::string spec::dreamcast::malloc_stats( bool verbose ) {
+	auto info = mallinfo();
 	if ( verbose ) {
 		return FMT_FORMAT("malloc Info:\n"
 			"\tarena {} (non-mmapped space allocated from system)\n"
@@ -288,36 +298,59 @@ uf::stl::string spec::dreamcast::malloc_stats( bool verbose ) {
 			"\tuordblks {} (total allocated space)\n"
 			"\tfordblks {} (total free space)\n"
 			"\tkeepcost {} (top-most, releasable (via malloc_trim) space)\n",
-			uf::string::si( mallinfo().arena, "B" ),
-			uf::string::si( mallinfo().ordblks, "B" ),
-			uf::string::si( mallinfo().smblks, "B" ),
-			uf::string::si( mallinfo().usmblks, "B" ),
-			uf::string::si( mallinfo().fsmblks, "B" ),
-			uf::string::si( mallinfo().uordblks, "B" ),
-			uf::string::si( mallinfo().fordblks, "B" ),
-			uf::string::si( mallinfo().keepcost, "B" )
+			uf::string::si( info.arena, "B" ),
+			uf::string::si( info.ordblks, "B" ),
+			uf::string::si( info.smblks, "B" ),
+			uf::string::si( info.usmblks, "B" ),
+			uf::string::si( info.fsmblks, "B" ),
+			uf::string::si( info.uordblks, "B" ),
+			uf::string::si( info.fordblks, "B" ),
+			uf::string::si( info.keepcost, "B" )
 		);
 	}
 
-	return FMT_FORMAT("malloc Info: Free: {} | Used: {}", uf::string::si( mallinfo().arena - mallinfo().uordblks, "B" ), uf::string::si( mallinfo().uordblks, "B" ));
+	return FMT_FORMAT("malloc Info: Free: {} | Used: {}", uf::string::si( info.arena - info.uordblks, "B" ), uf::string::si( info.uordblks, "B" ));
 }
 
 uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
+	pvr_stats_t stats;
+	bool has_stats = (pvr_get_stats(&stats) >= 0);
+
+	uint32_t total_tex = _glMaxTextureMemory();
+	uint32_t free_tex  = _glFreeTextureMemory();
+	uint32_t used_tex  = _glUsedTextureMemory();
+	uint32_t cont_tex  = _glFreeContiguousTextureMemory();
+
+	float free_tex_mb = (float)(free_tex) / (1024 * 1024);
+	float total_tex_mb = (float)(total_tex) / (1024 * 1024);
+	float used_tex_mb = (float)(used_tex) / (1024 * 1024);
+
+	float use_pct = (total_tex > 0) ? ((float)used_tex / total_tex) * 100.0f : 0.0f;
+
 	if ( verbose ) {
-		/*
-			"PVR malloc Info:\n"
-			"PVR malloc Info:\n"
-			"\tarena " << uf::string::si( pvr_int_mallinfo().arena, "B" ) << " (non-mmapped space allocated from system)\n"
-			"\tordblks " << uf::string::si( pvr_int_mallinfo().ordblks, "B" ) << " (number of free chunks)\n"
-			"\tsmblks " << uf::string::si( pvr_int_mallinfo().smblks, "B" ) << " (number of fastbin blocks)\n"
-			"\tusmblks " << uf::string::si( pvr_int_mallinfo().usmblks, "B" ) << " (maximum total allocated space)\n"
-			"\tfsmblks " << uf::string::si( pvr_int_mallinfo().fsmblks, "B" ) << " (space available in freed fastbin blocks)\n"
-			"\tuordblks " << uf::string::si( pvr_int_mallinfo().uordblks, "B" ) << " (total allocated space)\n"
-			"\tfordblks " << uf::string::si( pvr_int_mallinfo().fordblks, "B" ) << " (total free space)\n"
-			"\tkeepcost " << uf::string::si( pvr_int_mallinfo().keepcost, "B" ) << " (top-most, releasable (via malloc_trim) space)";
-		*/
+		return FMT_FORMAT("PVR:\n"
+			"\tTexture Pool: {} / {} Used ({:.1f}%)\n"
+			"\tTexture Free: {} (Contiguous: {})\n"
+			"\tPerformance:       {:.2f} FPS (Frame: {}, VBL: {})\n",
+			uf::string::si( used_tex, "B" ),
+			uf::string::si( total_tex, "B" ),
+			use_pct,
+			uf::string::si( free_tex, "B" ),
+			uf::string::si( cont_tex, "B" ),
+			has_stats ? stats.frame_rate : 0.0f,
+			has_stats ? stats.frame_count : 0,
+			has_stats ? stats.vbl_count : 0
+		);
 	}
-	return FMT_FORMAT("PVR malloc Info: Free: {}", uf::string::si( pvr_mem_available(), "B" ));
+
+	return FMT_FORMAT("PVR: Free: {} ({:.2f}MB) | Used: {} ({:.2f}MB) | Max Contiguous: {} | FPS: {:.2f}",
+		uf::string::si( free_tex, "B" ),
+		free_tex_mb,
+		uf::string::si( used_tex, "B" ),
+		used_tex_mb,
+		uf::string::si( cont_tex, "B" ),
+		has_stats ? stats.frame_rate : 0.0f
+	);
 }
 
 spec::dreamcast::Window::Window() : m_context(NULL) {}

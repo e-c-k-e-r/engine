@@ -29,7 +29,7 @@ typedef struct snd_effect {
 namespace impl {
 	typedef int (*fill_callback_t)(void* user_data, uint8_t* buffer, int req_bytes);
 
-	constexpr int STREAM_BUFFER_SIZE = 65536; // 16384;
+	constexpr int STREAM_BUFFER_SIZE = 65536;
 	constexpr int DRIVER_BUFFER_SIZE = 65536;
 	constexpr size_t MAX_VIRTUAL_SOURCES = 256;
 	constexpr size_t MAX_VIRTUAL_BUFFERS = 1024;
@@ -74,6 +74,18 @@ namespace impl {
 		pod::Vector3f position = {0, 0, 0};
 		pod::Vector3f right = {1, 0, 0};
 	} listener;
+
+	struct AicaFormatInfo {
+		uint16_t channels = 1;
+		uint32_t aica_fmt = 0;
+		uint32_t sample_len = 0;
+	};
+
+	struct SpatialParams {
+		int vol = 0;
+		int left_pan = 127;
+		int right_pan = 127;
+	};
 
 	impl::Source sources[impl::MAX_VIRTUAL_SOURCES];
 	impl::Buffer buffers[impl::MAX_VIRTUAL_BUFFERS];
@@ -130,7 +142,7 @@ namespace impl {
 		return 0;
 	}
 
-	pod::Vector3f spatial( impl::Source& source, impl::Listener& listener ) {
+	pod::Vector3f spatial( const impl::Source& source, impl::Listener& listener ) {
 		if ( !uf::vector::isValid( source.position ) || !uf::vector::isValid( listener.position ) ) {
 			return { 0, 0, 0 };
 		}
@@ -148,6 +160,62 @@ namespace impl {
 		if ( pan > 255 ) pan = 255;
 
 		return pod::Vector3f{ dist, (float)pan, 0.0f };
+	}
+
+	SpatialParams calculateSpatial(const impl::Source& src) {
+		SpatialParams params;
+		pod::Vector3f spatial_data = impl::spatial(src, impl::listener);
+
+		float dist = spatial_data[0];
+		params.left_pan = (int)spatial_data[1];
+		params.right_pan = (int)spatial_data[2];
+
+		float gain_factor = 1.0f;
+		if ( dist > 0.0f && src.max_distance > 0.0f ) {
+			gain_factor = 1.0f - (dist / src.max_distance);
+			if ( gain_factor < 0.0f ) gain_factor = 0.0f;
+		}
+
+		params.vol = (int)(255.0f * src.gain * gain_factor);
+		params.vol = std::max(0, std::min(255, params.vol));
+		return params;
+	}
+
+	bool isPlaying(const impl::Source& src, const impl::Buffer& buffer) {
+		if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
+			return snd_stream_poll(buffer.stream_hnd) >= 0;
+		}
+		if ( src.hw_channel != -1 ) {
+			return snd_is_playing(src.hw_channel);
+		}
+		return false;
+	}
+
+	void freeSource(impl::Source& src, impl::Buffer& buffer) {
+		src.state = AL_STOPPED;
+		if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
+			snd_stream_stop(buffer.stream_hnd);
+		} else if ( src.hw_channel != -1 ) {
+			snd_sfx_chn_free(src.hw_channel);
+			if ( buffer.sfx_effect && buffer.sfx_effect->stereo ) {
+				snd_sfx_chn_free(src.hw_channel + 1);
+			}
+			src.hw_channel = -1;
+		}
+	}
+
+	void sendAicaCommand(int channel, int vol, int pan) {
+		AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
+		cmd->cmd = AICA_CMD_CHAN;
+		cmd->timestamp = 0;
+		cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
+		cmd->cmd_id = channel;
+
+		chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_VOL | AICA_CH_UPDATE_SET_PAN;
+		chan->vol = vol;
+		chan->pan = pan;
+
+		snd_sh4_to_aica(tmp, cmd->size);
 	}
 
 	snd_stream_hnd_t allocateStreamSlot() {
@@ -187,68 +255,186 @@ namespace impl {
 		return hnd;
 	}
 
-	void update() {
+	AicaFormatInfo getAicaFormatInfo(ALenum format, ALsizei size) {
+		AicaFormatInfo info;
+		info.channels = (format == AL_FORMAT_STEREO8 || format == AL_FORMAT_STEREO16 || format == AL_FORMAT_STEREO_ADPCM_SEGA) ? 2 : 1;
+
+		if (format == AL_FORMAT_MONO_ADPCM_SEGA || format == AL_FORMAT_STEREO_ADPCM_SEGA) {
+			info.aica_fmt = AICA_SM_ADPCM;
+			info.sample_len = (size * 2) / info.channels;
+		} else if (format == AL_FORMAT_MONO8 || format == AL_FORMAT_STEREO8) {
+			info.aica_fmt = AICA_SM_8BIT;
+			info.sample_len = size / info.channels;
+		} else {
+			info.aica_fmt = AICA_SM_16BIT;
+			info.sample_len = (size / 2) / info.channels;
+		}
+		return info;
+	}
+
+	template<typename T>
+	void deinterleaveLoad(const void* data, size_t sample_len, uint32_t locl, uint32_t locr, uint32_t left_size) {
+		T* left_temp = (T*)memalign(32, left_size);
+		T* right_temp = (T*)memalign(32, left_size);
+
+		if ( left_temp && right_temp ) {
+			std::memset(left_temp, 0, left_size);
+			std::memset(right_temp, 0, left_size);
+
+			const T* src = (const T*)data;
+			for ( size_t s = 0; s < sample_len; ++s ) {
+				left_temp[s] = src[s * 2];
+				right_temp[s] = src[s * 2 + 1];
+			}
+
+			spu_memload(locl, left_temp, left_size);
+			spu_memload(locr, right_temp, left_size);
+		}
+
+		if ( left_temp ) free(left_temp);
+		if ( right_temp ) free(right_temp);
+	}
+
+	void stereoToSpu(ALenum format, const void* data, ALsizei size, size_t sample_len, uint32_t locl, uint32_t locr, uint32_t left_size) {
+		if ( format == AL_FORMAT_STEREO_ADPCM_SEGA ) {
+			uint32_t* left_temp = (uint32_t*)memalign(32, left_size);
+			uint32_t* right_temp = (uint32_t*)memalign(32, left_size);
+
+			if ( left_temp && right_temp ) {
+				std::memset(left_temp, 0, left_size);
+				std::memset(right_temp, 0, left_size);
+				snd_adpcm_split((uint32_t*)data, left_temp, right_temp, size);
+				spu_memload(locl, left_temp, left_size);
+				spu_memload(locr, right_temp, left_size);
+			}
+			if ( left_temp ) free(left_temp);
+			if ( right_temp ) free(right_temp);
+		} else if ( format == AL_FORMAT_STEREO16 ) {
+			deinterleaveLoad<int16_t>(data, sample_len, locl, locr, left_size);
+		} else if ( format == AL_FORMAT_STEREO8 ) {
+			deinterleaveLoad<uint8_t>(data, sample_len, locl, locr, left_size);
+		}
+	}
+
+	void destroyBuffer(impl::Buffer& buffer) {
+		if ( buffer.sfx_effect ) {
+			free(buffer.sfx_effect);
+			buffer.sfx_effect = nullptr;
+		}
+		if ( buffer.aica_addr ) {
+			snd_mem_free(buffer.aica_addr);
+			buffer.aica_addr = 0;
+		}
+		if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
+			snd_stream_destroy(buffer.stream_hnd);
+			buffer.stream_hnd = SND_STREAM_INVALID;
+		}
+	}
+
+	void setupStreamBuffer(impl::Buffer& buffer) {
+		if ( !buffer.stream_buffer ) {
+			buffer.stream_buffer = (uint8_t*)(memalign(32, impl::STREAM_BUFFER_SIZE));
+		}
+		if ( !buffer.stream_buffer ) {
+			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", impl::STREAM_BUFFER_SIZE);
+			return;
+		}
+		buffer.stream_hnd = impl::allocateStreamSlot();
+		if ( buffer.stream_hnd == SND_STREAM_INVALID ) {
+			UF_MSG_ERROR("[AICA] Failed to allocate streaming slot context");
+			return;
+		}
+		mutex_lock(&impl::g_streamMutex);
+		impl::g_activeStreams[buffer.stream_hnd] = &buffer;
+		mutex_unlock(&impl::g_streamMutex);
+	}
+
+	void loadStaticBuffer(impl::Buffer& buffer, ALuint index, ALenum format, const void* data, ALsizei size, ALsizei frequency) {
+		auto info = getAicaFormatInfo(format, size);
+
+		buffer.sfx_effect = (snd_effect_t*)malloc(sizeof(snd_effect_t));
+		if ( !buffer.sfx_effect ) {
+			UF_MSG_ERROR("[AICA] Out of host memory for static sound descriptor");
+			return;
+		}
+		std::memset(buffer.sfx_effect, 0, sizeof(snd_effect_t));
+		buffer.sfx_effect->rate = frequency;
+		buffer.sfx_effect->stereo = (info.channels > 1);
+		buffer.sfx_effect->fmt = info.aica_fmt;
+		buffer.sfx_effect->len = info.sample_len;
+
+		uint32_t alloc_size = size;
+		uint32_t left_size = size;
+		uint32_t right_offset = 0;
+
+		if ( info.channels > 1 ) {
+			uint32_t half_size = size / 2;
+			left_size = (half_size + 31) & ~31;
+			alloc_size = left_size * 2;
+			right_offset = left_size;
+		}
+
+		uint32_t aica_addr = snd_mem_malloc(alloc_size);
+		if ( !aica_addr ) {
+			free(buffer.sfx_effect);
+			buffer.sfx_effect = nullptr;
+			UF_MSG_ERROR("[AICA] Failed to allocate SPU RAM ({} bytes)", alloc_size);
+			return;
+		}
+
+		buffer.aica_addr = aica_addr;
+		buffer.sfx_effect->locl = aica_addr;
+		if ( info.channels > 1 ) {
+			buffer.sfx_effect->locr = aica_addr + right_offset;
+			stereoToSpu(format, data, size, info.sample_len, buffer.sfx_effect->locl, buffer.sfx_effect->locr, left_size);
+		} else {
+			spu_memload(aica_addr, (void*)data, size);
+		}
+
+		UF_MSG_DEBUG("[AICA] Static Buffer ID {} allocated {} bytes at SPU addr 0x{:X}", index, alloc_size, aica_addr);
+	}
+
+	void update( impl::Source& src, impl::Buffer& buffer ) {
+		if ( !isPlaying(src, buffer) ) {
+			freeSource(src, buffer);
+			return;
+		}
+
+		auto params = calculateSpatial(src);
+		if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
+			snd_stream_volume(buffer.stream_hnd, params.vol);
+			snd_stream_pan(buffer.stream_hnd, params.left_pan, params.right_pan);
+		} else if ( src.hw_channel != -1 ) {
+			bool is_stereo = (buffer.sfx_effect && buffer.sfx_effect->stereo);
+			int left_pan = is_stereo ? 0 : params.left_pan;
+
+			sendAicaCommand(src.hw_channel, params.vol, left_pan);
+
+			if ( is_stereo ) {
+				sendAicaCommand(src.hw_channel + 1, params.vol, 255);
+			}
+		}
+	}
+
+	void update( impl::Source& src ) {
+		if ( !src.active || src.state != AL_PLAYING ) return;
+		if ( 0 < src.buffer_id && src.buffer_id < impl::MAX_VIRTUAL_BUFFERS ) {
+			update( src, impl::buffers[src.buffer_id] );
+		}
+	}
+
+	void update( impl::Buffer& buffer, ALuint buffer_id ) {
 		for ( size_t i = 1; i < impl::MAX_VIRTUAL_SOURCES; ++i ) {
 			impl::Source& src = impl::sources[i];
-			if ( !src.active ) continue;
-			if ( src.state != AL_PLAYING ) continue;
-
-			pod::Vector3f spatial_data = impl::spatial(src, impl::listener);
-			float dist = spatial_data[0];
-			int left_pan = (int)spatial_data[1];
-			int right_pan = (int)spatial_data[2];
-
-			float base_gain = src.gain;
-			float gain_factor = 1.0f;
-			if ( dist > 0.0f && src.max_distance > 0.0f ) {
-				gain_factor = 1.0f - (dist / src.max_distance);
-				if ( gain_factor < 0.0f ) gain_factor = 0.0f;
+			if ( src.active && src.buffer_id == buffer_id ) {
+				update( src, buffer );
 			}
-			int vol = (int)(255.0f * base_gain * gain_factor);
-			if ( vol < 0 ) vol = 0;
-			if ( vol > 255 ) vol = 255;
+		}
+	}
 
-			if ( 0 < src.buffer_id && src.buffer_id < impl::MAX_VIRTUAL_BUFFERS ) {
-				impl::Buffer& buffer = impl::buffers[src.buffer_id];
-
-				if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
-					snd_stream_volume(buffer.stream_hnd, vol);
-					snd_stream_pan(buffer.stream_hnd, left_pan, right_pan);
-
-					int poll_result = snd_stream_poll(buffer.stream_hnd);
-					if ( poll_result < 0 ) {
-						src.state = AL_STOPPED;
-						snd_stream_stop(buffer.stream_hnd);
-					}
-				} else if ( src.hw_channel != -1 ) {
-					bool playing = snd_is_playing(src.hw_channel);
-					if ( !playing ) {
-						src.state = AL_STOPPED;
-						snd_sfx_chn_free(src.hw_channel);
-						if ( buffer.sfx_effect && buffer.sfx_effect->stereo ) {
-							snd_sfx_chn_free(src.hw_channel + 1);
-						}
-						src.hw_channel = -1;
-					} else {
-						AICA_CMDSTR_CHANNEL(tmp, cmd, chan);
-						cmd->cmd = AICA_CMD_CHAN;
-						cmd->timestamp = 0;
-						cmd->size = AICA_CMDSTR_CHANNEL_SIZE;
-
-						cmd->cmd_id = src.hw_channel;
-						chan->cmd = AICA_CH_CMD_UPDATE | AICA_CH_UPDATE_SET_VOL | AICA_CH_UPDATE_SET_PAN;
-						chan->vol = vol;
-						chan->pan = (buffer.sfx_effect && buffer.sfx_effect->stereo) ? 0 : left_pan;
-						snd_sh4_to_aica(tmp, cmd->size);
-
-						if ( buffer.sfx_effect && buffer.sfx_effect->stereo ) {
-							cmd->cmd_id = src.hw_channel + 1;
-							chan->pan = 255;
-							snd_sh4_to_aica(tmp, cmd->size);
-						}
-					}
-				}
-			}
+	void update() {
+		for ( size_t i = 1; i < impl::MAX_VIRTUAL_SOURCES; ++i ) {
+			update( impl::sources[i] );
 		}
 	}
 
@@ -358,6 +544,9 @@ void ext::al::Source::get( ALenum name, ALfloat& x ) const {
 void ext::al::Source::get( ALenum name, ALint& x ) const {
 	x = 0;
 	if ( !this->m_index ) return;
+#if !UF_AICA_THREADED
+	impl::update( impl::sources[this->m_index] );
+#endif
 	if ( name == AL_SOURCE_STATE ) x = impl::sources[this->m_index].state;
 	else if ( name == AL_LOOPING ) x = impl::sources[this->m_index].looping ? 1 : 0;
 	else if ( name == AL_BUFFER ) x = impl::sources[this->m_index].buffer_id;
@@ -480,6 +669,9 @@ void ext::al::Source::stop() {
 
 bool ext::al::Source::playing() const {
 	if ( !this->m_index ) return false;
+#if !UF_AICA_THREADED
+	impl::update( impl::sources[this->m_index] );
+#endif
 	return impl::sources[this->m_index].state == AL_PLAYING;
 }
 
@@ -566,8 +758,10 @@ ALuint ext::al::Buffer::getIndex( size_t i ) const { return this->m_indices[i]; 
 void ext::al::Buffer::poll( size_t i ) {
 #if !UF_AICA_THREADED
 	if ( !this->initialized() ) return;
+	ALuint index = this->m_indices[i];
+	if ( !(0 < index && index < impl::MAX_VIRTUAL_BUFFERS) ) return;
 	mutex_lock( &impl::g_streamMutex );
-	impl::update();
+	impl::update( impl::buffers[index], index );
 	mutex_unlock( &impl::g_streamMutex );
 #endif
 }
@@ -608,145 +802,26 @@ void ext::al::Buffer::buffer( ALenum format, const ALvoid* data, ALsizei size, A
 	if ( !this->initialized() ) this->initialize();
 	ext::al::Buffer::buffer( this->m_indices[i], format, data, size, frequency );
 }
-#if 1
 void ext::al::Buffer::buffer( ALuint index, ALenum format, const ALvoid* data, ALsizei size, ALsizei frequency ) {
 	impl::Buffer& buffer = impl::buffers[index];
 
-	if ( buffer.aica_addr ) {
-		snd_mem_free(buffer.aica_addr);
-		buffer.aica_addr = 0;
-	}
-	if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
-		snd_stream_destroy(buffer.stream_hnd);
-	}
+	impl::destroyBuffer(buffer);
 
 	buffer.format = format;
 	buffer.frequency = frequency;
 	buffer.size = size;
 
 	if ( buffer.fill_callback ) {
-		if ( !buffer.stream_buffer ) buffer.stream_buffer = (uint8_t*)(memalign(32, impl::STREAM_BUFFER_SIZE));
-		if ( !buffer.stream_buffer ) {
-			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", impl::STREAM_BUFFER_SIZE);
-			return;
-		}
-		buffer.stream_hnd = impl::allocateStreamSlot();
-		if ( buffer.stream_hnd == SND_STREAM_INVALID ) {
-			UF_MSG_ERROR("[AICA] Failed to allocate streaming slot context");
-			return;
-		}
-		mutex_lock(&impl::g_streamMutex);
-		impl::g_activeStreams[buffer.stream_hnd] = &buffer;
-		mutex_unlock(&impl::g_streamMutex);
-	} else if ( data && size ) {
-		uint32_t aica_addr = snd_mem_malloc(size);
-		if ( !aica_addr ) {
-			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", size);
-			return;
-		}
+		impl::setupStreamBuffer(buffer);
+		return;
+	}
 
-		if ( format == AL_FORMAT_STEREO_ADPCM_SEGA && buffer.sfx_effect && buffer.sfx_effect->stereo ) {
-			uint32_t* left_temp = (uint32_t*)memalign(32, size / 2);
-			uint32_t* right_temp = (uint32_t*)memalign(32, size / 2);
-
-			if ( left_temp && right_temp ) {
-				snd_adpcm_split((uint32_t*)data, left_temp, right_temp, size);
-
-				spu_memload(aica_addr, left_temp, size / 2);
-				spu_memload(aica_addr + (size / 2), right_temp, size / 2);
-
-				UF_MSG_DEBUG("[AICA] Stereo ADPCM Split Success: locl=0x{:X}, locr=0x{:X}", aica_addr, aica_addr + (size / 2));
-			} else {
-				UF_MSG_ERROR("[AICA] Failed to allocate aligned splitting memory");
-				spu_memload(aica_addr, (void*)(data), size);
-			}
-
-			if ( left_temp ) free(left_temp);
-			if ( right_temp ) free(right_temp);
-		} else {
-			spu_memload(aica_addr, (void*)(data), size);
-		}
-
-		buffer.aica_addr = aica_addr;
-		UF_MSG_DEBUG("[AICA] Buffer ID {} allocated {} bytes at SPU addr 0x{:X}", index, size, aica_addr);
+	if ( data && size ) {
+		impl::loadStaticBuffer(buffer, index, format, data, size, frequency);
 	} else {
 		UF_EXCEPTION("[AICA] invalid invocation");
 	}
 }
-#else
-void ext::al::Buffer::buffer( ALuint index, ALenum format, const ALvoid* data, ALsizei size, ALsizei frequency ) {
-	impl::Buffer& buffer = impl::buffers[index];
-
-	if ( buffer.sfx_effect ) {
-		free(buffer.sfx_effect);
-		buffer.sfx_effect = nullptr;
-	}
-	if ( buffer.aica_addr ) {
-		snd_mem_free(buffer.aica_addr);
-		buffer.aica_addr = 0;
-	}
-	if ( buffer.stream_hnd != SND_STREAM_INVALID ) {
-		snd_stream_destroy(buffer.stream_hnd);
-	}
-
-	buffer.format = format;
-	buffer.frequency = frequency;
-	buffer.size = size;
-
-	if ( buffer.fill_callback ) {
-		if ( !buffer.stream_buffer ) buffer.stream_buffer = (uint8_t*)(memalign(32, impl::STREAM_BUFFER_SIZE));
-		if ( !buffer.stream_buffer ) {
-			UF_MSG_ERROR("[AICA] Failed to allocate {} bytes", impl::STREAM_BUFFER_SIZE);
-			return;
-		}
-
-		buffer.stream_hnd = impl::allocateStreamSlot();
-		if ( buffer.stream_hnd == SND_STREAM_INVALID ) {
-			UF_MSG_ERROR("[AICA] Failed to allocate streaming slot context");
-			return;
-		}
-
-		mutex_lock(&impl::g_streamMutex);
-		impl::g_activeStreams[buffer.stream_hnd] = &buffer;
-		mutex_unlock(&impl::g_streamMutex);
-	} else if ( data && size ) {
-		uint16_t channels = (format == AL_FORMAT_STEREO8 || format == AL_FORMAT_STEREO16) ? 2 : 1;
-		uint16_t bitsize = (format == AL_FORMAT_MONO8 || format == AL_FORMAT_STEREO8) ? 8 : 16;
-		uint32_t aica_fmt = (bitsize == 8) ? AICA_SM_8BIT : AICA_SM_16BIT;
-
-		buffer.sfx_effect = (snd_effect_t*)malloc(sizeof(snd_effect_t));
-		if ( !buffer.sfx_effect ) {
-			UF_MSG_ERROR("[AICA] Out of host memory for static sound descriptor");
-			return;
-		}
-		memset(buffer.sfx_effect, 0, sizeof(snd_effect_t));
-		buffer.sfx_effect->rate = frequency;
-		buffer.sfx_effect->stereo = (channels > 1);
-		buffer.sfx_effect->fmt = aica_fmt;
-		buffer.sfx_effect->len = (bitsize == 16) ? (size / 2) / channels : size / channels;
-
-		uint32_t aica_addr = snd_mem_malloc(size);
-		if ( !aica_addr ) {
-			free(buffer.sfx_effect);
-			buffer.sfx_effect = nullptr;
-			UF_MSG_ERROR("[AICA] Failed to allocate SPU RAM ({} bytes)", size);
-			return;
-		}
-
-		spu_memload(aica_addr, (void*)(data), size);
-		buffer.aica_addr = aica_addr;
-
-		buffer.sfx_effect->locl = aica_addr;
-		if ( channels > 1 ) {
-			buffer.sfx_effect->locr = aica_addr + (size / 2);
-		}
-
-		UF_MSG_DEBUG("[AICA] Static Buffer ID {} allocated {} bytes at SPU addr 0x{:X}", index, size, aica_addr);
-	} else {
-		UF_EXCEPTION("[AICA] invalid invocation");
-	}
-}
-#endif
 
 // stubbed
 void ext::al::Filter::initialize() {}

@@ -728,28 +728,16 @@ UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "", 0 );
 
 
 namespace {
-	struct Guard {
-		static thread_local bool active;
-		bool owner;
-
-		Guard() {
-			owner = !active;
-			if ( owner ) active = true;
+	pod::Mount* find_physical_cache_mount() {
+		for ( auto& m : uf::vfs::mounts ) {
+			if ( m.prefix.starts_with("$") ) {
+				return &m;
+			}
 		}
-
-		~Guard() {
-			if ( owner ) active = false;
-		}
-
-		explicit operator bool() const { return owner; }
-	};
-	thread_local bool Guard::active = false;
+		return nullptr;
+	}
 
 	uf::stl::string cached_path( const uf::stl::string& path ) {
-	/*
-		uf::stl::string ext = uf::io::extension( path );
-		uf::stl::string p = uf::io::remove_extension( path );
-	*/
 		size_t last_slash = path.find_last_of('/');
 		size_t name_start = (last_slash == uf::stl::string::npos) ? 0 : last_slash + 1;
 
@@ -765,50 +753,51 @@ namespace {
 
 		auto hash = uf::algo::fnv1a<uint32_t>( p );
 
-		if ( ext.empty() ) return FMT_FORMAT("$://{}", hash);
-		return FMT_FORMAT("$://{}.{}", hash, ext);
+		if ( ext.empty() ) return FMT_FORMAT("{}", hash);
+		return FMT_FORMAT("{}.{}", hash, ext);
 	}
 
+	// Guardless, direct physical delegation
 	bool cache_exists( pod::Mount& mount, const uf::stl::string& file ) {
-		Guard guard; if ( !guard ) return false;
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->exists ) return false;
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::exists( cachedUri );
+		return phys->exists( *phys, cached_path( file ) );
 	}
 
 	size_t cache_size( pod::Mount& mount, const uf::stl::string& file ) {
-		Guard guard; if ( !guard ) return 0;
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->size ) return 0;
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::size( cachedUri );
+		return phys->size( *phys, cached_path( file ) );
 	}
 
 	size_t cache_mtime(pod::Mount& mount, const uf::stl::string& file) {
-		Guard guard; if ( !guard ) return 0;
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->mtime ) return 0;
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::mtime( cachedUri );
+		return phys->mtime( *phys, cached_path( file ) );
 	}
 
 	bool cache_read(pod::Mount& mount, const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer) {
-		Guard guard; if ( !guard ) return false;
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->read ) return false;
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::read( cachedUri, buffer );
+		return phys->read( *phys, cached_path( file ), buffer );
 	}
 
 	size_t cache_write( pod::Mount& mount, const uf::stl::string& file, const void* buffer, size_t size ) {
-		Guard guard; if ( !guard ) return 0;
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->write ) return 0;
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::write( cachedUri, buffer, size );
+		return phys->write( *phys, cached_path( file ), buffer, size );
 	}
 
 	pod::File cache_open( pod::Mount& mount, const uf::stl::string& file ) {
-		Guard guard; if ( !guard ) return {};
+		auto* phys = find_physical_cache_mount();
+		if ( !phys || !phys->open ) return {};
 
-		uf::stl::string cachedUri = cached_path( file );
-		return uf::vfs::open( cachedUri );
+		return phys->open( *phys, cached_path( file ) );
 	}
 
 	pod::Mount createCacheMount( const uf::stl::string& uri, int priority) {
