@@ -19,7 +19,7 @@ This documentation is barebones as actual more examples and detailing of the fun
 
 ### `engine/utils/audio/`
 
-This provides the `uf::Audio`, `uf::AudioEmitter` and `uf::MappedAudioEmitter` classes.
+This provides the `uf::Audio` and `uf::AudioEmitter` classes.
 
 ### `engine/utils/camera/`
 
@@ -48,6 +48,13 @@ if ( this->hasComponent<pod::PhysicsState>() ) {
 }
 ```
 
+## `engine/utils/debug/`
+
+This provides debug functions for rendering lines, shapes (via lines), and text, via an immediate mode rather than a retained mode.
+
+Simply call `uf::debug::drawLine` or `uf::debug::drawShape`, or `uf::debug::drawText` once a frame, and it'll render into the engine's world.
+
+Additionally, `uf::checkpoint` is handled here as well, but only used for Vulkan (once upon a time at least).
 
 ### `engine/utils/hook/`
 
@@ -108,25 +115,31 @@ auto waveform = uf::hooks.callHook("llm:VALL-E.synthesize", {
 
 This provides the `uf::http` system through cURL.
 
-Currently, only `uf::http::get` is provided for `GET`ting resources.
+Basic `GET`, `POST`, and `HEAD` are supported.
+
+This can (should) also be accessed through the VFS via reading/writing to `https://${url}`.
 
 ### `engine/utils/image/`
 
-This provides the `uf::Image` class for storing image data.
+This provides the `uf::Image` class (wraps `pod::Image`) for storing image data.
 
 Images are loaded as `RGBA8` buffers using [nothings/stb](https://github.com/nothings/stb)'s `stb_image`.
 
 #### `engine/utils/image/atlas`
 
-This provides the `uf::Atlas` class for storing images into an atlas, using [InfinityTools/binpack2d](https://github.com/InfinityTools/binpack2d) as the packer.
+This provides the `uf::Atlas` class (wraps `pod::Image`) for storing images into an atlas, using [nothings/stb](https://github.com/nothings/stb/blob/master/stb_rect_pack.h) as the packer.
 
 ### `engine/utils/io/`
 
 This folder provies:
 * `uf::console`
+	* a barebone REPL for interfacing with the engine via commands
 * `uf::io`
+	* higher level access of I/O interfacing
+* `uf::vfs`
+	* lower-ish level access to the underlying VFS
 * `uf::inputs`
-* `uf::IoStream`
+	* exposes values from KB/M or controllers
 
 ### `engine/utils/math/`
 
@@ -139,10 +152,11 @@ This folder provides:
 * `pod::Transform<>`
 * `uf::quant`
 * `uf::physics`
-* unused collision detection
 * and other things
 
 To-do: document the `uf::vector`, `uf::quaternion`, `uf::matrix`, `uf::transform` namespaces
+
+To-do: document the `uf::physics` system
 
 ### `engine/utils/memory/`
 
@@ -165,12 +179,13 @@ This contains
 * vertex descriptors for meshes
 * structs for draw commands, instances, and primitives
 * a generic class `uf::Mesh` for inserting and binding vertex data for rendering
+* views for reading/writing to each submesh (defined as `pod::DrawCommand`s in the `indirect` buffer)
 
 #### `engine/mesh/grid`
 
 This contains `uf::meshgrid` for slicing a mesh into grids.
 
-This is primarily only used within `engine/ext/gltf/gltf.cpp` for partitioning existing models before saving to the engine's internal format.
+This is used during processing external model formats to the `worldspawn` mesh when importing into the engine's internal format.
 
 This *can* be invoked outside of this context, but currently does is not used beyond the above use-case.
 
@@ -200,9 +215,13 @@ This is primarily used for registering component enums through Lua.
 
 This provides a myriad of string functions through `uf::string`.
 
+### `engine/utils/tests/`
+
+This handles statically initialized unit tests, primarily to assert interoperability between platforms, and regression testing.
+
 ### `engine/utils/text/`
 
-This provides `uf::Glyph`, a wrapper around `FreeType2` for holding glyph information.
+This provides `uf::Glyph`, a wrapper around [nothings/stb](https://github.com/nothings/stb/blob/master/stb_truetype.h)'s `stb_truetype` for holding glyph information, and handles generating its corresponding mesh and texture atlas.
 
 This shouldn't directly be interfaced with, as the GUI system handles this.
 
@@ -239,7 +258,7 @@ For the most part, timers are used via a macro, and deltaTime is grabbed through
 
 ### `engine/utils/userdata/`
 
-This provides `uf::userdata` and `uf::pointeredUserdata` (to-do: alias the latter into the former), where `pod::Userdata` (and the `uf::Userdata` wrapper) contains arbitrary userdata identified by its size and type.
+This provides `uf::userdata` and `uf::pointeredUserdata` (to-do: alias the latter into the former, as the former is just a gimmick), where `pod::Userdata` (and the `uf::Userdata` wrapper) contains arbitrary userdata identified by its size and type.
 
 For the most part, this shouldn't directly be interfaced, as this is used for other systems to operate, but an example:
 ```
@@ -254,16 +273,17 @@ if ( someMap[k] ) uf::userdata::destroy( someMap[k] );
 
 ### `engine/engine/asset/`
 
-This implements the `uf::asset` system which governs asset loading.
+This implements the `uf::asset` system which governs asset loading and optimal, but deferred I/O reading.
 
 Assets can be cached for subsequent loads.
 
 When an asset is loaded, it's dispatched through the hook system by invoking the hook name specified as its callback (usually `asset:Load.%UID%`).
 
-This shouldn't be directly invoked, rather utilized through an entity's JSON configuration or existing hooks (usually `asset:QueueLoad.%UID%`).
+`uf::asset::load` *can* be directly invoked, but it's prefered to utilize an entity's JSON configuration or existing hooks (usually `asset:QueueLoad.%UID%`).
 
-Assets can implicitly resolve absolutely based on the extension per `uf::io::resolveURI`.
+Assets can implicitly resolve absolutely based on the extension (or VFS prefix) per `uf::io::resolveURI`.
 
+Additionally, `uf::asset::read`/`uf::asset::stream` offers deferred disk reads via a callback lambda.
 
 ### `engine/engine/behavior/`
 
@@ -287,11 +307,11 @@ This implements `uf::Entity` and `uf::EntityBehavior`, the core for an entity in
 
 ### `engine/engine/graph/`
 
-This system implements everything for rendering objects in a scene.
+This system implements everything for rendering objects in a scene via indirection.
 
 A `pod::Graph` contains all the information needed to render a scene, from its textures and material information, to meshes, instance information, animations, to draw calls and how additional entities are to be loaded.
 
-*Anything* non-GUI entity is expected to be registered through here. Having said that, the object system should handle the gorey details of passing an entity through here.
+*Anything* non-GUI that interfaces with the engine's world is expected to be registered through here. Having said that, the object system should handle the gorey details of passing an entity through here.
 
 Additional functions:
 * `uf::graph::convert` handles "importing" a naive entity scene graph into the `uf::graph` graph system.
@@ -331,6 +351,16 @@ While it's not utilized, additional scenes can be loaded onto the stack, or unlo
 
 ## `engine/ext/`
 
+### `engine/ext/aica`
+
+This provides an OpenAL-equivalent abstraction for the Dreamcast's AICA (to replace ALdc).
+
+For the most part, it's at parity with the full x86_64 target's OpenAL abstraction, sans EFX.
+
+Streamed audio is buffered via `snd_stream`, while loaded sound effects are dispatched via `snd_sfx`.
+
+Theoretically, spatial audio is supported for streamed audio, but sound effects need to be tested.
+
 ### `engine/ext/audio/`
 
 This abstracts audio codecs for use under OpenAL.
@@ -339,10 +369,13 @@ Currently implemented:
 * `pcm`: processes raw PCM audio into buffers
 * `vorbis`: processes audio from an `.ogg` file through `libvorbis` (or `libtremor`) into buffers
 * `wav`: processes audio from a `.wav` file through `dr_wav` into buffers
+* `adp`: SEGA ADPCM, primarily for the Dreamcast target, but usable in the full x86_64 target as well
 
 Audio is first read for its metadata, then either fully loaded into one buffer, or streamed into smaller buffers.
 
 Enabled through their respective compile feature flag, and flagged through their respective `UF_USE_{NAME}` flags.
+
+Encoders are also availbe if `UF_USE_{}_ENCODER` is set (automatically via `UF_DEV_ENV` in the `Makefile`).
 
 ### `engine/ext/discord/`
 
@@ -354,17 +387,11 @@ Enabled through the `discord` compile feature flag, and flagged through `UF_USE_
 
 ### `engine/ext/ffx/`
 
-This abstracts around AMD's FSR2 library.
+This abstracts around [GPUOpen-LibrariesAndSDKs/FidelityFX-SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK).
 
-This is *semi*-unused as I need to update it to FSR3, and it's a bit of a sloppy implementation, given how much pain was needed to get it to compile under GCC and how poor the documentation was.
+Enabled through the `ffx:fsr` compile feature flag, and flagged automatically through `UF_USE_FFX_SDK`.
 
-Enabled through the `ffx:fsr` compile feature flag, and flagged through `UF_USE_FFX_FSR`.
-
-### `engine/ext/freetype/`
-
-This abstracts around FreeType2 for creating bitmaps for a given font file, as well as provide metrics for a given glyph.
-
-Enabled through the `freetype` compile feature flag, and flagged through `UF_USE_FREETYPE`.
+*Mostly* working with interpolation and frame-gen, but hasn't been tested in a while.
 
 ### `engine/ext/gltf/`
 
@@ -388,6 +415,23 @@ This abstracts around [nlohmann/json](https://github.com/nlohmann/json) to provi
 
 Enabled through the `json:nlohmann` compile feature flag, and flagged through `UF_JSON_USE_NLOHMANN`.
 * it is ***highly*** recommended to enable this.
+
+### `engine/ext/lgs/`
+
+This handles loading DarkEngine `.mis` files to import them into the engine.
+
+While *a lot* has been implemented:
+* animated meshes are ignored
+* a good majority of a `.mis`'s inventory is neglected
+* a good majority of the OSM need re-implementation via Lua
+
+For the most part, most levels are functional and somewhat interactable.
+
+While confusingly named `lgs` for Looking Glass Studios instead of `dark` for DarkEngine, it maps to how `valve` for Valve-formatted files isn't `source` for Source Engine files.
+
+This is automatically handled via the graph system.
+
+Enabled through the `lgs` compile feature flag, and flagged through `UF_USE_LGS`.
 
 ### `engine/ext/lua/`
 
@@ -432,12 +476,19 @@ Additional library tables are provided that map to internal engine functions thr
 * `inputs.key`: `uf::inputs::key`
 * `inputs.analog`: `uf::inputs::analog`
 * `inputs.analog2`: `uf::inputs::analog2`
+* and others I might be neglecting
 
 Enabled through the `lua` compile feature flag, and flagged through `UF_USE_LUA`.
 
+### `engine/ext/lz4/`
+
+This abstracts around `lz4` for the compression and decompression of `.lz4` files.
+
+Enabled through the `lz4` compile feature flag, and flagged through `UF_USE_LZ4`.
+
 ### `engine/ext/meshopt/`
 
-This abstracts around [zeux/meshoptimizer](https://github.com/zeux/meshoptimizer) to optimize meshes.
+This abstracts around [zeux/meshoptimizer](https://github.com/zeux/meshoptimizer) to optimize meshes and generating LODs ahead-of-time.
 
 For the most part, this is automatically called when loading from a gLTF file.
 
@@ -467,17 +518,23 @@ Enabled through the `opengl` compile feature flag, and flagged through `UF_USE_O
 
 This abstracts around [ValveSoftware/openvr](https://github.com/ValveSoftware/openvr) to provide VR support.
 
-Support needs to be repaired as the rendering system was modified heavily after adding VR support.
-
 Enabled through the `openvr` compile feature flag, and flagged through `UF_USE_OPENVR`.
 
-### `engine/ext/reactphysics/`
+### `engine/ext/texconv/`
 
-This abstracts around [DanielChappuis/reactphysics3d](https://github.com/DanielChappuis/reactphysics3d) to provide a physics system through `uf::physics`.
+This supplies an interface to my fork of [texconv](https://github.com/e-c-k-e-r/texconv), a utility to convert images into `.dtex` for GLdc.
 
-Confusingly, this aliases to `uf::physics::impl`.
+For the most part, the asset system and graph encoders should handle interfacing with this automatically.
 
-Enabled through the `reactphysics` compile feature flag, and flagged through `UF_USE_REACTPHYSICS`.
+Enabled through the `dc:texconv` compile feature flag, and flagged through `UF_USE_DC_TEXCONV`.
+
+This *could* be enabled in the Dreamcast target itself to on-the-fly compress loaded `.png` into an optimal format.
+
+### `engine/ext/truetype/`
+
+This abstracts around TrueType fonts for creating bitmaps for a given font file, as well as provide metrics for a given glyph.
+
+Enabled through the `truetype` compile feature flag, and flagged through `UF_USE_TRUETYPE`.
 
 ### `engine/ext/toml/`
 
@@ -510,6 +567,21 @@ This abstracts around Vulkan to provide the rendering system.
 There's a *ton* of stuff it exposes that should necessitate its own documentation.
 
 Enabled through the `vulkan` compile feature flag, and flagged through `UF_USE_VULKAN`.
+
+### `engine/ext/valve`
+
+This handles Valve's file formats, including:
+* `.bsp` maps
+* `.mdl` models
+* `.vpk` archives (and can be mounted via the VFS)
+* `.vtf` texture files
+* `.vmt` material definitions
+
+For the most part, maps do load and basic classes are implemented.
+
+This is automatically handled via the graph system.
+
+Enabled through the `valve` compile feature flag, and flagged through `UF_USE_VALVE`.
 
 ### `engine/ext/xatlas/`
 

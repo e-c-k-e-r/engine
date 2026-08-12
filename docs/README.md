@@ -26,9 +26,8 @@ To be filled.
 		* FSR2 or something cringe
 	* OpenGL uses a very, very naive OpenGL 1.2 API with a homebrewed command recording system
 		* pre-baked light maps can be loaded for lighting
-* ReactPhysics3D for physics
-	* *very* loosely integrated
-	* basic shapes and triangulated mesh collision and some form of ray queries
+* internal physics system
+	* to-do: document
 * OpenAL for audio
 	* Loads from `.ogg` or `.wav` files
 		* Supports loading in full and streaming
@@ -40,7 +39,7 @@ To be filled.
 ## Supported Systems
 
 * Windows
-	* *technically* also Linux under Proton
+* Linux (via X11)
 * Sega Dreamcast
 
 ## Notices and Citations

@@ -2,7 +2,7 @@
 
 This section of the project orchestrates the engine's systems and extends it for the overall program, and is intended to hold anything that isn't crucial to the underlying engine itself.
 
-In the past, this compiled to its own DLL, but for the most part it's better to compile as one DLL.
+In the past, this compiled to its own DLL, but for the most part it's better to compile as one DLL. Most of these files migrated under `engine/ext/`.
 
 ## Files
 
@@ -20,15 +20,9 @@ This folder handles extended engine logic for the program. While most of these c
 
 #### `ext/behaviors/audio/bgm/`
 
-The `ext::BgmEmitterBehavior` behavior handles logic for playing the background music for a scene.
-
-Features such as looping, transitions from an `intro` to the main track OR fading to other tracks, are handled here.
+The `ext::AudioEmitterBehavior` behavior handles logic for playing (emitting) sound from an entity, or the background music for a scene.
 
 Invoking the `bgm:Play.%UID%` hook will signal for this behavior to play a track, but tracks can be defined through an entity's `bgm.tracks` metadata.
-
-#### `ext/behaviors/audio/emitter`
-
-The `ext::SoundEmitterBehavior` behavior handles logic for playing (emitting) sound from an entity.
 
 Invoking the `sound:Emit.%UID%` hook will signal for this behavior to emit a sound. Most of the parameters through OpenAL can be set through this payload.
 
@@ -56,7 +50,7 @@ Menus can be implemented through Lua scripts, or additional behaviors.
 
 The `ext::GuiGlyphBehavior` behavior extends the `ext::GuiBehavior` by handling text through glyphs.
 
-Currently, this behavior loads glyphs through `FreeType2`, and handles the gorey bits of generating an SDF (if requested), combining the glyphs into an atlas, configuring the metadata to utilize the glyph shader, and updating the GUI when the text updates.
+Currently, this behavior loads glyphs through `TrueType`, and handles the gorey bits of generating an SDF (if requested), combining the glyphs into an atlas, configuring the metadata to utilize the glyph shader, and updating the GUI when the text updates.
 
 Like the overall GUI system, most of this is still a bit of a mess from its past iterations.
 
@@ -81,6 +75,8 @@ While inputs *can* be handled through hooks, it's better to instead read from `u
 Additional player logic is defined through `/data/entity/scripts/player.lua` (primarily `E`-use interactions and `F`-flashlight toggling).
 
 This is a bit of a mess as it's a relic from prior engine iterations.
+
+To-do: update this as most functionality has been split into separate behaviors, or relegated to the Lua script.
 
 ##### `ext/behavior/player/model/`
 

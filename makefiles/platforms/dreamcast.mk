@@ -39,6 +39,8 @@ OBJS_DLL 			= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.c,%.$(PRE
 OBJS 				= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.c,%.$(PREFIX).o,$(SRCS_DLL_C)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
 KOS_AR     			= /opt/dreamcast/sh-elf/bin/sh-elf-gcc-ar
 KOS_RANLIB 			= /opt/dreamcast/sh-elf/bin/sh-elf-gcc-ranlib
+ISO_TYPE 			= cdi
+ISO_IGNORE 			= --ignore ".pdb" --ignore ".glb" --ignore ".bsp" --ignore shaders/
 
 $(PREFIX): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 
@@ -62,17 +64,26 @@ $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
 	cp $(TARGET) $(TARGET).unstripped
 	$(KOS_STRIP) --strip-unneeded $(TARGET)
 
-./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
-	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
+./bin/dreamcast/$(TARGET_NAME).$(ISO_TYPE): $(TARGET)
+	$(KOS_BASE)/utils/gd-rom/bin/gd-rom.exe --elf $(TARGET) --output ./bin/dreamcast/$(TARGET_NAME).$(ISO_TYPE) $(ISO_IGNORE) -g "$(TARGET_NAME)" ./bin/data/ ./bin/dreamcast/data/
 
 cdi:
-	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
+	$(KOS_BASE)/utils/gd-rom/bin/gd-rom.exe --elf $(TARGET) --output ./bin/dreamcast/$(TARGET_NAME).cdi $(ISO_IGNORE) -g "$(TARGET_NAME)" ./bin/data/ ./bin/dreamcast/data/
 
-run-dc:
+gdi:
+	$(KOS_BASE)/utils/gd-rom/bin/gd-rom.exe --elf $(TARGET) --output ./bin/dreamcast/$(TARGET_NAME).gdi $(ISO_IGNORE) -g "$(TARGET_NAME)" ./bin/data/ ./bin/dreamcast/data/
+
+run-cdi:
 	$(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
 
-debug-dc:
+debug-cdi:
 	$(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).cdi $(TARGET).unstripped
+
+run-gdi:
+	$(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).gdi
+
+debug-gdi:
+	$(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).gdi $(TARGET).unstripped
 
 clean-dreamcast:
 	@-rm ./bin/dreamcast/build/*
