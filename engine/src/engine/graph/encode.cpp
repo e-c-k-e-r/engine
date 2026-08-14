@@ -218,7 +218,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		uf::stl::vector<pod::Material> flatMaterials;
 		flatMaterials.reserve(graph.materials.size());
 		for ( auto& name : graph.materials ) {
-			flatMaterials.push_back(storage.materials.map.at(name));
+			flatMaterials.emplace_back(storage.materials.map.at(name));
 		}
 
 		if (!flatMaterials.empty()) {
@@ -237,7 +237,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		uf::stl::vector<pod::Texture> flatTextures;
 		flatTextures.reserve(graph.textures.size());
 		for ( auto& name : graph.textures ) {
-			flatTextures.push_back(storage.textures.map.at(name));
+			flatTextures.emplace_back(storage.textures.map.at(name));
 		}
 
 		if (!flatTextures.empty()) {
@@ -256,7 +256,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		uf::stl::vector<uf::renderer::Sampler> flatSamplers;
 		flatSamplers.reserve(graph.samplers.size());
 		for ( auto& name : graph.samplers ) {
-			flatSamplers.push_back(storage.samplers.map.at(name));
+			flatSamplers.emplace_back(storage.samplers.map.at(name));
 		}
 
 		if (!flatSamplers.empty()) {
@@ -278,8 +278,8 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		lightNames.reserve(graph.lights.size());
 
 		for ( auto& pair : graph.lights ) {
-			lightNames.push_back(pair.first);
-			flatLights.push_back(pair.second);
+			lightNames.emplace_back(pair.first);
+			flatLights.emplace_back(pair.second);
 		}
 
 		if (!flatLights.empty()) {

@@ -193,7 +193,7 @@ namespace {
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
 		uf::stl::vector<uf::stl::string> extensions = uf::string::split( pExtensionStr, " " );
 		for ( auto& str : extensions ) {
-			requested.push_back(str);
+			requested.emplace_back(str);
 		}
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
 	}
@@ -205,7 +205,7 @@ namespace {
 		pExtensionStr[0] = 0;
 		vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice , pExtensionStr, nBufferSize );
 		uf::stl::vector<uf::stl::string> extensions = uf::string::split( pExtensionStr, " " );
-		for ( auto& str : extensions ) requested.push_back(str);
+		for ( auto& str : extensions ) requested.emplace_back(str);
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
 	}
 #endif
@@ -221,7 +221,7 @@ namespace {
 				}
 				if ( found ) break;
 				found = true;
-				supportedExtensions.push_back( extensionName );
+				supportedExtensions.emplace_back( extensionName );
 				break;
 			}
 			if ( !found ) UF_MSG_ERROR("Vulkan missing requested extension: {}", requestedExtension);
@@ -1724,7 +1724,7 @@ bool ext::vulkan::DescriptorAllocator::allocate( VkDescriptorSet* set, VkDescrip
 	VkResult result = vkAllocateDescriptorSets(device, &allocInfo, set);
 
 	if ( result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL ) {
-		usedPools.push_back(currentPool);
+		usedPools.emplace_back(currentPool);
 		currentPool = createPool();
 		allocInfo.descriptorPool = currentPool;
 

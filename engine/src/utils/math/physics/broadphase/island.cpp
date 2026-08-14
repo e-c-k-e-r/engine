@@ -111,7 +111,7 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 		pod::BVH::index_t root = unionizer.find(itA->second);
 		if ( rootToIsland.find(root) != rootToIsland.end() ) {
 			pod::BVH::index_t islandID = rootToIsland[root];
-			islands[islandID].constraints.push_back(constraint);
+			islands[islandID].constraints.emplace_back(constraint);
 
 			// Wake bodies if connected by a constraint and one is awake
 			if ( constraint->a->activity.awake || constraint->b->activity.awake ) {

@@ -627,7 +627,7 @@ namespace impl {
 
 		if ( reader.read(count, chunkLinks) ) {
 			for ( const auto& l : chunkLinks ) {
-				ctx.links.push_back({l.src, l.dest, l.flavor});
+				ctx.links.emplace_back(DarkLinkData{l.src, l.dest, l.flavor});
 			}
 		}
 	}
@@ -713,7 +713,7 @@ namespace impl {
 		for ( int32_t i = 0; i < *numRooms; ++i ) {
 			impl::DarkRoom room;
 			if ( impl::parseRoom( reader, room ) ) {
-				ctx.rooms.push_back( room );
+				ctx.rooms.emplace_back( room );
 			} else {
 				if ( i == *numRooms - 1 ) {
 					//UF_MSG_DEBUG("Room {} truncated at EOF", i);
@@ -998,7 +998,7 @@ namespace impl {
 				const auto* gotoInfo = reader.read<impl::sSongGotoInfo>();
 				if ( !gotoInfo ) break;
 				UF_MSG_DEBUG("  -> Goto section: {}, prob: {}", gotoInfo->sectionIndex, gotoInfo->probability);
-				evt.gotos.push_back({ gotoInfo->sectionIndex, gotoInfo->probability });
+				evt.gotos.emplace_back(SongGoto{ gotoInfo->sectionIndex, gotoInfo->probability });
 			}
 		}
 
@@ -1022,7 +1022,7 @@ namespace impl {
 				if ( !sampInfo ) break;
 
 				uf::stl::string sampleName = uf::stl::string(sampInfo->name, strnlen(sampInfo->name, kSONG_MaxStringLen));
-				sec.samples.push_back({ sampleName });
+				sec.samples.emplace_back(SongSample{ sampleName });
 			}
 
 			const auto* numSecEvents = reader.read<uint32_t>();
@@ -1042,7 +1042,7 @@ namespace impl {
 				for ( uint32_t k = 0; k < *numGotos; ++k ) {
 					const auto* gotoInfo = reader.read<impl::sSongGotoInfo>();
 					if ( !gotoInfo ) break;
-					evt.gotos.push_back({ gotoInfo->sectionIndex, gotoInfo->probability });
+					evt.gotos.emplace_back(SongGoto{ gotoInfo->sectionIndex, gotoInfo->probability });
 				}
 			}
 		}
@@ -1692,7 +1692,7 @@ namespace impl {
 							hash = FMT_FORMAT("c_{}_p_{}_anim_{}", c, i, lightID);
 						}
 
-						faceLightmaps[faceID].push_back({ std::move(image), hash });
+						faceLightmaps[faceID].emplace_back(Lightmap{ std::move(image), hash });
 					}
 				} else {
 					reader.skip( totalLmBytes );
@@ -1817,7 +1817,7 @@ namespace impl {
 					meshlet.indices.emplace_back(indices[t + 1]);
 				}
 
-				unpartitionedMeshlets.push_back(std::move(meshlet));
+				unpartitionedMeshlets.emplace_back(std::move(meshlet));
 			}
 		}
 
@@ -1840,7 +1840,7 @@ namespace impl {
 
 		uf::stl::unordered_map<size_t, uf::stl::vector<impl::Meshlet>> nodeGroups;
 		for ( auto& slice : partitioned ) {
-			nodeGroups[slice.primitive.instance.auxID].push_back(std::move(slice));
+			nodeGroups[slice.primitive.instance.auxID].emplace_back(std::move(slice));
 		}
 
 		uf::stl::vector<impl::Meshlet> finalPartitioned;
@@ -1893,7 +1893,7 @@ namespace impl {
 
 				uint32_t vertOffset = (uint32_t)merged.vertices.size();
 				for ( auto idx : slice.indices ) {
-					merged.indices.push_back(idx + vertOffset);
+					merged.indices.emplace_back(idx + vertOffset);
 				}
 
 				for ( auto& vert : slice.vertices ) {
@@ -1904,12 +1904,12 @@ namespace impl {
 						pod::Atlas::hash_t hash = FMT_FORMAT("c_{}_p_{}", c, p);
 						vert.st = uf::atlas::mapUv(nodeAtlas, vert.st, hash);
 					}
-					merged.vertices.push_back(std::move(vert));
+					merged.vertices.emplace_back(std::move(vert));
 				}
 			}
 
 			for ( auto& [_, merged] : mergedMeshlets ) {
-				finalPartitioned.push_back(std::move(merged));
+				finalPartitioned.emplace_back(std::move(merged));
 			}
 		}
 

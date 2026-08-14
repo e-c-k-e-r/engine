@@ -287,12 +287,14 @@ bool uf::io::readAsBuffer( uf::stl::vector<uint8_t>& buffer,  const uf::stl::str
 }
 
 bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::ScatterRequest>& requests ) {
+	uf::vfs::Lock lock;
+
 #if UF_ENV_DREAMCAST
-	const size_t THRESHOLD = 16 * 1024; // 16K
-	const size_t CHUNK_SIZE = 8 * 1024;
+	const size_t THRESHOLD = 32 * 1024;
+	const size_t COALESCE_GAP = 64 * 1024;
 #else
-	const size_t THRESHOLD = 16 * 1024 * 1024; // 16M
-	const size_t CHUNK_SIZE = 0;
+	const size_t THRESHOLD = 16 * 1024 * 1024;
+	const size_t COALESCE_GAP = 8 * 1024;
 #endif
 
 	uf::stl::string extension = uf::io::extension(filename);
@@ -318,16 +320,58 @@ bool uf::io::readScatter( const uf::stl::string& filename, uf::stl::vector<pod::
 	pod::File file = uf::vfs::open(filename);
 	if ( !file ) return false;
 
-	for ( auto& req : requests ) {
-		if ( req.len == 0 ) continue;
+	std::sort(requests.begin(), requests.end(), [](const pod::ScatterRequest& a, const pod::ScatterRequest& b) {
+		return a.start < b.start;
+	});
 
-		if ( !file.seek(file.handle, req.start, SEEK_SET) ) continue;
-		file.stream(file.handle, req.dest, req.len, CHUNK_SIZE);
+	size_t i = 0;
+	size_t numRequests = requests.size();
+
+	while ( i < numRequests ) {
+		if ( requests[i].len == 0 ) {
+			i++;
+			continue;
+		}
+
+		size_t clusterStart = requests[i].start;
+		size_t clusterEnd = requests[i].start + requests[i].len;
+		size_t clusterStartIndex = i;
+
+		while ( i + 1 < numRequests ) {
+			size_t nextStart = requests[i + 1].start;
+			size_t nextEnd = nextStart + requests[i + 1].len;
+
+			if ( nextStart > clusterEnd && (nextStart - clusterEnd) > COALESCE_GAP ) {
+				break;
+			}
+
+			clusterEnd = std::max(clusterEnd, nextEnd);
+			i++;
+		}
+
+		size_t clusterSize = clusterEnd - clusterStart;
+		if ( clusterSize <= 0 ) continue;
+		if ( !file.seek(file.handle, clusterStart, SEEK_SET) ) continue;
+		uf::stl::vector<uint8_t> clusterBuffer(clusterSize);
+
+		size_t bytesRead = file.read(file.handle, clusterBuffer.data(), clusterSize);
+
+		if ( bytesRead <= 0 ) continue;
+		for ( size_t j = clusterStartIndex; j <= i; ++j ) {
+			auto& req = requests[j];
+			if ( req.start >= clusterStart && req.start < clusterStart + bytesRead ) {
+				size_t offsetInCluster = req.start - clusterStart;
+				size_t copyLen = std::min(req.len, bytesRead - offsetInCluster);
+				uf::stl::memcpy(req.dest, clusterBuffer.data() + offsetInCluster, copyLen);
+			}
+		}
+		i++;
 	}
 
 	file.close(file.handle);
 	return true;
 }
+
 
 size_t uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );

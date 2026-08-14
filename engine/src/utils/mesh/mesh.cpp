@@ -306,7 +306,7 @@ void uf::Mesh::interleave() {
 	uf::stl::vector<int32_t> oldBuffers;
 	for ( auto& attr : vertex.attributes ) {
 		if ( std::find(oldBuffers.begin(), oldBuffers.end(), attr.buffer) == oldBuffers.end() ) {
-			oldBuffers.push_back(attr.buffer);
+			oldBuffers.emplace_back(attr.buffer);
 		}
 	}
 	for ( int32_t bufIdx : oldBuffers ) {
@@ -315,7 +315,7 @@ void uf::Mesh::interleave() {
 	}
 
 	int32_t newBufferIndex = buffers.size();
-	buffers.push_back( std::move(interleavedBuffer) );
+	buffers.emplace_back( std::move(interleavedBuffer) );
 
 	for ( auto& attr : vertex.attributes ) {
 		attr.buffer = newBufferIndex;
@@ -332,8 +332,8 @@ void uf::Mesh::prune( const uf::stl::vector<uf::stl::string>& keep ) {
 		auto& attribute = vertex.attributes[i];
 		if ( std::find( keep.begin(), keep.end(), attribute.descriptor.name ) != keep.end() ) continue;
 
-		deadAttributes.push_back(i);
-		deadBuffers.push_back(attribute.buffer);
+		deadAttributes.emplace_back(i);
+		deadBuffers.emplace_back(attribute.buffer);
 	}
 
 	std::sort(deadAttributes.rbegin(), deadAttributes.rend());

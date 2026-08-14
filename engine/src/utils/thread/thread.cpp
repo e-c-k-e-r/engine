@@ -1,8 +1,8 @@
-#if !UF_ENV_DREAMCAST
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/io/iostream.h>
 #include <future>
 
+#if !UF_USE_KOS_THREAD
 uf::thread::container_t uf::thread::threads;
 float uf::thread::limiter = 1.0f / 120.0f;
 uint32_t uf::thread::workers = 1;

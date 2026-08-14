@@ -157,6 +157,13 @@ void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t heig
 		this->type = ext::vulkan::enums::Image::TYPE_3D;
 		this->viewType = layers == 6 ? ext::vulkan::enums::Image::VIEW_TYPE_CUBE_ARRAY : ext::vulkan::enums::Image::VIEW_TYPE_3D;
 	}
+
+	// de-alias
+	if ( this->aliased ) {
+		this->aliased = false;
+		this->image = {};
+		this->view = {};
+	}
 /*
 	if ( width > 1 && height > 1 && depth > 1 ) {
 		this->type = ext::vulkan::enums::Image::TYPE_3D;

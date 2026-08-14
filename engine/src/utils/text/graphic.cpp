@@ -171,7 +171,7 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 	// generate glyph and line height
 	for ( const auto& token : tokens ) {
 		for ( char raw_c : token.text ) {
-			uint64_t c = static_cast<uint8_t>(raw_c); // Safely cast byte
+			uint64_t c = (uint8_t)(raw_c); // Safely cast byte
 			if ( c == '\n' || c == '\t' ) continue;
 
 			auto key = uf::glyph::hashSettings(c, metadata);
@@ -184,21 +184,21 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 				uf::glyph::generate( glyph, ::glyphs.face, c, metadata.size );
 			}
 
-			float g_y = static_cast<float>(glyph.size.y);
+			float g_y = (float)(glyph.size.y);
 			if (g_y > tallestGlyphY) tallestGlyphY = g_y;
 
-			totalWidth += static_cast<float>(glyph.size.x);
+			totalWidth += (float)(glyph.size.x);
 			charCount++;
 		}
 	}
 
-	if ( charCount > 0 ) averageTabWidth = (totalWidth / static_cast<float>(charCount)) * 4.0f;
+	if ( charCount > 0 ) averageTabWidth = (totalWidth / (float)(charCount)) * 4.0f;
 	cursor.y = tallestGlyphY;
 
 	// calculate positions
 	for ( const auto& token : tokens ) {
 		for ( char raw_c : token.text ) {
-			uint64_t c = static_cast<uint8_t>(raw_c);
+			uint64_t c = (uint8_t)(raw_c);
 
 			// advance cursor on special characters
 			if ( c == '\n' ) {
@@ -218,20 +218,20 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 			auto& glyph = cache[key];
 
 			pod::GlyphBox newBox;
-			newBox.box.x = cursor.x + static_cast<float>(glyph.bearing.x);
-			newBox.box.y = cursor.y - static_cast<float>(glyph.bearing.y);
-			newBox.box.w = static_cast<float>(glyph.size.x);
-			newBox.box.h = static_cast<float>(glyph.size.y);
+			newBox.box.x = cursor.x + (float)(glyph.bearing.x);
+			newBox.box.y = cursor.y - (float)(glyph.bearing.y);
+			newBox.box.w = (float)(glyph.size.x);
+			newBox.box.h = (float)(glyph.size.y);
 			newBox.box.z = 0.0f;
 			newBox.color = token.color;
 			newBox.anchor = anchor;
 			newBox.code = c;
 
-			layout.push_back(newBox);
+			layout.emplace_back(newBox);
 			pod::GlyphBox& g = layout.back();
 
 			// advance cursor
-			cursor.x += static_cast<float>(glyph.advance.x);
+			cursor.x += (float)(glyph.advance.x);
 
 			// advance bounding box manually
 			float right = g.box.x + g.box.w;
@@ -252,10 +252,10 @@ uf::stl::vector<pod::GlyphBox> uf::glyph::calculateLayout( const uf::stl::vector
 		g.box.y -= offsetY;
 
 		// normalize
-		g.box.x /= static_cast<float>(::defaults.size.x);
-		g.box.w /= static_cast<float>(::defaults.size.x);
-		g.box.y /= static_cast<float>(::defaults.size.y);
-		g.box.h /= static_cast<float>(::defaults.size.y);
+		g.box.x /= (float)(::defaults.size.x);
+		g.box.w /= (float)(::defaults.size.x);
+		g.box.y /= (float)(::defaults.size.y);
+		g.box.h /= (float)(::defaults.size.y);
 	}
 
 	return layout;

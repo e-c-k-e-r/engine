@@ -35,8 +35,8 @@ void uf::atlas::generate( pod::Atlas& atlas, size_t padding ) {
 		rect.id = static_cast<int>(rects.size());
 		rect.w = dim.x + padding * 2;
 		rect.h = dim.y + padding * 2;
-		rects.push_back(rect);
-		hashes.push_back(hash);
+		rects.emplace_back(rect);
+		hashes.emplace_back(hash);
 
 		area += dim.x * dim.y;
 	}

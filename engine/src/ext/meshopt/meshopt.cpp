@@ -241,7 +241,7 @@ bool ext::meshopt::simplify( uf::Mesh& mesh, float simplifyFactor ) {
 		uint32_t newIndexOffset = outIndices.size();
 
 		for ( uint32_t idx : simplifiedIndices ) {
-			outIndices.push_back(idx);
+			outIndices.emplace_back(idx);
 		}
 
 		for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
@@ -278,7 +278,7 @@ bool ext::meshopt::simplify( uf::Mesh& mesh, float simplifyFactor ) {
 	return true;
 }
 
-uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, const uf::stl::vector<float>& lodFactors, bool verbose ) {
+uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, const uf::stl::vector<float>& lodFactors, bool indicesOnly ) { bool verbose = false;
 	uf::stl::vector<pod::LODMetadata> lodMetadata;
 	mesh.updateDescriptor();
 
@@ -307,17 +307,24 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 		lodMetadata[cmdIdx].levels[0].vertices = cmd.vertices;
 	}
 
-	// copy position attribute
 	int posAttrIdx = -1;
-	uf::stl::vector<uf::stl::vector<uint8_t>> outVertices(mesh.vertex.attributes.size());
 	for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
-		auto& attr = mesh.vertex.attributes[a];
-		if ( attr.descriptor.name == "position" ) posAttrIdx = a;
-
-		auto& buf = mesh.buffers[attr.buffer];
-		outVertices[a].assign(buf.begin(), buf.end());
+		if ( mesh.vertex.attributes[a].descriptor.name == "position" ) {
+			posAttrIdx = (int)a;
+			break;
+		}
 	}
+	if ( posAttrIdx == -1 ) return lodMetadata;
 
+	uf::stl::vector<uf::stl::vector<uint8_t>> outVertices;
+	if ( !indicesOnly ) {
+		outVertices.resize(mesh.vertex.attributes.size());
+		for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
+			auto& attr = mesh.vertex.attributes[a];
+			auto& buf = mesh.buffers[attr.buffer];
+			outVertices[a].assign(buf.begin(), buf.end());
+		}
+	}
 
 	// generate LOD1=>N
 	for ( size_t lodIdx = 1; lodIdx < numLODs; ++lodIdx ) {
@@ -329,12 +336,12 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 			// source from LOD0
 			auto& cmd0 = lodMetadata[cmdIdx].levels[0];
 
-			// copy from LOD0
+			// copy default from LOD0
 			lodMetadata[cmdIdx].levels[lodIdx] = lodMetadata[cmdIdx].levels[0];
 
 			// generate LOD
 			if ( 0.0f < simplify && simplify < 1.0f ) {
-				float targetError = FLT_MAX; // 1e-2f / simplify;
+				float targetError = FLT_MAX;
 				float realError = 0.0f;
 				size_t currentIndicesCount = cmd0.indices;
 				uf::stl::vector<uint32_t> baseIndices(cmd0.indices);
@@ -342,7 +349,12 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 
 				uf::stl::vector<uint32_t> lodIndices = baseIndices;
 
-				const float* basePositions = (const float*) (outVertices[posAttrIdx].data() + cmd0.vertexID * mesh.vertex.attributes[posAttrIdx].stride);
+				const float* basePositions = nullptr;
+				if ( !indicesOnly ) {
+					basePositions = (const float*) (outVertices[posAttrIdx].data() + cmd0.vertexID * mesh.vertex.attributes[posAttrIdx].stride);
+				} else {
+					basePositions = (const float*) ((const uint8_t*)mesh.vertex.attributes[posAttrIdx].pointer + cmd0.vertexID * mesh.vertex.attributes[posAttrIdx].stride);
+				}
 
 				currentIndicesCount = meshopt_simplify(
 					lodIndices.data(), baseIndices.data(), cmd0.indices,
@@ -357,34 +369,44 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 					continue;
 				}
 
-				//if ( verbose ) UF_MSG_DEBUG("[View {}] LOD {}: {} -> {}", viewIdx, lodIdx, cmd0.indices, currentIndicesCount);
-
 				lodIndices.resize(currentIndicesCount);
 
-				// optimize and pack vertices for this specific LOD
-				uf::stl::vector<uint32_t> fetchRemap(cmd0.vertices);
-				size_t uniqueVertices = meshopt_optimizeVertexFetchRemap(fetchRemap.data(), lodIndices.data(), currentIndicesCount, cmd0.vertices);
-				meshopt_remapIndexBuffer(lodIndices.data(), lodIndices.data(), currentIndicesCount, fetchRemap.data());
+				if ( indicesOnly ) {
+					meshopt_optimizeVertexCache(lodIndices.data(), lodIndices.data(), currentIndicesCount, cmd0.vertices);
 
-				// record the new offsets appended at the end of the global buffers
-				uint32_t lodVertexOffset = outVertices[0].size() / mesh.vertex.attributes[0].stride;
-				uint32_t lodIndexOffset = outIndices.size();
+					uint32_t lodIndexOffset = outIndices.size();
 
-				lodMetadata[cmdIdx].levels[lodIdx].indices  = currentIndicesCount;
-				lodMetadata[cmdIdx].levels[lodIdx].indexID  = lodIndexOffset;
-				lodMetadata[cmdIdx].levels[lodIdx].vertexID = lodVertexOffset;
-				lodMetadata[cmdIdx].levels[lodIdx].vertices = uniqueVertices;
+					lodMetadata[cmdIdx].levels[lodIdx].indices  = currentIndicesCount;
+					lodMetadata[cmdIdx].levels[lodIdx].indexID  = lodIndexOffset;
+					lodMetadata[cmdIdx].levels[lodIdx].vertexID = cmd0.vertexID;
+					lodMetadata[cmdIdx].levels[lodIdx].vertices = cmd0.vertices;
 
-				// append indices
-				for ( size_t i = 0; i < currentIndicesCount; ++i ) outIndices.emplace_back(lodIndices[i]);
-				// append vertices
-				for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
-					auto& attr = mesh.vertex.attributes[a];
-					const uint8_t* srcPtr = outVertices[a].data() + cmd0.vertexID * attr.stride;
+					for ( size_t i = 0; i < currentIndicesCount; ++i ) outIndices.emplace_back(lodIndices[i]);
 
-					uf::stl::vector<uint8_t> packed(uniqueVertices * attr.stride);
-					meshopt_remapVertexBuffer(packed.data(), srcPtr, cmd0.vertices, attr.stride, fetchRemap.data());
-					outVertices[a].insert(outVertices[a].end(), packed.begin(), packed.end());
+				} else {
+					uf::stl::vector<uint32_t> fetchRemap(cmd0.vertices);
+					size_t uniqueVertices = meshopt_optimizeVertexFetchRemap(fetchRemap.data(), lodIndices.data(), currentIndicesCount, cmd0.vertices);
+					meshopt_remapIndexBuffer(lodIndices.data(), lodIndices.data(), currentIndicesCount, fetchRemap.data());
+
+					uint32_t lodVertexOffset = outVertices[0].size() / mesh.vertex.attributes[0].stride;
+					uint32_t lodIndexOffset = outIndices.size();
+
+					lodMetadata[cmdIdx].levels[lodIdx].indices  = currentIndicesCount;
+					lodMetadata[cmdIdx].levels[lodIdx].indexID  = lodIndexOffset;
+					lodMetadata[cmdIdx].levels[lodIdx].vertexID = lodVertexOffset;
+					lodMetadata[cmdIdx].levels[lodIdx].vertices = uniqueVertices;
+
+					// append indices
+					for ( size_t i = 0; i < currentIndicesCount; ++i ) outIndices.emplace_back(lodIndices[i]);
+					// append vertices
+					for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
+						auto& attr = mesh.vertex.attributes[a];
+						const uint8_t* srcPtr = outVertices[a].data() + cmd0.vertexID * attr.stride;
+
+						uf::stl::vector<uint8_t> packed(uniqueVertices * attr.stride);
+						meshopt_remapVertexBuffer(packed.data(), srcPtr, cmd0.vertices, attr.stride, fetchRemap.data());
+						outVertices[a].insert(outVertices[a].end(), packed.begin(), packed.end());
+					}
 				}
 			}
 		}
@@ -396,12 +418,13 @@ uf::stl::vector<pod::LODMetadata> ext::meshopt::generateLODs( uf::Mesh& mesh, co
 	uint8_t* dstIdx = mesh.getBuffer(mesh.index).data();
 	for ( size_t i = 0; i < outIndices.size(); ++i ) writeIndex(dstIdx, i, mesh.index.size, outIndices[i]);
 
-	// write vertices to mesh
-	mesh.vertex.count = outVertices[0].size() / mesh.vertex.attributes[0].stride;
-	for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
-		auto& attr = mesh.vertex.attributes[a];
-		mesh.buffers[attr.buffer].swap(outVertices[a]);
-		attr.pointer = mesh.buffers[attr.buffer].data();
+	if ( !indicesOnly ) {
+		mesh.vertex.count = outVertices[0].size() / mesh.vertex.attributes[0].stride;
+		for ( size_t a = 0; a < mesh.vertex.attributes.size(); ++a ) {
+			auto& attr = mesh.vertex.attributes[a];
+			mesh.buffers[attr.buffer].swap(outVertices[a]);
+			attr.pointer = mesh.buffers[attr.buffer].data();
+		}
 	}
 
 	mesh.updateDescriptor();

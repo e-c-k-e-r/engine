@@ -6,13 +6,42 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <uf/utils/memory/memcpy.h>
+#include <uf/ext/zlib/zlib.h>
+#include <uf/ext/lz4/lz4.h>
 
 #if UF_ENV_DREAMCAST
+	#define UF_USE_KOS_FILE 1
+#endif
+
+#if UF_USE_KOS_FILE
 	#include <kos/fs.h>
 	#include <kos/limits.h>
+	#include <mutex>
 #else
 	#include <filesystem>
 #endif
+
+#if UF_USE_KOS_FILE
+	namespace {
+		std::recursive_mutex g_kos_vfs_mutex;
+	}
+	
+	void uf::vfs::lock() { g_kos_vfs_mutex.lock(); }
+	void uf::vfs::unlock() { g_kos_vfs_mutex.unlock(); }
+
+	struct Guard {
+		file_t fd;
+		explicit Guard(file_t f) : fd(f) {}
+		~Guard() { if (fd != FILEHND_INVALID) fs_close(fd); }
+		bool is_valid() const { return fd != FILEHND_INVALID; }
+	};
+#else
+	void uf::vfs::lock() {}
+	void uf::vfs::unlock() {}
+#endif
+
+uf::vfs::Lock::Lock() { uf::vfs::lock(); }
+uf::vfs::Lock::~Lock() { uf::vfs::unlock(); }
 
 namespace {
 	inline bool valid_prefix( const pod::Mount& mount, const uf::stl::string& prefix, bool e = false ) {
@@ -29,15 +58,16 @@ namespace {
 		return prefix.empty() || mount.prefix == prefix;
 	}
 
-#if UF_ENV_DREAMCAST
+#if UF_USE_KOS_FILE
 	void ls_kos( const uf::stl::string& basePath, const uf::stl::string& currentSubDir, const uf::stl::string& extension, bool recursive, uf::stl::vector<uf::stl::string>& files ) {
+		uf::vfs::Lock lock;
 		uf::stl::string fullPath = basePath + currentSubDir;
 
-		file_t fd = fs_open(fullPath.c_str(), O_DIR | O_RDONLY);
-		if (fd == FILEHND_INVALID) return;
+		Guard guard(fs_open(fullPath.c_str(), O_DIR | O_RDONLY));
+		if (!guard.is_valid()) return;
 
 		const dirent_t* entry;
-		while ( (entry = fs_readdir(fd)) != nullptr ) {
+		while ( (entry = fs_readdir(guard.fd)) != nullptr ) {
 			if (entry->name[0] == '.' && (entry->name[1] == '\0' || (entry->name[1] == '.' && entry->name[2] == '\0'))) {
 				continue;
 			}
@@ -55,38 +85,39 @@ namespace {
 				}
 			}
 		}
-		fs_close(fd);
 	}
 #endif
 
 	bool vfs_exists( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
-		#if UF_ENV_DREAMCAST
-			FILE* f = fopen(path.c_str(), "r");
-			if ( f ) {
-				fclose(f);
-				return true;
-			}
-			return false;
+		#if UF_USE_KOS_FILE
+			Guard guard(fs_open(path.c_str(), O_RDONLY));
+			return guard.is_valid();
 		#else
 			static thread_local struct stat buffer;
 			return stat(path.c_str(), &buffer) == 0;
 		#endif
 	}
+
 	size_t vfs_size( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) return 0;
-		is.seekg(0, std::ios::end);
 		return is.tellg();
 	}
+
 	size_t vfs_mtime( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		static thread_local struct stat buffer;
 		if ( stat(path.c_str(), &buffer) != 0 ) return 0;
 		return buffer.st_mtime;
 	}
+
 	bool vfs_read( pod::Mount& mount, const uf::stl::string& file, uf::stl::vector<uint8_t>& buffer ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary | std::ios::ate);
 		if (!is.is_open()) return false;
@@ -100,76 +131,67 @@ namespace {
 	}
 
 	size_t vfs_write( pod::Mount& mount, const uf::stl::string& file, const void* buffer, size_t size ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		std::ofstream output(path, std::ios::binary);
 		if (!output.is_open()) return 0;
 		output.write((const char*)buffer, size);
-		output.close();
 		return size;
 	}
 
 	uf::stl::vector<uf::stl::string> vfs_list( pod::Mount& mount, const uf::stl::string& dir, const uf::stl::string& extension = "", bool recursive = false ) {
+		uf::vfs::Lock lock;
 		uf::stl::vector<uf::stl::string> files;
-		
 		uf::stl::string path = mount.path + dir;
-	#if UF_ENV_DREAMCAST
+
+	#if UF_USE_KOS_FILE
 		if ( !path.ends_with("/") ) path += "/";
 		::ls_kos( path, "", extension, recursive, files );
 	#else
 		if ( !std::filesystem::exists(path) ) return files;
 
+		auto process_entry = [&](const auto& entry) {
+			if ( entry.is_regular_file() ) {
+				uf::stl::string fname = entry.path().filename().string();
+				if ( extension.empty() || fname.ends_with(extension) ) {
+					uf::stl::string relPath = entry.path().string().substr(mount.path.length());
+					std::replace(relPath.begin(), relPath.end(), '\\', '/');
+					files.emplace_back(relPath);
+				}
+			}
+		};
+
 		if ( recursive ) {
-			for ( const auto& entry : std::filesystem::recursive_directory_iterator(path) ) {
-				if ( entry.is_regular_file() ) {
-					uf::stl::string fname = entry.path().filename().string();
-					if ( extension.empty() || fname.ends_with(extension) ) {
-						uf::stl::string relPath = entry.path().string().substr(mount.path.length());
-						std::replace(relPath.begin(), relPath.end(), '\\', '/');
-						files.emplace_back(relPath);
-					}
-				}
-			}
+			for ( const auto& entry : std::filesystem::recursive_directory_iterator(path) ) process_entry(entry);
 		} else {
-			for ( const auto& entry : std::filesystem::directory_iterator(path) ) {
-				if ( entry.is_regular_file() ) {
-					uf::stl::string fname = entry.path().filename().string();
-					if ( extension.empty() || fname.ends_with(extension) ) {
-						uf::stl::string relPath = entry.path().string().substr(mount.path.length());
-						std::replace(relPath.begin(), relPath.end(), '\\', '/');
-						files.emplace_back(relPath);
-					}
-				}
-			}
+			for ( const auto& entry : std::filesystem::directory_iterator(path) ) process_entry(entry);
 		}
 	#endif
 		return files;
 	}
 
 	bool vfs_mkdir( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		#if UF_ENV_DREAMCAST || UF_ENV_LINUX
 			return false;
 		#else
-			int status = ::mkdir(path.c_str());
-			return status != -1;
+			return ::mkdir(path.c_str()) != -1;
 		#endif
 	}
 
-#if UF_ENV_DREAMCAST
 	bool vfs_readRange( pod::Mount& mount, const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
+	#if UF_USE_KOS_FILE
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 
-		file_t fd = fs_open(path.c_str(), O_RDONLY);
-		if (fd == FILEHND_INVALID) return false;
+		Guard guard(fs_open(path.c_str(), O_RDONLY));
+		if (!guard.is_valid()) return false;
 
-		if (fs_seek(fd, start, SEEK_SET) < 0) {
-			fs_close(fd);
-			return false;
-		}
+		if (fs_seek(guard.fd, start, SEEK_SET) < 0) return false;
 
 		buffer.resize(len);
-		ssize_t readBytes = fs_read(fd, buffer.data(), len);
-		fs_close(fd);
+		ssize_t readBytes = fs_read(guard.fd, buffer.data(), len);
 
 		if (readBytes < 0) {
 			buffer.clear();
@@ -177,51 +199,7 @@ namespace {
 		}
 		buffer.resize(static_cast<size_t>(readBytes));
 		return true;
-	}
-
-	bool vfs_readRanges( pod::Mount& mount, const uf::stl::string& file, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer ) {
-		uf::stl::string path = mount.path + file;
-
-		file_t fd = fs_open(path.c_str(), O_RDONLY);
-		if (fd == FILEHND_INVALID) return false;
-
-		size_t totalBytes = 0;
-		for (const auto& r : ranges) totalBytes += r.len;
-		buffer.resize(totalBytes);
-
-		size_t currentOffset = 0;
-		for (const auto& r : ranges) {
-			if (fs_seek(fd, r.start, SEEK_SET) < 0) continue;
-			ssize_t readBytes = fs_read(fd, buffer.data() + currentOffset, r.len);
-			if (readBytes > 0) {
-				currentOffset += readBytes;
-			}
-		}
-		fs_close(fd);
-		buffer.resize(currentOffset);
-		return true;
-	}
-
-	bool vfs_stream( pod::Mount& mount, const uf::stl::string& file, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
-		uf::stl::string path = mount.path + file;
-
-		file_t fd = fs_open(path.c_str(), O_RDONLY);
-		if (fd == FILEHND_INVALID) return false;
-
-		uf::stl::vector<uint8_t> buffer(chunkSize);
-		while (true) {
-			ssize_t bytesRead = fs_read(fd, buffer.data(), chunkSize);
-			if (bytesRead <= 0) break;
-
-			if (!callback(buffer.data(), bytesRead)) break;
-
-			thd_pass();
-		}
-		fs_close(fd);
-		return true;
-	}
-#else
-	bool vfs_readRange( pod::Mount& mount, const uf::stl::string& file, size_t start, size_t len, uf::stl::vector<uint8_t>& buffer ) {
+	#else
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary);
 		if (!is.is_open()) return false;
@@ -229,11 +207,34 @@ namespace {
 		is.seekg(start, std::ios::beg);
 		buffer.resize(len);
 		is.read((char*)buffer.data(), len);
-		buffer.resize(static_cast<size_t>(is.gcount())); // to-do: adjust if EOF hit early
+		buffer.resize(static_cast<size_t>(is.gcount()));
 		return true;
+	#endif
 	}
 
 	bool vfs_readRanges( pod::Mount& mount, const uf::stl::string& file, const uf::stl::vector<pod::Range>& ranges, uf::stl::vector<uint8_t>& buffer ) {
+	#if UF_USE_KOS_FILE
+		uf::vfs::Lock lock;
+		uf::stl::string path = mount.path + file;
+
+		Guard guard(fs_open(path.c_str(), O_RDONLY));
+		if (!guard.is_valid()) return false;
+
+		size_t totalBytes = 0;
+		for (const auto& r : ranges) totalBytes += r.len;
+		buffer.resize(totalBytes);
+
+		size_t currentOffset = 0;
+		for (const auto& r : ranges) {
+			if (fs_seek(guard.fd, r.start, SEEK_SET) < 0) continue;
+			ssize_t readBytes = fs_read(guard.fd, buffer.data() + currentOffset, r.len);
+			if (readBytes > 0) {
+				currentOffset += readBytes;
+			}
+		}
+		buffer.resize(currentOffset);
+		return true;
+	#else
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary);
 		if (!is.is_open()) return false;
@@ -251,9 +252,28 @@ namespace {
 		}
 		buffer.resize(currentOffset);
 		return true;
+	#endif
 	}
 
 	bool vfs_stream( pod::Mount& mount, const uf::stl::string& file, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
+	#if UF_USE_KOS_FILE
+		uf::vfs::Lock lock;
+		uf::stl::string path = mount.path + file;
+
+		Guard guard(fs_open(path.c_str(), O_RDONLY));
+		if (!guard.is_valid()) return false;
+
+		uf::stl::vector<uint8_t> buffer(chunkSize);
+		while (true) {
+			ssize_t bytesRead = fs_read(guard.fd, buffer.data(), chunkSize);
+			if (bytesRead <= 0) break;
+
+			if (!callback(buffer.data(), bytesRead)) break;
+
+			thd_pass();
+		}
+		return true;
+	#else
 		uf::stl::string path = mount.path + file;
 		std::ifstream is(path, std::ios::binary);
 		if ( !is.is_open() ) return false;
@@ -267,14 +287,17 @@ namespace {
 			if ( !callback(buffer.data(), bytesRead) ) break;
 		}
 		return true;
+	#endif
 	}
-#endif
-	//
+
 	size_t disk_file_read(void* handle, void* buffer, size_t bytes) {
+		uf::vfs::Lock lock;
 		return fread(buffer, 1, bytes, (FILE*)handle);
 	}
+
 	size_t disk_file_stream(void* handle, void* buffer, size_t bytes, size_t chunkSize) {
-	#if UF_ENV_DREAMCAST
+		uf::vfs::Lock lock;
+	#if UF_USE_KOS_FILE
 		if ( bytes > chunkSize ) {
 			uint8_t* destPtr = reinterpret_cast<uint8_t*>(buffer);
 			size_t remaining = bytes;
@@ -291,23 +314,29 @@ namespace {
 
 				thd_pass();
 			}
-
 			return totalRead;
 		}
 	#endif
-		return ::disk_file_read( handle, buffer, bytes );
+		return fread(buffer, 1, bytes, (FILE*)handle);
 	}
+
 	bool disk_file_seek(void* handle, long offset, int origin) {
+		uf::vfs::Lock lock;
 		return fseek((FILE*)handle, offset, origin) == 0;
 	}
+
 	size_t disk_file_tell(void* handle) {
+		uf::vfs::Lock lock;
 		return ftell((FILE*)handle);
 	}
+
 	void disk_file_close(void* handle) {
+		uf::vfs::Lock lock;
 		if (handle) fclose((FILE*)handle);
 	}
 
 	pod::File vfs_open( pod::Mount& mount, const uf::stl::string& file ) {
+		uf::vfs::Lock lock;
 		uf::stl::string path = mount.path + file;
 		FILE* f = fopen(path.c_str(), "rb");
 		if ( !f ) return pod::File{};
@@ -322,16 +351,19 @@ namespace {
 		};
 	}
 
-	// what a mess
 	struct FallbackFileState {
 		pod::Mount* mount;
 		uf::stl::string relativePath;
-		size_t offset;
-		size_t totalSize;
+		size_t offset = 0;
+		size_t totalSize = 0;
+
+		FallbackFileState(pod::Mount* m, const uf::stl::string& path, size_t size)
+			: mount(m), relativePath(path), totalSize(size) {}
 	};
 
 	size_t fallback_file_read(void* handle, void* buffer, size_t bytes) {
-		auto* state = (FallbackFileState*)(handle);
+		uf::vfs::Lock lock;
+		auto* state = static_cast<FallbackFileState*>(handle);
 		if (!state || !state->mount || !state->mount->readRange) return 0;
 
 		size_t bytesLeft = state->totalSize - state->offset;
@@ -346,12 +378,14 @@ namespace {
 		}
 		return 0;
 	}
+
 	size_t fallback_file_stream(void* handle, void* buffer, size_t bytes, size_t chunkSize) {
 		return ::fallback_file_read(handle, buffer, bytes);
 	}
 
 	bool fallback_file_seek(void* handle, long offset, int origin) {
-		auto* state = (FallbackFileState*)(handle);
+		uf::vfs::Lock lock;
+		auto* state = static_cast<FallbackFileState*>(handle);
 		if (!state) return false;
 
 		long long targetOffset = 0;
@@ -359,21 +393,17 @@ namespace {
 		else if (origin == SEEK_CUR) targetOffset = (long long)state->offset + offset;
 		else if (origin == SEEK_END) targetOffset = (long long)state->totalSize + offset;
 
-		if (targetOffset < 0) targetOffset = 0;
-		if (targetOffset > (long long)state->totalSize) targetOffset = state->totalSize;
-
-		state->offset = (size_t)targetOffset;
+		state->offset = std::clamp(targetOffset, 0LL, (long long)state->totalSize);
 		return true;
 	}
 
 	size_t fallback_file_tell(void* handle) {
-		auto* state = (FallbackFileState*)(handle);
+		auto* state = static_cast<FallbackFileState*>(handle);
 		return state ? state->offset : 0;
 	}
 
 	void fallback_file_close(void* handle) {
-		auto* state = (FallbackFileState*)(handle);
-		if (state) delete state;
+		delete static_cast<FallbackFileState*>(handle);
 	}
 }
 
@@ -406,25 +436,18 @@ pod::Mount uf::vfs::createDiskMount( const uf::stl::string& uri, int priority) {
 }
 
 uf::stl::vector<pod::Mount> uf::vfs::mounts;
+
 uf::vfs::Mount uf::vfs::mount( const pod::Mount& mount, bool temp ) {
-	// compute hash
 	size_t hash = {};
 	uf::hash( hash, mount.prefix, mount.path );
 
-	// already exists
-	for ( auto& m : mounts ) {
+	for ( const auto& m : mounts ) {
 		size_t hash2 = {};
 		uf::hash( hash2, m.prefix, m.path );
-
-		if ( hash == hash2 ) {
-			return uf::vfs::Mount{ hash, NULL, false }; // do not honor temp request to avoid breaking mounts in the future
-		}
+		if ( hash == hash2 ) return uf::vfs::Mount{ hash, nullptr, false };
 	}
 
-	// add mount
 	mounts.emplace_back( mount );
-
-	// resort
 	std::sort( mounts.begin(), mounts.end(), [](const pod::Mount& a, const pod::Mount& b) {
 		return a.priority > b.priority;
 	});
@@ -447,9 +470,11 @@ bool uf::vfs::unmount( size_t hash ) {
 	mounts.erase( it, mounts.end() );
 	return true;
 }
+
 bool uf::vfs::unmount( const uf::vfs::Mount& mount ) {
 	return uf::vfs::unmount( mount.hash );
 }
+
 bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& base ) {
 	uf::stl::string cleanBase = base;
 	if ( !cleanBase.empty() && cleanBase.back() != '/' && cleanBase.back() != '\\' ) cleanBase += '/';
@@ -457,7 +482,6 @@ bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& bas
 	size_t hash = {};
 	uf::hash( hash, prefix, cleanBase );
 
-	// erase by hash first
 	if ( uf::vfs::unmount( hash ) ) return true;
 
 	auto it = std::remove_if( mounts.begin(), mounts.end(), [&](const pod::Mount& m) {
@@ -465,7 +489,7 @@ bool uf::vfs::unmount( const uf::stl::string& prefix, const uf::stl::string& bas
 	});
 
 	if ( it == mounts.end() ) return false;
-	
+
 	if ( it->userdata.len ) {
 		uf::pointeredUserdata::destroy( it->userdata );
 	}
@@ -498,7 +522,6 @@ uf::stl::vector<uf::stl::string> uf::vfs::list( const uf::stl::string& path, con
 		auto files = mount.list( mount, relative, extension, recursive );
 		results.insert(results.end(), files.begin(), files.end());
 	}
-
 	return results;
 }
 
@@ -571,11 +594,10 @@ bool uf::vfs::readRange( const uf::stl::string& path, size_t start, size_t len, 
 		if ( !mount.exists( mount, relative ) ) continue;
 		if ( mount.readRange ) return mount.readRange( mount, relative, start, len, buffer );
 		if ( !mount.read ) continue;
-		
+
 		uf::stl::vector<uint8_t> fullBuffer;
 		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-		//UF_MSG_DEBUG("hitting fallback: {}", path);
-		
+
 		if ( start < fullBuffer.size() ) {
 			size_t actualLen = std::min(len, fullBuffer.size() - start);
 			buffer.assign(fullBuffer.begin() + start, fullBuffer.begin() + start + actualLen);
@@ -595,10 +617,9 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 		if ( !mount.exists( mount, relative ) ) continue;
 		if ( mount.readRanges ) return mount.readRanges( mount, relative, ranges, buffer );
 		if ( !mount.read ) continue;
-		
+
 		uf::stl::vector<uint8_t> fullBuffer;
 		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
-		//UF_MSG_DEBUG("hitting fallback: {}", path);
 
 		size_t totalBytes = 0;
 		for ( const auto& r : ranges ) {
@@ -620,6 +641,7 @@ bool uf::vfs::readRanges( const uf::stl::string& path, const uf::stl::vector<pod
 	}
 	return false;
 }
+
 bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::function<bool(const uint8_t* data, size_t size)> callback ) {
 	uf::stl::string prefix, relative;
 	uf::io::splitUri(path, prefix, relative);
@@ -629,7 +651,6 @@ bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::functi
 		if ( mount.stream ) return mount.stream( mount, relative, chunkSize, callback );
 
 		if ( !mount.read ) continue;
-		//UF_MSG_DEBUG("hitting fallback: {}", path);
 
 		uf::stl::vector<uint8_t> fullBuffer;
 		if ( !mount.read( mount, relative, fullBuffer ) ) continue;
@@ -642,7 +663,6 @@ bool uf::vfs::stream( const uf::stl::string& path, size_t chunkSize, std::functi
 			if ( !callback(fullBuffer.data() + offset, currentChunkSize) ) break;
 			offset += currentChunkSize;
 		}
-
 		return true;
 	}
 	return false;
@@ -660,13 +680,8 @@ pod::File uf::vfs::open( const uf::stl::string& path ) {
 		}
 		if ( !mount.exists || !mount.exists(mount, relative) ) continue;
 		if ( !mount.readRange || !mount.size ) continue;
-		
-		FallbackFileState* state = new FallbackFileState{
-			&mount,
-			relative,
-			0,
-			mount.size(mount, relative)
-		};
+
+		auto* state = new FallbackFileState(&mount, relative, mount.size(mount, relative));
 
 		return pod::File{
 			.handle = state,
@@ -687,11 +702,9 @@ uf::stl::string uf::vfs::resolveBase( const uf::stl::string& path ) {
 	for ( auto& mount : mounts ) {
 		if ( prefix.empty() && mount.priority < 0 ) continue;
 		if ( ::valid_prefix( mount, prefix ) ) {
-			uf::stl::string resolved = mount.path + relative;
-			return resolved;
+			return mount.path + relative;
 		}
 	}
-
 	return path;
 }
 
@@ -715,7 +728,6 @@ bool uf::vfs::isPhysical( const uf::stl::string& path ) {
 #endif
 
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "sys://", 999 );
-
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "mdl://" VFS_BASE "models", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "scene://" VFS_BASE "scenes", 100 );
 UF_VFS_MOUNT_CPP( uf::vfs::createDiskMount, "ent://" VFS_BASE "entities", 100 );
@@ -757,7 +769,6 @@ namespace {
 		return FMT_FORMAT("{}.{}", hash, ext);
 	}
 
-	// Guardless, direct physical delegation
 	bool cache_exists( pod::Mount& mount, const uf::stl::string& file ) {
 		auto* phys = find_physical_cache_mount();
 		if ( !phys || !phys->exists ) return false;

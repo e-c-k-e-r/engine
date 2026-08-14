@@ -13,6 +13,10 @@
 #include <functional>
 
 #if UF_ENV_DREAMCAST
+	#define UF_USE_KOS_THREAD 1
+#endif
+
+#if UF_USE_KOS_THREAD
 	#include <kos/thread.h>
 	#include <kos/mutex.h>
 	#include <kos/cond.h>
@@ -55,7 +59,7 @@ namespace pod {
 
 		struct UF_API Tasks {
 			struct UF_API Tracker {
-			#if UF_ENV_DREAMCAST
+			#if UF_USE_KOS_THREAD
 				volatile uint32_t pending{0};
 				mutex_t mutex;
 				condvar_t cv;
@@ -94,7 +98,7 @@ namespace pod {
 		float limiter;
 		bool terminates;
 
-	#if UF_ENV_DREAMCAST
+	#if UF_USE_KOS_THREAD
 		mutex_t mutex;
 		struct {
 			condvar_t queued;
@@ -139,7 +143,7 @@ namespace pod {
 
 namespace uf {
 	namespace thread {
-	#if UF_ENV_DREAMCAST
+	#if UF_USE_KOS_THREAD
 		typedef kthread_t* id_t;
 	#else
 		typedef std::thread::id id_t;

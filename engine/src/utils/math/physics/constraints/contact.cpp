@@ -374,7 +374,7 @@ void impl::solveManifold( uf::stl::vector<pod::Manifold>& manifolds, float dt ) 
 void impl::dispatchManifold( pod::Manifold& manifold, pod::CollisionEvent::events_t& events, pod::CollisionEvent::array_t& active, const pod::CollisionEvent::array_t& previous ) {
 	auto pairKey = impl::makePairKey( *manifold.a, *manifold.b );
 
-	active.push_back({ pairKey, manifold.a, manifold.b });
+	active.emplace_back(pod::PairState{ pairKey, manifold.a, manifold.b });
 
 	auto it = std::lower_bound(previous.begin(), previous.end(), pod::PairState{pairKey, nullptr, nullptr});
 	bool isNew = (it == previous.end() || it->pairKey != pairKey);

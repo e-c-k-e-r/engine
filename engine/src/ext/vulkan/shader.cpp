@@ -562,7 +562,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					};
 				} break;
 			}
-			descriptorSetLayoutBindings[set].push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
+			descriptorSetLayoutBindings[set].emplace_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
 		};	
 
 		//for ( const auto& resource : res.key ) {

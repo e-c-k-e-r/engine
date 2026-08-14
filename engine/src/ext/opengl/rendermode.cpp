@@ -113,7 +113,7 @@ void ext::opengl::RenderMode::bindPipelines() {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		if ( !graphic.initialized || !graphic.process ) continue;
-		graphics.push_back(&graphic);
+		graphics.emplace_back(&graphic);
 	}
 
 	this->synchronize();

@@ -30,7 +30,7 @@ namespace impl {
 	void queueImports( uf::stl::vector<impl::ImportJob>& queue, ext::json::Value& node, const uf::stl::string& currentRoot ) {
 		auto add = [&]( ext::json::Value& val ) {
 			if ( val.is<uf::stl::string>() ) {
-				queue.push_back({ val.as<uf::stl::string>(), currentRoot });
+				queue.emplace_back(impl::ImportJob{ val.as<uf::stl::string>(), currentRoot });
 			}
 		};
 		// Legacy single strings

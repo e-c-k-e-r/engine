@@ -23,8 +23,7 @@ uf::Entity::~Entity(){
 	this->destroy();
 }
 bool uf::Entity::isValid() const {
-//	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
-	if ( this == 0x0 ) return false;
+	if ( (uintptr_t)(this) == 0x0 ) return false; // technically this == NULL is UB
 	return (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
 }
 bool uf::Entity::operator==( const uf::Entity& e ) const {
@@ -48,13 +47,13 @@ void uf::Entity::setParent( uf::Entity& parent ) {
 	this->m_parent = &parent == &uf::Entity::null ? NULL : &parent;
 }
 uf::Entity& uf::Entity::addChild( uf::Entity& child ) {
-	this->m_children.push_back(&child);
+	this->m_children.emplace_back(&child);
 	child.setParent(*this);
 	return child;
 }
 void uf::Entity::addChild( uf::Entity* child ) {
 	if ( !child ) return;
-	this->m_children.push_back(child);
+	this->m_children.emplace_back(child);
 	child->setParent(*this);
 }
 void uf::Entity::removeChild( uf::Entity& child ) {

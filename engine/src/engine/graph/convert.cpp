@@ -250,6 +250,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 			size_t level = SIZE_MAX;
 			float simplify = 1.0f;
 			bool print = false;
+			bool indicesOnly = true;
 			bool lods = false;
 
 			if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
@@ -274,6 +275,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 				level = graph.metadata["exporter"]["optimize"]["level"].as( level );
 				simplify = graph.metadata["exporter"]["optimize"]["simplify"].as( simplify );
 				print = graph.metadata["exporter"]["optimize"]["print"].as( print );
+				indicesOnly = graph.metadata["exporter"]["optimize"]["indicesOnly"].as( indicesOnly );
 				lods = graph.metadata["exporter"]["optimize"]["lods"].as( lods );
 			}
 
@@ -288,7 +290,7 @@ void uf::graph::postprocess( pod::Graph& graph ) {
 			}
 			if ( lods ) {
 				auto factors = ext::meshopt::computeLODs( mesh.index.count );
-				auto lodMetadata = ext::meshopt::generateLODs( mesh, factors, print );
+				auto lodMetadata = ext::meshopt::generateLODs( mesh, factors, indicesOnly );
 				if ( lodMetadata.empty() ) {
 					UF_MSG_ERROR("LOD generation failed: {}", keyName );
 				} else {

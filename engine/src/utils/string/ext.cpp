@@ -72,7 +72,7 @@ uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::st
 
 		if ( match_length == 0 ) {
 			if (*cursor == '\0') break;
-			result.push_back(*cursor);
+			result += *cursor;
 			cursor++;
 		}
 	}
@@ -98,7 +98,7 @@ uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, 
 		pos = str.find(delim, prev);
 		if (pos == uf::stl::string::npos) pos = str.length();
 		uf::stl::string token = str.substr(prev, pos-prev);
-		if (!token.empty()) tokens.push_back(token);
+		if (!token.empty()) tokens.emplace_back(token);
 		prev = pos + delim.length();
 	} while (pos < str.length() && prev < str.length());
 	if ( tokens.empty() ) tokens.emplace_back(str);

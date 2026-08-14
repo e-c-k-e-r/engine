@@ -1090,6 +1090,46 @@ void uf::bvh::flagAsActive( pod::BVH& bvh, uint32_t index, bool active ) {
 	}
 }
 
+void uf::bvh::flagAsActive( pod::BVH& bvh, const uf::stl::vector<std::pair<size_t, pod::DrawCommand>>& updates ) {
+	if ( updates.empty() ) return;
+
+	size_t maxID = 0;
+	for ( const auto& [drawID, cmd] : updates ) {
+		if ( drawID > maxID ) maxID = drawID;
+	}
+
+	uf::stl::vector<int8_t> states( maxID + 1, -1 );
+	for ( const auto& [drawID, cmd] : updates ) {
+		states[drawID] = (cmd.vertices > 0 && cmd.indices > 0) ? 1 : 0;
+	}
+
+	if ( !bvh.flatNodes.empty() ) {
+		for ( auto& node : bvh.flatNodes ) {
+			if ( node.getCount() > 0 ) {
+				auto [ viewID, triID ] = pod::BVH::unpackID( bvh.indices[node.start] );
+				if ( viewID < states.size() ) {
+					int8_t state = states[viewID];
+					if ( state != -1 ) {
+						node.setUnloaded(state == 0);
+					}
+				}
+			}
+		}
+	} else if ( !bvh.nodes.empty() ) {
+		for ( auto& node : bvh.nodes ) {
+			if ( node.getCount() > 0 ) {
+				auto [ viewID, triID ] = pod::BVH::unpackID( bvh.indices[node.start] );
+				if ( viewID < states.size() ) {
+					int8_t state = states[viewID];
+					if ( state != -1 ) {
+						node.setUnloaded(state == 0);
+					}
+				}
+			}
+		}
+	}
+}
+
 size_t uf::bvh::serialize( const pod::BVH& bvh, uf::stl::vector<uint8_t>& outBuffer, uint32_t offset ) {
 	uf::stl::writer writer( outBuffer, offset, true );
 

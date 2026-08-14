@@ -33,6 +33,11 @@ void ext::opengl::Texture::initialize( Device& device, size_t width, size_t heig
 		if ( viewType == enums::Image::VIEW_TYPE_2D ) viewType = enums::Image::VIEW_TYPE_2D_ARRAY;
 		if ( viewType == enums::Image::VIEW_TYPE_CUBE ) viewType = enums::Image::VIEW_TYPE_CUBE_ARRAY;
 	}
+	// de-alias
+	if ( this->aliased ) {
+		this->aliased = false;
+		this->image = 0;
+	}
 }
 void ext::opengl::Texture::initialize( Device& device, enums::Image::viewType_t viewType, size_t width, size_t height, size_t depth, size_t layers ) {
 	this->initialize( device, width, height, depth, layers );

@@ -126,9 +126,10 @@ void uf::asset::processIO( const uf::asset::Stream::container_t& pendingStreams,
 }
 void uf::asset::processIO( const uf::asset::Read::container_t& pendingReads, const uf::asset::Stream::container_t& pendingStreams, bool async, bool wait ) {
 	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, wait);
+	if ( pendingReads.empty() && pendingStreams.empty() ) return;
 
 	for ( auto& [filename, requests] : pendingReads ) {
-		tasks.queue([filename = filename, requests = std::move(requests)]() {
+		tasks.queue([filename, requests = std::move(requests)]() {
 			uf::stl::vector<pod::ScatterRequest> scatters(requests.size());
 			uf::stl::vector<uf::stl::vector<uint8_t>> localBuffers(requests.size());
 			

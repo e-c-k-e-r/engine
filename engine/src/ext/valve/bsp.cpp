@@ -931,7 +931,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 				uf::stl::unordered_map<size_t, uf::stl::vector<impl::Meshlet>> nodeGroups;
 				for ( auto& slice : partitioned ) {
-					nodeGroups[slice.primitive.instance.auxID].push_back(std::move(slice));
+					nodeGroups[slice.primitive.instance.auxID].emplace_back(std::move(slice));
 				}
 
 				uf::stl::vector<impl::Meshlet> finalPartitioned;
@@ -982,7 +982,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 						uint32_t vertOffset = (uint32_t)merged.vertices.size();
 						for ( auto idx : slice.indices ) {
-							merged.indices.push_back(idx + vertOffset);
+							merged.indices.emplace_back(idx + vertOffset);
 						}
 
 						for ( auto& vert : slice.vertices ) {
@@ -990,12 +990,12 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 							if ( lmIt != faceLightmaps.end() ) {
 								vert.st = uf::atlas::mapUv(nodeAtlas, vert.st, lmIt->second.hash);
 							}
-							merged.vertices.push_back(std::move(vert));
+							merged.vertices.emplace_back(std::move(vert));
 						}
 					}
 
 					for ( auto& [_, merged] : mergedMeshlets ) {
-						finalPartitioned.push_back(std::move(merged));
+						finalPartitioned.emplace_back(std::move(merged));
 					}
 				}
 
@@ -1054,7 +1054,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 
 					uint32_t vertOffset = (uint32_t)merged.vertices.size();
 					for ( auto idx : mlet.indices ) {
-						merged.indices.push_back(idx + vertOffset);
+						merged.indices.emplace_back(idx + vertOffset);
 					}
 
 					for ( auto& vert : mlet.vertices ) {
@@ -1062,7 +1062,7 @@ void ext::valve::loadBsp( pod::Graph& graph, const uf::stl::string& filename, co
 						if ( lmIt != faceLightmaps.end() ) {
 							vert.st = uf::atlas::mapUv(modelAtlas, vert.st, lmIt->second.hash);
 						}
-						merged.vertices.push_back(std::move(vert));
+						merged.vertices.emplace_back(std::move(vert));
 					}
 				}
 

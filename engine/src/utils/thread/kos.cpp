@@ -1,6 +1,6 @@
-#if UF_ENV_DREAMCAST
 #include <uf/utils/thread/thread.h>
 
+#if UF_USE_KOS_THREAD
 struct KOSLock {
 	mutex_t* m;
 	KOSLock(mutex_t& mutex) : m(&mutex) { mutex_lock(m); }
@@ -37,7 +37,7 @@ void uf::thread::start( pod::Thread& thread ) { if ( thread.running ) return;
 		}
 
 		if (thread.name != uf::thread::mainThreadName) {
-			thd_set_prio(thread.thread, PRIO_DEFAULT + 5);
+			thd_set_prio(thread.thread, PRIO_DEFAULT);
 		}
 	}
 }
@@ -168,16 +168,18 @@ void uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(thread.n
 		return;
 	}
 
-	// wait for work
+	if ( thread.limiter > 0 ) {
+		long long sleep_ms = (thread.limiter * 1000.0f) - thread.timer.elapsed().asMilliseconds();
+		if ( sleep_ms > 0 ) {
+		//	thd_pass();
+			thd_sleep(sleep_ms);
+		}
+		thread.timer.reset();
+	}
+
 	{
 		mutex_lock(&thread.mutex);
-		if ( thread.limiter > 0 ) {
-			long long sleep_ms = (thread.limiter * 1000.0f) - thread.timer.elapsed().asMilliseconds();
-			if ( sleep_ms > 0 ) {
-				thd_sleep(sleep_ms);
-			}
-			thread.timer.reset();
-		} else {
+		if ( thread.limiter <= 0 ) {
 			while (thread.queue.empty() && thread.container.empty() && thread.running) {
 				cond_wait(&thread.conditions.queued, &thread.mutex);
 			}
