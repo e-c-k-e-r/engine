@@ -17,7 +17,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
-layout (constant_id = 2) const uint CASCADES = 16;
+layout (constant_id = 2) const uint REGIONS = 16;
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
@@ -52,10 +52,10 @@ layout (std140, binding = 7) readonly buffer Lights {
 layout (binding = 8) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 9) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
-layout (binding = 10, r32ui) uniform readonly uimage3D voxelId[CASCADES];
-layout (binding = 11, r32ui) uniform readonly uimage3D voxelNormal[CASCADES];
-layout (binding = 12, r32ui) uniform readonly uimage3D voxelRadiance[CASCADES];
-layout (binding = 13, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
+layout (binding = 10, r32ui) uniform readonly uimage3D voxelId[REGIONS];
+layout (binding = 11, r32ui) uniform readonly uimage3D voxelNormal[REGIONS];
+layout (binding = 12, r32ui) uniform readonly uimage3D voxelRadiance[REGIONS];
+layout (binding = 13, rgba8) uniform writeonly image3D voxelOutput[REGIONS];
 
 #include "../../common/functions.h"
 #include "../../common/light.h"
@@ -63,12 +63,12 @@ layout (binding = 13, rgba8) uniform writeonly image3D voxelOutput[CASCADES];
 #include "../../common/shadows.h"
 
 void main() {
-	const vec3 tUvw = gl_GlobalInvocationID.xzy;
-	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
+	const vec3 tUvw = gl_GlobalInvocationID.xyz;
+	for ( uint REGION = 0; REGION < REGIONS; ++REGION ) {
 #if 0
-		vec4 A = unpackUnorm4x8(imageLoad(voxelRadiance[CASCADE], ivec3(tUvw)).r);
+		vec4 A = unpackUnorm4x8(imageLoad(voxelRadiance[REGION], ivec3(tUvw)).r);
 		A.a = length(luma(A.rgb)) > 0.001 ? 1 : 0;
-		imageStore(voxelOutput[CASCADE], ivec3(tUvw), A);
+		imageStore(voxelOutput[REGION], ivec3(tUvw), A);
 #else
 		surface.pass = 0; // PushConstant.pass;
 		surface.fragment = vec4(0);
@@ -76,7 +76,7 @@ void main() {
 		surface.motion = vec2(0);
 		surface.material.indirect = vec4(0);
 
-		const uint packedID = imageLoad(voxelId[CASCADE], ivec3(tUvw) ).x;
+		const uint packedID = imageLoad(voxelId[REGION], ivec3(tUvw) ).x;
 		const uvec2 ID = uvec2(
 			(packedID & 0xFFFF),
 			(packedID >> 16)
@@ -89,7 +89,7 @@ void main() {
 	//	if ( ID.x == 0 || ID.y == 0 ) {
 	#if 1
 		if ( DISCARD_DUE_TO_DIVERGENCE ) {
-			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(0));
+			imageStore(voxelOutput[REGION], ivec3(tUvw), vec4(0));
 			continue;
 		}
 	#endif
@@ -102,9 +102,9 @@ void main() {
 		surface.fragment = material.colorEmissive;
 
 	#if 0
-		vec4 A = imageLoad(voxelOutput[CASCADE], ivec3(tUvw) );
+		vec4 A = imageLoad(voxelOutput[REGION], ivec3(tUvw) );
 	#else
-		vec4 A = unpackUnorm4x8(imageLoad(voxelRadiance[CASCADE], ivec3(tUvw)).r);
+		vec4 A = unpackUnorm4x8(imageLoad(voxelRadiance[REGION], ivec3(tUvw)).r);
 		A.a = float(uint(A.a * 255.0 + 0.5) & 0xF) / 15.0;
 	#endif
 
@@ -134,9 +134,9 @@ void main() {
 	#endif
 
 		if ( DISCARD_DUE_TO_DIVERGENCE ) {
-			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(0));
+			imageStore(voxelOutput[REGION], ivec3(tUvw), vec4(0));
 		} else {
-			imageStore(voxelOutput[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+			imageStore(voxelOutput[REGION], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 		}
 #endif
 	}

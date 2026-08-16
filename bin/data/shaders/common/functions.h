@@ -231,12 +231,6 @@ vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const float tEnd = max(0, min( tmax.x, min(tmax.y, tmax.z) ) - tStart);
 	return vec2(tStart, tEnd);
 }
-#if VXGI
-float cascadePower( uint x ) {
-	return pow(1 + x, ubo.settings.vxgi.cascadePower);
-//	return max( 1, x * ubo.settings.vxgi.cascadePower );
-}
-#endif
 #if FRAGMENT
 void whitenoise(inout vec3 color, const vec4 parameters) {
 	const float flicker = parameters.x;

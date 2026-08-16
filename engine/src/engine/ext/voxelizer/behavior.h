@@ -24,7 +24,7 @@ namespace ext {
 			uf::stl::vector<VkImageView> views;
 		#endif
 			
-			size_t cascades = 0;
+			size_t regions = 0;
 			float cascadePower = 0;
 			float granularity = 0;
 			float voxelizeScale = 0;

@@ -3,10 +3,10 @@
 		"scenes": {
 			"start": "StartMenu",
 			"lights": { "enabled": true,
-				"lightmaps": true,
+				"lightmaps": false,
 				"max": 32,
 				"shadows": {
-					"enabled": false,
+					"enabled": true,
 					"update": 4,
 					"max": 16,
 					"samples": 1
@@ -27,17 +27,15 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0,
-			//	"limiter": 0.0125,
-			//	"limiter": 5,
+			//	"limiter": 0,
+				"limiter": 0.0125,
+			//	"limiter": 1,
 				"size": 256,
 				"dispatch": 16,
-				"cascades": 3,
-				"cascadePower": 1.5,
+				"regions": 3,
 				"granularity": 32,
-				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
-				"traceStartOffsetFactor": 1,
+				"traceStartOffsetFactor": 0.1,
 				"filtering": "LINEAR",
 				"shadows": 0,
 				"extents": {

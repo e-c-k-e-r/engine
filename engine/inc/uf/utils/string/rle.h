@@ -4,6 +4,7 @@
 
 #include <uf/utils/memory/vector.h>
 #include <stdint.h>
+#include <limits>
 
 namespace pod {
 	template<typename T, typename U = uint16_t>
@@ -20,8 +21,9 @@ namespace uf {
 	namespace rle {
 		template<typename T, typename U = uint16_t>
 		typename pod::RLE<T,U>::string_t encode( const uf::stl::vector<T>& );
+
 		template<typename T, typename U = uint16_t>
-		uf::stl::vector<T> decode( const pod::RLE<T,U>& );
+		uf::stl::vector<T> decode( const uf::stl::vector<pod::RLE<T,U>>& );
 	}
 }
 

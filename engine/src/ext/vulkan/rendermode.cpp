@@ -385,14 +385,15 @@ VkSubmitInfo ext::vulkan::RenderMode::queue() {
 	if ( !metadata.limiter.execute ) return {};
 
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
+
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL; 								// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
-	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pWaitDstStageMask = NULL;
+	submitInfo.pWaitSemaphores = NULL;
+	submitInfo.waitSemaphoreCount = 0;
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
 
 	return submitInfo;

@@ -518,7 +518,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						.size = bufferSize,
 					};
 
-					if ( IS_DYNAMIC(name) ) {
+					if ( VK_UBO_USE_N_BUFFERS && IS_DYNAMIC(name) ) {
 						descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 						metadata.dynamicRanges.emplace_back( bufferSize );
 					}

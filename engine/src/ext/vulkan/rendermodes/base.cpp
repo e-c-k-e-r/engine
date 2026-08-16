@@ -267,16 +267,34 @@ void ext::vulkan::BaseRenderMode::render() {
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
+
+		{
+			VkSubmitInfo submitInfo = this->queue();
+			VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
+
+			STATIC_THREAD_LOCAL(uf::stl::vector<VkSemaphore>, waitSemaphores);
+			STATIC_THREAD_LOCAL(uf::stl::vector<VkPipelineStageFlags>, waitStages);
+
+			waitSemaphores.push_back(swapchain.presentCompleteSemaphores[states::currentBuffer]);
+			waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+			for ( auto* layer : layers ) {
+				if ( !layer || !layer->executed ) continue;
+
+				waitSemaphores.push_back(layer->renderCompleteSemaphores[states::currentBuffer]);
+				waitStages.push_back(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+			}
+
+			submitInfo.waitSemaphoreCount = waitSemaphores.size();
+			submitInfo.pWaitSemaphores = waitSemaphores.data();
+			submitInfo.pWaitDstStageMask = waitStages.data();
+
+			VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+		}
 	}
 
-	{
-		VkSubmitInfo submitInfo = this->queue();
-		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
-		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-	}
-	
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), ::imageIndex, renderCompleteSemaphores[::imageIndex]));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), ::imageIndex, renderCompleteSemaphores[states::currentBuffer]));
 
 	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
 	this->executed = true;

@@ -1,6 +1,6 @@
 #version 450
 #pragma shader_stage(geometry)
-#extension GL_EXT_multiview : require 
+#extension GL_EXT_multiview : require
 
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
@@ -25,72 +25,87 @@ layout (location = 6) out vec2 outSt;
 layout (location = 7) out vec3 outNormal;
 layout (location = 8) out vec3 outTangent;
 
+#include "../../common/macros.h"
+#include "../../common/structs.h"
+
 layout (binding = 5) uniform UBO {
-	mat4 voxel;
-
-	float cascadePower;
 	float granularity;
-	float voxelizeScale;
 	float occlusionFalloff;
-
 	uint shadows;
 	uint padding1;
-	uint padding2;
-	uint padding3;
 } ubo;
 
-float cascadePower( uint x ) {
-	return pow(1 + x, ubo.cascadePower);
-//	return max( 1, x * ubo.cascadePower );
-}
+layout (std140, binding = 6) readonly buffer RegionsBuffer {
+	Region regions[];
+};
 
 #define USE_CROSS 0
 void main(){
- 	const float HALF_PIXEL = ubo.voxelizeScale;
- 	const vec3 C = ( inPosition[0] + inPosition[1] + inPosition[2] ) / 3.0;
+	const vec3 triMin = min(inPosition[0], min(inPosition[1], inPosition[2]));
+	const vec3 triMax = max(inPosition[0], max(inPosition[1], inPosition[2]));
+
+	uint emittedTriangles = 0;
+	for (uint r = 0; r < regions.length(); ++r) {
+		Region region = regions[r];
+		if ( region.size == 0 ) continue;
+
+		const float margin = (region.maxBounds.x - region.minBounds.x) / float(region.size) * 1.0;
+
+		bool intersects = (triMin.x - margin <= region.maxBounds.x && triMax.x + margin >= region.minBounds.x) &&
+						  (triMin.y - margin <= region.maxBounds.y && triMax.y + margin >= region.minBounds.y) &&
+						  (triMin.z - margin <= region.maxBounds.z && triMax.z + margin >= region.minBounds.z);
+
+		if ( !intersects ) continue;
+		const float HALF_PIXEL = (region.maxBounds.x - region.minBounds.x) / float(region.size) * 0.5;
+		const vec3 C = ( inPosition[0] + inPosition[1] + inPosition[2] ) / 3.0;
 
 #if USE_CROSS
-	const vec3 N = abs(cross(inPosition[2] - inPosition[0], inPosition[1] - inPosition[0]));
+		const vec3 N = abs(cross(inPosition[2] - inPosition[0], inPosition[1] - inPosition[0]));
 #else
-	const vec3 N = abs(inNormal[0] + inNormal[1] + inNormal[2]);
- 	uint A = N.y > N.x ? 1 : 0;
- 	A = N.z > N[A] ? 2 : A;
+		const vec3 N = abs(inNormal[0] + inNormal[1] + inNormal[2]);
+		 uint A = N.y > N.x ? 1 : 0;
+		 A = N.z > N[A] ? 2 : A;
 #endif
-	
-	const uint CASCADE = gl_ViewIndex; // inId[0].w;
-	const float power = cascadePower(CASCADE);
-	vec3 P[3] = {
-		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / power,
-		vec3( ubo.voxel * vec4( inPosition[1], 1 ) ) / power,
-		vec3( ubo.voxel * vec4( inPosition[2], 1 ) ) / power,
-	};
 
-	#pragma unroll 3
- 	for( uint i = 0; i < 3; ++i ){
- 		const vec3 D = normalize( inPosition[i] - C ) * HALF_PIXEL;
+		vec3 P[3];
+		#pragma unroll 3
+		for( uint i = 0; i < 3; ++i ){
+			vec3 localPos = (inPosition[i] - region.minBounds) / (region.maxBounds - region.minBounds);
+			P[i] = localPos * 2.0 - 1.0;
+		}
 
-		outPosition = P[i] + D;
-		outPOS0 = inPOS0[i];
-		outPOS1 = inPOS1[i];
-		outUv = inUv[i];
-		outSt = inSt[i];
-		outColor = inColor[i];
-		outNormal = inNormal[i];
-		outTangent = inTangent[i];
-		outId = inId[i];
-		outId.w = gl_ViewIndex;
 
-		const vec3 P = outPosition; // + D;
-	#if USE_CROSS
-		if ( N.z > N.x && N.z > N.y ) gl_Position = vec4(P.x, P.y, 0, 1);
-		else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(P.y, P.z, 0, 1);
-		else gl_Position = vec4(P.x, P.z, 0, 1);
-	#else
-		if ( A == 0 ) gl_Position = vec4(P.zy, 0, 1 );
-		else if ( A == 1 ) gl_Position = vec4(P.xz, 0, 1 );
-		else if ( A == 2 ) gl_Position = vec4(P.xy, 0, 1 );
-	#endif
-		EmitVertex();
+		#pragma unroll 3
+		for( uint i = 0; i < 3; ++i ){
+			const vec3 D = normalize( inPosition[i] - C ) * HALF_PIXEL;
+			vec3 projectedD = D / (region.maxBounds - region.minBounds) * 2.0;
+
+			outPosition = inPosition[i] + D;
+			outPOS0 = inPOS0[i];
+			outPOS1 = inPOS1[i];
+			outUv = inUv[i];
+			outSt = inSt[i];
+			outColor = inColor[i];
+			outNormal = inNormal[i];
+			outTangent = inTangent[i];
+			outId = inId[i];
+			outId.w = r;
+
+			const vec3 finalP = P[i] + projectedD;
+		#if USE_CROSS
+			if ( N.z > N.x && N.z > N.y ) gl_Position = vec4(finalP.x, finalP.y, 0, 1);
+			else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(finalP.y, finalP.z, 0, 1);
+			else gl_Position = vec4(finalP.x, finalP.z, 0, 1);
+		#else
+			if ( A == 0 ) gl_Position = vec4(finalP.zy, 0, 1 );
+			else if ( A == 1 ) gl_Position = vec4(finalP.xz, 0, 1 );
+			else if ( A == 2 ) gl_Position = vec4(finalP.xy, 0, 1 );
+		#endif
+			EmitVertex();
+		}
+		EndPrimitive();
+
+		emittedTriangles++;
+		if ( emittedTriangles >= 4 ) break;
 	}
-    EndPrimitive();
 }

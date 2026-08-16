@@ -113,6 +113,13 @@ namespace pod {
 		uf::Image data;
 		uf::renderer::Texture2D handle;
 	};
+
+	struct UF_API Region {
+		pod::Vector3f minBounds = {};
+		alignas(4) uint32_t index = 0;
+		pod::Vector3f maxBounds = {};
+		alignas(4) uint32_t size = 64;
+	};
 }
 
 namespace pod {

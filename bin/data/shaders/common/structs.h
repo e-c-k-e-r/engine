@@ -250,17 +250,10 @@ struct SettingsBloom {
 	uint padding;
 };
 struct SettingsVxgi {
-	mat4 matrix;
-
-	float cascadePower;
 	float granularity;
-	float voxelizeScale;
 	float occlusionFalloff;
-
 	float traceStartOffsetFactor;
 	uint shadows;
-	uint padding2;
-	uint padding3;
 };
 struct SettingsRayTrace {
 	vec2 defaultRayBounds;
@@ -326,4 +319,11 @@ struct RayTracePayload {
 	uint primitiveID;
 	vec2 attributes;
 //	Triangle triangle;
+};
+
+struct Region {
+	vec3 minBounds;
+	uint index;
+	vec3 maxBounds;
+	uint size;
 };

@@ -16,6 +16,7 @@
 #include <uf/utils/math/physics/broadphase/bvh.h>
 
 #include <uf/engine/ext.h>
+#include "../ext/voxelizer/behavior.h" // yucky
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
@@ -208,17 +209,17 @@ namespace {
 				size_t maxTextures = storage.textures.map.size();
 				size_t maxCubemaps = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
-				uint32_t maxCascades = sceneTextures.voxels.id.size();
+				uint32_t maxRegions = sceneTextures.voxels.id.size();
 
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures },
 					{ "CUBEMAPS", maxCubemaps },
-					{ "CASCADES", maxCascades },
+					{ "REGIONS", maxRegions },
 				});
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures },
 					{ "samplerCubemaps", maxCubemaps },
-					{ "voxelOutput", maxCascades },
+					{ "voxelOutput", maxRegions },
 				});
 			#endif
 			}
@@ -279,21 +280,21 @@ namespace {
 			}
 
 			uint32_t maxTextures = texture2Ds;
-			uint32_t maxCascades = sceneTextures.voxels.id.size();
+			uint32_t maxRegions = sceneTextures.voxels.id.size();
 
 			// fragment shader
 			{
 				auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures },
-					{ "CASCADES", maxCascades },
+					{ "REGIONS", maxRegions },
 				});
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures },
-					{ "voxelId", maxCascades },
-					{ "voxelNormal", maxCascades },
-					{ "voxelRadiance", maxCascades },
-					{ "voxelOutput", maxCascades },
+					{ "voxelId", maxRegions },
+					{ "voxelNormal", maxRegions },
+					{ "voxelRadiance", maxRegions },
+					{ "voxelOutput", maxRegions },
 				});
 
 				for ( auto& t : sceneTextures.voxels.id ) shader.textures.emplace_back().aliasTexture(t);
@@ -411,11 +412,11 @@ namespace {
 
 				// bind buffers
 				::resetBuffers( shader );
-				shader.aliasBuffer( storage.buffers.joint );
-				shader.aliasBuffer( vertexPositionBuffer );
-				shader.aliasBuffer( vertexJointsBuffer );
-				shader.aliasBuffer( vertexWeightsBuffer );
-				shader.aliasBuffer( vertexOutPosition );
+				shader.aliasBuffer( "joint", storage.buffers.joint );
+				shader.aliasBuffer( "vertexPositionBuffer", vertexPositionBuffer );
+				shader.aliasBuffer( "vertexJointsBuffer", vertexJointsBuffer );
+				shader.aliasBuffer( "vertexWeightsBuffer", vertexWeightsBuffer );
+				shader.aliasBuffer( "vertexOutPosition", vertexOutPosition );
 			}
 
 			graphic.generateBottomAccelerationStructures();
@@ -502,6 +503,13 @@ namespace {
 
 		// vxgi pipeline
 		if ( uf::renderer::settings::pipelines::vxgi ) {	
+			// geom
+			{
+				auto& shader = graphic.material.getShader("geometry", uf::renderer::settings::pipelines::names::vxgi);
+
+				::resetBuffers( shader );
+				shader.aliasBuffer( "region", storage.buffers.region );
+			}
 			// fragment shader
 			{
 				auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
@@ -514,6 +522,7 @@ namespace {
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
+				shader.aliasBuffer( "region", storage.buffers.region );
 			}
 		}
 		// baking pipeline
@@ -1770,6 +1779,7 @@ void uf::graph::initialize( pod::Graph::Storage& storage, size_t initialElements
 	if ( !storage.buffers.material.buffer ) storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.texture.buffer ) storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 	if ( !storage.buffers.light.buffer ) storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * initialElements, uf::renderer::enums::Buffer::STORAGE );
+	if ( !storage.buffers.region.buffer ) storage.buffers.region.initialize( (const void*) nullptr, sizeof(pod::Region) * initialElements, uf::renderer::enums::Buffer::STORAGE );
 }
 
 void uf::graph::initialize( pod::Graph& graph ) {
@@ -1935,6 +1945,7 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 		rebuild = storage.buffers.lodMetadata.update( (const void*) lodMetadata.data(), lodMetadata.size() * sizeof(pod::LODMetadata) ) || rebuild;
 		rebuild = storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) ) || rebuild;
 		rebuild = storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) ) || rebuild;
+//		rebuild = storage.buffers.region.update( (const void*) storage.regions.data(), storage.regions.size() * sizeof(pod::Region) ) || rebuild;
 
 		storage.stale = false;
 	}
@@ -1956,9 +1967,11 @@ bool uf::graph::tick( pod::Graph::Storage& storage ) {
 				shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
 				shader.aliasBuffer( "instance", storage.buffers.instance );
 				shader.aliasBuffer( "addresses", storage.buffers.addresses );
+				shader.aliasBuffer( "object", storage.buffers.object );
 				shader.aliasBuffer( "material", storage.buffers.material );
 				shader.aliasBuffer( "texture", storage.buffers.texture );
 				shader.aliasBuffer( "light", storage.buffers.light );
+				shader.aliasBuffer( "region", storage.buffers.region );
 			}
 		}
 	#endif
@@ -2096,13 +2109,13 @@ void uf::graph::render( pod::Graph::Storage& storage ) {
 	}
 #endif
 
-	storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
-
 #if UF_USE_VULKAN
-	if ( !renderMode || !renderMode->hasBuffer("camera") || renderMode->getType() == "Swapchain" ) return;
-	auto& buffer = renderMode->getBuffer("camera");
-	buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
+	if ( renderMode->hasBuffer("camera") ) {
+		auto& buffer = renderMode->getBuffer("camera");
+		buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
+	} else
 #endif
+		storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 }
 void uf::graph::destroy( bool soft ) {
 	soft = false;
@@ -2162,6 +2175,7 @@ void uf::graph::destroy( pod::Graph::Storage& storage, bool soft ) {
 		storage.buffers.material.destroy(true);
 		storage.buffers.texture.destroy(true);
 		storage.buffers.light.destroy(true);
+		storage.buffers.region.destroy(true);
 		storage.buffers.depthPyramid.destroy(true);
 	}
 
@@ -2839,6 +2853,86 @@ void uf::graph::reload( pod::Graph& graph ) {
 	if ( !readQueue.empty() ) {
 		executing = true;
 	}
+/*
+	// to-do: finish implementing
+	if ( uf::renderer::settings::pipelines::vxgi ) {
+		auto& scene = uf::scene::getCurrentScene();
+	//	auto& metadataVxgi = // to-do: bind settings properly, can probably just fill it out with a dummy struct to test with for the moment
+		struct {
+			pod::Vector3f voxelSize = { 64, 64, 64 };
+			size_t cascades = 256;
+		} metadataVxgi;
+
+		storage.regions.clear();
+		struct RegionBounds {
+			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+			pod::Vector3f max = {-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max() };
+			bool initialized = false; // could probably just check if min/max are not max/-max'd
+		};
+		uf::stl::unordered_map<int32_t, RegionBounds> sectors;
+		uf::stl::unordered_map<int32_t, uint32_t> indexMap;
+
+		for ( auto& node : graph.nodes ) {
+			if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
+			if ( !node.entity ) continue;
+
+			auto& entity = node.entity->as<uf::Object>();
+			auto& transform = entity.getComponent<pod::Transform<>>();
+			auto worldTransform = uf::transform::flatten( transform );
+			auto model = uf::transform::model( transform );
+
+			auto& key = graph.primitives[node.mesh];
+			auto& primitives = storage.primitives.map[key];
+
+			for ( auto& primitive : primitives ) {
+				int32_t regionID = primitive.instance.lightmapID;
+				if ( regionID < 0 ) continue;
+
+				auto& bounds = primitive.instance.bounds;
+				auto& sector = sectors[regionID];
+
+				pod::Vector3f corners[8] = {
+					{bounds.min.x, bounds.min.y, bounds.min.z},
+					{bounds.max.x, bounds.min.y, bounds.min.z},
+					{bounds.min.x, bounds.max.y, bounds.min.z},
+					{bounds.max.x, bounds.max.y, bounds.min.z},
+					{bounds.min.x, bounds.min.y, bounds.max.z},
+					{bounds.max.x, bounds.min.y, bounds.max.z},
+					{bounds.min.x, bounds.max.y, bounds.max.z},
+					{bounds.max.x, bounds.max.y, bounds.max.z}
+				};
+
+				for ( int c = 0; c < 8; ++c ) {
+					pod::Vector3f transformed = uf::matrix::multiply( model, corners[c], 1.0f );
+					sector.min = uf::vector::min( sector.min, transformed );
+					sector.max = uf::vector::max( sector.max, transformed );
+				}
+				sector.initialized = true;
+			}
+		}
+
+		for ( auto& [regionID, sector] : sectors ) {
+			if ( !sector.initialized ) continue;
+			if ( indexMap.count(regionID) == 0 ) {
+				uint32_t nextIndex = storage.regions.size();
+				if ( nextIndex >= metadataVxgi.cascades ) continue;
+				indexMap[regionID] = nextIndex;
+			}
+
+			float padding = 2.0f;
+			pod::Region region = {};
+			region.minBounds = sector.min - padding;
+			region.maxBounds = sector.max + padding;
+			region.size = metadataVxgi.voxelSize.x;
+			region.index = indexMap[regionID];
+
+			storage.regions.emplace_back( region );
+			if ( storage.regions.size() >= metadataVxgi.cascades ) break;
+		}
+
+		storage.stale = true;
+	}
+*/
 
 	uf::asset::processIO( readQueue, true, false ); // async, wait
 }

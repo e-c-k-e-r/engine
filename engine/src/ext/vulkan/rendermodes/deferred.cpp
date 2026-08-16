@@ -342,20 +342,20 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
 			size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 			size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
-			size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+			size_t maxRegions = uf::config["engine"]["scenes"]["vxgi"]["regions"].as<size_t>(64);
 
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },
 				{ "CUBEMAPS", maxTexturesCube },
-				{ "CASCADES", maxCascades },
+				{ "REGIONS", maxRegions },
 			});
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures2D },
 				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelId", maxCascades },
-				{ "voxelNormal", maxCascades },
-				{ "voxelRadiance", maxCascades },
-				{ "voxelOutput", maxCascades },
+				{ "voxelId", maxRegions },
+				{ "voxelNormal", maxRegions },
+				{ "voxelRadiance", maxRegions },
+				{ "voxelOutput", maxRegions },
 			});
 
 			shader.aliasAttachment("id", this);
@@ -545,15 +545,16 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 		auto& shader = blitter.material.getShader("compute", "deferred");
 
 		shader.metadata.aliases.buffers.clear();
-		shader.aliasBuffer( storage.buffers.camera );
-	//	shader.aliasBuffer( storage.buffers.joint );
-		shader.aliasBuffer( storage.buffers.drawCommands );
-		shader.aliasBuffer( storage.buffers.instance );
-		shader.aliasBuffer( storage.buffers.addresses );
-		shader.aliasBuffer( storage.buffers.object );
-		shader.aliasBuffer( storage.buffers.material );
-		shader.aliasBuffer( storage.buffers.texture );
-		shader.aliasBuffer( storage.buffers.light );
+		shader.aliasBuffer( "camera", storage.buffers.camera );
+	//	shader.aliasBuffer( "joint", storage.buffers.joint );
+		shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+		shader.aliasBuffer( "instance", storage.buffers.instance );
+		shader.aliasBuffer( "addresses", storage.buffers.addresses );
+		shader.aliasBuffer( "object", storage.buffers.object );
+		shader.aliasBuffer( "material", storage.buffers.material );
+		shader.aliasBuffer( "texture", storage.buffers.texture );
+		shader.aliasBuffer( "light", storage.buffers.light );
+		shader.aliasBuffer( "region", storage.buffers.region );
 	}
 
 	// (re)initialize pipelines
@@ -659,21 +660,6 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	if ( rebuild && blitter.initialized ) {
 		this->build( resized );
 	}
-}
-VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
-
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = NULL;
-	submitInfo.pWaitSemaphores = NULL;
-	submitInfo.waitSemaphoreCount = 0;
-	submitInfo.pSignalSemaphores = NULL;
-	submitInfo.signalSemaphoreCount = 0;
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
-	submitInfo.commandBufferCount = 1;
-
-	return submitInfo;
 }
 void ext::vulkan::DeferredRenderMode::render() {
 	if ( this->commands.container().empty() ) return;

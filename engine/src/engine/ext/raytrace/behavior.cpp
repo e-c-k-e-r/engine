@@ -208,27 +208,27 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
 				size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 				size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-				size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+				size_t maxRegions = uf::config["engine"]["scenes"]["vxgi"]["regions"].as<size_t>(64);
 
-				shader.aliasBuffer( storage.buffers.instance );
-				shader.aliasBuffer( storage.buffers.addresses );
-				shader.aliasBuffer( storage.buffers.object );
-				shader.aliasBuffer( storage.buffers.material );
-				shader.aliasBuffer( storage.buffers.texture );
-				shader.aliasBuffer( storage.buffers.light );
+				shader.aliasBuffer( "instance", storage.buffers.instance );
+				shader.aliasBuffer( "addresses", storage.buffers.addresses );
+				shader.aliasBuffer( "object", storage.buffers.object );
+				shader.aliasBuffer( "material", storage.buffers.material );
+				shader.aliasBuffer( "texture", storage.buffers.texture );
+				shader.aliasBuffer( "light", storage.buffers.light );
 
 				shader.setSpecializationConstants({
 					{ "TEXTURES", maxTextures2D },
 					{ "CUBEMAPS", maxTexturesCube },
-					{ "CASCADES", maxCascades },
+					{ "REGIONS", maxRegions },
 				});
 				shader.setDescriptorCounts({
 					{ "samplerTextures", maxTextures2D },
 					{ "samplerCubemaps", maxTexturesCube },
-					{ "voxelId", maxCascades },
-					{ "voxelNormal", maxCascades },
-					{ "voxelRadiance", maxCascades },
-					{ "voxelOutput", maxCascades },
+					{ "voxelId", maxRegions },
+					{ "voxelNormal", maxRegions },
+					{ "voxelRadiance", maxRegions },
+					{ "voxelOutput", maxRegions },
 				});
 			}
 		}

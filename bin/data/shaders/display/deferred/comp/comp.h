@@ -22,7 +22,7 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
 #if VXGI
-	layout (constant_id = 2) const uint CASCADES = 16;
+	layout (constant_id = 2) const uint REGIONS = 16;
 #endif
 
 #if !MULTISAMPLING
@@ -99,10 +99,14 @@ layout (binding = 20, set = 1) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 21, set = 1) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 22, set = 0) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 23, set = 0) uniform sampler3D voxelOutput[CASCADES];
+// 	layout (binding = 23, set = 0) uniform sampler3D voxelOutput[REGIONS];
+	layout (binding = 23, set = 0) uniform sampler3D voxelOutput[REGIONS];
+	layout (std140, binding = 24, set = 0) readonly buffer Regions {
+		Region regions[];
+	};
 #endif
 #if RT
-	layout (binding = 24, set = 0) uniform accelerationStructureEXT tlas;
+	layout (binding = 25, set = 0) uniform accelerationStructureEXT tlas;
 #endif
 
 #if BUFFER_REFERENCE
@@ -326,7 +330,7 @@ void directLighting() {
 		surface.material.indirect.rgb = vec3(0);
 		surface.fragment.rgb = radiance.rgb;
 		surface.fragment.a = 1; // radiance.a;
-		//return;
+		return;
 	}
 #endif
 

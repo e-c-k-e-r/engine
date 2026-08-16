@@ -15,7 +15,7 @@ layout (binding = 6, set = 1) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 7, set = 1) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 8, set = 0) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 9, set = 0) uniform sampler3D voxelOutput[CASCADES];
+	layout (binding = 9, set = 0) uniform sampler3D voxelOutput[REGIONS];
 #endif
 #if RT
 	layout (binding = 10, set = 0) uniform accelerationStructureEXT tlas;

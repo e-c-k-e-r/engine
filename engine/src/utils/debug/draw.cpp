@@ -274,7 +274,7 @@ void uf::debug::drawLines( float dt ) {
 		// vertex shader
 		{
 			auto& shader = graphic.material.getShader("vertex");
-			shader.aliasBuffer( storage.buffers.camera );
+			shader.aliasBuffer( "camera", storage.buffers.camera );
 		#if UF_USE_VULKAN
 			uint32_t maxPasses = 6;
 			shader.setSpecializationConstants({
@@ -368,7 +368,7 @@ void uf::debug::drawTexts( float dt ) {
 		// vertex shader
 		{
 			auto& shader = graphic.material.getShader("vertex");
-			shader.aliasBuffer( storage.buffers.camera );
+			shader.aliasBuffer( "camera", storage.buffers.camera );
 		#if UF_USE_VULKAN
 			uint32_t maxPasses = 6;
 			shader.setSpecializationConstants({

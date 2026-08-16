@@ -23,7 +23,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
-	} else if ( metadata.type == "depth" ) {
+	} else if ( metadata.type == "depth" || metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
 	return descriptor;
@@ -43,7 +43,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	
 	//
 	if ( metadata.type == "depth" ) {
-		buffers.emplace_back().initialize( NULL, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+		this->metadata.buffers["camera"] = this->initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
 	}
 
 	if ( metadata.type == "depth" || metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
@@ -247,15 +247,16 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		auto& shader = blitter.material.getShader("compute");
 
-	//	shader.aliasBuffer( storage.buffers.camera );
-	//	shader.aliasBuffer( storage.buffers.joint );
-		shader.aliasBuffer( storage.buffers.drawCommands );
-		shader.aliasBuffer( storage.buffers.instance );
-		shader.aliasBuffer( storage.buffers.addresses );
-		shader.aliasBuffer( storage.buffers.object );
-		shader.aliasBuffer( storage.buffers.material );
-		shader.aliasBuffer( storage.buffers.texture );
-		shader.aliasBuffer( storage.buffers.light );
+	//	shader.aliasBuffer( "camera", storage.buffers.camera );
+	//	shader.aliasBuffer( "joint", storage.buffers.joint );
+		shader.aliasBuffer( "drawCommands", storage.buffers.drawCommands );
+		shader.aliasBuffer( "instance", storage.buffers.instance );
+		shader.aliasBuffer( "addresses", storage.buffers.addresses );
+		shader.aliasBuffer( "object", storage.buffers.object );
+		shader.aliasBuffer( "material", storage.buffers.material );
+		shader.aliasBuffer( "texture", storage.buffers.texture );
+		shader.aliasBuffer( "light", storage.buffers.light );
+		shader.aliasBuffer( "region", storage.buffers.region );
 	}
 
 	// (re)initialize pipelines

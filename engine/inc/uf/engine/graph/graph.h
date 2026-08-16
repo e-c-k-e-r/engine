@@ -115,6 +115,7 @@ namespace pod {
 			
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
 			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
+			uf::stl::vector<pod::Region> regions;
 
 			// flattened variants
 			uf::stl::vector<pod::Primitive> flattenedPrimitives;
@@ -130,6 +131,7 @@ namespace pod {
 				uf::renderer::Buffer material;
 				uf::renderer::Buffer texture;
 				uf::renderer::Buffer light;
+				uf::renderer::Buffer region;
 
 				uf::renderer::Texture2D depthPyramid;
 			} buffers;

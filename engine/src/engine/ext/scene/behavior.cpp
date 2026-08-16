@@ -551,7 +551,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_CUBE ) {
 				textureCubeOffset++;
-			} else {
+			} else if ( image.viewType == uf::renderer::enums::Image::VIEW_TYPE_2D ) {
 				texture2dOffset++;
 			}
 		}
@@ -626,9 +626,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		constexpr uint32_t MODE_CUBEMAP = 1;
 		constexpr uint32_t MODE_SEPARATE_2DS = 2;
 
-		//for ( uint32_t i = 0; i < entities.size(); ++i ) {
-		for ( auto idx : indices ) {
-			auto& info = entities[idx];
+		for ( uint32_t i = 0; i < entities.size(); ++i ) {
+			auto& info = entities[i];
+		//for ( auto idx : indices ) {
+		//	auto& info = entities[idx];
 			uf::Entity* entity = info.entity;
 
 			int32_t boundIndexMap = -1;
@@ -1110,14 +1111,13 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			} bloom;
 
 			struct VXGI {
-				alignas(16) pod::Matrix4f matrix;
-				alignas(4)  float cascadePower;
 				alignas(4)  float granularity;
 				alignas(4)  float voxelizeScale;
 				alignas(4)  float occlusionFalloff;
-				
 				alignas(4)  float traceStartOffsetFactor;
+
 				alignas(4)  uint32_t shadows;
+				alignas(4)  uint32_t padding1;
 				alignas(4)  uint32_t padding2;
 				alignas(4)  uint32_t padding3;
 			} vxgi;
@@ -1260,12 +1260,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.threshold = metadata.bloom.threshold,
 		};
 		uniforms.settings.vxgi = UniformDescriptor::Settings::VXGI{
-			.matrix = metadataVxgi.extents.matrix,
-			.cascadePower = metadataVxgi.cascadePower,
 			.granularity = metadataVxgi.granularity,
 			.voxelizeScale = 1.0f / (metadataVxgi.voxelizeScale * std::max<uint32_t>( metadataVxgi.voxelSize.x, std::max<uint32_t>(metadataVxgi.voxelSize.y, metadataVxgi.voxelSize.z))),
 			.occlusionFalloff = metadataVxgi.occlusionFalloff,
-			
 			.traceStartOffsetFactor = metadataVxgi.traceStartOffsetFactor,
 			.shadows = metadataVxgi.shadows,
 		};

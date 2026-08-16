@@ -14,7 +14,7 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (constant_id = 0) const uint CASCADES = 8;
+layout (constant_id = 0) const uint REGIONS = 8;
 layout (constant_id = 1) const uint MIPS = 9; // 256^3 texture = 9 mips
 
 layout(push_constant) uniform PushBlock {
@@ -24,8 +24,8 @@ layout(push_constant) uniform PushBlock {
 	uint workGroupOffset;
 } PushConstant_;
 
-layout (binding = 0) uniform sampler3D voxelRadiance[CASCADES];
-layout (binding = 1, rgba8) coherent uniform image3D voxelMips[CASCADES * (MIPS - 1)];
+layout (binding = 0) uniform sampler3D voxelRadiance[REGIONS];
+layout (binding = 1, rgba8) coherent uniform image3D voxelMips[REGIONS * (MIPS - 1)];
 
 layout (binding = 2, std430) buffer AtomicCounter {
 	uint counter;

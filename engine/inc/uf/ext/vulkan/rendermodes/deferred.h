@@ -16,7 +16,6 @@ namespace ext {
 			virtual void initialize( Device& device );
 			virtual void build( bool = true );
 			virtual void tick();
-			virtual VkSubmitInfo queue();
 			virtual void render();
 			virtual void destroy();
 		};

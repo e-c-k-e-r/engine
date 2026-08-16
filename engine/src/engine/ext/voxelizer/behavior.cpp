@@ -27,7 +27,7 @@ namespace {
 	};
 	struct PushConstants {
 		uint32_t mips;
-		uint32_t cascade;
+		uint32_t region;
 		uint32_t numWorkGroups;
 		uint32_t workGroupOffset;
 	};
@@ -49,7 +49,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	auto mips = uf::vector::mips( metadata.voxelSize );
-	for ( size_t i = 0; i < metadata.cascades; ++i ) {
+	for ( size_t i = 0; i < metadata.regions; ++i ) {
 		const bool HDR = false;
 		auto& id = sceneTextures.voxels.id.emplace_back();
 		id.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
@@ -131,8 +131,8 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		}
 		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;
-	//	renderMode.metadata.subpasses = metadata.cascades;
-		renderMode.metadata.views = metadata.cascades;
+	//	renderMode.metadata.subpasses = metadata.regions;
+		renderMode.metadata.views = metadata.regions;
 		
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
@@ -152,7 +152,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		size_t maxTextures2D = uf::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
 		size_t maxTexturesCube = uf::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 		size_t maxTextures3D = uf::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-		size_t maxCascades = uf::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+		size_t maxRegions = uf::config["engine"]["scenes"]["vxgi"]["regions"].as<size_t>(16);
 		size_t maxMips = uf::vector::mips( pod::Vector3ui{ 256, 256, 256 } ); // log2(256) = 9
 
 		renderMode.metadata.json["shaders"] = true;
@@ -163,15 +163,15 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },
 				{ "CUBEMAPS", maxTexturesCube },
-				{ "CASCADES", maxCascades },
+				{ "REGIONS", maxRegions },
 			});
 			shader.setDescriptorCounts({
 				{ "samplerTextures", maxTextures2D },
 				{ "samplerCubemaps", maxTexturesCube },
-				{ "voxelId", maxCascades },
-				{ "voxelNormal", maxCascades },
-				{ "voxelRadiance", maxCascades },
-				{ "voxelOutput", maxCascades },
+				{ "voxelId", maxRegions },
+				{ "voxelNormal", maxRegions },
+				{ "voxelRadiance", maxRegions },
+				{ "voxelOutput", maxRegions },
 			});
 
 			auto& scene = uf::scene::getCurrentScene();
@@ -193,12 +193,12 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },
 				{ "CUBEMAPS", maxTexturesCube },
-				{ "CASCADES", maxCascades },
+				{ "REGIONS", maxRegions },
 				{ "MIPS", maxMips },
 			});
 			shader.setDescriptorCounts({
-				{ "voxelRadiance", maxCascades },
-				{ "voxelMips", maxCascades * (maxMips - 1) },
+				{ "voxelRadiance", maxRegions },
+				{ "voxelMips", maxRegions * (maxMips - 1) },
 			});
 
 			auto& scene = uf::scene::getCurrentScene();
@@ -214,6 +214,21 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
+			VkMemoryBarrier warBarrier = {};
+			warBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			warBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			warBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0,
+				1, &warBarrier,
+				0, nullptr,
+				0, nullptr
+			);
+
 			// clear textures
 			VkImageSubresourceRange subresourceRange = {};
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -226,37 +241,94 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.id ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+		#if !ALIAS_OUTPUT_TO_RADIANCE
 			for ( auto& t : sceneTextures.voxels.output ) vkCmdClearColorImage( commandBuffer, t.image, t.layout, &clearColor, 1, &subresourceRange );
+		#endif
+			VkMemoryBarrier clearBarrier = {};
+			clearBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			clearBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			clearBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0,
+				1, &clearBarrier,
+				0, nullptr,
+				0, nullptr
+			);
 		});
 
 		// 
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
-			// parse voxel lighting
+			VkMemoryBarrier fragToCompBarrier = {};
+			fragToCompBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			fragToCompBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			fragToCompBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+				0,
+				1, &fragToCompBarrier,
+				0, nullptr,
+				0, nullptr
+			);
+
 			if ( blitter.initialized ) {
 				auto descriptor = blitter.descriptor;
-				//descriptor.pipeline = "lighting";
 				blitter.record( commandBuffer, descriptor );
 			}
-			
-			// generate mipmaps
+
+			VkMemoryBarrier compToCompBarrier = {};
+			compToCompBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			compToCompBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			compToCompBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0,
+				1, &compToCompBarrier,
+				0, nullptr,
+				0, nullptr
+			);
+
 		#if COMPUTE_MIPMAP_GENERATION
 			if ( blitter.initialized ) {
 				auto& shader = blitter.material.getShader("compute", "mipmap");
 				auto mips = uf::vector::mips( pod::Vector3ui{ blitter.descriptor.bind.width, blitter.descriptor.bind.height, blitter.descriptor.bind.depth } );
 
-				for ( auto cascade = 0; cascade < sceneTextures.voxels.output.size(); ++cascade ) {
+				uint32_t wgX = (blitter.descriptor.bind.width + 15) / 16;
+				uint32_t wgY = (blitter.descriptor.bind.height + 15) / 16;
+				uint32_t wgZ = (blitter.descriptor.bind.depth + 15) / 16;
+				uint32_t totalWorkGroups = wgX * wgY * wgZ;
+
+				for ( auto region = 0; region < sceneTextures.voxels.output.size(); ++region ) {
 					vkCmdFillBuffer(commandBuffer, metadata.atomicCounter.buffer, 0, 4, 0);
+
 					VkMemoryBarrier counterBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+					counterBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 					counterBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 					counterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-					vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &counterBarrier, 0, nullptr, 0, nullptr);
 
+					vkCmdPipelineBarrier(commandBuffer,
+						VK_PIPELINE_STAGE_TRANSFER_BIT,
+						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+						0,
+						1, &counterBarrier,
+						0, nullptr,
+						0, nullptr
+					);
 
 					auto& pushConstant = shader.pushConstants.front().get<::PushConstants>();
 					pushConstant = {
 						.mips = mips,
-						.cascade = cascade,
-						.numWorkGroups = 0,
+						.region = region,
+						.numWorkGroups = totalWorkGroups,
 						.workGroupOffset = 0,
 					};
 					auto descriptor = blitter.descriptor;
@@ -278,13 +350,32 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 				t.setImageLayout( commandBuffer, t.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, t.layout, subresourceRange );
 			}
 		#endif
+
+			VkMemoryBarrier compToDeferredBarrier = {};
+			compToDeferredBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+			compToDeferredBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+			compToDeferredBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
+
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0,
+				1, &compToDeferredBarrier,
+				0, nullptr,
+				0, nullptr
+			);
 		});
+
 	}
 #endif
 }
 void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
+
+	// extremely cringe but the load placed on the GPU causes a nasty issue
+	vkDeviceWaitIdle(ext::vulkan::device.logicalDevice);
 
 	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -307,37 +398,43 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		}
 	
 	#if 1
-	//	bool should = false;
-	//	if ( renderMode.metadata.limiter.frequency <= 0 && renderMode.metadata.limiter.timer <= 0 ) should = true;
-	//	else if ( renderMode.metadata.limiter.timer + renderMode.metadata.limiter.frequency >= renderMode.metadata.limiter.frequency ) should = true;
-
-	//	if ( renderMode.execute ) {
 		if ( renderMode.metadata.limiter.execute ) {
-	//	if ( should ) {
 			auto& controller = scene.getController();
 			auto& camera = scene.getCamera( controller );
 			auto controllerTransform = uf::transform::flatten( camera.getTransform() );
-			
-			float voxelWorldSizeX = (metadata.extents.max.x - metadata.extents.min.x) / (float)(metadata.voxelSize.x);
-			float voxelWorldSizeY = (metadata.extents.max.y - metadata.extents.min.y) / (float)(metadata.voxelSize.y);
-			float voxelWorldSizeZ = (metadata.extents.max.z - metadata.extents.min.z) / (float)(metadata.voxelSize.z);
 
-			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
+			// update storage regions
+			auto& storage = uf::graph::getStorage( *this );
+			{
+				storage.regions.clear();
+				for ( uint32_t i = 0; i < metadata.regions; ++i ) {
+					float scale = std::pow(2.0f, static_cast<float>(i));
 
-			controllerPosition.x = std::floor(controllerPosition.x / voxelWorldSizeX) * voxelWorldSizeX;
-			controllerPosition.y = std::floor(controllerPosition.y / voxelWorldSizeY) * voxelWorldSizeY;
-			controllerPosition.z = std::floor(controllerPosition.z / voxelWorldSizeZ) * voxelWorldSizeZ;
+					pod::Vector3f halfExtents = (metadata.extents.max - metadata.extents.min) * 0.5f * scale;
 
-			controllerPosition += metadata.extents.min;
+					pod::Region region;
+					region.minBounds = controllerTransform.position - halfExtents;
+					region.maxBounds = controllerTransform.position + halfExtents;
+					region.index = i;
+					region.size = metadata.voxelSize.x;
 
-			controllerPosition.x = std::floor(controllerPosition.x / voxelWorldSizeX) * voxelWorldSizeX;
-			controllerPosition.y = std::floor(controllerPosition.y / voxelWorldSizeY) * voxelWorldSizeY;
-			controllerPosition.z = -std::floor(controllerPosition.z / voxelWorldSizeZ) * voxelWorldSizeZ;
+					storage.regions.emplace_back( region );
+				}
 
-			pod::Vector3f min = metadata.extents.min + controllerPosition;
-			pod::Vector3f max = metadata.extents.max + controllerPosition;
-
-			metadata.extents.matrix = uf::matrix::orthographic( min.x, max.x, min.y, max.y, min.z, max.z );
+				size_t maxRegions = uf::config["engine"]["scenes"]["vxgi"]["regions"].as<size_t>(16);
+				while ( storage.regions.size() < maxRegions ) {
+					pod::Region dummy;
+					dummy.minBounds = { 0.0f, 0.0f, 0.0f };
+					dummy.maxBounds = { 0.0f, 0.0f, 0.0f };
+					dummy.index = 0;
+					dummy.size = 0;
+					storage.regions.emplace_back( dummy );
+				}
+				auto rebuild = storage.buffers.region.update( (const void*) storage.regions.data(), storage.regions.size() * sizeof(pod::Region) );
+				if ( rebuild ) {
+					storage.stale = true;
+				}
+			}
 
 			auto/*&*/ graph = scene.getGraph();
 			for ( auto entity : graph ) {
@@ -346,27 +443,17 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 				if ( blitter.material.hasShader("geometry", uf::renderer::settings::pipelines::names::vxgi) ) {
 					auto& shader = blitter.material.getShader("geometry", uf::renderer::settings::pipelines::names::vxgi);
 					struct UniformDescriptor {
-						/*alignas(16)*/ pod::Matrix4f matrix;
-						/*alignas(4)*/ float cascadePower;
 						/*alignas(4)*/ float granularity;
-						/*alignas(4)*/ float voxelizeScale;
-						/*alignas(4)*/ float occlusionFalloff;
-						
-						/*alignas(4)*/ float traceStartOffsetFactor;
+						/*alignas(4)*/ float occlusionFalloff;						
 						/*alignas(4)*/ uint32_t shadows;
-						/*alignas(4)*/ uint32_t padding2;
-						/*alignas(4)*/ uint32_t padding3;
+						/*alignas(4)*/ uint32_t regions;
 					};
 
 					UniformDescriptor uniforms = {
-						.matrix = metadata.extents.matrix,
-						.cascadePower = metadata.cascadePower,
 						.granularity = metadata.granularity,
-						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
-						.occlusionFalloff = metadata.occlusionFalloff,
-						
-						.traceStartOffsetFactor = metadata.traceStartOffsetFactor,
+						.occlusionFalloff = metadata.occlusionFalloff,						
 						.shadows = metadata.shadows,
+						.regions = storage.regions.size(),
 					};
 					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 				}
@@ -404,10 +491,8 @@ void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Ser
 	serializer["vxgi"]["limiter"] = /*this->*/limiter.frequency;
 	serializer["vxgi"]["dispatch"] = /*this->*/dispatchSize.x;
 
-	serializer["vxgi"]["cascades"] = /*this->*/cascades;
-	serializer["vxgi"]["cascadePower"] = /*this->*/cascadePower;
+	serializer["vxgi"]["regions"] = /*this->*/regions;
 	serializer["vxgi"]["granularity"] = /*this->*/granularity;
-	serializer["vxgi"]["voxelizeScale"] = /*this->*/voxelizeScale;
 	serializer["vxgi"]["occlusionFalloff"] = /*this->*/occlusionFalloff;
 	serializer["vxgi"]["traceStartOffsetFactor"] = /*this->*/traceStartOffsetFactor;
 	serializer["vxgi"]["shadows"] = /*this->*/shadows;
@@ -436,10 +521,8 @@ void ext::VoxelizerSceneBehavior::Metadata::deserialize( uf::Object& self, uf::S
 	/*this->*/dispatchSize.y = serializer["vxgi"]["dispatch"].as(/*this->*/dispatchSize.x);
 	/*this->*/dispatchSize.z = serializer["vxgi"]["dispatch"].as(/*this->*/dispatchSize.x);
 
-	/*this->*/cascades = serializer["vxgi"]["cascades"].as(/*this->*/cascades);
-	/*this->*/cascadePower = serializer["vxgi"]["cascadePower"].as(/*this->*/cascadePower);
+	/*this->*/regions = serializer["vxgi"]["regions"].as(/*this->*/regions);
 	/*this->*/granularity = serializer["vxgi"]["granularity"].as(/*this->*/granularity);
-	/*this->*/voxelizeScale = serializer["vxgi"]["voxelizeScale"].as(/*this->*/voxelizeScale);
 	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as(/*this->*/occlusionFalloff);
 	/*this->*/traceStartOffsetFactor = serializer["vxgi"]["traceStartOffsetFactor"].as(/*this->*/traceStartOffsetFactor);
 	/*this->*/shadows = serializer["vxgi"]["shadows"].as(/*this->*/shadows);

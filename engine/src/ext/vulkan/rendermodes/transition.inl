@@ -8,7 +8,7 @@ namespace {
 		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	) {
 		uf::stl::unordered_set<VkImage> transitioned;
-		
+
 		VkImageSubresourceRange subresourceRange;
 		subresourceRange.baseMipLevel = 0;
 		subresourceRange.levelCount = 1;
@@ -51,11 +51,17 @@ namespace {
 			if ( isDepth && layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
 				oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 			}
-			uf::renderer::Texture::setImageLayout( commandBuffer, image, oldLayout, descriptor.layout, subresourceRange );
+
+			VkImageLayout targetLayout = descriptor.layout;
+			if ( isDepth && targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+				targetLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			}
+
+			uf::renderer::Texture::setImageLayout( commandBuffer, image, oldLayout, targetLayout, subresourceRange );
 			if ( mips > 1 ) {
 				subresourceRange.baseMipLevel = 1;
 				subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-				uf::renderer::Texture::setImageLayout( commandBuffer, image, initialLayout, descriptor.layout, subresourceRange );
+				uf::renderer::Texture::setImageLayout( commandBuffer, image, initialLayout, targetLayout, subresourceRange );
 			}
 		}
 	}
