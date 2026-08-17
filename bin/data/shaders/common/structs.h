@@ -325,5 +325,5 @@ struct Region {
 	vec3 minBounds;
 	uint index;
 	vec3 maxBounds;
-	uint size;
+	uint resolution;
 };

@@ -416,8 +416,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 					region.minBounds = controllerTransform.position - halfExtents;
 					region.maxBounds = controllerTransform.position + halfExtents;
 					region.index = i;
-					region.size = metadata.voxelSize.x;
-
+					region.resolution = metadata.voxelSize.x;
 					storage.regions.emplace_back( region );
 				}
 
@@ -427,7 +426,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 					dummy.minBounds = { 0.0f, 0.0f, 0.0f };
 					dummy.maxBounds = { 0.0f, 0.0f, 0.0f };
 					dummy.index = 0;
-					dummy.size = 0;
+					dummy.resolution = 0;
 					storage.regions.emplace_back( dummy );
 				}
 				auto rebuild = storage.buffers.region.update( (const void*) storage.regions.data(), storage.regions.size() * sizeof(pod::Region) );

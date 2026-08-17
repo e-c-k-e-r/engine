@@ -56,9 +56,9 @@ layout(binding = 9, set = 0, rg16f) uniform writeonly image2DArray imageMotion;
 layout(binding = 10, set = 0, r32f) uniform writeonly image2DArray imageDepthResolved;
 
 layout( push_constant ) uniform PushBlock {
-  uint pass;
-  uint draw;
-  uint aux;
+	uint pass;
+	uint draw;
+	uint aux;
 } PushConstant;
 
 #include "../../../common/structs.h"
@@ -174,7 +174,7 @@ void postProcess() {
 		//	if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.barycentric.rgb, 1);
 			if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.material.albedo.rgb, 1);
 			else if ( ubo.settings.mode.type == 0x0002 ) outFragColor = vec4(surface.light.rgb, 1);
-			else if ( ubo.settings.mode.type == 0x0003 ) outFragColor = vec4(vec3(surface.light.a), 1);
+			else if ( ubo.settings.mode.type == 0x0003 ) outFragColor = vec4(vec3(surface.material.indirect.rgb), 1);
 			else if ( ubo.settings.mode.type == 0x0004 ) outFragColor = vec4(surface.normal.eye.rgb, 1);
 			else if ( ubo.settings.mode.type == 0x0005 ) outFragColor = vec4(surface.uv.xy, 0, 1);
 			else if ( ubo.settings.mode.type == 0x0006 ) outFragColor = vec4(surface.st.xy, 0, 1);
@@ -322,7 +322,7 @@ void directLighting() {
 		Ray ray;
 		ray.direction = surface.ray.direction;
 		ray.origin = surface.position.world;
-		ray.origin -= ray.direction;
+		ray.origin -= ray.direction * 0.001;
 
 		vec4 radiance = voxelConeTrace( ray, 0 );
 

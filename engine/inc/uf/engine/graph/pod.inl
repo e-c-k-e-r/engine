@@ -118,7 +118,7 @@ namespace pod {
 		pod::Vector3f minBounds = {};
 		alignas(4) uint32_t index = 0;
 		pod::Vector3f maxBounds = {};
-		alignas(4) uint32_t size = 64;
+		alignas(4) uint32_t resolution = 64;
 	};
 }
 

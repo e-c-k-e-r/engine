@@ -47,16 +47,16 @@ void main(){
 	uint emittedTriangles = 0;
 	for (uint r = 0; r < regions.length(); ++r) {
 		Region region = regions[r];
-		if ( region.size == 0 ) continue;
+		if ( region.resolution == 0 ) continue;
 
-		const float margin = (region.maxBounds.x - region.minBounds.x) / float(region.size) * 1.0;
+		const float margin = (region.maxBounds.x - region.minBounds.x) / float(region.resolution) * 1.0;
 
 		bool intersects = (triMin.x - margin <= region.maxBounds.x && triMax.x + margin >= region.minBounds.x) &&
 						  (triMin.y - margin <= region.maxBounds.y && triMax.y + margin >= region.minBounds.y) &&
 						  (triMin.z - margin <= region.maxBounds.z && triMax.z + margin >= region.minBounds.z);
 
 		if ( !intersects ) continue;
-		const float HALF_PIXEL = (region.maxBounds.x - region.minBounds.x) / float(region.size) * 0.5;
+		const float HALF_PIXEL = (region.maxBounds.x - region.minBounds.x) / float(region.resolution) * 0.5;
 		const vec3 C = ( inPosition[0] + inPosition[1] + inPosition[2] ) / 3.0;
 
 #if USE_CROSS

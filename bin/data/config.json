@@ -27,15 +27,15 @@
 				}
 			},
 			"vxgi": {
-			//	"limiter": 0,
-				"limiter": 0.0125,
+				"limiter": 0,
+			//	"limiter": 0.0125,
 			//	"limiter": 1,
 				"size": 256,
 				"dispatch": 16,
 				"regions": 3,
-				"granularity": 32,
-				"occlusionFalloff": 2,
-				"traceStartOffsetFactor": 0.1,
+				"granularity": 1,
+				"occlusionFalloff": 1,
+				"traceStartOffsetFactor": 1,
 				"filtering": "LINEAR",
 				"shadows": 0,
 				"extents": {
@@ -115,7 +115,7 @@
 					"gui": true,
 					"vsync": true, // vsync on vulkan side rather than engine-side
 					"hdr": true,
-					"vxgi": false, // to-do: fix issues
+					"vxgi": true, // to-do: fix issues
 					"culling": false,
 					"bloom": true,
 					"dof": true,
