@@ -15,6 +15,8 @@ namespace ext {
 			virtual VkSubmitInfo queue();
 			virtual void render();
 			virtual void destroy();
+
+			void _record();
 		};
 	}
 }

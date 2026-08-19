@@ -375,7 +375,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 
 	// extremely cringe but the load placed on the GPU causes a nasty issue
-	vkDeviceWaitIdle(ext::vulkan::device.logicalDevice);
+	// vkDeviceWaitIdle(ext::vulkan::device.logicalDevice);
 
 	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();

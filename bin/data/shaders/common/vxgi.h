@@ -1,6 +1,7 @@
 bool inRegion( vec3 p, vec3 minBounds, vec3 maxBounds ) {
 	return all(greaterThanEqual(p, minBounds)) && all(lessThanEqual(p, maxBounds));
 }
+
 uint findRegion(vec3 pos) {
 	for ( uint i = 0; i < regions.length(); ++i ) {
 		Region r = regions[i];
@@ -39,7 +40,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	float occlusion = 0;
 	uint stepCounter = 0;
 
-	while ( color.a < maxRadiance && occlusion < 1.0 && ray.distance < tEnd && stepCounter++ < maxSteps ) {
+	while ( color.a < maxRadiance && occlusion < 0.99 && ray.distance < tEnd && stepCounter++ < maxSteps ) {
 		float coneDiameter = coneCoefficient * ray.distance;
 
 		float diameterInVoxels = coneDiameter / voxelWorldSize;
@@ -53,9 +54,10 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 			if (regionIdx == regions.length()) break;
 
 			region = regions[regionIdx];
-
-			voxelWorldSize = (region.maxBounds.x - region.minBounds.x) / float(region.resolution);
-			tDelta = voxelWorldSize * granularity;
+			regionExtent = max(region.maxBounds - region.minBounds, vec3(0.0001));
+			invRegionExtent = vec3(1.0) / regionExtent;
+			voxelWorldSize = regionExtent.x / float(region.resolution);
+			tDelta = max(voxelWorldSize * granularity, 0.0001);
 		}
 
 		vec3 uvw = (ray.position - region.minBounds) * invRegionExtent;
@@ -67,7 +69,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 		color.rgb += (1.0 - color.a) * radiance.rgb * radiance.a;
 		color.a   += (1.0 - color.a) * radiance.a;
 
-		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + occlusionFalloff * coneDiameter);
+		occlusion += ((1.0 - occlusion) * radiance.a) / (1.0 + occlusionFalloff * coneDiameter);
 	}
 
 	return maxDistance > 0 ? color : vec4(color.rgb, occlusion);
@@ -85,15 +87,28 @@ uint voxelShadowsCount = 0;
 float shadowFactorVXGI( const Light light, float def ) {
 	if ( ubo.settings.vxgi.shadows < ++voxelShadowsCount ) return 1.0;
 
+	vec3 toLight = light.position - surface.position.world;
+	float dist = length(toLight);
+	if ( dist < 0.001 ) return 1.0;
+	vec3 L = toLight / dist;
+
+	// Light is behind the surface — fully shadowed, skip the trace entirely
+	if ( dot(surface.normal.world, L) <= 0.0 ) return 0.0;
+
 	const float SHADOW_APERTURE = 0.2;
 	const float DEPTH_BIAS = 0.0;
 
 	Ray ray;
-	ray.direction = normalize( light.position - surface.position.world );
-	ray.origin = surface.position.world + ray.direction * 0.5;
-	float z = distance( surface.position.world, light.position ) - DEPTH_BIAS;
+	ray.direction = L;
+	// Normal-based bias scaled with distance to avoid self-intersection
+	// without being scene-scale dependent
+	float bias = max(0.01, dist * 0.001);
+	ray.origin = surface.position.world + surface.normal.world * bias;
+
+	float z = dist - DEPTH_BIAS;
 	return 1.0 - voxelTrace( ray, SHADOW_APERTURE, z ).a;
 }
+
 void indirectLightingVXGI() {
 	const vec3 P = surface.position.world;
 	const vec3 N = surface.normal.world;

@@ -115,6 +115,7 @@ bool ext::vulkan::states::initialized = false;
 bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
+uint32_t ext::vulkan::states::imageIndex = 0;
 uint32_t ext::vulkan::states::frameAccumulate = 0;
 bool ext::vulkan::states::frameAccumulateReset = false;
 uint32_t ext::vulkan::states::frameSkip = 0;
@@ -405,8 +406,8 @@ void ext::vulkan::initialize( bool soft ) {
 	} else {
 		// hard coded missing texture if not provided
 		uf::stl::vector<uint8_t> pixels = { 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 		};
 		Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
@@ -414,11 +415,11 @@ void ext::vulkan::initialize( bool soft ) {
 	}
 	{
 		uf::stl::vector<uint8_t> pixels = { 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 
-			 255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			 255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 		};
 		Texture3D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		Texture3D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
@@ -426,23 +427,23 @@ void ext::vulkan::initialize( bool soft ) {
 	}
 	{
 		uf::stl::vector<uint8_t> pixels = { 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 			
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 			
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 			
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 			
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255,	  0,   0,   0, 255,
+			  0,   0,   0, 255,	255,   0, 255, 255,
 		};
 		TextureCube::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
@@ -574,7 +575,6 @@ void ext::vulkan::render() {
 		return;
 	}
 */
-
 	ext::vulkan::mutex.lock();
 	auto transient = std::move(device.transient);
 	ext::vulkan::mutex.unlock();
@@ -855,23 +855,17 @@ void ext::vulkan::flushCommandBuffers() {
 	for ( auto& pair : transientCommandBuffers ) {
 		auto queueType = pair.first;
 		auto& commandBuffers = pair.second;
-		
 		for ( auto& pair : commandBuffers ) {
 			auto threadId = pair.first;
 			auto& tuple = pair.second;
-		
 			auto queue = device.getQueue( queueType, threadId );
 
-			// AMD driver has a limitation on how many fences to wait on at once
-			constexpr size_t totalFences = 64;
-			if ( tuple.fences.size() < totalFences ) {
-				VkResult res = vkWaitForFences( device, tuple.fences.size(), tuple.fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
-				VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-			} else {
+			if ( !tuple.fences.empty() ) {
+				constexpr size_t totalFences = 64;
 				auto it = tuple.fences.begin();
 				auto end = tuple.fences.end();
 				while ( it != end ) {
-					size_t advance = MIN(end - it, totalFences);
+					size_t advance = std::min<size_t>(end - it, totalFences);
 					VkResult res = vkWaitForFences( device, advance, &(*it), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 					VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 					it += advance;

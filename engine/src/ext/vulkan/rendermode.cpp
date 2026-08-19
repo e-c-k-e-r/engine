@@ -291,49 +291,49 @@ std::lock_guard<std::mutex> ext::vulkan::RenderMode::guardMutex( uf::thread::id_
 }
 void ext::vulkan::RenderMode::cleanupAllCommands() {
 	auto& container = this->commands.container();
-	for ( auto& pair : container ) {
-		if ( pair.second.empty() ) continue;
+	for ( auto& [ threadID , commandBuffers ] : container ) {
+		if ( commandBuffers.empty() ) continue;
 
-		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		VkQueue queue = device->getQueue( queueEnum, threadID );
 		vkQueueWaitIdle( queue );
 	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	*/
 		
-		for ( auto& commandBuffer : pair.second ) {
+		for ( auto& commandBuffer : commandBuffers ) {
 			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
 			device->checkpoints[commandBuffer] = NULL;
 			device->checkpoints.erase(commandBuffer);
 		}
 
-		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
-		pair.second.clear();
+		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, threadID), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		commandBuffers.clear();
 	}
 	container.clear();
 }
 void ext::vulkan::RenderMode::cleanupCommands( uf::thread::id_t id ) {
 	auto& container = this->commands.container();
-	for ( auto& pair : container ) {
-		if ( pair.first == id ) continue;
-		if ( pair.second.empty() ) continue;
+	for ( auto& [ threadID, commandBuffers ] : container ) {
+		if ( threadID == id ) continue;
+		if ( commandBuffers.empty() ) continue;
 		
 
-		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		VkQueue queue = device->getQueue( queueEnum, threadID );
 		vkQueueWaitIdle( queue );
 	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	*/
 
-		for ( auto& commandBuffer : pair.second ) {
+		for ( auto& commandBuffer : commandBuffers ) {
 			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
 			device->checkpoints[commandBuffer] = NULL;
 			device->checkpoints.erase(commandBuffer);
 		}
 
-		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
-		pair.second.clear();
+		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, threadID), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		commandBuffers.clear();
 	}
 	this->commands.cleanup( id );
 }
@@ -391,8 +391,8 @@ VkSubmitInfo ext::vulkan::RenderMode::queue() {
 	submitInfo.pWaitDstStageMask = NULL;
 	submitInfo.pWaitSemaphores = NULL;
 	submitInfo.waitSemaphoreCount = 0;
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
-	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = NULL; // &renderCompleteSemaphores[states::currentBuffer];
+	submitInfo.signalSemaphoreCount = 0; // 1;
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
 

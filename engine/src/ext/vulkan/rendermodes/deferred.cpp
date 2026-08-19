@@ -797,7 +797,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				subresourceRange.layerCount = renderTarget.views;
 				subresourceRange.aspectMask = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.getImage(frame), VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
 			}
 		#endif
 
@@ -909,7 +909,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments to general attachments for imageStore
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "deferred" );
@@ -917,7 +917,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			// forward+
@@ -935,7 +935,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 					uf::renderer::Texture::setImageLayout(
 						commandBuffer,
-						forwardRenderTarget.attachments[0].image,
+						forwardRenderTarget.attachments[0].getImage(frame),
 						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 						colorRange
@@ -947,7 +947,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 					uf::renderer::Texture::setImageLayout(
 						commandBuffer,
-						forwardRenderTarget.attachments[1].image,
+						forwardRenderTarget.attachments[1].getImage(frame),
 						VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
 						VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 						depthRange
@@ -974,7 +974,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 							//descriptor.renderTarget = 1;
 							device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, FMT_FORMAT("graphic[{}]", currentDraw) );
-							graphic->record( commandBuffer, descriptor, 0, currentDraw++, 0 );
+							graphic->record( commandBuffer, descriptor, 0, currentDraw++, frame );
 						}
 					}
 				vkCmdEndRenderPass(commandBuffer);
@@ -1013,7 +1013,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments to general attachments for imageStore
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[down]" );
@@ -1027,7 +1027,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			if ( settings::pipelines::bloom && blitter.material.hasShader("compute", "bloom-up") ) {
@@ -1043,7 +1043,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments to general attachments for imageStore
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "bloom[up]" );
@@ -1051,7 +1051,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			if ( settings::pipelines::dof && blitter.material.hasShader("compute", "dof-down") ) {
@@ -1087,7 +1087,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments to general attachments for imageStore
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "dof[down]" );
@@ -1101,7 +1101,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			if ( settings::pipelines::dof && blitter.material.hasShader("compute", "dof-up") ) {
@@ -1117,7 +1117,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments to general attachments for imageStore
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				// dispatch compute shader				
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "dof[up]" );
@@ -1125,7 +1125,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				// transition attachments back to shader read layouts
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			// construct depth-pyramid
@@ -1161,12 +1161,12 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &counterBarrier, 0, nullptr, 0, nullptr);
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsTo( this, shader, commandBuffer );
+				::transitionAttachmentsTo( this, shader, commandBuffer, frame );
 
 				blitter.record(commandBuffer, descriptor);
 
 				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
-				::transitionAttachmentsFrom( this, shader, commandBuffer );
+				::transitionAttachmentsFrom( this, shader, commandBuffer, frame );
 			}
 
 			// post-renderpass commands

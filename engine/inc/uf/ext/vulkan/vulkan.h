@@ -178,6 +178,7 @@ namespace ext {
 			extern UF_API bool rebuild;
 			extern UF_API bool resized;
 			extern UF_API uint32_t currentBuffer;
+			extern UF_API uint32_t imageIndex;
 			
 			extern UF_API uint32_t frameAccumulate;
 			extern UF_API bool frameAccumulateReset;

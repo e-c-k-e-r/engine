@@ -94,18 +94,6 @@ void ext::vulkan::BaseRenderMode::tick() {
 	if ( resized ) {
 		this->destroy();
 		this->initialize( *this->device );
-	/*
-		this->width = windowSize.x;
-		this->height = windowSize.y;
-		this->resized = false;
-		rebuild = true;
-		renderTarget.width = this->width;
-		renderTarget.height = this->height;
-
-
-		swapchain.initialize( *swapchain.device );
-		renderTarget.initialize( *renderTarget.device );
-	*/
 	}
 
 	// update blitter descriptor set
@@ -123,7 +111,7 @@ VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
 	submitInfo.pWaitDstStageMask = waitStageMask;
 	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[::imageIndex];
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
@@ -131,12 +119,49 @@ VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
 	return submitInfo;
 }
 void ext::vulkan::BaseRenderMode::render() {
-//	if ( this->commands.container().empty() ) return;
-
 	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
 	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
+
+	// record command just-in-time, as the image index isn't guaranteed
+	this->_record();
 	
+	// dispatch
+	{
+		VkSubmitInfo submitInfo = this->queue();
+		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
+		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	}
+
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::imageIndex, renderCompleteSemaphores[states::currentBuffer]));
+
+	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
+	this->executed = true;
+}
+
+void ext::vulkan::BaseRenderMode::destroy() {
+	ext::vulkan::RenderMode::destroy();
+
+	for ( auto& presentCompleteSemaphore : swapchain.presentCompleteSemaphores ) {
+		vkDestroySemaphore( *device, presentCompleteSemaphore, nullptr);
+		VK_UNREGISTER_HANDLE( presentCompleteSemaphore );
+	}
+	swapchain.presentCompleteSemaphores.clear();
+}
+
+ext::vulkan::GraphicDescriptor ext::vulkan::BaseRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
+	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+	descriptor.depth.test = false;
+	descriptor.depth.write = false;
+	return descriptor;
+}
+
+void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
+
+}
+
+void ext::vulkan::BaseRenderMode::_record() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	auto& commandBuffer = commands[states::currentBuffer];
 	vkResetCommandBuffer(commandBuffer, 0);
@@ -225,7 +250,7 @@ void ext::vulkan::BaseRenderMode::render() {
 		scissor.offset.x = 0;
 		scissor.offset.y = 0;
 		
-		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[::imageIndex];
+		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[states::imageIndex];
 
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
@@ -267,59 +292,7 @@ void ext::vulkan::BaseRenderMode::render() {
 
 		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
-
-		{
-			VkSubmitInfo submitInfo = this->queue();
-			VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-
-			STATIC_THREAD_LOCAL(uf::stl::vector<VkSemaphore>, waitSemaphores);
-			STATIC_THREAD_LOCAL(uf::stl::vector<VkPipelineStageFlags>, waitStages);
-
-			waitSemaphores.push_back(swapchain.presentCompleteSemaphores[states::currentBuffer]);
-			waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-			for ( auto* layer : layers ) {
-				if ( !layer || !layer->executed ) continue;
-
-				waitSemaphores.push_back(layer->renderCompleteSemaphores[states::currentBuffer]);
-				waitStages.push_back(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-			}
-
-			submitInfo.waitSemaphoreCount = waitSemaphores.size();
-			submitInfo.pWaitSemaphores = waitSemaphores.data();
-			submitInfo.pWaitDstStageMask = waitStages.data();
-
-			VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
-			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-		}
 	}
-
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), ::imageIndex, renderCompleteSemaphores[states::currentBuffer]));
-
-	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
-	this->executed = true;
-}
-
-void ext::vulkan::BaseRenderMode::destroy() {
-
-	ext::vulkan::RenderMode::destroy();
-
-	for ( auto& presentCompleteSemaphore : swapchain.presentCompleteSemaphores ) {
-		vkDestroySemaphore( *device, presentCompleteSemaphore, nullptr);
-		VK_UNREGISTER_HANDLE( presentCompleteSemaphore );
-	}
-	swapchain.presentCompleteSemaphores.clear();
-}
-
-ext::vulkan::GraphicDescriptor ext::vulkan::BaseRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
-	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
-	descriptor.depth.test = false;
-	descriptor.depth.write = false;
-	return descriptor;
-}
-
-void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
-
 }
 
 #endif

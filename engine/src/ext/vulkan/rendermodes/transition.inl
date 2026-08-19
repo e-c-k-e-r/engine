@@ -5,6 +5,7 @@ namespace {
 		ext::vulkan::RenderMode* self,
 		ext::vulkan::Shader& shader,
 		VkCommandBuffer commandBuffer,
+		size_t frame,
 		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	) {
 		uf::stl::unordered_set<VkImage> transitioned;
@@ -25,7 +26,7 @@ namespace {
 			if ( descriptor.renderMode ) {
 				if ( descriptor.renderMode->hasAttachment(descriptor.name) ) {
 					auto& attachment = descriptor.renderMode->getAttachment(descriptor.name);
-					image = attachment.image;
+					image = attachment.getImage(frame);
 					mips = attachment.descriptor.mips;
 					initialLayout = attachment.descriptor.layout;
 				}
@@ -33,7 +34,7 @@ namespace {
 			} else if ( self->hasAttachment(descriptor.name) ) {
 				if ( self->hasAttachment(descriptor.name) ) {
 					auto& attachment = self->getAttachment(descriptor.name);
-					image = attachment.image;
+					image = attachment.getImage(frame);
 					mips = attachment.descriptor.mips;
 					initialLayout = attachment.descriptor.layout;
 				}
@@ -69,6 +70,7 @@ namespace {
 		ext::vulkan::RenderMode* self,
 		ext::vulkan::Shader& shader,
 		VkCommandBuffer commandBuffer,
+		size_t frame,
 		VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 	) {
 		uf::stl::unordered_set<VkImage> transitioned;
@@ -89,7 +91,7 @@ namespace {
 			if ( descriptor.renderMode ) {
 				if ( descriptor.renderMode->hasAttachment(descriptor.name) ) {
 					auto& attachment = descriptor.renderMode->getAttachment(descriptor.name);
-					image = attachment.image;
+					image = attachment.getImage(frame);
 					mips = attachment.descriptor.mips;
 					initialLayout = attachment.descriptor.layout;
 				}
@@ -97,7 +99,7 @@ namespace {
 			} else if ( self->hasAttachment(descriptor.name) ) {
 				if ( self->hasAttachment(descriptor.name) ) {
 					auto& attachment = self->getAttachment(descriptor.name);
-					image = attachment.image;
+					image = attachment.getImage(frame);
 					mips = attachment.descriptor.mips;
 					initialLayout = attachment.descriptor.layout;
 				}
