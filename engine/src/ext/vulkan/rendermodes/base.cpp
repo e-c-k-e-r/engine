@@ -10,7 +10,7 @@
 #include <uf/utils/io/fmt.h>
 
 namespace {
-	uint32_t imageIndex;
+	bool acquired = false;
 }
 
 const uf::stl::string ext::vulkan::BaseRenderMode::getType() const {
@@ -119,9 +119,8 @@ VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
 	return submitInfo;
 }
 void ext::vulkan::BaseRenderMode::render() {
-	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
-	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
+	// acquire
+	this->_acquire();
 
 	// record command just-in-time, as the image index isn't guaranteed
 	this->_record();
@@ -138,6 +137,7 @@ void ext::vulkan::BaseRenderMode::render() {
 
 	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
 	this->executed = true;
+	::acquired = false;
 }
 
 void ext::vulkan::BaseRenderMode::destroy() {
@@ -161,6 +161,13 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 
 }
 
+void ext::vulkan::BaseRenderMode::_acquire() {
+	if ( ::acquired ) return;
+	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
+	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
+	::acquired = true;
+}
 void ext::vulkan::BaseRenderMode::_record() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	auto& commandBuffer = commands[states::currentBuffer];

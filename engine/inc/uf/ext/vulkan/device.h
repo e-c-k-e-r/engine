@@ -104,7 +104,7 @@ namespace ext {
 				uf::ThreadUnique<VkQueue> transfer;
 				uf::ThreadUnique<VkQueue> acquire;
 			} queues;
-
+			
 			struct {
 				struct CommandBuffer {
 					uf::stl::vector<VkCommandBuffer> commandBuffers;
