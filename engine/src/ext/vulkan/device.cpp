@@ -611,10 +611,19 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 }
 
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin, bool singleton ){
-	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	{
+		auto& pool = this->reusable.commandBuffers[queue][uf::thread::current_id()];
+		if ( !pool.empty() ) {
+			commandBuffer = pool.top();
+			pool.pop();
+		}
+	}
+	if ( commandBuffer == VK_NULL_HANDLE ) {
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
+		VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
+	}
 
-	VkCommandBuffer commandBuffer;
-	VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
 	// If requested, also start recording for the new command buffer
 	if ( begin ) {
 		VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
@@ -650,8 +659,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 
 		this->destroyFence( fence );
 
-		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
-		VK_UNREGISTER_HANDLE(commandBuffer);
+		this->reusable.commandBuffers[queueType][uf::thread::current_id()].emplace( commandBuffer );
 	} else {
 		ext::vulkan::mutex.lock();
 		auto& transient = this->transient.commandBuffers[queueType][uf::thread::current_id()];
@@ -707,8 +715,7 @@ void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer& comman
 
 		this->destroyFence( fence );
 
-		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType, commandBuffer.threadId ), 1, &commandBuffer.handle);
-		VK_UNREGISTER_HANDLE( commandBuffer.handle );
+		this->reusable.commandBuffers[commandBuffer.queueType][commandBuffer.threadId].emplace( commandBuffer.handle );
 	} else {
 		ext::vulkan::mutex.lock();
 		auto& transient = this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId];
@@ -1626,6 +1633,22 @@ void ext::vulkan::Device::destroy() {
 
 		vkDestroyFence( this->logicalDevice, fence, nullptr );
 		VK_UNREGISTER_HANDLE( fence );
+	}
+	for ( auto& [queueType, threadMap] : this->reusable.commandBuffers) {
+		VkCommandPool commandPool = getCommandPool(queueType);
+		for ( auto& [threadId, pool] : threadMap) {
+			if ( pool.empty() ) continue;
+			uf::stl::vector<VkCommandBuffer> buffersToFree;
+			buffersToFree.reserve(pool.size());
+			while ( !pool.empty() ) {
+				VkCommandBuffer cmd = pool.top();
+				pool.pop();
+				VK_UNREGISTER_HANDLE(cmd);
+				buffersToFree.push_back(cmd);
+			}
+
+			vkFreeCommandBuffers( logicalDevice, commandPool, static_cast<uint32_t>(buffersToFree.size()), buffersToFree.data() );
+		}
 	}
 	if ( this->pipelineCache ) {
 		// write cache on disk

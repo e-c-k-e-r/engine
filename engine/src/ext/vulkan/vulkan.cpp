@@ -849,44 +849,31 @@ void ext::vulkan::synchronize( uint8_t flag ) {
 void ext::vulkan::flushCommandBuffers() {
 	// cleanup in-flight commands
 	ext::vulkan::mutex.lock();
-	auto transientCommandBuffers = std::move(device.transient.commandBuffers);
+	auto& transientCommandBuffers = device.transient.commandBuffers;
 	ext::vulkan::mutex.unlock();
 
-	for ( auto& pair : transientCommandBuffers ) {
-		auto queueType = pair.first;
-		auto& commandBuffers = pair.second;
-		for ( auto& pair : commandBuffers ) {
-			auto threadId = pair.first;
-			auto& tuple = pair.second;
-			auto queue = device.getQueue( queueType, threadId );
+	for (auto& [queueType, commandBuffers] : transientCommandBuffers) {
+	std::erase_if(commandBuffers, [&](auto& entry) {
+		auto& [ threadId, tuple ] = entry;
 
-			if ( !tuple.fences.empty() ) {
-				constexpr size_t totalFences = 64;
-				auto it = tuple.fences.begin();
-				auto end = tuple.fences.end();
-				while ( it != end ) {
-					size_t advance = std::min<size_t>(end - it, totalFences);
-					VkResult res = vkWaitForFences( device, advance, &(*it), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
-					VK_CHECK_QUEUE_CHECKPOINT( queue, res );
-					it += advance;
-				}
-			}
-
-			for ( auto& commandBuffer : tuple.commandBuffers ) {
-				uf::checkpoint::deallocate(device.checkpoints[commandBuffer]);
-				device.checkpoints[commandBuffer] = NULL;
-				device.checkpoints.erase(commandBuffer);
-			}
-			for ( auto& fence : tuple.fences ) {
-				device.destroyFence( fence );
-			}
-
-			auto commandPool = device.getCommandPool( queueType, threadId );
-			vkFreeCommandBuffers(device, commandPool, tuple.commandBuffers.size(), tuple.commandBuffers.data());
+		constexpr size_t TOTAL = 64;
+		for ( size_t i = 0; i < tuple.fences.size(); i += TOTAL ) {
+			size_t count = std::min(tuple.fences.size() - i, TOTAL);
+			if ( vkWaitForFences(device, count, &tuple.fences[i], VK_TRUE, 0) == VK_TIMEOUT ) return false;
 		}
 
-		commandBuffers.clear();
-	}
+		for ( auto fence : tuple.fences ) device.destroyFence(fence);
+		auto& pool = device.reusable.commandBuffers[queueType][threadId];
+		for ( auto commandBuffer : tuple.commandBuffers ) {
+			if ( auto it = device.checkpoints.find(commandBuffer); it != device.checkpoints.end() ) {
+				uf::checkpoint::deallocate(it->second);
+				device.checkpoints.erase(it);
+			}
+			pool.emplace(commandBuffer);
+		}
+		return true;
+	});
+}
 #if 0
 	// process reusable commands
 	{

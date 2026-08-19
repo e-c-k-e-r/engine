@@ -98,7 +98,7 @@
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": false, // mostly works
+					"dedicated thread": false, // works, but slower?
 					"memory budget": false,
 					"register render modes": true,
 					"skip render on rebuild": true // needed for validation to work

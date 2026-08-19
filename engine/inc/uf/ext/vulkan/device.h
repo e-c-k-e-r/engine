@@ -120,6 +120,7 @@ namespace ext {
 
 			struct {
 				uf::stl::stack<VkFence> fences;
+				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<uf::thread::id_t, uf::stl::stack<VkCommandBuffer>>> commandBuffers;
 			} reusable;
 
 			uf::stl::unordered_map<VkCommandBuffer, pod::Checkpoint*> checkpoints;
