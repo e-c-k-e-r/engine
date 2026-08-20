@@ -469,6 +469,7 @@ namespace pod {
 		uf::stl::vector<pod::PhysicsBody*> bodies;
 		uf::stl::vector<pod::Constraint*> constraints;
 	
+		float timeAccumulator = 0.0f;
 		pod::Vector3f gravity = { 0, -9.81f, 0 };
 		pod::BVH dynamicBvh;
 		pod::BVH staticBvh;

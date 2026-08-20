@@ -68,17 +68,13 @@ void uf::physics::tick( pod::World& world, float dt ) {
 
 		return;
 	}
-
 	UF_PHYSICS_TIMER_MULTITRACE_START("Tick Step Begin");
-	static float accumulator = 0;
-	accumulator += dt; 
-
 	float timestep = uf::physics::settings.timestep;
-
-	while ( accumulator >= timestep ) { 
+	world.timeAccumulator += dt; 
+	while ( world.timeAccumulator >= timestep ) { 
 		if ( uf::physics::settings.substeps > 0 ) uf::physics::substep( world, timestep, uf::physics::settings.substeps ); 
 		else uf::physics::step( world, timestep ); 
-		accumulator -= timestep; 
+		world.timeAccumulator -= timestep; 
 		UF_PHYSICS_TIMER_MULTITRACE("Tick Accumulation Step");
 	}
 	UF_PHYSICS_TIMER_MULTITRACE_END("Tick Step Complete");
