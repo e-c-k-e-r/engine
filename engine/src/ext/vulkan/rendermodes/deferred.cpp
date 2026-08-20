@@ -455,7 +455,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			::postprocesses::depthPyramid.atomicCounter.initialize( (const void*) nullptr, sizeof(::AtomicCounter) * 1, uf::renderer::enums::Buffer::STORAGE | VK_BUFFER_USAGE_TRANSFER_DST_BIT  );
 			shader.aliasBuffer("atomicCounterDepth", ::postprocesses::depthPyramid.atomicCounter);
 		}
-
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled ) {
 			uf::stl::string vertexShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/vr/stereo.vert.spv");
 			uf::stl::string fragmentShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/vr/stereo.frag.spv");
@@ -465,6 +465,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("fragment", "vr");
 			shader.aliasAttachment("output", this);
 		}
+	#endif
 	}
 
 	this->build(true);
@@ -614,7 +615,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 			blitter.update( descriptor );
 		}
-
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled ) {
 			auto descriptor = blitter.descriptor;
 			descriptor.pipeline = "vr";
@@ -624,6 +625,7 @@ void ext::vulkan::DeferredRenderMode::build( bool resized ) {
 			descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 			blitter.update( descriptor );
 		}
+	#endif
 	}
 }
 void ext::vulkan::DeferredRenderMode::tick() {

@@ -508,7 +508,8 @@ void uf::physics::updateInertia( pod::PhysicsBody& body ) {
 			const auto& bvh = *body.collider.mesh.bvh;
 
 		#if 1
-			pod::Vector3f dims = (body.bounds.max - body.bounds.min);
+			// use local-space bounds (body.bounds is world-space and depends on the body's rotation)
+			pod::Vector3f dims = (bvh.rootBounds.max - bvh.rootBounds.min);
 			pod::Vector3f dimsSq = dims * dims;
 			inertiaTensor = pod::Vector3f{ dimsSq.y + dimsSq.z, dimsSq.x + dimsSq.z, dimsSq.x + dimsSq.y } * (mass / 12.0f);
 			inertiaTensor = uf::vector::max( inertiaTensor, { EPS, EPS, EPS } );
@@ -605,14 +606,16 @@ void uf::physics::setAngularVelocity( pod::PhysicsBody& body, const pod::Vector3
 }
 void uf::physics::setAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt ) {
 	if ( !dt ) dt = uf::physics::time::delta;
-	float angle = 2.0f * std::acos( q.w );
-	float sinHalfAngle = std::sqrt( 1.0f - q.w * q.w );
+	auto nq = uf::quaternion::normalize( q );
+	// use |w| so the rotation takes the short way around (w < 0 would give an angle > PI)
+	float angle = 2.0f * std::acos( std::clamp( std::fabs( nq.w ), 0.0f, 1.0f ) );
+	float sinHalfAngle = std::sqrt( std::max( 0.0f, 1.0f - nq.w * nq.w ) );
 
 	pod::Vector3f axis{ 0, 0, 0 };
 	if ( sinHalfAngle > EPS ) {
-		axis.x = q.x / sinHalfAngle;
-		axis.y = q.y / sinHalfAngle;
-		axis.z = q.z / sinHalfAngle;
+		axis.x = nq.x / sinHalfAngle;
+		axis.y = nq.y / sinHalfAngle;
+		axis.z = nq.z / sinHalfAngle;
 	}
 
 	impl::wakeBody( body );
@@ -624,14 +627,16 @@ void uf::physics::applyAngularVelocity( pod::PhysicsBody& body, const pod::Vecto
 }
 void uf::physics::applyAngularVelocity( pod::PhysicsBody& body, const pod::Quaternion<>& q, float dt ) {
 	if ( !dt ) dt = uf::physics::time::delta;
-	float angle = 2.0f * std::acos( q.w );
-	float sinHalfAngle = std::sqrt( 1.0f - q.w * q.w );
+	auto nq = uf::quaternion::normalize( q );
+	// use |w| so the rotation takes the short way around (w < 0 would give an angle > PI)
+	float angle = 2.0f * std::acos( std::clamp( std::fabs( nq.w ), 0.0f, 1.0f ) );
+	float sinHalfAngle = std::sqrt( std::max( 0.0f, 1.0f - nq.w * nq.w ) );
 
 	pod::Vector3f axis{ 0, 0, 0 };
 	if ( sinHalfAngle > EPS ) {
-		axis.x = q.x / sinHalfAngle;
-		axis.y = q.y / sinHalfAngle;
-		axis.z = q.z / sinHalfAngle;
+		axis.x = nq.x / sinHalfAngle;
+		axis.y = nq.y / sinHalfAngle;
+		axis.z = nq.z / sinHalfAngle;
 	}
 
 	impl::wakeBody( body );
@@ -661,9 +666,10 @@ pod::CollisionEvent::events_t uf::physics::getCollisionEvents( const pod::Physic
 	return res;
 }
 uf::stl::string uf::physics::getCollisionMaterialName( const pod::CollisionEvent& event ) {
-	auto triID = MIN( event.featureA, event.featureB );
-	auto* other = event.a->collider.type == pod::ShapeType::MESH ? event.a : event.b;
-	return impl::getMaterialName( *other, triID );
+	// featureA belongs to body a and featureB to body b, use the one from the mesh body
+	auto* mesh = event.a->collider.type == pod::ShapeType::MESH ? event.a : event.b;
+	auto triID = ( mesh == event.a ) ? event.featureA : event.featureB;
+	return impl::getMaterialName( *mesh, triID );
 }
 
 // body creation

@@ -46,7 +46,7 @@ namespace impl {
 		if ( uf::vector::dot( bestAxis, box.center - cT ) < 0.0f ) bestAxis = -bestAxis;
 
 		int polyCount = 3;
-		pod::Vector3f poly[8];
+		pod::Vector3f poly[12]; // 3 vertices + up to 6 clip planes
 		poly[0] = tri.points[0];
 		poly[1] = tri.points[1];
 		poly[2] = tri.points[2];
@@ -143,7 +143,7 @@ bool impl::triangleTriangle( const pod::TriangleWithNormal& a, const pod::Triang
 	auto refNormal = impl::triangleNormal( refTri );
 
 	int polyCount = 3;
-	pod::Vector3f poly[8];
+	pod::Vector3f poly[12]; // 3 vertices + up to 3 clip planes
 	poly[0] = incTri.points[0];
 	poly[1] = incTri.points[1];
 	poly[2] = incTri.points[2];

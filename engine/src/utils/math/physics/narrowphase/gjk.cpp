@@ -255,10 +255,17 @@ bool impl::gjk( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDist
 	pod::Vector3f simplex[4];
 	int sCount = 0;
 
+	bool hit = false;
+
 	for ( int iter = 0; iter < 32; ++iter ) {
 		float vSq = uf::vector::dot( v, v );
 		// origin was inside the shape to begin with, or we perfectly converged
-		if ( vSq < EPS * EPS ) break;
+		if ( vSq < EPS * EPS ) {
+			// if the ray started inside the shape no normal was derived yet, use the direction from the closest point
+			if ( uf::vector::magnitude( n ) < EPS2 && vSq > 0.0f ) n = v / std::sqrt( vSq );
+			hit = true;
+			break;
+		}
 
 		pod::Vector3f dir = -v;
 		pod::Vector3f p = impl::support( body, dir );
@@ -285,10 +292,10 @@ bool impl::gjk( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDist
 		pod::Vector3f closest = impl::closestPointOnSimplex( x, simplex, sCount );
 		v = x - closest;
 
-		if ( sCount == 4 ) break; // collided
+		if ( sCount == 4 ) { hit = true; break; } // collided
 	}
 
 	outT = t;
 	outNormal = n;
-	return true;
+	return hit;
 }

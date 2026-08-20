@@ -49,10 +49,10 @@ namespace spec {
 
 		public:
 			UF_API_CALL Window();
-			UF_API_CALL Window( const vector_t& size, const title_t& title = L"Window" );
+			UF_API_CALL Window( const vector_t& size, const title_t& title = "Window" );
 			~Window();
 
-			void UF_API_CALL create(const vector_t& size, const title_t& title = L"Window");
+			void UF_API_CALL create(const vector_t& size, const title_t& title = "Window");
 			void UF_API_CALL terminate();
 
 			Display* UF_API_CALL getDisplay() const;

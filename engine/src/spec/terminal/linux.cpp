@@ -9,7 +9,7 @@
 
 void spec::Terminal::clear() {
 	spec::uni::Terminal::clear();
-	std::cout << "\033[2J\033[H" << std::flush;
+//	std::cout << "\033[2J\033[H" << std::flush;
 }
 
 void spec::Terminal::setLocale() {

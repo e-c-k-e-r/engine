@@ -37,24 +37,32 @@ void impl::solveSliderConstraint( pod::Constraint& constraint, float dt ) {
 	auto positionError = pB - pA;
 
 	{
-		pod::Matrix3f K = {};
-		pod::Vector3f axes[3] = { {1,0,0}, {0,1,0}, {0,0,1} };
-		for ( auto i = 0; i < 3; ++i ) {
-			for ( auto j = 0; j < 3; ++j ) {
+		// constrain only the two tangential axes, leaving free spin about the slider axis
+		pod::Vector3f t1 = wrA;
+		pod::Vector3f t2 = uf::vector::normalize( uf::vector::cross( waA, wrA ) );
+
+		pod::Vector3f axes[2] = { t1, t2 };
+		pod::Matrix2f K = {};
+		for ( auto i = 0; i < 2; ++i ) {
+			for ( auto j = 0; j < 2; ++j ) {
 				K(i, j) = impl::computeAngularMassMatrixLine( ctxA, ctxB, axes[i], axes[j]);
 			}
 			K(i,i) += uf::physics::settings.jointCFM * ( 1.0f + ctxA.invM + ctxB.invM );
 		}
 
-		pod::Matrix3f Kinv = uf::matrix::inverse( K );
-		pod::Vector3f bias = angularError * (uf::physics::settings.baumgarteCorrectionPercent / dt);
-		pod::Vector3f rhs = -(relAngularVel + bias);
+		pod::Matrix2f Kinv = uf::matrix::inverse( K );
+		pod::Vector2f rhs = {
+			-(uf::vector::dot(relAngularVel, t1) + uf::vector::dot(angularError, t1) * (uf::physics::settings.baumgarteCorrectionPercent / dt)),
+			-(uf::vector::dot(relAngularVel, t2) + uf::vector::dot(angularError, t2) * (uf::physics::settings.baumgarteCorrectionPercent / dt))
+		};
 
-		pod::Vector3f impulse = uf::matrix::multiply( Kinv, rhs );
-		joint.accumulatedAngularImpulse += impulse;
+		pod::Vector2f impulse = uf::matrix::multiply( Kinv, rhs );
+		joint.accumulatedAngularImpulse.x += impulse.x;
+		joint.accumulatedAngularImpulse.y += impulse.y;
 
-		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, impulse );
-		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, impulse );
+		pod::Vector3f totalImpulse = t1 * impulse.x + t2 * impulse.y;
+		if ( a.inverseMass != 0.0f ) a.angularVelocity -= uf::matrix::multiply( ctxA.invI, totalImpulse );
+		if ( b.inverseMass != 0.0f ) b.angularVelocity += uf::matrix::multiply( ctxB.invI, totalImpulse );
 	}
 	{
 		pod::Vector3f t1 = wrA;

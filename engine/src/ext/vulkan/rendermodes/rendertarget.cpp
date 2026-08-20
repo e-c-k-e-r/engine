@@ -283,6 +283,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		blitter.update( descriptor );
 	}
 
+#if UF_USE_OPENVR
 	if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
 		auto descriptor = blitter.descriptor;
 		descriptor.pipeline = "vr";
@@ -292,6 +293,7 @@ void ext::vulkan::RenderTargetRenderMode::build( bool resized ) {
 		descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 		blitter.update( descriptor );
 	}
+#endif
 }
 
 void ext::vulkan::RenderTargetRenderMode::tick() {
@@ -310,7 +312,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	if ( rebuild && blitter.process ) {
 		this->build( resized );
 	}
-	
+#if UF_USE_OPENVR
 	if ( ext::openvr::enabled && metadata.json["vr"].as<bool>() ) {
 		auto& shader = blitter.material.getShader("vertex", "vr");
 		metadata.camera.update();
@@ -318,6 +320,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 			shader.updateBuffer( (const void*) &metadata.camera.data().viewport, sizeof(pod::Camera::Viewports), shader.getUniformBuffer("UBO") );
 		}
 	}
+#endif
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();

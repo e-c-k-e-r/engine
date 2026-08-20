@@ -37,7 +37,7 @@ pod::Face impl::makeFace( const pod::SupportPoint& a, const pod::SupportPoint& b
 	return face;
 };
 
-void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& dir, pod::Vector3f outPoly[3], int& outCount ) {
+void impl::getSupportFace( const pod::PhysicsBody& body, const pod::Vector3f& dir, pod::Vector3f outPoly[4], int& outCount ) {
 	outCount = 0;
 	const auto transform = impl::getTransform(body);
 	pod::Vector3f localDir = uf::quaternion::rotate(uf::quaternion::inverse(transform.orientation), dir);
@@ -213,7 +213,7 @@ bool impl::generateClippingManifold( const pod::PhysicsBody& a, const pod::Physi
 		normal = -normal;
 	}
 
-	pod::Vector3f clipBuffer[8];
+	pod::Vector3f clipBuffer[12]; // incCount (<=4) grows by at most 1 per reference edge (<=4)
 	int clipCount = incCount;
 	for ( auto i = 0; i < incCount; ++i ) clipBuffer[i] = incPoly[i];
 

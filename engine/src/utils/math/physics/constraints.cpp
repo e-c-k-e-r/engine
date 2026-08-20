@@ -2,6 +2,39 @@
 #include <uf/utils/math/physics/constraints.h>
 
 void impl::solveConstraints( uf::stl::vector<pod::Constraint*>& constraints, float dt ) {
+	// accumulated impulses are step-local, reset them before solving
+	// (limit/motor impulses are clamped against the accumulated value, so a stale value saturates them after the first step)
+	for ( auto* constraint : constraints ) {
+		switch ( constraint->type ) {
+			case pod::ConstraintType::BALL_AND_SOCKET: {
+				constraint->ballSocket.accumulatedImpulse = {};
+			} break;
+			case pod::ConstraintType::HINGE: {
+				constraint->hinge.accumulatedImpulse = {};
+				constraint->hinge.accumulatedAngularImpulse = {};
+			} break;
+			case pod::ConstraintType::CONE_TWIST: {
+				constraint->coneTwist.accumulatedImpulse = {};
+				constraint->coneTwist.accumulatedAngularImpulse = {};
+			} break;
+			case pod::ConstraintType::SLIDER: {
+				constraint->slider.accumulatedLinearImpulse = {};
+				constraint->slider.accumulatedAngularImpulse = {};
+				constraint->slider.accumulatedLimitImpulse = 0.0f;
+			} break;
+			case pod::ConstraintType::DISTANCE: {
+				constraint->distance.accumulatedImpulse = 0.0f;
+			} break;
+			case pod::ConstraintType::WELD: {
+				constraint->weld.accumulatedLinearImpulse = {};
+				constraint->weld.accumulatedAngularImpulse = {};
+			} break;
+			case pod::ConstraintType::SPRING: {
+				constraint->spring.accumulatedImpulse = 0.0f;
+			} break;
+		}
+		constraint->motor.accumulatedMotorImpulse = 0.0f;
+	}
 	for ( uint32_t i = 0; i < uf::physics::settings.solverIterations; ++i ) {
 		for ( auto* constraint : constraints ) impl::solveConstraint( *constraint, dt );
 	}

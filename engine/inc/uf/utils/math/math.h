@@ -14,6 +14,9 @@
 
 
 #define NUM pod::Math::num_t
+#ifdef M_PI
+	#undef M_PI
+#endif
 #define M_PI 3.141592653589793f
 #define EPS 1.0e-6f
 #define EPS2 (EPS * EPS)

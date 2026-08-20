@@ -338,9 +338,9 @@ void impl::pruneManifoldCache( uf::stl::unordered_map<size_t, pod::Manifold>& ca
 void impl::warmupContact( pod::PhysicsBody& a, pod::PhysicsBody& b, const pod::Contact& c, float dt ) {
 	if ( !c.lifetime ) return; // too new
 
-	// build relative offsets
-	pod::Vector3f rA = c.point - impl::getPosition( a );
-	pod::Vector3f rB = c.point - impl::getPosition( b );
+	// build relative offsets (use transform origin, consistent with the solver)
+	pod::Vector3f rA = c.point - impl::getPosition( a, true );
+	pod::Vector3f rB = c.point - impl::getPosition( b, true );
 
 	// normal impulse
 	pod::Vector3f Pn = c.normal * c.accumulatedNormalImpulse;

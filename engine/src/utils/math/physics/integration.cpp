@@ -173,8 +173,8 @@ void impl::snapVelocity( pod::PhysicsBody& body, float dt, float threshold ) {
 	float linSpeed2 = uf::vector::magnitude( body.velocity );
 	float angSpeed2 = uf::vector::magnitude( body.angularVelocity );
 
-	// cancel out vertical component
-	if ( fabs(body.velocity.y) < threshold2 ) body.velocity.y = 0.0f;
+	// cancel out vertical component (|vy| is not squared, compare against the unsquared threshold)
+	if ( fabs(body.velocity.y) < threshold ) body.velocity.y = 0.0f;
 	// cancel out velocity entirely
 	if ( linSpeed2 < threshold2 ) body.velocity = {};
 	// cancel out rotational velocity entirely

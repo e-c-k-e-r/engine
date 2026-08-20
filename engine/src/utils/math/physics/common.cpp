@@ -49,12 +49,13 @@ void impl::updateActivity( pod::PhysicsBody& body, float dt ) {
 	pod::Vector3f gravity = uf::vector::isValid( body.gravity ) ? body.gravity : body.world->gravity;
 	pod::Vector3f velocity = body.velocity - (gravity * dt);
 
-	// check if body is moving using the test velocity!
+	// check if body is moving using the test velocity
 	float linSpeed2 = uf::vector::magnitude( velocity );
 	float angSpeed2 = uf::vector::magnitude( body.angularVelocity );
 
 	// body is nearly still
-	if ( linSpeed2 < pod::Activity::linearSleepEpsilon && angSpeed2 < pod::Activity::angularSleepEpsilon ) {
+	if ( linSpeed2 < pod::Activity::linearSleepEpsilon * pod::Activity::linearSleepEpsilon &&
+		angSpeed2 < pod::Activity::angularSleepEpsilon * pod::Activity::angularSleepEpsilon ) {
 		body.activity.sleepTimer += dt;
 		float threshold = pod::Activity::sleepThreshold;
 
@@ -202,8 +203,9 @@ pod::Vector3f impl::computeTangent( const pod::Vector3f& normal ) {
 // returns the closest point on an A->B segment
 pod::Vector3f impl::closestPointOnSegment( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b ) {
 	pod::Vector3f ab = b - a;
-	float t = uf::vector::dot(p - a, ab) / uf::vector::dot(ab, ab);
-	t = std::clamp( t, 0.0f, 1.0f );
+	float abSq = uf::vector::dot(ab, ab);
+	if ( abSq < EPS ) return a; // degenerate segment
+	float t = std::clamp( uf::vector::dot(p - a, ab) / abSq, 0.0f, 1.0f );
 	return a + ab * t;
 }
 // 
@@ -252,28 +254,26 @@ std::pair<pod::Vector3f, pod::Vector3f> impl::closestSegmentSegment( const pod::
 
 	return { A + u * sc, C + v * tc };
 }
-// 
+// returns the closest point on an AABB to a segment (alternating projections)
 pod::Vector3f impl::closestPointSegmentAabb( const pod::Vector3f& p1, const pod::Vector3f& p2, const pod::AABB& box ) {
-	// AABB center and half extents
-	auto c = impl::aabbCenter( box );
-	auto e = impl::aabbExtent( box );
-
 	// direction of line segment
 	auto d = p2 - p1;
 	float len2 = uf::vector::magnitude( d );
-	float t = 0.0f;
 
-	if ( len2 > EPS2 ) {
-		// parametric closest t from box center
-		t = uf::vector::dot( c - p1, d ) / len2; // sqrt?
-		t = std::clamp( t, 0.0f, 1.0f );
+	// degenerate segment
+	if ( len2 < EPS2 ) return uf::vector::clamp( p1, box.min, box.max );
+
+	// iterate: project the box point onto the segment, then clamp back into the box
+	pod::Vector3f q = uf::vector::clamp( p1, box.min, box.max );
+	for ( auto i = 0; i < 8; ++i ) {
+		float t = std::clamp( uf::vector::dot( q - p1, d ) / len2, 0.0f, 1.0f );
+		auto p = p1 + d * t;
+		auto newQ = uf::vector::clamp( p, box.min, box.max );
+		if ( uf::vector::distanceSquared( newQ, q ) < EPS2 ) { q = newQ; break; }
+		q = newQ;
 	}
 
-	// closest point on segment to box center
-	auto segClosest = p1 + d * t;
-
-	// clamp this point into AABB
-	return uf::vector::clamp( segClosest, box.min, box.max );
+	return q;
 }
 // returns the barycentric coordinates of a point on a triangle
 pod::Vector3f impl::computeBarycentric( const pod::Vector3f& p, const pod::Vector3f& a, const pod::Vector3f& b, const pod::Vector3f& c, bool clamps ) {
@@ -514,7 +514,7 @@ void impl::clipPolygon( pod::Vector3f* poly, int& polyCount, const pod::Plane& p
 	if ( polyCount == 0 ) return;
 
 	int outCount = 0;
-	pod::Vector3f out[8];
+	pod::Vector3f out[12]; // a 3-vertex polygon clipped against 6 planes can yield up to 9 vertices
 
 	for ( auto i = 0; i < polyCount; i++ ) {
 		auto curr = poly[i];
@@ -760,6 +760,22 @@ pod::AABB impl::computeAABB( const pod::PhysicsBody& body ) {
 			for ( const auto& view : meshData.buffer_views ) impl::computeConvexHullAABB( view, view["position"], bounds );
 			return impl::transformAabbToWorld( bounds, transform );
 		}
+		case pod::ShapeType::PLANE: {
+			// planes are infinite; use a large finite proxy box for broadphase
+			// to-do: replace with a proper infinite-plane broadphase test
+			const auto& plane = body.collider.plane;
+			pod::Vector3f n = uf::vector::normalize( plane.normal );
+			pod::Vector3f t = impl::computeTangent( n );
+			pod::Vector3f b = uf::vector::normalize( uf::vector::cross( n, t ) );
+			pod::Vector3f center = n * plane.offset;
+			const float extent = 1.0e4f;
+			pod::Vector3f e = ( t + b + n ) * extent;
+			return { center - e, center + e };
+		} break;
+		case pod::ShapeType::TRIANGLE: {
+			// triangles are stored in world-space (transform is ignored in narrowphase)
+			return impl::computeTriangleAABB( body.collider.triangle );
+		} break;
 		default: {
 		} break;
 	}
@@ -854,10 +870,11 @@ pod::qAABB impl::quantizeAABB( const pod::AABB& box, const pod::AABB& root, cons
 	pod::Vector3f min = (box.min - root.min) * invScale;
 	pod::Vector3f max = (box.max - root.min) * invScale;
 
-	return {
-		uf::vector::clamp( min, 0.0f, 65535.0f ),
-		uf::vector::clamp( max, 0.0f, 65535.0f )
-	};
+	// floor min / ceil max so the quantized box stays conservative (truncating max would shrink it)
+	min = uf::vector::floor( uf::vector::clamp( min, 0.0f, 65535.0f ) );
+	max = uf::vector::ceil( uf::vector::clamp( max, 0.0f, 65535.0f ) );
+
+	return { min, max };
 }
 pod::AABB impl::dequantizeAABB( const pod::qAABB& qbox, const pod::AABB& root ) {
 	pod::Vector3f scale = (root.max - root.min) / 65535.0f;

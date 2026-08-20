@@ -98,7 +98,11 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 
 			islands[islandID].pairs.emplace_back(a, b);
 
-			if ( bodies[a]->activity.awake || bodies[b]->activity.awake ) {
+			// wake the dynamic body if the other body is dynamic and awake
+			// (static bodies are always awake and must not keep waking sleeping dynamics)
+			bool aDynamic = bodies[a]->inverseMass != 0.0f;
+			bool bDynamic = bodies[b]->inverseMass != 0.0f;
+			if ( (aDynamic && bodies[a]->activity.awake) || (bDynamic && bodies[b]->activity.awake) ) {
 				impl::wakeBody( *bodies[dynamicIndex] );
 			}
 		}
@@ -106,17 +110,24 @@ void impl::buildIslands( const pod::BVH::pairs_t& pairs, const uf::stl::vector<p
 
 	for ( auto* constraint : constraints ) {
 		auto itA = bodyToIndex.find(constraint->a);
-		if (itA == bodyToIndex.end()) continue;
+		auto itB = bodyToIndex.find(constraint->b);
+		if ( itA == bodyToIndex.end() || itB == bodyToIndex.end() ) continue;
 
-		pod::BVH::index_t root = unionizer.find(itA->second);
+		// statics are never unioned, so look up the island through the dynamic body
+		if ( constraint->a->inverseMass == 0.0f && constraint->b->inverseMass == 0.0f ) continue;
+		pod::BVH::index_t dynamicIndex = (constraint->a->inverseMass != 0.0f) ? itA->second : itB->second;
+
+		pod::BVH::index_t root = unionizer.find(dynamicIndex);
 		if ( rootToIsland.find(root) != rootToIsland.end() ) {
 			pod::BVH::index_t islandID = rootToIsland[root];
 			islands[islandID].constraints.emplace_back(constraint);
 
-			// Wake bodies if connected by a constraint and one is awake
-			if ( constraint->a->activity.awake || constraint->b->activity.awake ) {
-				if (constraint->a->inverseMass != 0.0f) impl::wakeBody( *constraint->a );
-				if (constraint->b->inverseMass != 0.0f) impl::wakeBody( *constraint->b );
+			// wake bodies if connected by a constraint and a dynamic one is awake
+			bool aDynamic = constraint->a->inverseMass != 0.0f;
+			bool bDynamic = constraint->b->inverseMass != 0.0f;
+			if ( (aDynamic && constraint->a->activity.awake) || (bDynamic && constraint->b->activity.awake) ) {
+				if ( aDynamic ) impl::wakeBody( *constraint->a );
+				if ( bDynamic ) impl::wakeBody( *constraint->b );
 			}
 		}
 	}

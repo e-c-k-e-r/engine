@@ -183,7 +183,7 @@ bool impl::rayCapsule( const pod::Ray& ray, const pod::PhysicsBody& body, pod::R
 	// coeffs for intersection with infinite cylinder
 	float a = dd - nd*nd;
 	float k = uf::vector::dot(m, m) - r*r;
-	float c = dd - md*md;
+	float c = dd * k - md*md;
 
 	float b = dd * uf::vector::dot(m,n) - nd*md;
 	float discr = b*b - a*c;
@@ -316,10 +316,10 @@ void impl::drawRay( const pod::Ray& ray, const pod::RayQuery& query ) {
 }
 
 pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::PhysicsBody& body, float maxDistance, uint32_t mask ) {
-	return rayCast( ray, body.world ? *body.world : uf::physics::getWorld(), &body, maxDistance );
+	return rayCast( ray, body.world ? *body.world : uf::physics::getWorld(), &body, maxDistance, mask );
 }
 pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, float maxDistance, uint32_t mask ) {
-	return rayCast( ray, world, NULL, maxDistance );
+	return rayCast( ray, world, NULL, maxDistance, mask );
 }
 pod::RayQuery uf::physics::rayCast( const pod::Ray& ray, const pod::World& world, const pod::PhysicsBody* body, float maxDistance, uint32_t mask ) {
 	pod::RayQuery rayHit;

@@ -105,7 +105,7 @@ namespace {
 	size_t mtime( pod::Mount& mount, const uf::stl::string& ) {
 		return 0;
 	};
-	bool read( pod::Mount& mount, const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer) {
+	bool _read( pod::Mount& mount, const uf::stl::string& path, uf::stl::vector<uint8_t>& buffer) {
 		auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );
 		auto archive = state.get();
 		return archive && ext::valve::readVpk(*archive, uf::string::lowercase( path ), buffer);
@@ -269,7 +269,7 @@ pod::Mount ext::valve::createVpkMount( const uf::stl::string& uri, int priority 
 	mount.list = ::list;
 	mount.open = ::open;
 	mount.mtime = ::mtime;
-	mount.read = ::read;
+	mount.read = ::_read;
 	mount.readRange = ::readRange;
 	
 	auto& state = uf::pointeredUserdata::get<VpkMountState>( mount.userdata );

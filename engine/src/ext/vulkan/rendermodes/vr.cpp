@@ -254,9 +254,9 @@ void ext::vulkan::VrRenderMode::render() {
 	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, /*VK_NULL_HANDLE*/fences[states::currentBuffer]);
 	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
-
+#if UF_USE_OPENVR
 	ext::openvr::submit();
-
+#endif
 	this->executed = true;
 }
 
