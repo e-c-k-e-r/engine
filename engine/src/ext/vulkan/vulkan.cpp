@@ -540,10 +540,14 @@ void ext::vulkan::tick() {
 	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 	for ( auto& renderMode : renderModes ) { if ( !renderMode || (renderMode->executed && !renderMode->execute) ) continue;
 		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([renderMode]{
+			renderMode->synchronize();
+			renderMode->cleanupAllCommands();
 			renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
 		else if ( renderMode->rerecord ) tasks.queue([renderMode]{
+			renderMode->synchronize();
+			renderMode->cleanupAllCommands();
 			renderMode->createCommandBuffers();
 		});
 	} 
@@ -641,9 +645,17 @@ void ext::vulkan::render() {
 				VK_CHECK_RESULT(vkResetFences(device, fences.size(), fences.data()));
 			}
 			if ( !submitsCompute.empty() )
-				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::COMPUTE ), submitsCompute.size(), submitsCompute.data(), ::auxFences.compute[states::currentBuffer]));
+			{
+				VkQueue queue = device.getQueue( QueueEnum::COMPUTE );
+				auto lock = device.lockQueue( queue );
+				VK_CHECK_RESULT(vkQueueSubmit(queue, submitsCompute.size(), submitsCompute.data(), ::auxFences.compute[states::currentBuffer]));
+			}
 			if ( !submitsGraphics.empty() )
-				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::GRAPHICS ), submitsGraphics.size(), submitsGraphics.data(), ::auxFences.graphics[states::currentBuffer]));
+			{
+				VkQueue queue = device.getQueue( QueueEnum::GRAPHICS );
+				auto lock = device.lockQueue( queue );
+				VK_CHECK_RESULT(vkQueueSubmit(queue, submitsGraphics.size(), submitsGraphics.data(), ::auxFences.graphics[states::currentBuffer]));
+			}
 		}
 
 		// submit swapchain (record + submit + present) last
@@ -696,6 +708,28 @@ void ext::vulkan::render() {
 
 //	ext::vulkan::mutex.unlock();
 
+	// wait on any in-flight transient commands so their staging resources can be destroyed, and return their command buffers to the reusable pool
+	for ( auto& [ queueType, commandBuffers ] : transient.commandBuffers ) {
+		for ( auto& [ threadId, tuple ] : commandBuffers ) {
+			constexpr size_t TOTAL = 64;
+			for ( size_t i = 0; i < tuple.fences.size(); i += TOTAL ) {
+				size_t count = std::min( tuple.fences.size() - i, TOTAL );
+				VK_CHECK_RESULT( vkWaitForFences( device, count, &tuple.fences[i], VK_TRUE, UINT64_MAX ) );
+			}
+			for ( auto fence : tuple.fences ) device.destroyFence( fence );
+			tuple.fences.clear();
+			auto& pool = device.reusable.commandBuffers[queueType][threadId];
+			for ( auto commandBuffer : tuple.commandBuffers ) {
+				if ( auto it = device.checkpoints.find(commandBuffer); it != device.checkpoints.end() ) {
+					uf::checkpoint::deallocate( it->second );
+					device.checkpoints.erase( it );
+				}
+				pool.emplace( commandBuffer );
+			}
+			tuple.commandBuffers.clear();
+		}
+	}
+
 	// cleanup in-flight buffers
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
@@ -726,8 +760,9 @@ void ext::vulkan::destroy( bool soft ) {
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->device ) continue;
 		renderMode->destroy();
-		delete renderMode;
-		renderMode = NULL;
+		if ( std::find( ext::vulkan::renderModes.begin(), ext::vulkan::renderModes.end(), renderMode ) != ext::vulkan::renderModes.end() ) {
+			delete renderMode;
+		}
 	}
 
 	ext::vulkan::renderModes.clear();

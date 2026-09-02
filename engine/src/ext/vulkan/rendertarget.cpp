@@ -35,6 +35,17 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			VK_UNREGISTER_HANDLE( view );
 		}
 		attachment->views.clear();
+		// view and framebufferView are distinct handles not covered by views[]
+		if ( attachment->view ) {
+			vkDestroyImageView( *device, attachment->view, nullptr );
+			VK_UNREGISTER_HANDLE( attachment->view );
+			attachment->view = VK_NULL_HANDLE;
+		}
+		if ( attachment->framebufferView ) {
+			vkDestroyImageView( *device, attachment->framebufferView, nullptr );
+			VK_UNREGISTER_HANDLE( attachment->framebufferView );
+			attachment->framebufferView = VK_NULL_HANDLE;
+		}
 		if ( attachment->image && attachment->descriptor.layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
 			vmaDestroyImage( allocator, attachment->image, attachment->allocation );
 			attachment->image = VK_NULL_HANDLE;
@@ -482,7 +493,17 @@ void ext::vulkan::RenderTarget::destroy() {
 	framebuffers.clear();
 	
 	for ( auto& attachment : attachments ) {
-		if ( attachment.descriptor.aliased ) continue;
+		if ( attachment.descriptor.aliased ) {
+			if ( attachment.descriptor.layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+			for ( auto& view : attachment.views ) {
+				if ( view != VK_NULL_HANDLE ) {
+					vkDestroyImageView( *device, view, nullptr );
+					VK_UNREGISTER_HANDLE( view );
+				}
+			}
+			attachment.views.clear();
+			continue;
+		}
 		if ( attachment.framebufferView ) {
 			vkDestroyImageView(*device, attachment.framebufferView, nullptr);
 			VK_UNREGISTER_HANDLE( attachment.framebufferView );

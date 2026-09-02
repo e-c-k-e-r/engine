@@ -484,6 +484,7 @@ void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
 		texture.device = &uf::renderer::device;
 		texture.view = view;
 	}
+	metadata.views.clear();
 }
 void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
 	serializer["vxgi"]["size"] = /*this->*/voxelSize.x;

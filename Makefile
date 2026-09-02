@@ -3,45 +3,45 @@ DEFAULTS_DIR := ./makefiles/defaults
 _mkdir := $(shell mkdir -p $(DEFAULTS_DIR))
 
 ifeq ($(origin ARCH),undefined)
-    ARCH := $(shell cat "$(DEFAULTS_DIR)/arch" 2>/dev/null)
+	ARCH := $(shell cat "$(DEFAULTS_DIR)/arch" 2>/dev/null)
 endif
 ifeq ($(strip $(ARCH)),)
-    ifeq ($(OS),Windows_NT)
-        ARCH := win64
-    else
-        UNAME_S := $(shell uname -s)
-        ifeq ($(UNAME_S),Linux)
-            ARCH := linux
-        else
-            $(warning Unknown host '$(UNAME_S)', defaulting ARCH to linux)
-            ARCH := linux
-        endif
-    endif
-    _write_arch := $(shell echo -n "$(ARCH)" > "$(DEFAULTS_DIR)/arch")
+	ifeq ($(OS),Windows_NT)
+		ARCH := win64
+	else
+		UNAME_S := $(shell uname -s)
+		ifeq ($(UNAME_S),Linux)
+			ARCH := linux
+		else
+			$(warning Unknown host '$(UNAME_S)', defaulting ARCH to linux)
+			ARCH := linux
+		endif
+	endif
+	_write_arch := $(shell echo -n "$(ARCH)" > "$(DEFAULTS_DIR)/arch")
 endif
 
 ifeq ($(origin COMPILER),undefined)
-    COMPILER := $(shell cat "$(DEFAULTS_DIR)/cc" 2>/dev/null)
+	COMPILER := $(shell cat "$(DEFAULTS_DIR)/cc" 2>/dev/null)
 endif
 ifeq ($(strip $(COMPILER)),)
-    ifneq ($(shell command -v gcc 2>/dev/null),)
-        COMPILER := gcc
-    else ifneq ($(shell command -v clang 2>/dev/null),)
-        COMPILER := clang
-    else
-        $(warning No gcc or clang found, defaulting COMPILER to gcc)
-        COMPILER := gcc
-    endif
-    _write_cc := $(shell echo -n "$(COMPILER)" > "$(DEFAULTS_DIR)/cc")
+	ifneq ($(shell command -v gcc 2>/dev/null),)
+		COMPILER := gcc
+	else ifneq ($(shell command -v clang 2>/dev/null),)
+		COMPILER := clang
+	else
+		$(warning No gcc or clang found, defaulting COMPILER to gcc)
+		COMPILER := gcc
+	endif
+	_write_cc := $(shell echo -n "$(COMPILER)" > "$(DEFAULTS_DIR)/cc")
 endif
 
 # to-do: deduce via existence of Vulkan/OpenGL headers
 ifeq ($(origin RENDERER),undefined)
-    RENDERER := $(shell cat "$(DEFAULTS_DIR)/renderer" 2>/dev/null)
+	RENDERER := $(shell cat "$(DEFAULTS_DIR)/renderer" 2>/dev/null)
 endif
 ifeq ($(strip $(RENDERER)),)
-    RENDERER := vulkan
-    _write_rend := $(shell echo -n "$(RENDERER)" > "$(DEFAULTS_DIR)/renderer")
+	RENDERER := vulkan
+	_write_rend := $(shell echo -n "$(RENDERER)" > "$(DEFAULTS_DIR)/renderer")
 endif
 
 TARGET_NAME			= program
@@ -169,3 +169,4 @@ run-debug:
 	@echo -n $(COMPILER) > "./bin/exe/default/cc"
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
 	./debug.sh
+

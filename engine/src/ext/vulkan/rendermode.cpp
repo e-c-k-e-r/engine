@@ -267,13 +267,17 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 	if ( !exists ) {
 		commands.resize( swapchain.buffers );
 
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			device->getCommandPool(this->queueEnum, id),
-			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			static_cast<uint32_t>(commands.size())
-		);
+		auto pool = device->getCommandPool(this->queueEnum, id);
+		{
+			auto lock = device->lockPool( pool );
+			VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
+				pool,
+				VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+				static_cast<uint32_t>(commands.size())
+			);
 
-		VK_CHECK_RESULT(vkAllocateCommandBuffers(*device, &cmdBufAllocateInfo, commands.data()));
+			VK_CHECK_RESULT(vkAllocateCommandBuffers(*device, &cmdBufAllocateInfo, commands.data()));
+		}
 	}
 	return commands;
 }
@@ -295,7 +299,10 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 		if ( commandBuffers.empty() ) continue;
 
 		VkQueue queue = device->getQueue( queueEnum, threadID );
-		vkQueueWaitIdle( queue );
+		{
+			auto lock = device->lockQueue( queue );
+			vkQueueWaitIdle( queue );
+		}
 	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
@@ -307,7 +314,11 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 			device->checkpoints.erase(commandBuffer);
 		}
 
-		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, threadID), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		{
+			auto pool = device->getCommandPool(queueEnum, threadID);
+			auto lock = device->lockPool( pool );
+			vkFreeCommandBuffers( *device, pool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		}
 		commandBuffers.clear();
 	}
 	container.clear();
@@ -320,7 +331,10 @@ void ext::vulkan::RenderMode::cleanupCommands( uf::thread::id_t id ) {
 		
 
 		VkQueue queue = device->getQueue( queueEnum, threadID );
-		vkQueueWaitIdle( queue );
+		{
+			auto lock = device->lockQueue( queue );
+			vkQueueWaitIdle( queue );
+		}
 	/*
 		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
@@ -332,7 +346,11 @@ void ext::vulkan::RenderMode::cleanupCommands( uf::thread::id_t id ) {
 			device->checkpoints.erase(commandBuffer);
 		}
 
-		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, threadID), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		{
+			auto pool = device->getCommandPool(queueEnum, threadID);
+			auto lock = device->lockPool( pool );
+			vkFreeCommandBuffers( *device, pool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+		}
 		commandBuffers.clear();
 	}
 	this->commands.cleanup( id );
@@ -481,7 +499,9 @@ void ext::vulkan::RenderMode::destroy() {
 
 	for ( auto& pair : this->commands.container() ) {
 		if ( !pair.second.empty() ) {
-			vkFreeCommandBuffers( *device, device->getCommandPool(this->queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+			auto pool = device->getCommandPool(this->queueEnum, pair.first);
+			auto lock = device->lockPool( pool );
+			vkFreeCommandBuffers( *device, pool, static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		}
 		pair.second.clear();
 	}
@@ -506,9 +526,12 @@ void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 	lockMutex();
 	
 	VkQueue queue = device->getQueue( queueEnum, this->mostRecentCommandPoolId );
-	VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout );
-//	VkResult res = vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, timeout);
-	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	{
+		auto lock = device->lockQueue( queue );
+		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout );
+	//	VkResult res = vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, timeout);
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	}
 
 	unlockMutex();
 }

@@ -39,7 +39,7 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 	this->memory = buffer.memory;
 	this->descriptor = buffer.descriptor;
 	this->alignment = buffer.alignment;
-	this->stride = buffer.alignment;
+	this->stride = buffer.stride;
 	this->address = buffer.address;
 	this->mapped = buffer.mapped;
 	this->usage = buffer.usage;

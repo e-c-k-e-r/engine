@@ -617,10 +617,14 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 		if ( !pool.empty() ) {
 			commandBuffer = pool.top();
 			pool.pop();
+			// pooled command buffers are returned in the recorded state, they must be reset before re-recording
+			vkResetCommandBuffer( commandBuffer, 0 );
 		}
 	}
 	if ( commandBuffer == VK_NULL_HANDLE ) {
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
+		auto pool = getCommandPool( queue );
+		auto lock = this->lockPool( pool );
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( pool, level, 1 );
 		VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
 	}
 
@@ -647,25 +651,28 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 	submitInfo.pCommandBuffers = &commandBuffer;
 
 	auto queue = getQueue( queueType );
-	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
+	{
+		auto lock = this->lockQueue( queue );
+		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
 
-	if ( immediate ) {
-		VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
-		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+		if ( immediate ) {
+			VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 
-		uf::checkpoint::deallocate(checkpoints[commandBuffer]);
-		checkpoints[commandBuffer] = NULL;
-		checkpoints.erase(commandBuffer);
+			uf::checkpoint::deallocate(checkpoints[commandBuffer]);
+			checkpoints[commandBuffer] = NULL;
+			checkpoints.erase(commandBuffer);
 
-		this->destroyFence( fence );
+			this->destroyFence( fence );
 
-		this->reusable.commandBuffers[queueType][uf::thread::current_id()].emplace( commandBuffer );
-	} else {
-		ext::vulkan::mutex.lock();
-		auto& transient = this->transient.commandBuffers[queueType][uf::thread::current_id()];
-		transient.commandBuffers.emplace_back(commandBuffer);
-		transient.fences.emplace_back(fence);
-		ext::vulkan::mutex.unlock();
+			this->reusable.commandBuffers[queueType][uf::thread::current_id()].emplace( commandBuffer );
+		} else {
+			ext::vulkan::mutex.lock();
+			auto& transient = this->transient.commandBuffers[queueType][uf::thread::current_id()];
+			transient.commandBuffers.emplace_back(commandBuffer);
+			transient.fences.emplace_back(fence);
+			ext::vulkan::mutex.unlock();
+		}
 	}
 }
 pod::Checkpoint* ext::vulkan::Device::markCommandBuffer( VkCommandBuffer commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info ) {
@@ -703,25 +710,28 @@ void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer& comman
 	submitInfo.pCommandBuffers = &commandBuffer.handle;
 
 	auto queue = getQueue( commandBuffer.queueType, commandBuffer.threadId );
-	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
+	{
+		auto lock = this->lockQueue( queue );
+		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
 
-	if ( commandBuffer.immediate ) {
-		VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
-		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+		if ( commandBuffer.immediate ) {
+			VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 
-		uf::checkpoint::deallocate(checkpoints[commandBuffer.handle]);
-		checkpoints[commandBuffer.handle] = NULL;
-		checkpoints.erase(commandBuffer.handle);
+			uf::checkpoint::deallocate(checkpoints[commandBuffer.handle]);
+			checkpoints[commandBuffer.handle] = NULL;
+			checkpoints.erase(commandBuffer.handle);
 
-		this->destroyFence( fence );
+			this->destroyFence( fence );
 
-		this->reusable.commandBuffers[commandBuffer.queueType][commandBuffer.threadId].emplace( commandBuffer.handle );
-	} else {
-		ext::vulkan::mutex.lock();
-		auto& transient = this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId];
-		transient.commandBuffers.emplace_back(commandBuffer.handle);
-		transient.fences.emplace_back(fence);
-		ext::vulkan::mutex.unlock();
+			this->reusable.commandBuffers[commandBuffer.queueType][commandBuffer.threadId].emplace( commandBuffer.handle );
+		} else {
+			ext::vulkan::mutex.lock();
+			auto& transient = this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId];
+			transient.commandBuffers.emplace_back(commandBuffer.handle);
+			transient.fences.emplace_back(fence);
+			ext::vulkan::mutex.unlock();
+		}
 	}
 }
 
@@ -889,9 +899,27 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, uf::thr
 	}
 	return queue;
 }
+std::unique_lock<std::mutex> ext::vulkan::Device::lockQueue( VkQueue queue ) {
+	UF_ASSERT( this->queueLocks );
+	std::lock_guard<std::mutex> guard( this->queueLocks->mutex );
+	auto& locks = this->queueLocks->locks;
+	auto it = locks.find( queue );
+	if ( it == locks.end() ) it = locks.emplace( queue, std::make_unique<std::mutex>() ).first;
+	return std::unique_lock<std::mutex>( *it->second );
+}
+std::unique_lock<std::mutex> ext::vulkan::Device::lockPool( VkCommandPool pool ) {
+	UF_ASSERT( this->queueLocks );
+	std::lock_guard<std::mutex> guard( this->queueLocks->mutex );
+	auto& locks = this->queueLocks->poolLocks;
+	auto it = locks.find( pool );
+	if ( it == locks.end() ) it = locks.emplace( pool, std::make_unique<std::mutex>() ).first;
+	return std::unique_lock<std::mutex>( *it->second );
+}
 
 void ext::vulkan::Device::initialize() {
 	auto& device = *this;
+
+	this->queueLocks = std::make_unique<QueueLocks>();
 
 	uf::stl::vector<uf::stl::string> instanceLayers = {
 	//	"VK_LAYER_KHRONOS_synchronization2",
@@ -1172,6 +1200,41 @@ void ext::vulkan::Device::initialize() {
 			// Else we use the same queue
 			queueFamilyIndices.transfer = queueFamilyIndices.graphics;
 		}
+		// Present queue (must be resolved before tallying, queues are created per-family)
+		{
+			uint32_t graphicsQueueNodeIndex = UINT32_MAX;
+			uint32_t presentQueueNodeIndex = UINT32_MAX;
+			uint32_t computeQueueNodeIndex = UINT32_MAX;
+			uint32_t transferQueueNodeIndex = UINT32_MAX;
+
+			int i = 0;
+			for (const auto& queueFamily : queueFamilyProperties) {
+				if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
+					graphicsQueueNodeIndex = i;
+				}
+
+				if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT ) {
+					computeQueueNodeIndex = i;
+				}
+
+				if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) {
+					transferQueueNodeIndex = i;
+				}
+
+				VkBool32 presentSupport = false;
+				vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
+				if ( queueFamily.queueCount > 0 && presentSupport ) {
+					presentQueueNodeIndex = i;
+				}
+
+				if ( graphicsQueueNodeIndex != UINT32_MAX && presentQueueNodeIndex != UINT32_MAX && computeQueueNodeIndex != UINT32_MAX ) break;
+
+				i++;
+			}
+
+			if ( presentQueueNodeIndex == UINT32_MAX ) presentQueueNodeIndex = queueFamilyIndices.graphics;
+			queueFamilyIndices.present = presentQueueNodeIndex;
+		}
 		// Dedicated acquire queue
 		{
 			queueFamilyIndices.acquire = queueFamilyIndices.present;
@@ -1203,7 +1266,12 @@ void ext::vulkan::Device::initialize() {
 		{
 			std::map<uint32_t, uint32_t> familyIndexCounters;
 			auto assignQueueIndex = [&](uint32_t family) -> uint32_t {
-				return familyIndexCounters[family]++;
+				// roles may share a queue when the family has fewer queues than requested
+				uint32_t available = MAX( 1, std::min( requestedQueuesPerFamily[family], queueFamilyProperties[family].queueCount ) );
+				auto& counter = familyIndexCounters[family];
+				uint32_t index = counter % available;
+				counter++;
+				return index;
 			};
 
 			device.queueIndices.graphics = assignQueueIndex( device.queueFamilyIndices.graphics );
@@ -1227,8 +1295,7 @@ void ext::vulkan::Device::initialize() {
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());;
 		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-	//	deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
-		deviceCreateInfo.pEnabledFeatures = nullptr;
+		deviceCreateInfo.pEnabledFeatures = ext::vulkan::settings::requested::featureChain["physicalDevice2"].as<bool>(false) ? nullptr : &enabledFeatures;
 		
 		VkDeviceGroupDeviceCreateInfo groupDeviceCreateInfo = {};
 		groupDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO;
@@ -1409,43 +1476,12 @@ void ext::vulkan::Device::initialize() {
 	getCommandPool( QueueEnum::TRANSFER );
 	// Set queue
 	{
-		uint32_t graphicsQueueNodeIndex = UINT32_MAX;
-		uint32_t presentQueueNodeIndex = UINT32_MAX;
-		uint32_t computeQueueNodeIndex = UINT32_MAX;
-		uint32_t transferQueueNodeIndex = UINT32_MAX;
-
-		int i = 0;
-		for (const auto& queueFamily : queueFamilyProperties) {
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
-				graphicsQueueNodeIndex = i;
-			}
-
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT ) {
-				computeQueueNodeIndex = i;
-			}
-
-			if ( queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) {
-				transferQueueNodeIndex = i;
-			}
-
-			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
-			if ( queueFamily.queueCount > 0 && presentSupport ) {
-				presentQueueNodeIndex = i;
-			}
-
-			if ( graphicsQueueNodeIndex != UINT32_MAX && presentQueueNodeIndex != UINT32_MAX && computeQueueNodeIndex != UINT32_MAX ) break;
-
-			i++;
-		}
-
 		VK_VALIDATION_MESSAGE("Graphics queue: family={}, index={}", device.queueFamilyIndices.graphics, device.queueIndices.graphics );
 		VK_VALIDATION_MESSAGE("Compute queue: family={}, index={}", device.queueFamilyIndices.compute, device.queueIndices.compute );
 		VK_VALIDATION_MESSAGE("Transfer queue: family={}, index={}", device.queueFamilyIndices.transfer, device.queueIndices.transfer );
 		VK_VALIDATION_MESSAGE("Present queue: family={}, index={}", device.queueFamilyIndices.present, device.queueIndices.present );
 		VK_VALIDATION_MESSAGE("Acquire queue: family={}, index={}", device.queueFamilyIndices.acquire, device.queueIndices.acquire );
 
-		device.queueFamilyIndices.present = presentQueueNodeIndex;
 		getQueue( QueueEnum::GRAPHICS );
 		getQueue( QueueEnum::PRESENT );
 		getQueue( QueueEnum::COMPUTE );
@@ -1613,7 +1649,7 @@ void ext::vulkan::Device::destroy() {
 	for ( auto& pair_1 : this->transient.commandBuffers ) {
 		for ( auto& pair : pair_1.second ) {
 			for ( auto& commandBuffer : pair.second.commandBuffers ) {
-				vkFreeCommandBuffers(logicalDevice, getCommandPool( pair_1.first ), 1, &commandBuffer);
+				vkFreeCommandBuffers(logicalDevice, getCommandPool( pair_1.first, pair.first ), 1, &commandBuffer);
 				VK_UNREGISTER_HANDLE( commandBuffer );
 				commandBuffer = VK_NULL_HANDLE;
 			}
@@ -1635,8 +1671,8 @@ void ext::vulkan::Device::destroy() {
 		VK_UNREGISTER_HANDLE( fence );
 	}
 	for ( auto& [queueType, threadMap] : this->reusable.commandBuffers) {
-		VkCommandPool commandPool = getCommandPool(queueType);
 		for ( auto& [threadId, pool] : threadMap) {
+			VkCommandPool commandPool = getCommandPool(queueType, threadId);
 			if ( pool.empty() ) continue;
 			uf::stl::vector<VkCommandBuffer> buffersToFree;
 			buffersToFree.reserve(pool.size());
@@ -1670,6 +1706,18 @@ void ext::vulkan::Device::destroy() {
 	for ( auto& pair : Pipeline::pipelines ) pair.second.destroy();
 	Pipeline::pipelines.clear();
 
+	// pipelines may have deferred their SBT buffers into transient.buffers above
+	for ( auto& buffer : this->transient.buffers ) {
+		buffer.destroy(false);
+	}
+	this->transient.buffers.clear();
+
+	// deferred texture destroys (e.g. the empty textures) that outlived the last flush
+	for ( auto& texture : this->transient.textures ) {
+		texture.destroy(false);
+	}
+	this->transient.textures.clear();
+
 	descriptorAllocator.destroy();
 
 	for ( auto& pair : this->commandPool.graphics.container() ) {
@@ -1687,6 +1735,20 @@ void ext::vulkan::Device::destroy() {
 		VK_UNREGISTER_HANDLE( pair.second );
 		pair.second = VK_NULL_HANDLE;
 	}
+	// the VMA allocator must die while the device is still alive, and only once every allocation it owns has been freed
+	if ( allocator ) {
+		VmaTotalStatistics statistics = {};
+		vmaCalculateStatistics( allocator, &statistics );
+		uint32_t allocationCount = 0;
+		for ( auto& detail : statistics.memoryType ) allocationCount += detail.statistics.allocationCount;
+		if ( allocationCount > 0 ) {
+			UF_MSG_DEBUG("VMA allocator still owns {} allocations at shutdown", allocationCount );
+		}
+		vmaDestroyAllocator( allocator );
+		VK_UNREGISTER_HANDLE( allocator );
+		allocator = nullptr;
+	}
+
 	if ( this->logicalDevice ) {
 		vkDestroyDevice( this->logicalDevice, nullptr );
 		VK_UNREGISTER_HANDLE( this->logicalDevice );
@@ -1706,9 +1768,6 @@ void ext::vulkan::Device::destroy() {
 		VK_UNREGISTER_HANDLE( this->instance );
 		this->instance = nullptr;
 	}
-
-//	vmaDestroyAllocator( allocator );
-	VK_UNREGISTER_HANDLE( allocator );
 }
 
 void ext::vulkan::DescriptorAllocator::initialize(VkDevice inDevice) {

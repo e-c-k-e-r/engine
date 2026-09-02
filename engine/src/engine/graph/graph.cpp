@@ -1422,6 +1422,52 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 			node.metadata["holdable"] = (mass <= 35.0f) && !motionDisabled && !preventPickup;
 		}
+		// bind button
+		else if ( node.name == "func_button" ) {
+			loadJson["assets"].emplace_back("ent://scripts/valve/button.lua");
+			// signal to assign a physics body
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				node.metadata["physics"]["type"] = "bounding box";
+			}
+		}
+		// bind train / moving platform
+		else if ( node.name == "func_train" || node.name == "func_track" ) {
+			loadJson["assets"].emplace_back("ent://scripts/valve/train.lua");
+			// signal to assign a physics body
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				node.metadata["physics"]["type"] = "bounding box";
+			}
+		}
+		// bind breakable
+		else if ( node.name == "func_breakable" || node.name.starts_with("breakable_") ) {
+			loadJson["assets"].emplace_back("ent://scripts/valve/breakable.lua");
+			// signal to assign a physics body
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				node.metadata["physics"]["type"] = "mesh";
+				node.metadata["physics"]["category"] = "static";
+			}
+		}
+		// bind ladder
+		else if ( node.name == "func_ladder" ) {
+			loadJson["assets"].emplace_back("ent://scripts/valve/ladder.lua");
+			// signal to assign a physics body
+			if ( ext::json::isNull( node.metadata["physics"] ) ) {
+				node.metadata["physics"]["type"] = "bounding box";
+				node.metadata["physics"]["category"] = "trigger";
+			}
+		}
+		// bind logic entities (pure I/O, no physics body)
+		else if ( node.name.starts_with("logic_") ) {
+			if ( node.name == "logic_timer" ) {
+				loadJson["assets"].emplace_back("ent://scripts/valve/timer.lua");
+			} else if ( node.name == "logic_relay" ) {
+				loadJson["assets"].emplace_back("ent://scripts/valve/relay.lua");
+			} else if ( node.name == "logic_counter" ) {
+				loadJson["assets"].emplace_back("ent://scripts/valve/counter.lua");
+			} else if ( node.name == "logic_case" ) {
+				loadJson["assets"].emplace_back("ent://scripts/valve/case.lua");
+			}
+		}
 		// assume all other funcs are to have a physics body
 		else if ( node.name.starts_with("func_") ) {
 			if ( ext::json::isNull( node.metadata["physics"] ) ) {
@@ -1433,7 +1479,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 		// check if trigger
 		if ( node.name.starts_with("trigger_") ) {
-			loadJson["assets"].emplace_back("ent://scripts/valve/trigger.lua");
+			if ( node.name == "trigger_hurt" ) {
+				loadJson["assets"].emplace_back("ent://scripts/valve/hurt.lua");
+			} else {
+				loadJson["assets"].emplace_back("ent://scripts/valve/trigger.lua");
+			}
 			// signal to assign a physics body
 			if ( ext::json::isNull( node.metadata["physics"] ) ) {
 				node.metadata["physics"]["type"] = "bounding box";

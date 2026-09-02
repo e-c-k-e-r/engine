@@ -487,15 +487,15 @@ void ext::vulkan::Pipeline::destroy() {
 		descriptorPool = VK_NULL_HANDLE;
 	}
 */
-	if ( pipelineLayout != VK_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( *device, pipelineLayout, nullptr );
-		VK_UNREGISTER_HANDLE( pipelineLayout );
-		pipelineLayout = VK_NULL_HANDLE;
-	}
 	if ( pipeline != VK_NULL_HANDLE ) {
 		vkDestroyPipeline( *device, pipeline, nullptr );
 		VK_UNREGISTER_HANDLE( pipeline );
 		pipeline = VK_NULL_HANDLE;
+	}
+	if ( pipelineLayout != VK_NULL_HANDLE ) {
+		vkDestroyPipelineLayout( *device, pipelineLayout, nullptr );
+		VK_UNREGISTER_HANDLE( pipelineLayout );
+		pipelineLayout = VK_NULL_HANDLE;
 	}
 	for ( auto descriptorSetLayout : descriptorSetLayouts ) {
 		if ( descriptorSetLayout != VK_NULL_HANDLE ) {
@@ -504,6 +504,8 @@ void ext::vulkan::Pipeline::destroy() {
 		}
 	}
 	descriptorSetLayouts.clear();
+
+	ext::vulkan::Buffers::destroy();
 
 //	if ( settings::experimental::dedicatedThread ) ext::vulkan::states::rebuild = true;
 /*
@@ -1004,6 +1006,8 @@ void ext::vulkan::DescriptorSets::update( const Graphic& graphic, const GraphicD
 	} else */ {
 		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
 	}
+	// the updated sets may be bound into standing command buffers; re-record them so they pick up the new contents
+	renderMode.rerecord = true;
 	this->metadata.built = true;
 	return;
 
@@ -1714,6 +1718,10 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		} else UF_EXCEPTION("Buffers not found: {}", "tlasInstance");
 
 		auto& buffer = this->buffers.at(instanceIndex);
+		if ( instancesVK.size() * sizeof( VkAccelerationStructureInstanceKHR ) > buffer.allocationInfo.size ) {
+			buffer.destroy();
+			buffer.initialize( NULL, instancesVK.size() * sizeof( VkAccelerationStructureInstanceKHR ), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+		}
 		void* map = buffer.map();
 		uf::stl::memcpy(map, instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR));
 		buffer.unmap();
@@ -1942,7 +1950,7 @@ void ext::vulkan::Graphic::initializeDescriptorSet() {
 	initializeDescriptorSet( this->descriptor );
 }
 ext::vulkan::DescriptorSets& ext::vulkan::Graphic::initializeDescriptorSet( const GraphicDescriptor& descriptor ) {
-	auto& pipeline = getPipeline();
+	auto& pipeline = getPipeline( descriptor );
 	auto& descriptorSet = descriptorSets[descriptor];
 
 	// ensure pipeline exists (because we're passing this as const)

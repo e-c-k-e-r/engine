@@ -668,10 +668,17 @@ void ext::vulkan::DeferredRenderMode::render() {
 
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_BEGIN, VkCommandBuffer{}, 0, {} );
 
+	// wait on the slot's previous deferred submit so its fence can be re-signaled
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
+	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
+
 	VkSubmitInfo submitInfo = this->queue();
-	VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
-	VkResult res = vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE/*fences[states::currentBuffer]*/);
-	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	{
+		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
+		auto lock = device->lockQueue( queue );
+		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	}
 	
 	VK_COMMAND_BUFFER_CALLBACK( EXECUTE_END, VkCommandBuffer{}, 0, {} );
 
@@ -686,18 +693,21 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 	::postprocesses::dof.atomicCounter.destroy(false);
 	
 	for ( auto& view : ::postprocesses::bloom.views ) {
+
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	}
 	::postprocesses::bloom.views.clear();
 
 	for ( auto& view : ::postprocesses::dof.views ) {
+
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	}
 	::postprocesses::dof.views.clear();
 
 	for ( auto& view : ::postprocesses::depthPyramid.views ) {
+
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		VK_UNREGISTER_HANDLE(view);
 	}

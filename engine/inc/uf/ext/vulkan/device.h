@@ -125,6 +125,14 @@ namespace ext {
 
 			uf::stl::unordered_map<VkCommandBuffer, pod::Checkpoint*> checkpoints;
 
+			// queue API calls (submit/waitIdle/present/checkpoint reads) must not overlap on the same VkQueue, even from different threads
+			struct QueueLocks {
+				std::mutex mutex;
+				uf::stl::unordered_map<VkQueue, std::unique_ptr<std::mutex>> locks;
+				uf::stl::unordered_map<VkCommandPool, std::unique_ptr<std::mutex>> poolLocks;
+			};
+			std::unique_ptr<QueueLocks> queueLocks;
+
 			uf::Window* window;
 
 			struct QueueFamilyIndices {
@@ -176,6 +184,8 @@ namespace ext {
 			VkCommandPool getCommandPool( QueueEnum );
 			VkQueue getQueue( QueueEnum, uf::thread::id_t );
 			VkCommandPool getCommandPool( QueueEnum, uf::thread::id_t );
+			std::unique_lock<std::mutex> lockQueue( VkQueue queue );
+			std::unique_lock<std::mutex> lockPool( VkCommandPool pool );
 
 			// RAII
 			void initialize();

@@ -696,6 +696,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device, &viewCreateInfo, nullptr, &view));
+	VK_REGISTER_HANDLE( view );
 
 	// Initialize a descriptor for later use
 	this->updateDescriptors();

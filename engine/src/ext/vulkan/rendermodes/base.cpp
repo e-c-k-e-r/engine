@@ -111,7 +111,8 @@ VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
 	submitInfo.pWaitDstStageMask = waitStageMask;
 	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::currentBuffer];
+	// the present-wait semaphore is paired with the acquired image, so it is only reused once that image is re-acquired
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::imageIndex];
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 	submitInfo.commandBufferCount = 1;
@@ -129,11 +130,16 @@ void ext::vulkan::BaseRenderMode::render() {
 	{
 		VkSubmitInfo submitInfo = this->queue();
 		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
+		auto lock = device->lockQueue( queue );
 		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
 
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::imageIndex, renderCompleteSemaphores[states::currentBuffer]));
+	{
+		VkQueue queue = device->getQueue( QueueEnum::PRESENT );
+		auto lock = device->lockQueue( queue );
+		VK_CHECK_RESULT(swapchain.queuePresent( queue, states::imageIndex, renderCompleteSemaphores[states::imageIndex]));
+	}
 
 	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
 	this->executed = true;
