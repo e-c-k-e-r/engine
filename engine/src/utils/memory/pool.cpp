@@ -166,6 +166,8 @@ pod::Allocation uf::memoryPool::allocate( pod::MemoryPool& pool, size_t size, si
 	std::lock_guard<std::mutex> lock(pool.mutex);
 #endif
 
+	if ( pool.memory == nullptr || pool.size == 0 ) goto MANUAL_MALLOC; // dead pool (e.g. statically destructed already): malloc instead of walking stale buddy state
+
 	switch ( pool.strategy ) {
 		case pod::MemoryPool::Strategy::LINEAR: {
 			// get next free space
@@ -303,6 +305,7 @@ RETURN:
 
 bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
 	if ( !pointer ) return false;
+	if ( pool.memory == nullptr || pool.size == 0 ) return false; // dead pool: dropping the free (leak) beats std::free()-ing a pointer into a freed arena
 #if UF_MEMORYPOOL_MUTEX
 	std::lock_guard<std::mutex> lock(pool.mutex);
 #endif
@@ -474,6 +477,7 @@ uf::MemoryPool::MemoryPool( size_t size ) {
 	if ( size > 0 ) this->initialize( size );
 }
 uf::MemoryPool::~MemoryPool( ) {
+	if ( this == &uf::memoryPool::global ) return; // intentional leak: engine-wide statics (vfs::mounts, iostream history, ...) allocate from global and may statically destruct *after* us — static destruction order across TUs is undefined, and unmapping the arena under them is a teardown-time SIGSEGV. The OS reclaims it anyway.
 	this->destroy();
 }
 

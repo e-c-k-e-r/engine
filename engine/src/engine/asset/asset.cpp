@@ -75,7 +75,8 @@ void uf::asset::processQueue() {
 	
 	if ( jobs.empty() && finishedJobs.empty() ) return;
 
-	auto tasks = uf::thread::schedule(uf::asset::asyncQueue ? uf::thread::asyncThreadName : uf::thread::mainThreadName, false);
+	// to-do: check if const char* overload works again
+	auto tasks = uf::thread::schedule( uf::stl::string( uf::asset::asyncQueue ? uf::thread::asyncThreadName : uf::thread::mainThreadName ), false );
 
 	if ( !finishedJobs.empty() ) {
 		tasks.queue([jobs = std::move(finishedJobs)]() {
@@ -125,7 +126,8 @@ void uf::asset::processIO( const uf::asset::Stream::container_t& pendingStreams,
 	return uf::asset::processIO( {}, pendingStreams, async, wait );
 }
 void uf::asset::processIO( const uf::asset::Read::container_t& pendingReads, const uf::asset::Stream::container_t& pendingStreams, bool async, bool wait ) {
-	auto tasks = uf::thread::schedule(async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, wait);
+	// to-do: check if const char* overload works again
+	auto tasks = uf::thread::schedule( uf::stl::string( async ? uf::thread::asyncThreadName : uf::thread::mainThreadName ), wait );
 	if ( pendingReads.empty() && pendingStreams.empty() ) return;
 
 	for ( auto& [filename, requests] : pendingReads ) {

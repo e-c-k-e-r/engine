@@ -1,4 +1,5 @@
 #include "main.h"
+#include "client/headless.h"
 
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
@@ -6,16 +7,26 @@
 #include <uf/utils/window/payloads.h>
 
 #include <uf/utils/memory/pool.h>
+#include <uf/utils/singletons/pre_main.h>
 #include <uf/spec/renderer/universal.h>
 
 
 #include <filesystem>
 #include <signal.h>
 #include <cstdlib>
+#if !UF_ENV_DREAMCAST
+#include <thread>
+#include <chrono>
+#endif
 
 namespace {
 	bool killing = true;
+	volatile sig_atomic_t signalExit = 0;
 	namespace handlers {
+
+		void term( int sig ) {
+			signalExit = 1;
+		}
 
 		void exit() {
 		#if UF_ENV_DREAMCAST
@@ -74,14 +85,26 @@ namespace {
 }
 
 int main(int argc, char** argv){
+	uf::StaticInitialization::runAll();
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
 		std::string string(argv[i]);
 		// uf::arguments.emplace_back(string);
 	}
+
+	for ( int i = 1; i < argc; ++i ) if ( std::string( argv[i] ) == "--headless" ) uf::headless = true;
+	if ( const char* env = getenv( "UF_HEADLESS" ) ) if ( env[0] == '1' ) uf::headless = true;
+	for ( int i = 1; i < argc; ++i ) if ( std::string( argv[i] ) == "--io-socket" ) {
+		uf::socketRequested = true;
+		if ( i + 1 < argc && std::string( argv[i+1] ) != "--headless" && argv[i+1][0] != '-' ) uf::socketPath = argv[++i];
+		else uf::socketPath = "engine.sock";
+		break;
+	}
 	std::atexit(::handlers::exit);
 	signal(SIGABRT, ::handlers::abrt);
 	signal(SIGSEGV, ::handlers::segv);
+	signal(SIGINT, ::handlers::term);
+	signal(SIGTERM, ::handlers::term);
 
 	client::initialize();
 	uf::initialize();
@@ -100,7 +123,15 @@ int main(int argc, char** argv){
 		}
 	}
 
-	while ( client::ready && uf::ready ) {
+	while ( client::ready && uf::ready && !signalExit ) {
+		if ( uf::paused && uf::stepBudget == 0 ) {
+			client::tick();
+		#if !UF_ENV_DREAMCAST
+			std::this_thread::sleep_for( std::chrono::milliseconds( 2 ) );
+		#endif
+			continue;
+		}
+		if ( uf::paused ) --uf::stepBudget;
 		++uf::time::frame;
 		
 	#if UF_EXCEPTIONS
@@ -147,6 +178,7 @@ int main(int argc, char** argv){
 		}
 	#endif
 	}
+	client::headless::terminate();
 	if ( !client::terminated ) {
 		client::terminated = true;
 		UF_MSG_INFO("Natural termination!");

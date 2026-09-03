@@ -9,6 +9,9 @@ export PATH="$(pwd)/exe/lib/${ARCH}/:$(pwd)/exe/lib/${ARCH}/${CC}/:$(pwd)/exe/li
 export LD_LIBRARY_PATH="$(pwd)/exe/lib/${ARCH}/:$(pwd)/exe/lib/${ARCH}/${CC}/:$(pwd)/exe/lib/${ARCH}/${CC}/${RENDERER}/:${LD_LIBRARY_PATH}"
 
 echo PATH: ${PATH}
-echo Executing ./exe/program.${ARCH}.${CC}.${RENDERER}.exe $@
-./exe/program.${ARCH}.${CC}.${RENDERER}.exe $@
+NAME=./exe/program.${ARCH}.${CC}.${RENDERER}
+# Windows builds carry a .exe suffix; platform builds (e.g. Linux) do not
+[ -f "${NAME}.exe" ] && NAME="${NAME}.exe"
+echo Executing ${NAME} $@
+${NAME} $@
 tskill program

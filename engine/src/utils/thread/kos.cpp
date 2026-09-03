@@ -14,9 +14,6 @@ float uf::thread::limiter = 1.0f / 120.0f;
 uint32_t uf::thread::workers = 1;
 uf::thread::id_t uf::thread::mainThreadId = nullptr;
 bool uf::thread::async = false;
-uf::stl::string uf::thread::mainThreadName = "Main";
-uf::stl::string uf::thread::workerThreadName = "Worker";
-uf::stl::string uf::thread::asyncThreadName = "Async";
 
 namespace {
 	mutex_t global_mutex = MUTEX_INITIALIZER;
@@ -77,7 +74,8 @@ pod::Thread& uf::thread::fetchWorker( const uf::stl::string& name ) {
 }
 
 pod::Thread::Tasks uf::thread::schedule( bool async, bool wait ) {
-	return schedule( async ? uf::thread::asyncThreadName : uf::thread::mainThreadName, wait );
+	// to-do: check if const char* overload works again
+	return schedule( uf::stl::string( async ? uf::thread::asyncThreadName : uf::thread::mainThreadName ), wait );
 }
 
 pod::Thread::Tasks uf::thread::schedule( const uf::stl::string& name, bool wait ) {

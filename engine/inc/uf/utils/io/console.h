@@ -20,6 +20,9 @@ namespace uf {
 		extern UF_API uf::stl::vector<uf::stl::string> history;
 
 		void UF_API initialize();
+		// headless command session: drains the stdin/socket queues; call every frame while uf::headless
+		void UF_API pump();
+		void UF_API terminate(); // stops the command socket (unlink included) and the stdin reader; idempotent
 
 		void UF_API clear();
 		void UF_API print( const uf::stl::string& );

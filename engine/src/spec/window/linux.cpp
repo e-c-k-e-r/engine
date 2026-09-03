@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include <cstring>
+#include <cstdint>
 
 #define None 0L
 #define Success 0
@@ -252,7 +253,7 @@ Display* spec::x11::Window::getDisplay() const {
 	return m_display;
 }
 spec::x11::Window::handle_t spec::x11::Window::getHandle() const {
-	return m_handle;
+	return (void*)(uintptr_t)m_handle;
 }
 
 spec::x11::Window::vector_t spec::x11::Window::getPosition() const {
@@ -333,7 +334,7 @@ void spec::x11::Window::setPosition(const vector_t &pos) {
 	XMoveWindow(m_display, m_handle, pos.x, pos.y);
 }
 
-bool spec::x11::Window::isKeyPressed(const uf::stl::string &key) {
+bool spec::x11::Window::isKeyPressed_v(const uf::stl::string &key) {
 	if (!uf::Window::focused) return false;
 
 	auto m_display = ::globalDisplay;
@@ -1107,7 +1108,7 @@ bool spec::x11::Window::pollEvents(bool block) {
 	return true;
 }
 
-pod::Vector2ui spec::x11::Window::getResolution() {
+pod::Vector2ui spec::x11::Window::getResolution_v() {
 	auto m_display = ::globalDisplay;
 	auto m_screen = DefaultScreen(m_display);
 

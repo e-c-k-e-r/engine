@@ -39,7 +39,7 @@ spec::x11::Context::Context( uni::Context* shared, const Context::Settings& sett
 	uni::Context(NULL, false, settings),
 	m_display(window.getDisplay()),
 	m_context(nullptr),
-	m_window(window.getHandle())
+	m_window((::Window)(uintptr_t)window.getHandle())
 {
 	if (m_display && m_window)
 		this->create(shared);

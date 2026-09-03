@@ -45,9 +45,9 @@
 
 namespace uf {
 	namespace thread {
-		extern UF_API uf::stl::string mainThreadName;
-		extern UF_API uf::stl::string workerThreadName;
-		extern UF_API uf::stl::string asyncThreadName;
+		inline constexpr const char* mainThreadName = "Main";
+		inline constexpr const char* workerThreadName = "Worker";
+		inline constexpr const char* asyncThreadName = "Async";
 	}
 }
 
@@ -155,6 +155,7 @@ namespace uf {
 
 	/* 	Easy to use async helper functions */
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = uf::thread::workerThreadName );
+		inline pod::Thread& UF_API fetchWorker( const char* s ) { return fetchWorker( uf::stl::string( s ) ); } // ugh
 		pod::Thread::Tasks UF_API schedule( bool multithread, bool waits = true );
 		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = uf::thread::workerThreadName, bool waits = true );
 		std::shared_ptr<pod::Thread::Tasks::Tracker> UF_API execute( pod::Thread::Tasks& tasks );

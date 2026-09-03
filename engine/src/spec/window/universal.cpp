@@ -156,3 +156,39 @@ bool spec::uni::Window::pollEvents( bool block ) {
 #endif
 }
 #endif
+
+#include <uf/engine/ext.h>
+
+spec::uni::Window* spec::uni::Window::live = nullptr;
+
+spec::uni::Window::Window() {
+	live = this;
+}
+spec::uni::Window::~Window() {
+	if ( live == this ) live = nullptr;
+}
+
+bool spec::uni::Window::isKeyPressed( const uf::stl::string& key ) {
+	if ( live ) return live->isKeyPressed_v( key );
+	return false;
+}
+pod::Vector2ui spec::uni::Window::getResolution() {
+	// no window alive yet; the client only asks before creating one when the config has no size
+	if ( live ) return live->getResolution_v();
+	return { 0, 0 };
+}
+
+spec::uni::Window* spec::uni::Window::get() {
+	return live;
+}
+
+spec::uni::Window* spec::uni::Window::create_instance( const vector_t& size, const title_t& title ) {
+	if ( uf::headless ) return new spec::null::Window( size, title );
+#if UF_ENV_LINUX
+	return new spec::x11::Window( size, title );
+#elif UF_ENV_WINDOWS
+	return new spec::win32::Window( size, title ); // to-do: win32 hasn't been caught up to the uni::Window interface yet
+#else
+	return new spec::null::Window( size, title ); // no OS backend here; null is all there is
+#endif
+}

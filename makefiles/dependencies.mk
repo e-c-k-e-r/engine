@@ -16,7 +16,7 @@ endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS += -DUF_USE_VULKAN
 	DEPS  += -lspirv-cross-core -lspirv-cross-cpp
-	INCS  += -I$(VULKAN_SDK_PATH)/include -I./dep/include/spirv_cross/
+	INCS  += -I$(VULKAN_SDK_PATH)/include
 	LIBS  += -L$(VULKAN_SDK_PATH)/Lib
 endif
 

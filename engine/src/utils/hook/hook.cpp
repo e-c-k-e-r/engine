@@ -41,6 +41,8 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 
 //	if ( !found ) UF_MSG_DEBUG("Hook not found: {}", name);
 
+	if ( callObserver ) callObserver( name, payload );
+
 	return results;
 }
 

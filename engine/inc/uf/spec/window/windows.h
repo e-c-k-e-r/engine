@@ -45,7 +45,7 @@ namespace spec {
 			/*virtual*/ ~Window();
 			void UF_API_CALL terminate();
 		// 	Gets
-			spec::win32::Window::handle_t UF_API_CALL getHandle() const;
+			void* UF_API_CALL getHandle() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getPosition() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getSize() const;
 			/*virtual*/ size_t UF_API_CALL getRefreshRate() const;
@@ -67,7 +67,7 @@ namespace spec {
 		// 	Update
 			/*virtual*/ void UF_API_CALL bufferInputs();
 			/*virtual*/ void UF_API_CALL processEvents();
-			static /*virtual*/ bool UF_API_CALL isKeyPressed(const uf::stl::string&);
+			bool UF_API_CALL isKeyPressed_v(const uf::stl::string&);
 			bool UF_API_CALL pollEvents( bool block = false );
 		// 	Win32 specific functions
 			void UF_API_CALL registerWindowClass();
@@ -75,7 +75,7 @@ namespace spec {
 			void UF_API_CALL grabMouse(bool state);
 			
 			void UF_API_CALL setTracking(bool state);
-			static pod::Vector2ui UF_API_CALL getResolution();
+			pod::Vector2ui UF_API_CALL getResolution_v();
 			void UF_API_CALL toggleFullscreen( bool borderless = false );
 		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 			uf::stl::vector<uf::stl::string> UF_API_CALL getExtensions( bool validationEnabled );
@@ -87,9 +87,5 @@ namespace spec {
 		};
 	}
 	typedef spec::win32::Window Window;
-}
-
-namespace uf {
-	using Window = spec::win32::Window;
 }
 #endif

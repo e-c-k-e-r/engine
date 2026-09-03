@@ -52,6 +52,12 @@
 #endif
 
 bool uf::ready = false;
+bool uf::headless = false; // set at launch from --headless (to-do: bind to config as well)
+float uf::frameLimiter = 1.0f / 144.0f;
+bool uf::paused = false;
+uint32_t uf::stepBudget = 0;
+bool uf::socketRequested = false;
+uf::stl::string uf::socketPath = "";
 uf::stl::vector<uf::stl::string> uf::arguments;
 uf::Serializer uf::config;
 
@@ -234,6 +240,7 @@ void UF_API uf::load( ext::json::Value& json ) {
 		/* Frame limiter */ {
 			size_t limit = configEngineLimitersJson["framerate"].as<size_t>();
 			::times.limiter = limit != 0 ? 1.0 / limit : 0;
+			uf::frameLimiter = ::times.limiter;
 			UF_MSG_DEBUG("Limiter set to {} ms", ::times.limiter);
 		}
 		/* Max delta time */{
@@ -940,10 +947,10 @@ void UF_API uf::tick() {
 #endif
 
 #if !UF_ENV_DREAMCAST
-	if ( ::times.limiter > 0 ) {
+	if ( uf::frameLimiter > 0 ) {
 		static auto nextFrameTime = std::chrono::steady_clock::now();
 		
-		double limiterMs = ::times.limiter * 1000.0;
+		double limiterMs = uf::frameLimiter * 1000.0;
 		auto limiterDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double, std::milli>(limiterMs));
 		nextFrameTime += limiterDuration;
 
@@ -1092,11 +1099,18 @@ void UF_API uf::terminate() {
 	#endif
 
 	/* Destroy memory pools */ {
+		/* The null entity is a static: if its components outlive this point, ~Component runs them at exit —
+		 * after the userdata/component pools are gone and possibly after the userdata trait registry has
+		 * statically destructed (call through a null trait::destructor). Deterministically empty it here. */
+		uf::Entity::null.destroyComponents();
 		uf::component::memoryPool.destroy();
 		uf::userdata::memoryPool.destroy();
 		uf::Entity::memoryPool.destroy();
 
-		uf::memoryPool::global.destroy(); // should probably leave this to be statically destructed
+		// do NOT destroy uf::memoryPool::global here. Engine-wide statics (the iostream history, console maps, ...)
+		// keep allocating through uf::Allocator after this point — and destroy() only zeroes size/memory, leaving
+		// the buddy free-lists/bitset pointing into the freed arena. The very next UF_MSG_* would allocate from
+		// that corpse (segfault or an endless free-list walk). Let it be statically destructed instead.
 	}
 
 	/* Print system stats */ {
@@ -1110,4 +1124,4 @@ void UF_API uf::terminate() {
 		::io.output << "\nTerminated after " << ::times.sys.elapsed().asDouble() << " seconds" << "\n";
 		::io.output.close();
 	}
-}
+}

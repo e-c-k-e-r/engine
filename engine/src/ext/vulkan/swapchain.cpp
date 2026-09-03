@@ -7,6 +7,10 @@
 #include <uf/ext/ffx/fsr.h>
 
 VkResult ext::vulkan::Swapchain::acquireNextImage( uint32_t* imageIndex, VkSemaphore presentCompleteSemaphore, VkFence acquireFence ) {
+	if ( device && device->surfaceless ) {
+		*imageIndex = ext::vulkan::states::currentBuffer;
+		return VK_SUCCESS;
+	}
 #if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	if ( ext::fsr::frameInterpolation ) {
 		return ext::fsr::acquireNextImage( imageIndex, presentCompleteSemaphore, acquireFence );
@@ -17,6 +21,7 @@ VkResult ext::vulkan::Swapchain::acquireNextImage( uint32_t* imageIndex, VkSemap
 }
 
 VkResult ext::vulkan::Swapchain::queuePresent( VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore ) {
+	if ( device && device->surfaceless ) return VK_SUCCESS;
 #if UF_USE_FFX_FSR || UF_USE_FFX_SDK
 	if ( ext::fsr::frameInterpolation ) {
 		return ext::fsr::queuePresent( queue, imageIndex, waitSemaphore );
@@ -42,6 +47,49 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		this->device = &device;
 //		if ( width == 0 ) width = ext::vulkan::settings::width;
 //		if ( height == 0 ) height = ext::vulkan::settings::height;
+	}
+	// a pool of offscreen images and presenting is a no-op
+	if ( device.surfaceless ) {
+		// a re-initialization (e.g. a resize) replaces the previous pool
+		for ( size_t i = 0; i < images.size(); ++i ) {
+			if ( images[i] != VK_NULL_HANDLE ) {
+				vmaDestroyImage( ext::vulkan::allocator, images[i], allocations[i] );
+				VK_UNREGISTER_HANDLE( images[i] );
+			}
+		}
+		images.clear();
+		allocations.clear();
+
+		buffers = 2;
+		images.resize( buffers );
+		allocations.resize( buffers );
+
+		auto size = device.window->getSize();
+		for ( auto i = 0u; i < buffers; ++i ) {
+			VkImageCreateInfo imageCreateInfo = {};
+			imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+			imageCreateInfo.format = ext::vulkan::settings::formats::color;
+			imageCreateInfo.extent = {
+				static_cast<uint32_t>( size[0] ),
+				static_cast<uint32_t>( size[1] ),
+				1
+			};
+			imageCreateInfo.mipLevels = 1;
+			imageCreateInfo.arrayLayers = 1;
+			imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+			imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+			VmaAllocationCreateInfo allocationCreateInfo = {};
+			allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+			VK_CHECK_RESULT(vmaCreateImage( ext::vulkan::allocator, &imageCreateInfo, &allocationCreateInfo, &images[i], &allocations[i], nullptr ));
+			VK_REGISTER_HANDLE( images[i] );
+		}
+		UF_MSG_INFO("Surfaceless swapchain: {} offscreen image(s) at {}x{}", buffers, size[0], size[1] );
+		return;
 	}
 	// Set present
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -214,6 +262,21 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 
 void ext::vulkan::Swapchain::destroy() {
 	if ( !device ) return;
+
+	if ( device->surfaceless ) {
+		// offscreen images are regular VMA allocations; image and memory go together
+		for ( size_t i = 0; i < swapchain.images.size(); ++i ) {
+			if ( swapchain.images[i] != VK_NULL_HANDLE ) {
+				vmaDestroyImage( ext::vulkan::allocator, swapchain.images[i], swapchain.allocations[i] );
+				VK_UNREGISTER_HANDLE( swapchain.images[i] );
+				swapchain.images[i] = VK_NULL_HANDLE;
+			}
+		}
+		swapchain.images.clear();
+		swapchain.allocations.clear();
+		device = VK_NULL_HANDLE;
+		return;
+	}
 
 	for ( auto& image : swapchain.images ) {
 		// vkDestroyImage( *device, image, nullptr ); // destroyed via vkDestroySwapchainKHR

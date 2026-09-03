@@ -569,8 +569,8 @@ void spec::win32::Window::terminate() {
 	ReleaseCapture();
 }
 
-spec::win32::Window::handle_t spec::win32::Window::getHandle() const {
-	return this->m_handle;
+void* spec::win32::Window::getHandle() const {
+	return (void*)this->m_handle;
 }
 spec::win32::Window::vector_t spec::win32::Window::getPosition() const {
 	RECT rectangle;
@@ -1410,7 +1410,7 @@ void spec::win32::Window::grabMouse(bool state) {
 		ClipCursor(NULL);
 	}
 }
-pod::Vector2ui spec::win32::Window::getResolution() {
+pod::Vector2ui spec::win32::Window::getResolution_v() {
 	return { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
 }
 void spec::win32::Window::toggleFullscreen( bool borderless ) {
@@ -1448,7 +1448,7 @@ void spec::win32::Window::toggleFullscreen( bool borderless ) {
 	fullscreenWindow = (void*) this;
 }
 
-bool spec::win32::Window::isKeyPressed(const uf::stl::string& key) {
+bool spec::win32::Window::isKeyPressed_v(const uf::stl::string& key) {
 	return uf::Window::focused && (GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000);
 }
 uf::stl::string spec::win32::Window::getKey(WPARAM key, LPARAM flags) {

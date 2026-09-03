@@ -43,7 +43,7 @@ namespace spec {
 		// 	Update
 			/*virtual*/ void UF_API bufferInputs();
 			/*virtual*/ void UF_API processEvents();
-			static /*virtual*/ bool UF_API isKeyPressed(const uf::stl::string&);
+			bool UF_API isKeyPressed_v(const uf::stl::string&);
 			bool UF_API pollEvents( bool block = false );
 		// 	Win32 specific functions
 			void UF_API registerWindowClass();
@@ -51,16 +51,12 @@ namespace spec {
 			void UF_API grabMouse(bool state);
 			
 			void UF_API setTracking(bool state);
-			static pod::Vector2ui UF_API getResolution();
+			pod::Vector2ui UF_API getResolution_v();
 			void UF_API toggleFullscreen( bool borderless = false );
 
 			void UF_API display();
 		};
 	}
 	typedef spec::dreamcast::Window Window;
-}
-
-namespace uf {
-	using Window = spec::dreamcast::Window;
 }
 #endif

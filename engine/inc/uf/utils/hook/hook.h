@@ -51,6 +51,10 @@ namespace uf {
 
 		typedef pod::Hook::userdata_t argument_t;
 		typedef uf::stl::vector<pod::Hook::userdata_t> return_t;
+
+		// hook-call stream observer (headless push event stream); empty = zero cost (one predictable branch in call)
+		// names are hashed at the call site, so whoever wants human-readable event names has to intern the text itself (console's headless watch/event does)
+		std::function<void(const name_t&, const pod::Hook::userdata_t&)> callObserver;
 	protected:
 		static size_t uids;
 		uf::Hooks::container_t m_container;
@@ -73,4 +77,4 @@ namespace uf {
 }
 
 #include "function_traits.inl"
-#include "hook.inl"
+#include "hook.inl"

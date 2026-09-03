@@ -45,6 +45,8 @@ UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, thr
 
 namespace {
 	uf::stl::vector<pod::Component::userdata_t> detachedAudios;
+	// last cursor-visibility we broadcast; hooks are state-change signals, not per-frame pulses
+	bool lastCursorVisible = false;
 }
 
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
@@ -197,6 +199,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	{
 		pod::payloads::windowMouseCursorVisibility payload;
 		payload.mouse.visible = false;
+		::lastCursorVisible = false;
 		uf::hooks.call("window:Mouse.CursorVisibility", payload);
 		uf::hooks.call("window:Mouse.Lock");
 	}
@@ -433,10 +436,15 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 #if !UF_ENV_DREAMCAST
 	/* Regain control if nothing requests it */ {
+		// change-driven, like the real window backends broadcast focus/resize:
+		// only announce when the desired visibility actually flips, not every frame
 		pod::payloads::windowMouseCursorVisibility payload;
 		payload.mouse.visible = this->globalFindByName("Gui: Menu");
-		if ( !payload.mouse.visible ) uf::hooks.call("window:Mouse.Lock");
-		uf::hooks.call("window:Mouse.CursorVisibility", payload);
+		if ( payload.mouse.visible != ::lastCursorVisible ) {
+			::lastCursorVisible = payload.mouse.visible;
+			if ( !payload.mouse.visible ) uf::hooks.call("window:Mouse.Lock");
+			uf::hooks.call("window:Mouse.CursorVisibility", payload);
+		}
 	}
 #endif
 #if UF_ENTITY_METADATA_USE_JSON

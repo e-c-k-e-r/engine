@@ -1,4 +1,5 @@
 #include "../main.h"
+#include "headless.h"
 
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/window/window.h>
@@ -10,17 +11,19 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/window/payloads.h>
+#include <uf/utils/io/console.h>
 
 #include <uf/ext/openvr/openvr.h> // yuck
+#if UF_USE_LUA
+#include <uf/ext/lua/lua.h>
+#endif
 
 bool client::ready = false;
 bool client::terminated = false;
-uf::Window client::window;
+std::unique_ptr<uf::Window> client::window;
 uf::Serializer client::config;
 
 void client::initialize() {
-	uf::renderer::device.window = &client::window;
-
 	uf::load();
 
 	client::config = uf::config;
@@ -28,64 +31,76 @@ void client::initialize() {
 	/* Initialize window */ {
 		// Window size
 		pod::Vector2i size = uf::vector::decode( client::config["window"]["size"], pod::Vector2i{} );
-		// request system size
 		if ( size.x <= 0 && size.y <= 0 ) {
-			auto resolution = client::window.getResolution();
-			client::config["window"]["size"][0] = (size.x = resolution.x);
-			client::config["window"]["size"][1] = (size.y = resolution.y);
+			if ( client::headless::active() ) {
+				// no display to query; fall back to a fixed size
+				size = client::headless::defaultSize;
+			} else {
+				// request system size
+				auto resolution = uf::Window::getResolution();
+				client::config["window"]["size"][0] = (size.x = resolution.x);
+				client::config["window"]["size"][1] = (size.y = resolution.y);
+			}
 		}
+		client::headless::configure();
 		// Window title
 		uf::stl::string title; {
 			title = client::config["window"]["title"].as<std::string>();
 		}
-		// Terminal window;
-		spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].as<bool>() );
+		if ( !client::headless::active() ) {
+			// Terminal window;
+			spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].as<bool>() );
+		}
 		// Ncurses
 		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].as<bool>();
 		// Window's context settings
 		uf::renderer::settings::width = size.x;
 		uf::renderer::settings::height = size.y;
-		client::window.create( size, title );
+		// backend chosen at runtime (null window when uf::headless)
+		client::window.reset( uf::Window::create_instance( size, title ) );
+		uf::renderer::device.window = client::window.get();
 	#if !UF_ENV_DREAMCAST
-		// Set refresh rate
-		uf::config["window"]["refresh rate"] = client::window.getRefreshRate();
-		// Miscellaneous
-		client::window.setVisible(client::config["window"]["visible"].as<bool>());
-		client::window.setCursorVisible(client::config["window"]["mouse"]["visible"].as<bool>());
-		if ( client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
-			client::window.setCursorVisible(false);
-		}
-		client::window.setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].as<bool>());
-	//	client::window.centerWindow();
-	//	client::window.setPosition({0, 0});
-	//	client::window.setMouseGrabbed(true);
+		if ( !client::headless::active() ) {
+			// Set refresh rate
+			uf::config["window"]["refresh rate"] = client::window->getRefreshRate();
+			// Miscellaneous
+			client::window->setVisible(client::config["window"]["visible"].as<bool>());
+			client::window->setCursorVisible(client::config["window"]["mouse"]["visible"].as<bool>());
+			if ( client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
+				client::window->setCursorVisible(false);
+			}
+			client::window->setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].as<bool>());
+		//	client::window->centerWindow();
+		//	client::window->setPosition({0, 0});
+		//	client::window->setMouseGrabbed(true);
 
-		if ( client::config["window"]["icon"].is<std::string>() ) {
-			uf::Image icon;
-			icon.open(client::config["window"]["icon"].as<std::string>());
-			client::window.setIcon({(int) icon.getDimensions().x, (int) icon.getDimensions().y}, ((uint8_t*)icon.getPixelsPtr()));
-		}
+			if ( client::config["window"]["icon"].is<std::string>() ) {
+				uf::Image icon;
+				icon.open(client::config["window"]["icon"].as<std::string>());
+				client::window->setIcon({(int) icon.getDimensions().x, (int) icon.getDimensions().y}, ((uint8_t*)icon.getPixelsPtr()));
+			}
 
-		client::window.setTitle(title);
+			client::window->setTitle(title);
+		}
 	#endif
 	}
 	
 	/* Initialize hooks */ {
 		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( pod::payloads::windowMouseCursorVisibility& payload ){
 			if ( !client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
-				client::window.setCursorVisible(payload.mouse.visible);
+				client::window->setCursorVisible(payload.mouse.visible);
 			} else {
-				client::window.setCursorVisible(false);
+				client::window->setCursorVisible(false);
 			}
-			client::window.setMouseGrabbed(!payload.mouse.visible);
+			client::window->setMouseGrabbed(!payload.mouse.visible);
 			client::config["mouse"]["visible"] = payload.mouse.visible;
 			client::config["window"]["mouse"]["center"] = !payload.mouse.visible;
 		});
 		uf::hooks.addHook( "window:Mouse.Lock", [&](){
-			if ( client::window.hasFocus() ) {
-				client::window.setMousePosition({
-					client::window.getSize().x * 0.5f,
-					client::window.getSize().y * 0.5f,
+			if ( client::window->hasFocus() ) {
+				client::window->setMousePosition({
+					client::window->getSize().x * 0.5f,
+					client::window->getSize().y * 0.5f,
 				});
 			}
 		});
@@ -96,13 +111,13 @@ void client::initialize() {
 			if ( json["invoker"] != "os" ) {
 				if ( !ext::json::isObject( json["window"] ) ) return;
 				uf::stl::string title = json["window"]["title"].as<std::string>();
-				client::window.setTitle(title);
+				client::window->setTitle(title);
 			}
 		} );
 		uf::hooks.addHook( "window:Resized", [&]( pod::payloads::windowResized& payload ){
 			if ( payload.window.size.x == uf::renderer::settings::width && payload.window.size.y == uf::renderer::settings::height ) return;
 			
-			if ( payload.invoker != "os" ) client::window.setSize(payload.window.size);
+			if ( payload.invoker != "os" ) client::window->setSize(payload.window.size);
 			// Update viewport
 
 		#if UF_USE_VULKAN
@@ -124,65 +139,76 @@ void client::initialize() {
 		} );
 	}
 #if !UF_ENV_DREAMCAST
-	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.toggleFullscreen();
-	else if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.toggleFullscreen( true );
+	if ( !client::headless::active() ) {
+		if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window->toggleFullscreen();
+		else if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window->toggleFullscreen( true );
+	}
 #endif
+
+	// headless commands/queue/socket all live engine-side now (uf::console + uf::io::socket),
+	// registered during uf::initialize -- nothing left to set up here
 
 	client::ready = true;
 #if UF_ENV_DREAMCAST
-	client::window.pollEvents();
+	client::window->pollEvents();
 #endif
 }
 
 void client::tick() {
-	client::window.bufferInputs();
-	client::window.pollEvents();
+	if ( client::headless::active() ) {
+		// no window input; drain the stdin command channel on the main thread
+		client::headless::tick();
+	} else {
+		client::window->bufferInputs();
+		client::window->pollEvents();
 
-	if ( client::window.hasFocus() ) {
-		// fullscreener
-		TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter ) {
-			uf::renderer::states::resized = true;
-			client::window.toggleFullscreen( false );
-		}
-		// mouse move
-		uf::inputs::kbm::states::Mouse = {};
-		if ( client::config["window"]["mouse"]["center"].as<bool>(false) ) {
-			auto size = client::window.getSize();
-			auto current = client::window.getMousePosition();
-			pod::Vector2i center = {
-				size.x * 0.5f,
-				size.y * 0.5f,
-			};
-			client::window.setMousePosition( center );
-			client::window.setCursorVisible(false);
+		if ( client::window->hasFocus() ) {
+			// fullscreener
+			TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter ) {
+				uf::renderer::states::resized = true;
+				client::window->toggleFullscreen( false );
+			}
+			// mouse move
+			uf::inputs::kbm::states::Mouse = {};
+			if ( client::config["window"]["mouse"]["center"].as<bool>(false) ) {
+				auto size = client::window->getSize();
+				auto current = client::window->getMousePosition();
+				pod::Vector2i center = {
+					size.x * 0.5f,
+					size.y * 0.5f,
+				};
+				client::window->setMousePosition( center );
+				client::window->setCursorVisible(false);
 
 
-		#if UF_INPUT_USE_ENUM_MOUSE
-			uf::inputs::kbm::states::Mouse = {
-				(float) (current.x - center.x) / (float) size.x,
-				(float) (current.y - center.y) / (float) size.y,
-			};
-		#else
-			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
-				{
-					{ "window:Mouse.Moved", "client", },
-					{ pod::Vector2ui{ size.x, size.y }, },
-				},
-				{ center, current - center, 0 }
-			});
-		#endif
-		} else {
-		#if UF_INPUT_USE_ENUM_MOUSE
-		//	uf::inputs::kbm::states::Mouse = { 0, 0 };
-		#endif
+			#if UF_INPUT_USE_ENUM_MOUSE
+				uf::inputs::kbm::states::Mouse = {
+					(float) (current.x - center.x) / (float) size.x,
+					(float) (current.y - center.y) / (float) size.y,
+				};
+			#else
+				uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
+					{
+						{ "window:Mouse.Moved", "client", },
+						{ pod::Vector2ui{ size.x, size.y }, },
+					},
+					{ center, current - center, 0 }
+				});
+			#endif
+			} else {
+			#if UF_INPUT_USE_ENUM_MOUSE
+			//	uf::inputs::kbm::states::Mouse = { 0, 0 };
+			#endif
+			}
 		}
 	}
 }
 
 void client::render() {
-	client::window.display();
+	client::window->display();
 }
 
 void client::terminate() {
-	client::window.terminate();
-}
+	client::headless::terminate();
+	client::window->terminate();
+}

@@ -5,6 +5,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
+#include <uf/engine/ext.h>
 #include <uf/utils/string/ext.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/memory/memcpy.h>
@@ -160,6 +161,8 @@ namespace {
 		}
 		//
 		{
+			if ( device.surfaceless ) return deviceInfo;
+
 			VkSurfaceCapabilitiesKHR capabilities;
 			uf::stl::vector<VkSurfaceFormatKHR> formats;
 			uf::stl::vector<VkPresentModeKHR> presentModes;
@@ -970,6 +973,17 @@ void ext::vulkan::Device::initialize() {
 
 		validateRequestedExtensions( extensions.properties.instance, requestedExtensions, extensions.supported.instance );
 	}
+	//
+	// headless mode can't create a headless surface; render offscreen with no VkSurfaceKHR and no swapchain
+	if ( uf::headless && std::find( extensions.supported.instance.begin(), extensions.supported.instance.end(), uf::stl::string( VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME ) ) == extensions.supported.instance.end() ) {
+		this->surfaceless = true;
+		UF_MSG_ERROR("Driver does not expose VK_EXT_headless_surface; continuing surfaceless");
+		// un-request the surface extensions so the instance can be created without them
+		requestedExtensions.erase( std::remove( requestedExtensions.begin(), requestedExtensions.end(), uf::stl::string( VK_KHR_SURFACE_EXTENSION_NAME ) ), requestedExtensions.end() );
+		requestedExtensions.erase( std::remove( requestedExtensions.begin(), requestedExtensions.end(), uf::stl::string( VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME ) ), requestedExtensions.end() );
+		extensions.supported.instance.erase( std::remove( extensions.supported.instance.begin(), extensions.supported.instance.end(), uf::stl::string( VK_KHR_SURFACE_EXTENSION_NAME ) ), extensions.supported.instance.end() );
+		extensions.supported.instance.erase( std::remove( extensions.supported.instance.begin(), extensions.supported.instance.end(), uf::stl::string( VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME ) ), extensions.supported.instance.end() );
+	}
 	// Create instance
 	{
 		uf::stl::vector<uf::stl::string> instanceExtensions;
@@ -1043,7 +1057,7 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Create surface
 	{
-		window->createSurface( instance, surface );
+		if ( !surfaceless ) window->createSurface( instance, surface );
 	}
 	// Create physical device
 	
@@ -1162,10 +1176,11 @@ void ext::vulkan::Device::initialize() {
 			
 			validateRequestedExtensions( extensions.properties.device, requestedExtensions, extensions.supported.device );
 		}
-		uf::stl::vector<uf::stl::string> deviceExtensions = {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME
-		};
+		uf::stl::vector<uf::stl::string> deviceExtensions;
+		if ( !surfaceless ) deviceExtensions.emplace_back( VK_KHR_SWAPCHAIN_EXTENSION_NAME );
 		for ( auto& s : extensions.supported.device ) {
+			// swapchain requires the surface instance extension, which surfaceless mode dropped
+			if ( surfaceless && s == VK_KHR_SWAPCHAIN_EXTENSION_NAME ) continue;
 			VK_VALIDATION_MESSAGE("Enabled device extension: {}", s);
 			deviceExtensions.emplace_back( s );
 			extensions.enabled.device[s] = true;
@@ -1222,7 +1237,7 @@ void ext::vulkan::Device::initialize() {
 				}
 
 				VkBool32 presentSupport = false;
-				vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
+				if ( !surfaceless ) vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
 				if ( queueFamily.queueCount > 0 && presentSupport ) {
 					presentQueueNodeIndex = i;
 				}
@@ -1282,7 +1297,7 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		// Create the logical device representation
-		if ( useSwapChain ) {
+		if ( useSwapChain && !surfaceless ) {
 			// If the device will be used for presenting to a display via a swapchain we need to request the swapchain extension
 			deviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
@@ -1367,7 +1382,7 @@ void ext::vulkan::Device::initialize() {
 			chain.push( &physicalDeviceVulkan12Features );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceVulkan12Features" );
 		} else {
-			if ( ext::vulkan::settings::requested::featureChain["descriptorIndexing"].as<bool>(false) ) {
+			if ( ext::vulkan::settings::requested::featureChain["descriptorIndexing"].as<bool>(false) && extensions.enabled.device[VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME] ) {
 				// core for Vulkan 1.3+
 				descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
 				descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -1378,7 +1393,7 @@ void ext::vulkan::Device::initialize() {
 				VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "descriptorIndexingFeatures" );
 			}
 			// core for Vulkan 1.3+
-			if ( ext::vulkan::settings::requested::featureChain["bufferDeviceAddress"].as<bool>(false) ) {
+			if ( ext::vulkan::settings::requested::featureChain["bufferDeviceAddress"].as<bool>(false) && extensions.enabled.device[VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME] ) {
 				bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
 				bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
 				chain.push( &bufferDeviceAddressFeatures );
@@ -1386,40 +1401,42 @@ void ext::vulkan::Device::initialize() {
 			}
 		}
 
-		//
-		if ( ext::vulkan::settings::requested::featureChain["robustness"].as<bool>(false) ) {
+		// feature structs may only be enabled if their device extension is enabled, or the driver
+		// rejects device creation with FEATURE_NOT_PRESENT -- on 1.3 instances ray_query/barycentric
+		// are core features and the extensions aren't even enumerated by the driver
+		if ( ext::vulkan::settings::requested::featureChain["robustness"].as<bool>(false) && extensions.enabled.device[VK_EXT_ROBUSTNESS_2_EXTENSION_NAME] ) {
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;
 			chain.push( &robustnessFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "robustnessFeatures" );
 		}
 
-		if ( ext::vulkan::settings::requested::featureChain["shaderClock"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["shaderClock"].as<bool>(false) && extensions.enabled.device[VK_KHR_SHADER_CLOCK_EXTENSION_NAME] ) {
 			shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
 			shaderClockFeatures.shaderSubgroupClock = VK_TRUE;
 			shaderClockFeatures.shaderDeviceClock = VK_TRUE;
 			chain.push( &shaderClockFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderClockFeatures" );
 		}
-		if ( ext::vulkan::settings::requested::featureChain["fragmentShaderBarycentric"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["fragmentShaderBarycentric"].as<bool>(false) && extensions.enabled.device[VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME] ) {
 			fragmentShaderBarycentricFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
 			fragmentShaderBarycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
 			chain.push( &fragmentShaderBarycentricFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "fragmentShaderBarycentricFeatures" );
 		}
-		if ( ext::vulkan::settings::requested::featureChain["rayTracingPipeline"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["rayTracingPipeline"].as<bool>(false) && extensions.enabled.device[VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME] ) {
 			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
 			chain.push( &rayTracingPipelineFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayTracingPipelineFeatures" );
 		}
-		if ( ext::vulkan::settings::requested::featureChain["rayQuery"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["rayQuery"].as<bool>(false) && extensions.enabled.device[VK_KHR_RAY_QUERY_EXTENSION_NAME] ) {
 			rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 			rayQueryFeatures.rayQuery = VK_TRUE;
 			chain.push( &rayQueryFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayQueryFeatures" );
 		}
-		if ( ext::vulkan::settings::requested::featureChain["accelerationStructure"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["accelerationStructure"].as<bool>(false) && extensions.enabled.device[VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME] ) {
 			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
@@ -1490,50 +1507,63 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Set formats
 	{
-		uf::stl::vector<VkSurfaceFormatKHR> formats;
-		uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
-		formats.resize( formatCount );
-		vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
-
-		bool SRGB = true;
-		auto TARGET_FORMAT = SRGB ? VK_FORMAT_B8G8R8A8_SRGB : VK_FORMAT_B8G8R8A8_UNORM;
-		auto TARGET_COLORSPACE = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		if ( ext::vulkan::settings::pipelines::hdr ) {
-			TARGET_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
-			TARGET_COLORSPACE = VK_COLOR_SPACE_HDR10_ST2084_EXT;	
-		}
-
-		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
-		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_SRGB
-		if ( formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED ) {
-			ext::vulkan::settings::formats::color = TARGET_FORMAT;
-			ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
-		} else {
-			// iterate over the list of available surface format and
-			// check for the presence of VK_FORMAT_B8G8R8A8_SRGB
-			bool found = false;
-			for ( auto&& surfaceFormat : formats ) {
-				if ( surfaceFormat.format == ext::vulkan::settings::formats::color ) {
-					ext::vulkan::settings::formats::color = surfaceFormat.format;
-					ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
-					found = true;
-					break;
-				}
+		if ( surfaceless ) {
+			// no surface to query formats from; assume the B8G8R8A8_SRGB (or HDR) default
+			bool SRGB = true;
+			auto TARGET_FORMAT = SRGB ? VK_FORMAT_B8G8R8A8_SRGB : VK_FORMAT_B8G8R8A8_UNORM;
+			auto TARGET_COLORSPACE = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+			if ( ext::vulkan::settings::pipelines::hdr ) {
+				TARGET_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
+				TARGET_COLORSPACE = VK_COLOR_SPACE_HDR10_ST2084_EXT;
 			}
-			if ( !found ) {
+			ext::vulkan::settings::formats::color = TARGET_FORMAT;
+			ext::vulkan::settings::formats::colorSpace = TARGET_COLORSPACE;
+		} else {
+			uf::stl::vector<VkSurfaceFormatKHR> formats;
+			uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
+			formats.resize( formatCount );
+			vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
+
+			bool SRGB = true;
+			auto TARGET_FORMAT = SRGB ? VK_FORMAT_B8G8R8A8_SRGB : VK_FORMAT_B8G8R8A8_UNORM;
+			auto TARGET_COLORSPACE = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+			if ( ext::vulkan::settings::pipelines::hdr ) {
+				TARGET_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
+				TARGET_COLORSPACE = VK_COLOR_SPACE_HDR10_ST2084_EXT;	
+			}
+
+			// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
+			// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_SRGB
+			if ( formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED ) {
+				ext::vulkan::settings::formats::color = TARGET_FORMAT;
+				ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+			} else {
+				// iterate over the list of available surface format and
+				// check for the presence of VK_FORMAT_B8G8R8A8_SRGB
+				bool found = false;
 				for ( auto&& surfaceFormat : formats ) {
-					if ( surfaceFormat.format == TARGET_FORMAT ) {
+					if ( surfaceFormat.format == ext::vulkan::settings::formats::color ) {
 						ext::vulkan::settings::formats::color = surfaceFormat.format;
 						ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
 						found = true;
 						break;
 					}
 				}
-				// in case VK_FORMAT_B8G8R8A8_SRGB is not available
-				// select the first available color format
 				if ( !found ) {
-					ext::vulkan::settings::formats::color = formats[0].format;
-					ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+					for ( auto&& surfaceFormat : formats ) {
+						if ( surfaceFormat.format == TARGET_FORMAT ) {
+							ext::vulkan::settings::formats::color = surfaceFormat.format;
+							ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
+							found = true;
+							break;
+						}
+					}
+					// in case VK_FORMAT_B8G8R8A8_SRGB is not available
+					// select the first available color format
+					if ( !found ) {
+						ext::vulkan::settings::formats::color = formats[0].format;
+						ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+					}
 				}
 			}
 		}

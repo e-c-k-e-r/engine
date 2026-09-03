@@ -135,7 +135,8 @@ $(PREFIX): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 	$(CC) $(FLAGS) $(INCS) -c $< -o $@
 
 ifneq ($(ARCH),dreamcast)
-$(TARGET): $(OBJS)
+
+$(TARGET): $(OBJS) $(EX_DLL) $(EXT_EX_DLL)
 	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
 endif
 

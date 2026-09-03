@@ -660,14 +660,14 @@ void spec::dreamcast::Window::setMouseGrabbed(bool state) {
 }
 void spec::dreamcast::Window::grabMouse(bool state) {
 }
-pod::Vector2ui spec::dreamcast::Window::getResolution() {
+pod::Vector2ui spec::dreamcast::Window::getResolution_v() {
 	return ::resolution;
 }
 
 void spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
 }
 
-bool spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
+bool spec::dreamcast::Window::isKeyPressed_v(const uf::stl::string& key) {
 	auto code = GetKeyCode(key);
 	auto keys = GetKeys();
 	for ( auto key : keys ) if ( key == code ) return true;

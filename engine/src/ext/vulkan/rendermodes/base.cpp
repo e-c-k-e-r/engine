@@ -67,14 +67,16 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 
 	// set sync objects
-	for ( auto i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
-		auto& presentCompleteSemaphore = swapchain.presentCompleteSemaphores.emplace_back();
-		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		semaphoreCreateInfo.pNext = nullptr;
+	if ( !device.surfaceless ) {
+		for ( auto i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
+			auto& presentCompleteSemaphore = swapchain.presentCompleteSemaphores.emplace_back();
+			VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+			semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+			semaphoreCreateInfo.pNext = nullptr;
 
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
-		VK_REGISTER_HANDLE(presentCompleteSemaphore);
+			VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore));
+			VK_REGISTER_HANDLE(presentCompleteSemaphore);
+		}
 	}
 }
 
@@ -109,8 +111,13 @@ VkSubmitInfo ext::vulkan::BaseRenderMode::queue() {
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pWaitDstStageMask = waitStageMask;
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
-	submitInfo.waitSemaphoreCount = 1;
+	if ( device->surfaceless ) {
+		submitInfo.pWaitSemaphores = nullptr;
+		submitInfo.waitSemaphoreCount = 0;
+	} else {
+		submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphores[states::currentBuffer];
+		submitInfo.waitSemaphoreCount = 1;
+	}
 	// the present-wait semaphore is paired with the acquired image, so it is only reused once that image is re-acquired
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphores[states::imageIndex];
 	submitInfo.signalSemaphoreCount = 1;
@@ -135,10 +142,12 @@ void ext::vulkan::BaseRenderMode::render() {
 		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
 	}
 
-	{
-		VkQueue queue = device->getQueue( QueueEnum::PRESENT );
-		auto lock = device->lockQueue( queue );
-		VK_CHECK_RESULT(swapchain.queuePresent( queue, states::imageIndex, renderCompleteSemaphores[states::imageIndex]));
+	if ( !device->surfaceless ) {
+		{
+			VkQueue queue = device->getQueue( QueueEnum::PRESENT );
+			auto lock = device->lockQueue( queue );
+			VK_CHECK_RESULT(swapchain.queuePresent( queue, states::imageIndex, renderCompleteSemaphores[states::imageIndex]));
+		}
 	}
 
 	states::currentBuffer = (states::currentBuffer + 1) % ext::vulkan::swapchain.buffers;
@@ -170,7 +179,12 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 void ext::vulkan::BaseRenderMode::_acquire() {
 	if ( ::acquired ) return;
 	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
+	if ( device->surfaceless ) {
+		// no swapchain to acquire; the offscreen pool is double-buffered by currentBuffer
+		states::imageIndex = states::currentBuffer;
+	} else {
+		VK_CHECK_RESULT(swapchain.acquireNextImage(&states::imageIndex, swapchain.presentCompleteSemaphores[states::currentBuffer]));
+	}
 	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
 	::acquired = true;
 }

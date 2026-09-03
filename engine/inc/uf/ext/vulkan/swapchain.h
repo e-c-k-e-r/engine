@@ -15,6 +15,8 @@ namespace ext {
 
 			uf::stl::vector<VkSemaphore> presentCompleteSemaphores;
 			uf::stl::vector<VkImage> images;
+			// surfaceless (no VkSurfaceKHR): offscreen images stand in for swapchain images
+			uf::stl::vector<VmaAllocation> allocations;
 
 			// helpers
 			VkResult acquireNextImage( uint32_t* imageIndex, VkSemaphore, VkFence = VK_NULL_HANDLE );

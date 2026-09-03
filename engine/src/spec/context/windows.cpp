@@ -24,7 +24,7 @@ spec::win32::Context::Context( uni::Context* shared, const Context::Settings& se
 	m_context 			(NULL)
 {
 	// Get the owner window and its device context
-	this->m_window = window.getHandle();
+	this->m_window = (spec::win32::Window::handle_t)window.getHandle();
 	this->m_deviceContext = GetDC(this->m_window);
 
 	// Create the context

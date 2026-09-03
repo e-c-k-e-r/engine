@@ -28,13 +28,12 @@ namespace spec {
 	namespace x11 {
 		class UF_API Window : public spec::uni::Window {
 		public:
-			typedef ::Window				handle_t;
 			typedef void*					context_t;
 
 		protected:
 			Display*						m_display;
 			int								m_screen;
-			handle_t						m_handle;
+			::Window						m_handle;
 			GC								m_gc;
 			XIM								m_xim;
 			XIC								m_xic;
@@ -55,7 +54,7 @@ namespace spec {
 			void UF_API_CALL create(const vector_t& size, const title_t& title = "Window");
 			void UF_API_CALL terminate();
 
-			Display* UF_API_CALL getDisplay() const;
+			Display* UF_API_CALL getDisplay() const; // x11 specific; the interface only carries getHandle
 			handle_t UF_API_CALL getHandle() const;
 			vector_t UF_API_CALL getPosition() const;
 			vector_t UF_API_CALL getSize() const;
@@ -73,8 +72,6 @@ namespace spec {
 			void UF_API_CALL setKeyRepeatEnabled(bool state);
 			void UF_API_CALL setMouseGrabbed(bool state);
 
-			static bool UF_API_CALL isKeyPressed( const uf::stl::string& key );
-
 			void UF_API_CALL requestFocus();
 			bool UF_API_CALL hasFocus() const;
 
@@ -83,7 +80,6 @@ namespace spec {
 			bool UF_API_CALL pollEvents(bool block = false);
 			void UF_API_CALL grabMouse(bool state);
 
-			static pod::Vector2ui UF_API_CALL getResolution();
 			void UF_API_CALL toggleFullscreen(bool borderless = false);
 
 		#if UF_USE_VULKAN
@@ -92,13 +88,13 @@ namespace spec {
 		#endif
 
 			void display();
+
+		protected:
+			bool UF_API_CALL isKeyPressed_v( const uf::stl::string& key );
+			pod::Vector2ui UF_API_CALL getResolution_v();
 		};
 	}
 	typedef spec::x11::Window Window;
-}
-
-namespace uf {
-	using Window = spec::x11::Window;
 }
 
 #endif

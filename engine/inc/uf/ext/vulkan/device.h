@@ -59,6 +59,7 @@ namespace ext {
 			VkInstance instance;
 			VkDebugUtilsMessengerEXT debugMessenger;
 			VkSurfaceKHR surface;
+			bool surfaceless = false;
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
 			struct {
