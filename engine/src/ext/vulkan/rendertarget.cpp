@@ -94,14 +94,6 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		attachment->descriptor.aliased = true;
 		attachment->views.resize(ext::vulkan::swapchain.buffers);
 
-		VkImageSubresourceRange subresourceRange;
-		subresourceRange.baseMipLevel = 0;
-		subresourceRange.levelCount = 1;
-		subresourceRange.baseArrayLayer = 0;
-		subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.layerCount = layers;
-
-		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
 		for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
 			auto& image = ext::vulkan::swapchain.images[i];
 
@@ -119,9 +111,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 
 			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[i]));
 			VK_REGISTER_HANDLE( attachment->views[i] );
-			uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
 		}
-		device->flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
 
 		attachment->image = ext::vulkan::swapchain.images[0];
 		attachment->view = attachment->views[0];

@@ -268,7 +268,9 @@ void ext::vulkan::Texture::setImageLayout(
 			// Image is preinitialized
 			// Only valid as initial layout for linear images, preserves memory contents
 			// Make sure host writes have been finished
+			// HOST accesses only pair with the HOST stage, not ALL_COMMANDS
 			imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+			srcStageMask = VK_PIPELINE_STAGE_HOST_BIT;
 		break;
 		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 			// Image is a color attachment
@@ -326,8 +328,10 @@ void ext::vulkan::Texture::setImageLayout(
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 			// Image will be read in a shader (sampler, input attachment)
 			// Make sure any writes to the image have been finished
+			// Host never writes these GPU-only images directly (uploads go through a staging buffer + transfer), and HOST_WRITE is not supported by the ALL_COMMANDS stage anyway
 			if (imageMemoryBarrier.srcAccessMask == 0) {
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			}
 			imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		break;

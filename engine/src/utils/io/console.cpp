@@ -435,7 +435,7 @@ namespace {
 				for ( size_t i = 0; i < letterStates.size(); ++i ) table.emplace_back( uf::stl::string( 1, (char)std::tolower( (unsigned char)letters[i] ) ), letterStates[i] );
 				const std::pair<uf::stl::string, uf::inputs::state_t*> named[] = {
 					{ "left", &Left }, { "right", &Right }, { "up", &Up }, { "down", &Down },
-					{ "space", &Space }, { "enter", &Enter }, { "tab", &Tab }, { "escape", &Escape }, { "backspace", &BackSpace },
+					{ "space", &Space }, { "enter", &Enter }, { "tab", &Tab }, { "escape", &uf::inputs::kbm::states::Escape }, { "backspace", &BackSpace },
 					{ "shift", &LShift }, { "rshift", &RShift }, { "alt", &LAlt }, { "ralt", &RAlt },
 					{ "ctrl", &LControl }, { "rctrl", &RControl }, { "lshift", &LShift }, { "lalt", &LAlt }, { "lctrl", &LControl },
 					{ "insert", &Insert }, { "home", &Home }, { "end", &End }, { "pageup", &PageUp }, { "pagedown", &PageDown }, { "delete", &Delete },
