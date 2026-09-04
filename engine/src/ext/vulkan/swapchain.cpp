@@ -149,13 +149,8 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 			swapchainExtent = capabilities.currentExtent;
 		} else {
 			auto size = device.window->getSize();
-			VkExtent2D swapchainExtent = {
-				static_cast<uint32_t>(size[0]),
-				static_cast<uint32_t>(size[1])
-			};
-
-			swapchainExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, swapchainExtent.width));
-			swapchainExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, swapchainExtent.height));
+			swapchainExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, (uint32_t)(size[0])));
+			swapchainExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, (uint32_t)(size[1])));
 		}
 	}
 	// Create (re)swap chain

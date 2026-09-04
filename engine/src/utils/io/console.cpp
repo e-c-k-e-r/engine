@@ -32,6 +32,12 @@
 #include <ctime>
 #include <cstdlib>
 #include <cctype>
+#if UF_ENV_LINUX
+	// to-do: for windows too
+	#include <poll.h>
+#endif
+#include <unistd.h>
+#include <errno.h>
 
 uf::stl::unordered_map<uf::stl::string, uf::console::Command> uf::console::commands;
 uf::stl::vector<uf::stl::string> uf::console::log;
@@ -645,17 +651,52 @@ namespace {
 
 		session = new Session();
 		session->running = true;
+		// this could probably be done better (like tied to uf::threads)
+	#if UF_ENV_LINUX
 		std::thread( [](){
-			uf::stl::string line;
-			while ( session->running.load() && std::getline( std::cin, line ) ) {
-				while ( !line.empty() && (line.back() == '\r' || line.back() == '\n') ) line.pop_back();
-				if ( line.empty() ) continue;
-				std::lock_guard<std::mutex> lock( session->mutex );
-				session->queue.emplace_back( QueuedLine{ 0, line } );
+			int fd = STDIN_FILENO;
+			bool connected = true;
+			uf::stl::string partial;
+			char chunk[4096];
+			while ( session->running.load() ) {
+				if ( connected ) {
+					pollfd p = { fd, POLLIN, 0 };
+					int r = poll( &p, 1, 100 );
+					if ( r < 0 ) {
+						if ( errno == EINTR ) continue;
+						connected = false;
+						continue;
+					}
+					if ( r == 0 ) continue; // timeout: re-check running
+					if ( p.revents & POLLIN ) {
+						ssize_t n = read( fd, chunk, sizeof(chunk) );
+						if ( n > 0 ) {
+							partial.append( chunk, static_cast<size_t>(n) );
+							size_t nl;
+							while ( ( nl = partial.find('\n') ) != uf::stl::string::npos ) {
+								uf::stl::string line = partial.substr( 0, nl );
+								partial.erase( 0, nl + 1 );
+								while ( !line.empty() && ( line.back() == '\r' || line.back() == '\n' ) ) line.pop_back();
+								if ( line.empty() ) continue;
+								std::lock_guard<std::mutex> lock( session->mutex );
+								session->queue.emplace_back( QueuedLine{ 0, line } );
+							}
+						}
+						else if ( n == 0 ) connected = false; // EOF
+						else if ( errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK ) connected = false;
+					}
+					else if ( p.revents & ( POLLHUP | POLLERR | POLLNVAL ) ) connected = false;
+				}
+				else {
+					std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+				}
 			}
-			std::lock_guard<std::mutex> lock( session->mutex );
-			session->eof = true;
+			if ( !connected ) {
+				std::lock_guard<std::mutex> lock( session->mutex );
+				session->eof = true;
+			}
 		}).detach();
+	#endif
 
 		uf::io::socket::onLine = []( size_t slot, const uf::stl::string& line ) {
 			std::lock_guard<std::mutex> lock( session->mutex );

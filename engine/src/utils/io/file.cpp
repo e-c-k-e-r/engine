@@ -3,6 +3,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/hash.h>
 #include <uf/utils/memory/memcpy.h>
+#include <uf/engine/ext.h>
 
 #include <sys/stat.h>
 #include <algorithm>
@@ -23,13 +24,15 @@
 #define CACHE_QUERIES 1
 
 // cache queries by key and value in the event redundant I/O or string processing calls are made (namely for exists)
+// needs to be gated to uf::ready because of thread_local shenanigans
 #if CACHE_QUERIES
 	#define QUERY_CACHE( query, type )\
 		static thread_local std::pair<uf::stl::string, type> qkv;\
-		if ( !qkv.first.empty() && qkv.first == query ) return qkv.second;\
-		qkv.first = query;
+		const bool cache_ok = uf::ready;\
+		if ( cache_ok && !qkv.first.empty() && qkv.first == query ) return qkv.second;\
+		if ( cache_ok ) qkv.first = query;
 
-	#define CACHE_QUERY( value ) qkv.second = value;
+	#define CACHE_QUERY( value ) ( cache_ok ? ( qkv.second = value ) : value );
 #else
 	#define QUERY_CACHE( query, type ) {}
 	#define CACHE_QUERY( value ) value;
